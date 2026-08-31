@@ -32,6 +32,10 @@ body{
 /* will-change only while a finger is down: promoting five full-screen slides to
    their own layer for the whole session is a lot of memory to hold on a phone. */
 #track.dragging{transition:none;will-change:transform}
+/* pan-y on the track hands horizontal gestures to the swipe handler, which is
+   wrong inside a text field: there a sideways drag is caret placement and text
+   selection, and the browser needs it back to offer the paste callout. */
+#track input,#track textarea,#track [contenteditable]{touch-action:auto}
 .view{
   flex:0 0 100%;width:100%;height:100%;
   overflow-y:auto;overflow-x:hidden;

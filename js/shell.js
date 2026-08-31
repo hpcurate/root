@@ -241,12 +241,21 @@ window.Shell = (function () {
     return false;
   }
 
+  /* A drag that starts inside a text field belongs to the field. On a phone that
+     gesture is how you place the caret and how you reach the paste callout —
+     taking it for the tab swipe made the settings view slide away mid-paste, so
+     the Todoist key could never be pasted in. */
+  function isEditable(node) {
+    if (!node || !node.closest) return false;
+    return !!node.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])');
+  }
+
   track.addEventListener('touchstart', e => {
     if (e.touches.length !== 1 || overlayOpen()) { tracking = false; return; }
     const t = e.touches[0];
     // iOS reserves the left edge for its own back gesture
     if (t.clientX < 22) { tracking = false; return; }
-    if (scrollsSideways(e.target)) { tracking = false; return; }
+    if (isEditable(e.target) || scrollsSideways(e.target)) { tracking = false; return; }
     sx = t.clientX; sy = t.clientY; st = Date.now();
     dx = 0; axis = null; tracking = true;
   }, { passive: true });
@@ -378,10 +387,17 @@ window.SET = (function () {
     Shell.toast('theme · ' + (Theme.THEMES.find(t => t.id === id) || {}).name);
   }
 
+  /* onShow re-renders this panel every time the settings tab comes back up, so
+     the field is only refilled from storage when it holds nothing the user has
+     not saved yet — otherwise leaving the tab and returning wiped a key that had
+     been pasted but not saved. */
   function renderToken() {
     const tok = Creds.token();
     const inp = $id('set-td-token');
-    if (inp) inp.value = tok;
+    if (inp) {
+      const unsaved = inp.value && inp.value !== tok;
+      if (!unsaved && document.activeElement !== inp) inp.value = tok;
+    }
     tdStatus(tok ? 'key saved · used by DO, PLAN and STORE' : 'no key yet', tok ? 'good' : '');
   }
 
