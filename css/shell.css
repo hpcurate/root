@@ -1,0 +1,187 @@
+/* ── Shell ────────────────────────────────────────────────────────────────────
+   The frame the four apps live in: a five-slide horizontal track, a bottom tab
+   bar that becomes a left rail on wide screens, and the settings view.
+
+   Loaded LAST so its handful of cross-cutting rules (content width cap,
+   responsive grids, hover states) win ties against the app stylesheets. */
+
+html{height:100%}
+body{
+  height:100dvh;
+  background:var(--bg);color:var(--tx);
+  font-family:var(--mono);font-size:14px;
+  overscroll-behavior:none;
+  overflow:hidden;
+  display:grid;
+  grid-template-rows:1fr auto;
+  grid-template-areas:"views" "nav";
+}
+
+/* ── Slide track ──────────────────────────────────────────────────────────────
+   Five slides side by side, moved with a transform. Each slide is its own
+   scroll container, so every tab remembers where you left it.
+   Nothing position:fixed may live inside the track — a transformed ancestor
+   would become its containing block. The toast, the LOG modal and the STORE
+   sheets are siblings of #views for exactly that reason. */
+#views{grid-area:views;position:relative;overflow:hidden;min-height:0}
+#track{
+  display:flex;height:100%;width:100%;
+  touch-action:pan-y;            /* vertical scrolling stays native, we take horizontal */
+  transition:transform .3s cubic-bezier(.4,0,.2,1)}
+/* will-change only while a finger is down: promoting five full-screen slides to
+   their own layer for the whole session is a lot of memory to hold on a phone. */
+#track.dragging{transition:none;will-change:transform}
+.view{
+  flex:0 0 100%;width:100%;height:100%;
+  overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch}
+
+/* ── Tab bar (mobile) ─────────────────────────────────────────────────────── */
+#nav{
+  grid-area:nav;z-index:40;
+  background:var(--bg);border-top:1px solid var(--bd);
+  padding-bottom:env(safe-area-inset-bottom);
+  display:flex;align-items:stretch}
+.tab-b{
+  flex:1;min-width:0;background:none;border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  padding:10px 4px 9px;color:var(--mu);
+  transition:color .16s ease;position:relative}
+.tab-b svg{width:21px;height:21px;flex-shrink:0}
+.tab-b .tb-l{font:700 8px/1 var(--head);letter-spacing:.14em;text-transform:uppercase}
+.tab-b.on{color:var(--y)}
+/* the active pip doubles as the "which slide am I on" indicator */
+.tab-b::after{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%) scaleX(0);
+  width:26px;height:2px;background:var(--y);border-radius:0 0 2px 2px;
+  transition:transform .22s cubic-bezier(.4,0,.2,1)}
+.tab-b.on::after{transform:translateX(-50%) scaleX(1)}
+
+/* ── Settings view ────────────────────────────────────────────────────────── */
+.ns-set .scr{display:none;min-height:100%;padding-bottom:34px}
+.ns-set .scr.on{display:block}
+.ns-set #s-home{padding-top:env(safe-area-inset-top)}
+.ns-set .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0}
+.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-set .h-logo{font:800 44px/1 var(--head);letter-spacing:-.02em;margin-bottom:24px}
+.ns-set .h-logo em{color:var(--y);font-style:normal}
+.ns-set .cnt{padding:0 18px 18px}
+.ns-set .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  margin:22px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
+.ns-set .sec:first-child{margin-top:0}
+.ns-set .data-warn{font:400 10px/1.6 var(--mono);color:var(--mu);padding:12px 14px;margin-bottom:14px;
+  background:var(--s1);border:1px solid var(--bd);border-radius:3px}
+.ns-set .setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--s1);border:1px solid var(--bd);border-radius:3px;padding:13px 14px;margin-bottom:8px}
+.ns-set .setting-lbl{font:400 11px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
+.ns-set .setting-btn{background:var(--s2);border:1px solid var(--bd);border-radius:3px;
+  color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.08em;
+  padding:9px 13px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.ns-set .setting-btn:active{border-color:var(--y);color:var(--y)}
+.ns-set .setting-btn.danger{color:var(--re)}
+.ns-set .setting-btn.danger:active{border-color:var(--re)}
+.ns-set .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+  font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+  padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
+.ns-set .btn:active{opacity:.82}
+.ns-set .btn-2{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
+/* jump cards: one per app, straight into that app's own settings screen */
+.ns-set .jump{width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:4px;
+  padding:15px;margin-bottom:8px;cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:13px;transition:border-color .12s}
+.ns-set .jump:active{background:var(--s2)}
+.ns-set .jump svg{width:18px;height:18px;color:var(--jc,var(--y));flex-shrink:0}
+.ns-set .jump-body{flex:1;min-width:0}
+.ns-set .jump-t{display:block;font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;color:var(--tx);margin-bottom:6px}
+.ns-set .jump-s{display:block;font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em}
+.ns-set .jump-arr{font:400 12px/1 var(--mono);color:var(--mu)}
+.ns-set .data-stat{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+  padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ns-set .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.ns-set .data-stat-v{font:700 13px/1 var(--mono);color:var(--tx)}
+
+/* ── Content width: cap the line length once the window has room ──────────── */
+@media (min-width:560px){
+  .view .scr{max-width:var(--readable);margin-left:auto;margin-right:auto}
+}
+
+/* ── Fluid grids ──────────────────────────────────────────────────────────────
+   The apps ship fixed two-column grids, which is right on a phone and wasteful
+   the moment the window grows. auto-fill keeps the tile size honest and lets the
+   column count follow the width, so nothing reflows into a stretched mess. */
+@media (min-width:560px){
+  .ns-do .grid,
+  .ns-log .grid,
+  .ns-store .qa-grid   {grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+  .ns-store .cat-grid  {grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+  .ns-store .item-grid {grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+  .ns-log .blk-g       {grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+  .ns-store .cp-grid   {grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+}
+
+/* ── Desktop: tab bar becomes a rail ──────────────────────────────────────── */
+@media (min-width:880px){
+  body{
+    grid-template-rows:1fr;
+    grid-template-columns:auto 1fr;
+    grid-template-areas:"nav views"}
+  #nav{
+    flex-direction:column;justify-content:flex-start;gap:4px;
+    width:var(--rail-w);
+    border-top:none;border-right:1px solid var(--bd);
+    padding:calc(env(safe-area-inset-top) + 20px) 8px 20px}
+  .tab-b{flex:0 0 auto;padding:14px 6px;border-radius:5px}
+  .tab-b::after{
+    top:50%;left:0;transform:translateY(-50%) scaleY(0);
+    width:2px;height:26px;border-radius:0 2px 2px 0}
+  .tab-b.on::after{transform:translateY(-50%) scaleY(1)}
+  #toast{bottom:28px;left:calc(50% + var(--rail-w)/2)}
+  .ns-store .pad{left:var(--rail-w)}
+}
+@media (min-width:1180px){
+  #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
+  .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:13px 14px}
+  .tab-b .tb-l{font-size:10px}
+  #toast{left:calc(50% + var(--rail-w-wide)/2)}
+  .ns-store .pad{left:var(--rail-w-wide)}
+}
+
+/* ── Pointer affordances ──────────────────────────────────────────────────────
+   The apps were built touch-first and only ever styled :active. On a machine
+   with a real pointer that leaves everything feeling dead until it is clicked. */
+@media (hover:hover) and (pointer:fine){
+  .tab-b:hover{color:var(--tx)}
+  .tab-b.on:hover{color:var(--y)}
+  .ns-do .card:hover,.ns-log .card:hover,.ns-store .card:hover,
+  .ns-store .cat-card:hover,.ns-do .tv-list-card:hover,
+  .ns-store .hist-card:hover,.ns-plan .proj-card:hover,
+  .ns-set .jump:hover{border-color:var(--mu)}
+  .ns-do .item-btn:hover,.ns-do .tv-item:hover,.ns-do .tv-cat-row:hover,
+  .ns-log .sc-b:hover,.ns-log .meal-b:hover,.ns-log .wo4-b:hover,
+  .ns-log .blk-b:hover,.ns-log .cs-tog-b:hover,.ns-log .caf-b:hover,
+  .ns-log .cur-b:hover,.ns-log .rep-btn:hover,
+  .ns-plan .opt-b:hover,.ns-plan .prio-b:hover,.ns-plan .tg2-b:hover,
+  .ns-plan .sub-btn:hover,.ns-store .item-add:hover,.ns-store .li-item:hover,
+  .ns-store .cw-btn:hover,.ns-store .pad-key:hover,.ns-store .cp-opt:hover,
+  .ns-do .setting-btn:hover,.ns-store .setting-btn:hover,.ns-set .setting-btn:hover
+    {border-color:var(--mu)}
+  .ns-do .btn:hover,.ns-log .btn:hover,.ns-plan .btn:hover,.ns-store .btn:hover,
+  .ns-set .btn:hover,.ns-plan .btn-send:hover,.ns-log .btn-share:hover,
+  .ns-store .add-btn:hover,.ns-store .meal-add:hover,.ns-do .tv-edit-add:hover,
+  .ns-plan .st-add:hover{opacity:.9}
+  .ns-do .hd-back:hover,.ns-do .hd-action:hover,.ns-do .h-act:hover,
+  .ns-log .hd-back:hover,.ns-plan .hd-back:hover,.ns-plan .hd-action:hover,
+  .ns-store .hd-back:hover,.ns-store .hd-action:hover,.ns-store .sec-act:hover,
+  .ns-log .h-arr:hover,.ns-plan .h-settings-btn:hover,.ns-store .h-settings-btn:hover
+    {color:var(--y)}
+}
+
+/* ── Focus: keyboard users get a visible ring, pointers do not ────────────── */
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:3px}
+
+@media (prefers-reduced-motion:reduce){
+  #track{transition:none}
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}

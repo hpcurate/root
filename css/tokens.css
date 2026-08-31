@@ -1,0 +1,33 @@
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   The union of the four apps' palettes. They were already identical apart from
+   --yb (log) and --or (store), so one :root block now feeds every view and the
+   shell. Nothing here changes a colour any app was already using. */
+:root {
+  --bg:#0e0e0e; --s1:#161616; --s2:#1e1e1e; --bd:#272727;
+  --y:#A78BFA; --yd:rgba(167,139,250,.13); --yb:rgba(167,139,250,.25);
+  --tx:#dedede; --mu:#4a4a4a;
+  --gr:#5cdb7d; --re:#e06060; --or:#e0a060;
+  --mono:'JetBrains Mono','Courier New',monospace;
+  --head:'Syne',sans-serif;
+
+  /* shell metrics */
+  --nav-h:60px;          /* bottom tab bar, mobile */
+  --rail-w:88px;         /* icon rail, desktop */
+  --rail-w-wide:186px;   /* icon + label rail, wide desktop */
+  --readable:780px;      /* content cap once there is room to spare */
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+.hidden{display:none!important}
+
+/* ── Shared toast ─────────────────────────────────────────────────────────────
+   One toast for the whole app instead of four identical ones. Every module's
+   toast() forwards here, so messages never stack or fight over an element. */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%) translateY(140px);background:var(--y);color:#0e0e0e;
+  font:700 11px/1 var(--mono);letter-spacing:.08em;padding:10px 18px;border-radius:3px;
+  transition:transform .18s ease;z-index:120;pointer-events:none;white-space:nowrap;max-width:84vw;
+  overflow:hidden;text-overflow:ellipsis}
+#toast.show{transform:translateX(-50%) translateY(0)}

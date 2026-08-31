@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ROOT">
+  <meta name="theme-color" content="#0e0e0e">
+  <title>ROOT</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- tokens first, app sheets next, shell last so its cross-cutting rules win -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/do.css">
+  <link rel="stylesheet" href="css/log.css">
+  <link rel="stylesheet" href="css/plan.css">
+  <link rel="stylesheet" href="css/store.css">
+  <link rel="stylesheet" href="css/shell.css">
+</head>
+<body>
+
+<!-- ═══ ICON SPRITE ══════════════════════════════════════════════════════════
+     One sprite for the whole document. LOG and STORE each shipped their own
+     and both defined ico-clock; the duplicate is resolved here, since <use>
+     resolves an id document-wide and cannot be scoped like everything else. -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <!-- tab bar -->
+  <symbol id="tab-do" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="8 12 11 15 16 9"/>
+  </symbol>
+  <symbol id="tab-log" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12h4l3 8 4-16 3 8h4"/>
+  </symbol>
+  <symbol id="tab-plan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>
+    <line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>
+  </symbol>
+  <symbol id="tab-store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/>
+    <path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>
+  </symbol>
+  <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3.4"/>
+    <path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7M18.6 18.6l-1.7-1.7M7.1 7.1 5.4 5.4"/>
+  </symbol>
+
+  <!-- LOG -->
+  <symbol id="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+    <line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
+  </symbol>
+  <symbol id="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </symbol>
+  <symbol id="ico-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </symbol>
+  <symbol id="ico-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+  </symbol>
+  <symbol id="ico-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </symbol>
+  <symbol id="ico-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+  </symbol>
+  <symbol id="ico-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+    <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+    <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+  </symbol>
+  <symbol id="ico-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </symbol>
+
+  <!-- STORE -->
+  <symbol id="ico-veg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20 C4 10 12 4 20 4 C20 12 14 20 4 20 Z"/>
+    <path d="M4 20 L14 10"/>
+  </symbol>
+  <symbol id="ico-fruit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8 C6 8 4 13 6 17 C8 21 11 21 12 20 C13 21 16 21 18 17 C20 13 18 8 12 8 Z"/>
+    <path d="M12 8 L12 4"/>
+    <path d="M12 5 C10 3 8 3 8 5"/>
+  </symbol>
+  <symbol id="ico-meat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 14 C2 10 6 4 12 4 C18 4 22 8 20 13 C19 16 16 17 14 16 L8 22 L4 18 Z"/>
+    <circle cx="9" cy="11" r="1.2"/>
+  </symbol>
+  <symbol id="ico-snack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <circle cx="9" cy="9" r=".9" fill="currentColor"/>
+    <circle cx="15" cy="10" r=".9" fill="currentColor"/>
+    <circle cx="11" cy="15" r=".9" fill="currentColor"/>
+    <circle cx="16" cy="15" r=".9" fill="currentColor"/>
+  </symbol>
+  <symbol id="ico-carbs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 10 C4 7 7 5 12 5 C17 5 20 7 20 10 L20 18 C20 19 19 20 18 20 L6 20 C5 20 4 19 4 18 Z"/>
+    <path d="M8 10 L8 5.5"/>
+    <path d="M12 10 L12 4.5"/>
+    <path d="M16 10 L16 5.5"/>
+  </symbol>
+  <symbol id="ico-can" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="5" rx="6" ry="2"/>
+    <path d="M6 5 L6 19 C6 20.1 8.7 21 12 21 C15.3 21 18 20.1 18 19 L18 5"/>
+    <line x1="6" y1="11" x2="18" y2="11"/>
+  </symbol>
+  <symbol id="ico-dairy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 13 L21 5 L21 14 L3 19 Z"/>
+    <circle cx="14" cy="10" r="1" fill="currentColor"/>
+    <circle cx="17" cy="11.5" r="1" fill="currentColor"/>
+    <circle cx="9" cy="14" r="1" fill="currentColor"/>
+  </symbol>
+  <symbol id="ico-frozen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="3" x2="12" y2="21"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/>
+    <line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/>
+    <polyline points="9 5 12 8 15 5"/>
+    <polyline points="9 19 12 16 15 19"/>
+  </symbol>
+  <symbol id="ico-breakfast" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="13" r="4"/>
+    <line x1="12" y1="3" x2="12" y2="5"/>
+    <line x1="4" y1="13" x2="6" y2="13"/>
+    <line x1="18" y1="13" x2="20" y2="13"/>
+    <line x1="6.3" y1="7.3" x2="7.7" y2="8.7"/>
+    <line x1="17.7" y1="7.3" x2="16.3" y2="8.7"/>
+    <path d="M3 21 L21 21"/>
+  </symbol>
+  <symbol id="ico-cond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 3 L14 3 L14 7 C16.5 8 17 10 17 12 L17 20 C17 20.5 16.5 21 16 21 L8 21 C7.5 21 7 20.5 7 20 L7 12 C7 10 7.5 8 10 7 Z"/>
+    <line x1="7" y1="13" x2="17" y2="13"/>
+  </symbol>
+  <symbol id="ico-spice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2 L13.5 10.5 L22 12 L13.5 13.5 L12 22 L10.5 13.5 L2 12 L10.5 10.5 Z"/>
+  </symbol>
+  <symbol id="ico-drink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 7 L7.2 20 C7.3 20.5 7.7 21 8.3 21 L15.7 21 C16.3 21 16.7 20.5 16.8 20 L18 7 Z"/>
+    <line x1="5" y1="7" x2="19" y2="7"/>
+    <line x1="9" y1="3" x2="9" y2="7"/>
+    <line x1="15" y1="3" x2="15" y2="7"/>
+  </symbol>
+  <symbol id="ico-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+  </symbol>
+  <symbol id="ico-meal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 2 L3 22"/><path d="M7 2 L7 9 C7 11 5 11 5 9 L5 2"/>
+    <path d="M17 22 L17 14 C17 14 14 13 14 8 C14 4 17 2 17 2 Z"/>
+    <path d="M21 2 L21 22"/>
+  </symbol>
+  <symbol id="ico-other" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="8" x2="12" y2="13"/>
+    <circle cx="12" cy="16" r=".5" fill="currentColor"/>
+  </symbol>
+</svg>
+
+
+<div id="views">
+<div id="track">
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DO
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-do" id="view-do" aria-label="DO">
+
+  <!-- ── HOME ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label" id="date-label">—</div>
+      <div class="h-logo-row">
+        <div class="h-logo">DO<em>.</em></div>
+        <div class="tabs" id="home-tabs">
+          <div class="tab-glider" id="tab-glider"></div>
+          <button class="tab active" data-tab="daily" onclick="DO.setTab('daily')">daily</button>
+          <button class="tab" data-tab="other" onclick="DO.setTab('other')">other</button>
+        </div>
+      </div>
+      <div class="h-acts">
+        <button class="h-act sync" data-td-btn="sync" data-td-busy="⋯" onclick="DO.syncTodoist()">sync</button>
+        <button class="h-act" onclick="DO.go('settings')">settings</button>
+      </div>
+    </div>
+    <div class="grid" id="home-grid"></div>
+  </div>
+
+  <!-- ── CHECKLIST ── -->
+  <div id="s-checklist" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('home')">← back</button>
+      <span class="hd-title" id="cl-title">—</span>
+      <button class="hd-action" id="cl-action-btn" onclick="DO.toggleAll()">mark all</button>
+    </div>
+    <div class="cnt">
+      <div class="cl-progress" id="cl-progress">
+        <div class="cl-bar"><div class="cl-bar-fill" id="cl-bar-fill" style="width:0%"></div></div>
+        <div class="cl-stats" id="cl-stats"><em>0</em> / 0</div>
+      </div>
+      <div class="done-banner" id="cl-done-banner">all done ✓</div>
+      <div id="cl-items"></div>
+    </div>
+  </div>
+
+  <!-- ── TRAVEL — list of checklists ── -->
+  <div id="s-travel" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('home')">← back</button>
+      <span class="hd-title">Travel</span>
+      <button class="hd-action" onclick="DO.go('travel-new')">+ new</button>
+    </div>
+    <div class="cnt">
+      <div id="tv-lists"></div>
+    </div>
+  </div>
+
+  <!-- ── TRAVEL — new checklist setup ── -->
+  <div id="s-travel-new" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('travel')">← back</button>
+      <span class="hd-title">New List</span>
+      <button class="hd-action" onclick="DO.createList()">create</button>
+    </div>
+    <div class="cnt">
+      <input type="text" id="tv-new-name" class="tv-edit-input" placeholder="checklist name…" style="margin-bottom:18px">
+      <div class="sec">Categories</div>
+      <div id="tv-cat-select"></div>
+    </div>
+  </div>
+
+  <!-- ── TRAVEL — single checklist ── -->
+  <div id="s-travel-cl" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('travel')">← back</button>
+      <span class="hd-title" id="tv-cl-title">—</span>
+      <button class="hd-action" onclick="DO.exportTravelMd()">export</button>
+    </div>
+    <div class="cnt">
+      <div class="cl-progress" id="tv-progress">
+        <div class="cl-bar"><div class="cl-bar-fill" id="tv-bar-fill" style="width:0%"></div></div>
+        <div class="cl-stats" id="tv-stats"><em>0</em> / 0</div>
+      </div>
+      <div class="done-banner" id="tv-done-banner">all packed ✓</div>
+      <div id="tv-sections"></div>
+    </div>
+  </div>
+
+  <!-- ── TRAVEL EDIT ── -->
+  <div id="s-travel-edit" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('travel-cl')">← back</button>
+      <span class="hd-title" id="tv-edit-title">Edit</span>
+      <button class="hd-action" onclick="DO.saveTravelEdit()">save</button>
+    </div>
+    <div class="cnt">
+      <div class="tv-edit-row">
+        <input type="text" id="tv-edit-input" class="tv-edit-input" placeholder="add item…">
+        <button class="tv-edit-add" onclick="DO.addEditItem()">+ add</button>
+      </div>
+      <div id="tv-edit-list"></div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div id="s-settings" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="DO.go('home')">← back</button>
+      <span class="hd-title">DO · Settings</span>
+    </div>
+    <div class="cnt">
+      <div class="sec">App</div>
+      <div class="data-warn">Data is stored locally on this device and resets automatically each day.</div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reload page</span>
+        <button class="setting-btn" onclick="DO.reload()">reload</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset today's progress</span>
+        <button class="setting-btn danger" onclick="DO.resetDay()">reset</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset travel list</span>
+        <button class="setting-btn danger" onclick="DO.resetTravel()">reset</button>
+      </div>
+
+      <div class="sec">Todoist</div>
+      <div class="data-warn hidden" id="td-file-warn">
+        DO is open as a local file, so the browser will block calls to Todoist.
+        Serve it over http(s) — e.g. GitHub Pages — for sync to work.
+      </div>
+      <div class="f">
+        <label class="lbl">API token</label>
+        <input type="password" id="td-token" placeholder="paste your API token"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Project</label>
+        <input type="text" id="td-project" placeholder="04 | life" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Section</label>
+        <input type="text" id="td-section" placeholder="daily routine" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Close in Todoist on finish</span>
+        <button class="setting-btn" id="td-auto" onclick="DO.toggleAutoPush()">on</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Endpoint</span>
+        <button class="setting-btn" id="td-endpoint" onclick="DO.toggleEndpoint()">direct</button>
+      </div>
+      <div class="td-status" id="td-status">Todoist → Settings → Integrations → Developer → API token</div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="DO.saveTodoistSettings()">save</button>
+        <button class="setting-btn" data-td-btn="test connection" onclick="DO.testTodoist()">test connection</button>
+      </div>
+      <button class="btn" data-td-btn="sync now" onclick="DO.syncTodoist()">sync now</button>
+      <div class="td-last" id="td-last">never synced</div>
+      <div class="data-warn" style="margin-top:12px">
+        Each daily list is matched to the task of the same name in that section.
+        A recurring task whose due date has already moved past today counts as done —
+        its list is ticked off here, and it is never closed a second time.
+        Sync only ever completes; it never un-ticks a list or reopens a task.
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LOG
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-log" id="view-log" aria-label="LOG">
+
+  <!-- ── HOME ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-meta">
+      <button class="h-arr" onclick="LOG.shiftDate(-1)">←</button>
+      <span class="h-date-txt" id="home-date">—</span>
+      <button class="h-arr" onclick="LOG.shiftDate(1)">→</button>
+      <button class="h-today hidden" id="btn-today" onclick="LOG.resetDate()">today</button>
+    </div>
+    <div class="h-logo">LOG<em>.</em></div>
+    <div class="h-streak" id="h-streak"></div>
+    <div class="grid">
+      <div class="card" id="card-m" onclick="LOG.go('morning')">
+        <div class="card-t"><svg class="ico"><use href="#ico-sun"/></svg>Morning</div>
+        <div class="card-s">data + workout</div>
+      </div>
+      <div class="card" id="card-e" onclick="LOG.go('evening')">
+        <div class="card-t"><svg class="ico"><use href="#ico-moon"/></svg>Evening</div>
+        <div class="card-s">data + blocks done</div>
+      </div>
+      <div class="card" id="card-en" onclick="LOG.go('entries')">
+        <div class="card-t"><svg class="ico"><use href="#ico-edit"/></svg>Entry</div>
+        <div class="card-s" id="en-ct">no entries yet</div>
+      </div>
+      <div class="card" onclick="LOG.go('output')">
+        <div class="card-t"><svg class="ico"><use href="#ico-upload"/></svg>Output</div>
+        <div class="card-s">share .md file</div>
+      </div>
+      <div class="card" onclick="LOG.go('history')">
+        <div class="card-t"><svg class="ico"><use href="#ico-clock"/></svg>History</div>
+        <div class="card-s">trends + past days</div>
+      </div>
+      <div class="card" onclick="LOG.go('reports')">
+        <div class="card-t"><svg class="ico"><use href="#ico-chart"/></svg>Reports</div>
+        <div class="card-s">weekly · monthly</div>
+      </div>
+      <div class="card full muted" onclick="LOG.go('datascreen')">
+        <div class="card-t"><svg class="ico"><use href="#ico-sliders"/></svg>data management</div>
+      </div>
+      <div class="card full muted" onclick="LOG.clearDay()">
+        <div class="card-t"><svg class="ico"><use href="#ico-trash"/></svg>clear selected day's data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MORNING ── -->
+  <div id="s-morning" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Morning</span></div>
+    <div class="cnt">
+      <div class="f"><label class="lbl">Wakeup time</label><input type="time" id="m-wt" oninput="LOG.markDirty()"></div>
+      <div class="f"><label class="lbl">Sleep hours</label><input type="number" inputmode="decimal" id="m-sl" placeholder="7.5" step="0.5" oninput="LOG.markDirty()"></div>
+      <div class="f"><label class="lbl">Energy</label>
+        <div class="sc" id="sc-nrg-m">
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">1</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">2</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">3</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">4</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">5</button>
+        </div>
+        <div class="sc-ends"><span>drained</span><span>wired</span></div>
+      </div>
+      <div class="f"><label class="lbl">Mood</label>
+        <div class="sc" id="sc-mood-m">
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">1</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">2</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">3</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">4</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">5</button>
+        </div>
+        <div class="sc-ends"><span>low</span><span>great</span></div>
+      </div>
+      <div class="f">
+        <label class="lbl">Cold shower</label>
+        <div class="cs-tog" id="cs-tog">
+          <button class="cs-tog-b" onclick="LOG.setColdShower(true)">yes</button>
+          <button class="cs-tog-b" onclick="LOG.setColdShower(false)">no</button>
+        </div>
+        <div class="hidden" id="cs-sec"><input type="number" inputmode="numeric" id="m-cs" placeholder="seconds…" oninput="LOG.markDirty()" style="margin-top:6px"></div>
+      </div>
+      <div class="f">
+        <label class="lbl">Weight (kg) <span class="lbl-hint" id="last-weight"></span></label>
+        <input type="number" inputmode="decimal" id="m-wkg" placeholder="75.0" step="0.1" oninput="LOG.markDirty()">
+      </div>
+      <div class="f"><label class="lbl">km walked (morning)</label><input type="number" inputmode="decimal" id="m-km" placeholder="2.0" step="0.1" oninput="LOG.markDirty()"></div>
+      <hr>
+      <div class="f">
+        <label class="lbl">Workout</label>
+        <div class="wo4" id="wo4">
+          <button class="wo4-b" onclick="LOG.setWo(this,'push')">push</button>
+          <button class="wo4-b" onclick="LOG.setWo(this,'pull')">pull</button>
+          <button class="wo4-b" onclick="LOG.setWo(this,'legs')">legs</button>
+          <button class="wo4-b" onclick="LOG.setWo(this,'rest')">rest</button>
+        </div>
+      </div>
+      <div id="wo-fields">
+        <div class="f"><label class="lbl">Total kg lifted</label><input type="number" inputmode="numeric" id="m-tkg" placeholder="4500" oninput="LOG.markDirty()"></div>
+        <div class="f"><label class="lbl">Duration (min)</label><input type="number" inputmode="numeric" id="m-tmin" placeholder="65" oninput="LOG.markDirty()"></div>
+      </div>
+      <button class="btn" onclick="LOG.saveMorning()">Save morning</button>
+    </div>
+  </div>
+
+  <!-- ── EVENING ── -->
+  <div id="s-evening" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Evening</span></div>
+    <div class="cnt">
+      <div class="f"><label class="lbl">km walked (evening)</label><input type="number" inputmode="decimal" id="e-kme" placeholder="3.5" step="0.1" oninput="LOG.markDirty()"></div>
+      <div class="f"><label class="lbl">Energy</label>
+        <div class="sc" id="sc-nrg-e">
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">1</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">2</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">3</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">4</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">5</button>
+        </div>
+        <div class="sc-ends"><span>drained</span><span>wired</span></div>
+      </div>
+      <div class="f"><label class="lbl">Mood</label>
+        <div class="sc" id="sc-mood-e">
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">1</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">2</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">3</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">4</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">5</button>
+        </div>
+        <div class="sc-ends"><span>low</span><span>great</span></div>
+      </div>
+      <div class="f"><label class="lbl">Stress</label>
+        <div class="sc" id="sc-stress">
+          <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">1</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">2</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">3</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">4</button>
+          <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">5</button>
+        </div>
+        <div class="sc-ends"><span>calm</span><span>overwhelmed</span></div>
+      </div>
+      <div class="f"><label class="lbl">Meds taken</label>
+        <div class="med-g">
+          <button class="med-b lam" id="med-lam" onclick="LOG.toggleMed('lam')">
+            <span class="med-name">lamotrigine</span>
+            <span class="med-state" id="med-lam-s">no</span>
+          </button>
+          <button class="med-b rit" id="med-rit" onclick="LOG.toggleMed('rit')">
+            <span class="med-name">ritalin</span>
+            <span class="med-state" id="med-rit-s">no</span>
+          </button>
+        </div>
+      </div>
+      <div class="f"><label class="lbl">Meals</label>
+        <div class="meal-g" id="meal-g">
+          <button class="meal-b" onclick="LOG.toggleMeal(1)">meal 1</button>
+          <button class="meal-b" onclick="LOG.toggleMeal(2)">meal 2</button>
+          <button class="meal-b" onclick="LOG.toggleMeal(3)">meal 3</button>
+          <button class="meal-b" onclick="LOG.toggleMeal(4)">meal 4</button>
+        </div>
+      </div>
+      <div class="f">
+        <label class="lbl">Caffeine</label>
+        <div class="caf-row">
+          <button class="caf-b" id="caf-c-btn" onclick="LOG.incCaf('c')">
+            <span class="cnt-n" id="caf-c-n">0</span>
+            <span class="cnt-l">coffee</span>
+          </button>
+          <button class="caf-b" id="caf-ed-btn" onclick="LOG.incCaf('ed')">
+            <span class="cnt-n" id="caf-ed-n">0</span>
+            <span class="cnt-l">energy drink</span>
+          </button>
+        </div>
+        <button class="caf-reset" onclick="LOG.resetCaf()">reset caffeine</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Blocks completed <span class="lbl-hint">(max 6)</span></label>
+        <div class="blk-g">
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'chores')"
+                  style="--blk-c:#9a9a9a;--blk-bg:rgba(154,154,154,.13)">chores</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'edu')"
+                  style="--blk-c:#6ec5e0;--blk-bg:rgba(110,197,224,.13)">edu</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'mixing')"
+                  style="--blk-c:#C4B5FD;--blk-bg:rgba(196,181,253,.13)">mixing</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'production')"
+                  style="--blk-c:#A78BFA;--blk-bg:rgba(167,139,250,.14)">production</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'content')"
+                  style="--blk-c:#8B5CF6;--blk-bg:rgba(139,92,246,.16)">content</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'system')"
+                  style="--blk-c:#5e8cff;--blk-bg:rgba(94,140,255,.14)">system</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'admin')"
+                  style="--blk-c:#e0a060;--blk-bg:rgba(224,160,96,.13)">admin</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'media')"
+                  style="--blk-c:#e06f9a;--blk-bg:rgba(224,111,154,.13)">media</button>
+          <button class="blk-b" onclick="LOG.toggleBlock(this,'cooking')"
+                  style="--blk-c:#5cdb7d;--blk-bg:rgba(92,219,125,.13)">cooking</button>
+        </div>
+      </div>
+      <div class="f">
+        <label class="lbl">Curate output</label>
+        <div class="cur-g">
+          <button class="cur-b" id="cur-mix-btn" onclick="LOG.incCur('mix')"
+                  style="--cur-c:#C4B5FD;--cur-bg:rgba(196,181,253,.12)">
+            <span class="cnt-n" id="cur-mix-n">0</span>
+            <span class="cnt-l">mix</span>
+          </button>
+          <button class="cur-b" id="cur-prod-btn" onclick="LOG.incCur('prod')"
+                  style="--cur-c:#A78BFA;--cur-bg:rgba(167,139,250,.14)">
+            <span class="cnt-n" id="cur-prod-n">0</span>
+            <span class="cnt-l">prod</span>
+          </button>
+          <button class="cur-b" id="cur-cont-btn" onclick="LOG.incCur('cont')"
+                  style="--cur-c:#8B5CF6;--cur-bg:rgba(139,92,246,.16)">
+            <span class="cnt-n" id="cur-cont-n">0</span>
+            <span class="cnt-l">cont</span>
+          </button>
+        </div>
+        <button class="cur-reset" onclick="LOG.resetCur()">reset curate</button>
+      </div>
+      <button class="btn" onclick="LOG.saveEvening()">Save evening</button>
+    </div>
+  </div>
+
+  <!-- ── ENTRIES ── -->
+  <div id="s-entries" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Entries</span></div>
+    <div class="cnt">
+      <div class="f"><label class="lbl">New entry</label><textarea id="et" placeholder="Write here…" oninput="LOG.markDirty()"></textarea></div>
+      <button class="btn" onclick="LOG.addEntry()" style="margin-bottom:22px">Add entry</button>
+      <div id="e-list"></div>
+    </div>
+  </div>
+
+  <!-- ── OUTPUT ── -->
+  <div id="s-output" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Output</span></div>
+    <div class="cnt">
+      <div class="out-tags" id="out-tags"></div>
+      <div class="out-pre" id="out-pre"></div>
+      <button class="btn-share" onclick="LOG.shareFile()">↑ share .md</button>
+      <button class="btn-copy" id="btn-copy" onclick="LOG.copyAll()">copy all</button>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  <div id="s-history" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">History</span></div>
+    <div class="cnt" id="hist-list"></div>
+  </div>
+
+  <!-- ── REPORTS ── -->
+  <div id="s-reports" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Reports</span></div>
+    <div class="cnt">
+
+      <!-- Step 1: paste or use phone data -->
+      <div id="rep-step-paste">
+        <div class="f">
+          <label class="lbl">Obsidian data <span class="lbl-hint">Advanced Merger → right-click daily folder → Merge folder → copy → paste here</span></label>
+          <textarea id="rep-paste" placeholder="Paste merged notes here…" style="min-height:130px;margin-top:8px"></textarea>
+        </div>
+        <button class="btn" onclick="LOG.parseNotes()">Parse notes</button>
+        <div class="sec">Or use phone data only</div>
+        <button class="rep-btn" onclick="LOG.loadReportLocal('weekly')">
+          <span>Weekly</span><span id="rep-week-label">—</span>
+        </button>
+        <button class="rep-btn" onclick="LOG.loadReportLocal('monthly')">
+          <span>Monthly</span><span id="rep-month-label">—</span>
+        </button>
+      </div>
+
+      <!-- Step 2: pick week or month -->
+      <div id="rep-step-pick" class="hidden">
+        <div id="rep-parsed-info" style="font:400 10px/1.6 var(--mono);color:var(--mu);margin-bottom:18px;padding:10px 12px;background:var(--s1);border:1px solid var(--bd);border-radius:3px"></div>
+        <div class="sec">Weekly</div>
+        <div id="rep-week-btns" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px"></div>
+        <div class="sec">Monthly</div>
+        <div id="rep-month-btns" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
+        <button class="caf-reset" onclick="LOG.resetPaste()" style="width:100%">← paste different notes</button>
+      </div>
+
+      <!-- Step 3: preview -->
+      <div id="rep-preview" class="hidden">
+        <button class="caf-reset" onclick="LOG.backToPick()" style="width:100%;margin-bottom:14px">← back to selection</button>
+        <div class="rep-pre" id="rep-pre"></div>
+        <div class="rep-actions">
+          <button class="rep-act-btn" id="rep-share-btn" onclick="LOG.shareReport()">↑ share .md</button>
+          <button class="rep-act-btn" id="rep-copy-btn" onclick="LOG.copyReport()">copy</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── DATA MANAGEMENT ── -->
+  <div id="s-datascreen" class="scr">
+    <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Data</span></div>
+    <div class="cnt">
+      <div class="data-stat"><span class="data-stat-k">Days stored</span><span class="data-stat-v" id="ds-days">—</span></div>
+      <div class="data-stat"><span class="data-stat-k">Entries total</span><span class="data-stat-v" id="ds-entries">—</span></div>
+      <div class="data-stat"><span class="data-stat-k">Earliest day</span><span class="data-stat-v" id="ds-earliest">—</span></div>
+      <div class="data-warn" style="margin-top:16px">
+        Data is stored locally on this device only. Clearing Safari data or switching devices will remove it permanently. Export below to back up or move your full history to another device.
+      </div>
+      <div class="sec">Backup &amp; transfer</div>
+      <button class="btn" onclick="LOG.exportAllData()">↑ Export all data</button>
+      <button class="btn btn-2" onclick="LOG.pickImport()">↓ Import data</button>
+      <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="LOG.importAllData(event)">
+      <div class="data-warn" style="margin-top:8px">
+        Export saves every logged day as one .json file — AirDrop or send it to your other device, then Import there to restore your full history, streaks and trends. Importing merges the days in; any day with the same date is overwritten by the file.
+      </div>
+      <div class="data-stat" style="margin-bottom:8px;margin-top:16px">
+        <span class="data-stat-k">Reload page</span>
+        <button onclick="LOG.reload()" style="background:var(--s2);border:1px solid var(--bd);border-radius:3px;color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.08em;padding:9px 13px;cursor:pointer">reload</button>
+      </div>
+      <button class="btn btn-danger" onclick="LOG.openDeleteModal()" style="margin-top:8px">Delete all data</button>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PLAN
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-plan" id="view-plan" aria-label="PLAN">
+
+  <!-- ── HOME ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label" id="home-date">—</div>
+      <div class="h-logo">PLAN<em>.</em></div>
+      <button class="h-settings-btn" onclick="PLAN.go('settings')">settings</button>
+    </div>
+
+    <div class="projects" id="proj-list"></div>
+
+    <div style="padding:0 18px;margin-top:4px">
+      <div id="queue-section" class="hidden">
+        <div class="queue-header">
+          <span class="queue-title" id="queue-title">queue</span>
+          <button class="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
+        </div>
+        <div id="queue-list"></div>
+      </div>
+      <div id="queue-empty-msg" class="queue-empty">no tasks queued yet<br>tap a project to start</div>
+    </div>
+
+    <div class="send-wrap">
+      <button class="btn-send" id="btn-send" onclick="PLAN.go('sending')" disabled>send to todoist</button>
+    </div>
+  </div>
+
+  <!-- ── FORM ── -->
+  <div id="s-form" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="PLAN.go('home')">← back</button>
+      <span class="hd-title">new task</span>
+    </div>
+    <div class="cnt">
+      <div class="form-ctx" id="form-ctx">
+        <div class="form-ctx-dot" id="form-dot"></div>
+        <div class="form-ctx-txt" id="form-ctx-txt"></div>
+      </div>
+
+      <div class="f"><label class="lbl">Task name</label><input type="text" id="task-name" placeholder="describe the task…"></div>
+
+      <div class="f">
+        <label class="lbl">Block</label>
+        <div class="opts" id="opts-block">
+          <button class="opt-b" onclick="PLAN.optPick(this,'block','b1')">b1</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'block','b2')">b2</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'block','b3')">b3</button>
+          <button class="opt-b none-opt on" onclick="PLAN.optPick(this,'block',null)">none</button>
+        </div>
+      </div>
+
+      <div class="f">
+        <label class="lbl">Time</label>
+        <div class="opts" id="opts-time" style="gap:5px">
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','2min')">2m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','5min')">5m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','15min')">15m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','30min')">30m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','45min')">45m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','60min')">60m</button>
+          <button class="opt-b" onclick="PLAN.optPick(this,'time','120min')">2h</button>
+          <button class="opt-b none-opt on" onclick="PLAN.optPick(this,'time',null)">none</button>
+        </div>
+      </div>
+
+      <div class="f">
+        <label class="lbl">Priority</label>
+        <div class="prio-row">
+          <button class="prio-b p1" onclick="PLAN.prioPick(this,4)">
+            <div>urgent</div><div class="prio-label">p1</div>
+          </button>
+          <button class="prio-b p2" onclick="PLAN.prioPick(this,3)">
+            <div>mandatory</div><div class="prio-label">p2</div>
+          </button>
+          <button class="prio-b p3 on" onclick="PLAN.prioPick(this,2)">
+            <div>optional</div><div class="prio-label">p3</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="f">
+        <label class="lbl">Subtasks</label>
+        <div class="tg2" id="tg-sub">
+          <button class="tg2-b" onclick="PLAN.setSub(true)">yes</button>
+          <button class="tg2-b on" onclick="PLAN.setSub(false)">no</button>
+        </div>
+      </div>
+
+      <div id="sub-input" class="hidden">
+        <div class="f" style="margin-top:10px">
+          <label class="lbl">Add subtask</label>
+          <div class="st-row">
+            <input type="text" id="sub-text" placeholder="subtask…">
+            <button class="st-add" onclick="PLAN.addSubtask()">+ add</button>
+          </div>
+          <div class="st-list" id="st-list"></div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="PLAN.addToQueue()">+ add to queue</button>
+      <button class="btn btn-ghost" onclick="PLAN.go('home')" style="margin-top:8px">cancel</button>
+    </div>
+  </div>
+
+  <!-- ── SENDING ── -->
+  <div id="s-sending" class="scr">
+    <div class="hd">
+      <button class="hd-back" id="send-back" onclick="PLAN.go('home')">← back</button>
+      <span class="hd-title" id="send-title">sending…</span>
+    </div>
+    <div class="cnt">
+      <div class="send-log" id="send-log"></div>
+      <button class="btn hidden" id="send-done-btn" onclick="PLAN.go('home')">done</button>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div id="s-settings" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="PLAN.go('home')">← back</button>
+      <span class="hd-title">PLAN · Settings</span>
+    </div>
+    <div class="cnt">
+      <div class="sec">API</div>
+      <div id="conn-status" class="settings-status idle">not connected</div>
+      <div class="f">
+        <label class="lbl">Todoist API token</label>
+        <input type="password" id="api-token-input" placeholder="paste token here…">
+      </div>
+      <button class="btn" onclick="PLAN.connectTodoist()" id="btn-connect">connect &amp; fetch projects</button>
+
+      <div class="sec" id="map-sec" style="display:none">Project mapping</div>
+      <div id="map-rows" style="display:none"></div>
+      <button class="btn hidden" id="btn-save-map" onclick="PLAN.saveMappings()">save mapping</button>
+
+      <div class="sec" style="margin-top:28px">App</div>
+      <button class="btn btn-ghost" onclick="PLAN.reload()" style="margin-bottom:8px">reload page</button>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     STORE
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-store" id="view-store" aria-label="STORE">
+
+  <!-- ── HOME ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label" id="date-label">—</div>
+      <div class="h-logo">STORE<em>.</em></div>
+      <button class="h-settings-btn" onclick="STORE.go('settings')">settings</button>
+    </div>
+
+    <div class="cnt">
+      <!-- COUNTER WIDGET -->
+      <div class="cw">
+        <div class="cw-top">
+          <div class="cw-total"><span id="cw-cart">0.00</span><span class="cu">€</span></div>
+          <div class="cw-budget" id="cw-budget">no budget set</div>
+        </div>
+        <div class="cw-bar"><div class="cw-bar-fill" id="cw-fill"></div></div>
+        <div class="cw-btns">
+          <button class="cw-btn plus" onclick="STORE.addCart(10)">+10</button>
+          <button class="cw-btn plus" onclick="STORE.addCart(5)">+5</button>
+          <button class="cw-btn plus" onclick="STORE.addCart(1)">+1</button>
+          <button class="cw-btn plus" onclick="STORE.addCart(0.5)">+.5</button>
+          <button class="cw-btn plus" onclick="STORE.addCart(0.1)">+.1</button>
+        </div>
+        <div class="cw-btns">
+          <button class="cw-btn minus" onclick="STORE.addCart(-10)">−10</button>
+          <button class="cw-btn minus" onclick="STORE.addCart(-5)">−5</button>
+          <button class="cw-btn minus" onclick="STORE.addCart(-1)">−1</button>
+          <button class="cw-btn minus" onclick="STORE.addCart(-0.5)">−.5</button>
+          <button class="cw-btn minus" onclick="STORE.addCart(-0.1)">−.1</button>
+        </div>
+        <div class="cw-foot">
+          <button class="cw-pad-btn" onclick="STORE.openPad()">numpad</button>
+          <button class="cw-pad-btn" id="cw-log-btn" onclick="STORE.openCartLog()">history</button>
+          <button class="cw-reset" onclick="STORE.resetCart()">reset</button>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div class="sec">
+        <span>list <em id="list-count">0 items</em></span>
+        <div class="sec-acts">
+          <button class="sec-act sync" data-td-btn="⇅ todoist" onclick="STORE.syncTodoist()">⇅ todoist</button>
+          <button class="sec-act" id="trip-btn" onclick="STORE.saveTrip()">save trip</button>
+          <button class="sec-act danger" onclick="STORE.confirmClearList()">clear</button>
+        </div>
+      </div>
+      <div class="done-banner" id="all-checked-banner">all items checked ✓</div>
+      <div id="grocery-list"></div>
+
+      <!-- MANUAL ADD -->
+      <div class="add-row" style="margin-top:14px">
+        <input type="text" id="manual-input" placeholder="add custom item…" onkeydown="if(event.key==='Enter')STORE.addManual()">
+        <button class="add-btn" onclick="STORE.addManual()">+ add</button>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="qa-grid">
+        <div class="card" onclick="STORE.go('items')">
+          <div class="card-t"><svg class="ico"><use href="#ico-list"/></svg>Items</div>
+          <div class="card-s">by category</div>
+        </div>
+        <div class="card" onclick="STORE.go('meals')">
+          <div class="card-t"><svg class="ico"><use href="#ico-meal"/></svg>Meals</div>
+          <div class="card-s">premade dishes</div>
+        </div>
+      </div>
+      <div class="card full muted" onclick="STORE.go('history')">
+        <div class="card-t"><svg class="ico" style="width:13px;height:13px"><use href="#ico-clock"/></svg>history · <span id="hist-count">0</span> past trips</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORIES ── -->
+  <div id="s-items" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="STORE.go('home')">← back</button>
+      <span class="hd-title">add items</span>
+    </div>
+    <div class="cnt">
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY ITEMS ── -->
+  <div id="s-cat" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="STORE.go('items')">← back</button>
+      <span class="hd-title" id="cat-title">—</span>
+      <button class="hd-action" onclick="STORE.go('home')">done</button>
+    </div>
+    <div class="cnt">
+      <div class="item-grid" id="cat-items"></div>
+    </div>
+  </div>
+
+  <!-- ── MEALS ── -->
+  <div id="s-meals" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="STORE.go('home')">← back</button>
+      <span class="hd-title">premade meals</span>
+    </div>
+    <div class="cnt">
+      <div id="meal-list"></div>
+    </div>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  <div id="s-history" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="STORE.go('home')">← back</button>
+      <span class="hd-title">history</span>
+      <button class="hd-action danger" onclick="STORE.clearHistory()">clear all</button>
+    </div>
+    <div class="cnt" id="hist-list"></div>
+  </div>
+
+  <!-- ── SETTINGS ── -->
+  <div id="s-settings" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="STORE.go('home')">← back</button>
+      <span class="hd-title">STORE · Settings</span>
+    </div>
+    <div class="cnt">
+      <div class="sec">Budget</div>
+      <div class="f">
+        <label class="lbl">Budget (€) — 0 to disable</label>
+        <input type="number" inputmode="decimal" id="budget-input" placeholder="100" step="1">
+      </div>
+      <button class="btn" onclick="STORE.saveBudget()">save budget</button>
+
+      <div class="sec">Todoist sync</div>
+      <div class="data-warn hidden" id="td-file-warn">
+        STORE is open as a local file, so the browser will block calls to Todoist.
+        Serve it over http(s) — e.g. GitHub Pages — for sync to work.
+      </div>
+      <div class="f">
+        <label class="lbl">API token</label>
+        <input type="password" id="td-token" placeholder="paste your API token"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Project</label>
+        <input type="text" id="td-project" placeholder="04|life" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Section</label>
+        <input type="text" id="td-section" placeholder="home|groceries" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="td-status" id="td-status">Todoist → Settings → Integrations → Developer → API token</div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="STORE.saveTodoist()">save</button>
+        <button class="setting-btn" onclick="STORE.testTodoist()">test connection</button>
+      </div>
+      <button class="btn" data-td-btn="sync now" onclick="STORE.syncTodoist()">sync now</button>
+      <div class="td-last" id="td-last">never synced</div>
+      <div class="data-warn" style="margin-top:12px">
+        Sync only ever <em style="color:var(--tx);font-style:normal">adds</em>. Items missing on one
+        side are created on the other; nothing is deleted or completed in either place.
+      </div>
+
+      <div class="sec">Data</div>
+      <div class="data-warn">All data is stored locally on this device. Clearing browser data will permanently remove it.</div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset cart counter</span>
+        <button class="setting-btn danger" onclick="STORE.resetCart()">reset</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Clear current list</span>
+        <button class="setting-btn danger" onclick="STORE.confirmClearList()">clear</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Clear history</span>
+        <button class="setting-btn danger" onclick="STORE.clearHistory()">clear</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reload page</span>
+        <button class="setting-btn" onclick="STORE.reload()">reload</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SETTINGS
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-set" id="view-settings" aria-label="Settings">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">do · log · plan · store</div>
+      <div class="h-logo">ROOT<em>.</em></div>
+    </div>
+    <div class="cnt">
+
+      <div class="sec">App settings</div>
+      <button class="jump" style="--jc:#A78BFA" onclick="SET.jump('do')">
+        <svg><use href="#tab-do"/></svg>
+        <span class="jump-body">
+          <span class="jump-t">DO</span>
+          <span class="jump-s">daily resets · travel lists · todoist close-on-finish</span>
+        </span>
+        <span class="jump-arr">›</span>
+      </button>
+      <button class="jump" style="--jc:#5cdb7d" onclick="SET.jump('log')">
+        <svg><use href="#tab-log"/></svg>
+        <span class="jump-body">
+          <span class="jump-t">LOG</span>
+          <span class="jump-s">stored days · export / import · delete all</span>
+        </span>
+        <span class="jump-arr">›</span>
+      </button>
+      <button class="jump" style="--jc:#5e8cff" onclick="SET.jump('plan')">
+        <svg><use href="#tab-plan"/></svg>
+        <span class="jump-body">
+          <span class="jump-t">PLAN</span>
+          <span class="jump-s">todoist token · project mapping</span>
+        </span>
+        <span class="jump-arr">›</span>
+      </button>
+      <button class="jump" style="--jc:#e0a060" onclick="SET.jump('store')">
+        <svg><use href="#tab-store"/></svg>
+        <span class="jump-body">
+          <span class="jump-t">STORE</span>
+          <span class="jump-s">budget · todoist sync · clear list &amp; history</span>
+        </span>
+        <span class="jump-arr">›</span>
+      </button>
+
+      <div class="sec">Backup</div>
+      <div class="data-warn">
+        One file with every key the four apps keep on this device — checklists, logged days,
+        the plan queue, the shopping list and history, and each Todoist setting. Keep a copy
+        before clearing browser data or moving to a new phone.
+      </div>
+      <button class="btn" onclick="SET.exportAll()">↑ Export everything</button>
+      <button class="btn btn-2" onclick="SET.pickImport()">↓ Restore from file</button>
+      <input type="file" id="set-import-file" accept="application/json,.json" class="hidden" onchange="SET.importAll(event)">
+      <div class="data-warn" style="margin-top:8px">
+        Restoring overwrites any key present in the file and leaves the rest alone,
+        then reloads so every view re-reads its data.
+      </div>
+
+      <div class="sec">Storage</div>
+      <div id="set-storage"></div>
+
+      <div class="sec">App</div>
+      <div class="data-warn">
+        Swipe left and right to move between views, or use the bar below.
+        Everything runs offline against this device's own storage — nothing is uploaded
+        except the Todoist calls each app makes on your instruction.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reload app</span>
+        <button class="setting-btn" onclick="SET.reload()">reload</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /#track -->
+</div><!-- /#views -->
+
+
+<!-- ═══ TAB BAR ══════════════════════════════════════════════════════════════ -->
+<nav id="nav" role="tablist" aria-label="Apps">
+  <button class="tab-b" role="tab" aria-selected="false" aria-label="DO">
+    <svg aria-hidden="true"><use href="#tab-do"/></svg><span class="tb-l">do</span>
+  </button>
+  <button class="tab-b" role="tab" aria-selected="false" aria-label="LOG">
+    <svg aria-hidden="true"><use href="#tab-log"/></svg><span class="tb-l">log</span>
+  </button>
+  <button class="tab-b" role="tab" aria-selected="false" aria-label="PLAN">
+    <svg aria-hidden="true"><use href="#tab-plan"/></svg><span class="tb-l">plan</span>
+  </button>
+  <button class="tab-b" role="tab" aria-selected="false" aria-label="STORE">
+    <svg aria-hidden="true"><use href="#tab-store"/></svg><span class="tb-l">store</span>
+  </button>
+  <button class="tab-b" role="tab" aria-selected="false" aria-label="Settings">
+    <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
+  </button>
+</nav>
+
+
+<!-- ═══ OVERLAYS ═════════════════════════════════════════════════════════════
+     Kept out of #track: it carries a transform, which would make it the
+     containing block for anything position:fixed inside it. Each keeps its
+     app's namespace class, so the scoped CSS and $id lookups still find it. -->
+
+<div id="toast"></div>
+
+<!-- LOG — delete-everything modal -->
+<div class="ns-log">
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-icon">⚠</div>
+      <div class="modal-title">Delete all data?</div>
+      <div class="modal-body">All logged days stored on this device will be permanently removed. This cannot be undone.</div>
+      <div class="modal-count" id="modal-count"></div>
+      <button class="modal-cancel" onclick="LOG.closeModal()">Cancel</button>
+      <button class="modal-delete" onclick="LOG.confirmDeleteAll()">Delete everything</button>
+    </div>
+  </div>
+</div>
+
+<!-- STORE — bottom sheets -->
+<div class="ns-store">
+
+  <!-- numpad -->
+  <div class="sheet-back" id="pad-back" onclick="STORE.closePad()"></div>
+  <div class="pad" id="pad">
+    <div class="pad-head">
+      <span class="pad-ttl">enter amount</span>
+      <span style="display:flex;gap:16px">
+        <button class="pad-close" style="color:var(--mu)" onclick="STORE.padClear()">clear</button>
+        <button class="pad-close" onclick="STORE.closePad()">close</button>
+      </span>
+    </div>
+    <div class="pad-disp">
+      <div class="pad-amt empty" id="pad-amt">0.00<span class="cu">€</span></div>
+      <div class="pad-calc" id="pad-calc"></div>
+    </div>
+    <div class="pad-count">
+      <span class="pc-lbl">count</span>
+      <button class="pc-btn" onclick="STORE.padCount(-1)">−</button>
+      <span class="pc-val" id="pad-count">×1</span>
+      <button class="pc-btn" onclick="STORE.padCount(1)">+</button>
+    </div>
+    <div class="pad-grid">
+      <button class="pad-key" onclick="STORE.padKey('7')">7</button>
+      <button class="pad-key" onclick="STORE.padKey('8')">8</button>
+      <button class="pad-key" onclick="STORE.padKey('9')">9</button>
+      <button class="pad-key" onclick="STORE.padKey('4')">4</button>
+      <button class="pad-key" onclick="STORE.padKey('5')">5</button>
+      <button class="pad-key" onclick="STORE.padKey('6')">6</button>
+      <button class="pad-key" onclick="STORE.padKey('1')">1</button>
+      <button class="pad-key" onclick="STORE.padKey('2')">2</button>
+      <button class="pad-key" onclick="STORE.padKey('3')">3</button>
+      <button class="pad-key" onclick="STORE.padKey('.')">.</button>
+      <button class="pad-key" onclick="STORE.padKey('0')">0</button>
+      <button class="pad-key alt" onclick="STORE.padBack()">⌫</button>
+    </div>
+    <div class="pad-ops">
+      <button class="pad-op sub" onclick="STORE.padApply(-1)">− subtract</button>
+      <button class="pad-op add" onclick="STORE.padApply(1)">+ add</button>
+    </div>
+  </div>
+
+  <!-- cart log -->
+  <div class="sheet-back" id="clog-back" onclick="STORE.closeCartLog()"></div>
+  <div class="pad" id="clog">
+    <div class="pad-head">
+      <span class="pad-ttl">cart history</span>
+      <button class="pad-close" onclick="STORE.closeCartLog()">close</button>
+    </div>
+    <div class="clog-sum">
+      <span class="cs-k" id="clog-count">0 entries</span>
+      <span class="cs-v" id="clog-total">0.00€</span>
+    </div>
+    <div class="clog-list" id="clog-list"></div>
+  </div>
+
+  <!-- save / name trip -->
+  <div class="sheet-back" id="trip-back" onclick="STORE.closeTripName()"></div>
+  <div class="pad" id="tripname">
+    <div class="pad-head">
+      <span class="pad-ttl" id="trip-ttl">name this trip</span>
+      <button class="pad-close" onclick="STORE.closeTripName()">cancel</button>
+    </div>
+    <div class="f" style="margin-bottom:12px">
+      <input type="text" id="trip-input" placeholder="weekly shop…" autocomplete="off"
+             onkeydown="if(event.key==='Enter')STORE.confirmTripName()">
+    </div>
+    <div class="pad-ops">
+      <button class="pad-op sub" onclick="STORE.closeTripName()">cancel</button>
+      <button class="pad-op add" id="trip-ok" onclick="STORE.confirmTripName()">save trip</button>
+    </div>
+  </div>
+
+  <!-- category picker -->
+  <div class="sheet-back" id="cp-back" onclick="STORE.closeCatPick()"></div>
+  <div class="pad" id="catpick">
+    <div class="pad-head">
+      <span class="pad-ttl">category</span>
+      <button class="pad-close" onclick="STORE.closeCatPick()">close</button>
+    </div>
+    <div class="cp-name" id="cp-name">—</div>
+    <div class="cp-grid" id="cp-grid"></div>
+  </div>
+
+</div>
+
+<!-- shell first: it defines Shell.toast, which every module uses while booting -->
+<script src="js/shell.js"></script>
+<script src="js/do.js"></script>
+<script src="js/log.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/store.js"></script>
+</body>
+</html>
