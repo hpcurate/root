@@ -73,7 +73,9 @@ function loadState() {
     const raw = localStorage.getItem(SK);
     if (raw) { state = JSON.parse(raw); }
     else {
-      Object.keys(localStorage).filter(k => k.startsWith('do_') && k !== SK && k !== 'do_todoist_v1')
+      // TD_KEY is do_-prefixed but is settings, not a day: sweeping it away here
+      // cleared the Todoist token on the first load of every new day.
+      Object.keys(localStorage).filter(k => k.startsWith('do_') && k !== SK && k !== TD_KEY)
         .forEach(k => localStorage.removeItem(k));
       state = blankState();
     }
