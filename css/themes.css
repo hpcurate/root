@@ -1,0 +1,156 @@
+/* ── Themes ───────────────────────────────────────────────────────────────────
+   Loaded last so its overrides beat the app stylesheets on equal specificity.
+
+   VOID   the original — near-black, purple accent
+   EMBER  warm charcoal, amber accent
+   FROST  cold slate, cyan accent
+   PAPER  a different aesthetic, not just a repaint: light warm ground, ink
+          text, serif display face, generous radii and real shadows
+
+   The first three are palette-only, so they are a handful of variables. PAPER
+   also restates shape, because the shape is the point. Class names repeat across
+   the four namespaces (.card is a card in DO, LOG and STORE), so one unscoped
+   selector reaches all of them. */
+
+/* ── EMBER ─────────────────────────────────────────────────────────────────── */
+:root[data-theme="ember"]{
+  --bg:#100d0b; --s1:#191512; --s2:#221d18; --bd:#2e2721;
+  --y:#e8a33d; --yd:rgba(232,163,61,.13); --yb:rgba(232,163,61,.28);
+  --tx:#e6ded3; --mu:#5c5147;
+  --gr:#8fbf5e; --re:#e0645a; --or:#e0a060;
+  --on-y:#100d0b;
+  --chrome-bg:rgba(16,13,11,.82);
+}
+
+/* ── FROST ─────────────────────────────────────────────────────────────────── */
+:root[data-theme="frost"]{
+  --bg:#0b0f13; --s1:#12181e; --s2:#1a222a; --bd:#243039;
+  --y:#5ad4e6; --yd:rgba(90,212,230,.12); --yb:rgba(90,212,230,.26);
+  --tx:#d6e3ea; --mu:#4a5b68;
+  --gr:#5cdb9d; --re:#e0687e; --or:#e0a860;
+  --on-y:#080e12;
+  --chrome-bg:rgba(11,15,19,.82);
+}
+
+/* ── PAPER ─────────────────────────────────────────────────────────────────── */
+:root[data-theme="paper"]{
+  --bg:#f2ede3; --s1:#fffdf7; --s2:#e9e2d4; --bd:#ded4c2;
+  --y:#6b4df0; --yd:rgba(107,77,240,.09); --yb:rgba(107,77,240,.24);
+  --tx:#22201c; --mu:#8a8071;
+  --gr:#3f8f52; --re:#c04a45; --or:#b5762a;
+  --on-y:#fffdf7;
+
+  --head:'Fraunces',Georgia,'Times New Roman',serif;
+  --mono:'IBM Plex Mono','JetBrains Mono',monospace;
+
+  --r1:9px; --r2:14px; --r3:12px; --r-sheet:18px;
+  --bw:1px;
+  --shadow:0 1px 2px rgba(60,46,20,.05), 0 6px 16px -8px rgba(60,46,20,.14);
+  --shadow-lift:0 6px 24px -6px rgba(60,46,20,.28);
+  --chrome-bg:rgba(255,253,247,.86);
+}
+
+/* PAPER — shape. Everything below only ever runs under this one theme. */
+:root[data-theme="paper"] body{background:var(--bg)}
+
+/* cards lift off the ground instead of being outlined boxes */
+[data-theme="paper"] .card,
+[data-theme="paper"] .cat-card,
+[data-theme="paper"] .tv-list-card,
+[data-theme="paper"] .hist-card,
+[data-theme="paper"] .hist-day,
+[data-theme="paper"] .meal-card,
+[data-theme="paper"] .proj-tile,
+[data-theme="paper"] .kmc,
+[data-theme="paper"] .cw,
+[data-theme="paper"] .jump,
+[data-theme="paper"] .q-item,
+[data-theme="paper"] .e-item,
+[data-theme="paper"] .data-stat,
+[data-theme="paper"] .setting-row{
+  border-radius:var(--r2);box-shadow:var(--shadow);border-color:var(--bd)}
+
+/* controls: softer corners, no hard hairline */
+[data-theme="paper"] .item-btn,
+[data-theme="paper"] .tv-item,
+[data-theme="paper"] .tv-cat-row,
+[data-theme="paper"] .tv-edit-item,
+[data-theme="paper"] .li-item,
+[data-theme="paper"] .item-add,
+[data-theme="paper"] .sc-b,
+[data-theme="paper"] .meal-b,
+[data-theme="paper"] .wo4-b,
+[data-theme="paper"] .blk-b,
+[data-theme="paper"] .cs-tog-b,
+[data-theme="paper"] .caf-b,
+[data-theme="paper"] .cur-b,
+[data-theme="paper"] .opt-b,
+[data-theme="paper"] .prio-b,
+[data-theme="paper"] .tg2-b,
+[data-theme="paper"] .sub-btn,
+[data-theme="paper"] .setting-btn,
+[data-theme="paper"] .rep-btn,
+[data-theme="paper"] .hist-act,
+[data-theme="paper"] .cw-btn,
+[data-theme="paper"] .cw-reset,
+[data-theme="paper"] .cw-pad-btn,
+[data-theme="paper"] .pad-key,
+[data-theme="paper"] .pad-op,
+[data-theme="paper"] .cp-opt,
+[data-theme="paper"] .st-item,
+[data-theme="paper"] .caf-reset,
+[data-theme="paper"] .cur-reset,
+[data-theme="paper"] .data-warn,
+[data-theme="paper"] .td-status,
+[data-theme="paper"] .settings-status,
+[data-theme="paper"] input,
+[data-theme="paper"] textarea,
+[data-theme="paper"] select{border-radius:var(--r1)}
+
+[data-theme="paper"] .btn,
+[data-theme="paper"] .btn-send,
+[data-theme="paper"] .btn-share,
+[data-theme="paper"] .btn-copy,
+[data-theme="paper"] .add-btn,
+[data-theme="paper"] .meal-add,
+[data-theme="paper"] .st-add,
+[data-theme="paper"] .tv-edit-add,
+[data-theme="paper"] .modal-delete,
+[data-theme="paper"] .modal-cancel{border-radius:var(--r1);box-shadow:var(--shadow)}
+
+[data-theme="paper"] .pad,
+[data-theme="paper"] .sheet{border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:var(--shadow-lift)}
+[data-theme="paper"] .modal-box{border-radius:var(--r2);box-shadow:var(--shadow-lift)}
+
+/* a serif display face wants a touch less negative tracking than Syne */
+[data-theme="paper"] .h-logo{letter-spacing:-.01em}
+
+/* the few hardcoded darks that only read on a dark ground */
+[data-theme="paper"] .out-pre,
+[data-theme="paper"] .rep-pre{color:var(--mu)}
+[data-theme="paper"] .wo4-b.rest-on{background:var(--s2);border-color:var(--bd);color:var(--mu)}
+[data-theme="paper"] .ti.neu{background:var(--s2);border-color:var(--bd);color:var(--mu)}
+[data-theme="paper"] .muted{background:transparent!important;box-shadow:none}
+[data-theme="paper"] .card.muted{box-shadow:none}
+
+[data-theme="paper"] .tab.active{color:var(--on-y)}
+
+/* ── PAPER — the category palette ─────────────────────────────────────────────
+   STORE's category colours were chosen against near-black: dairy (#e8e0c8),
+   carbs (#c4a47a) and snacks (#d4a851) are pale, and disappear as TEXT on a
+   light ground. Keep them for identity — dots, borders, icons — and take the
+   text back to ink. */
+[data-theme="paper"] .li-qty-n,
+[data-theme="paper"] .cat-meta em,
+[data-theme="paper"] .item-add .qty-badge{color:var(--tx)}
+/* pale icons still need to read, and hue-shifting is not an option here */
+[data-theme="paper"] .cat-ico,
+[data-theme="paper"] .cp-opt svg{filter:brightness(.72) saturate(1.25)}
+/* a hairline rim so a near-white dot is still a dot */
+[data-theme="paper"] .li-dot,
+[data-theme="paper"] .hist-pill .dot,
+[data-theme="paper"] .meal-row .dot,
+[data-theme="paper"] .proj-dot,
+[data-theme="paper"] .q-dot,
+[data-theme="paper"] .sheet-dot,
+[data-theme="paper"] .form-ctx-dot{box-shadow:inset 0 0 0 1px rgba(34,32,28,.3)}

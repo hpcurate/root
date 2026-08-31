@@ -4,7 +4,7 @@
    other three views. Only the screen box model changed: a screen used to be the
    scrolling viewport itself, and is now a page inside its slide. */
 
-.ns-do .scr{display:none;min-height:100%;padding-bottom:34px}
+.ns-do .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-do .scr.on{display:block}
 .ns-do #s-home{padding-top:env(safe-area-inset-top)}
 
@@ -35,7 +35,7 @@
 .ns-do .tab{position:relative;z-index:2;background:none;border:none;cursor:pointer;
      font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
      color:var(--mu);padding:9px 15px;border-radius:5px;transition:color .25s}
-.ns-do .tab.active{color:#0e0e0e}
+.ns-do .tab.active{color:var(--on-y)}
 .ns-do .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
         display:flex;align-items:center;gap:14px}
 .ns-do .h-act{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
@@ -76,7 +76,9 @@
           margin-bottom:6px;transition:all .1s}
 .ns-do .item-btn:active{background:var(--s2)}
 .ns-do .item-btn.checked{background:var(--yd);border-color:var(--y);color:var(--tx)}
+/* the tick is stroked in currentColor so it follows --on-y across themes */
 .ns-do .item-check-ico{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--bd);
+                color:var(--on-y);
                 flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .ns-do .item-btn.checked .item-check-ico{background:var(--y);border-color:var(--y)}
 .ns-do .item-check-svg{width:10px;height:10px;opacity:0;transition:opacity .1s}
@@ -122,7 +124,7 @@
 .ns-do .td-acts .setting-btn{text-align:center}
 .ns-do .td-last{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.08em;
          text-align:center;padding:10px 0 2px}
-.ns-do .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-do .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:var(--on-y);
      font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
      padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-do .btn:active{opacity:.82}
@@ -158,6 +160,7 @@
        cursor:pointer;padding:4px 6px;flex-shrink:0;transition:color .1s}
 .ns-do .tv-rm:active{color:var(--re)}
 .ns-do .tv-check{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--bd);
+          color:var(--on-y);
           flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .ns-do .tv-item.checked .tv-check{background:var(--y);border-color:var(--y)}
 .ns-do .tv-check-svg{width:10px;height:10px;opacity:0;transition:opacity .1s}
@@ -169,7 +172,7 @@
                color:var(--tx);font:400 13px/1 var(--mono);padding:11px 12px;outline:none;
                -webkit-appearance:none;transition:border-color .12s;width:100%}
 .ns-do .tv-edit-input:focus{border-color:var(--y)}
-.ns-do .tv-edit-add{background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-do .tv-edit-add{background:var(--y);border:none;border-radius:3px;color:var(--on-y);
              font:700 11px/1 var(--mono);letter-spacing:.06em;padding:11px 14px;
              cursor:pointer;white-space:nowrap}
 .ns-do .tv-edit-add:active{opacity:.82}

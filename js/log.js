@@ -169,7 +169,7 @@ function go(id) {
   $id('s-' + id).classList.add('on');
   if (view) view.scrollTop = 0;
   ({ home:refreshHome, morning:popM, evening:popE, entries:renderEntries,
-     output:renderOutput, history:renderHistory, reports:renderReports, datascreen:renderDataScreen })[id]?.();
+     output:renderOutput, history:renderHistory, reports:renderReports })[id]?.();
 }
 
 function goBack() {
@@ -1190,7 +1190,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
-         clearDay, exportAllData, pickImport, importAllData,
-         openDeleteModal, closeModal, confirmDeleteAll,
-         reload: () => location.reload() };
+         clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
+         openDeleteModal, closeModal, confirmDeleteAll };
 })();

@@ -5,7 +5,7 @@
    position:fixed still resolves against the viewport; they keep their .ns-store
    wrapper, so every rule below still applies to them. */
 
-.ns-store .scr{display:none;min-height:100%;padding-bottom:34px}
+.ns-store .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-store .scr.on{display:block}
 .ns-store #s-home{padding-top:env(safe-area-inset-top)}
 
@@ -186,7 +186,7 @@
 
 /* ── Manual add row ── */
 .ns-store .add-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:18px}
-.ns-store .add-btn{background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-store .add-btn{background:var(--y);border:none;border-radius:3px;color:var(--on-y);
          font:700 11px/1 var(--mono);letter-spacing:.06em;padding:12px 16px;
          cursor:pointer;white-space:nowrap;transition:opacity .15s}
 .ns-store .add-btn:active{opacity:.82}
@@ -246,7 +246,7 @@
 .ns-store .meal-row:last-of-type{border-bottom:none}
 .ns-store .meal-row .dot{width:7px;height:7px;border-radius:50%;background:var(--cat-color)}
 .ns-store .meal-row .ml-cat{margin-left:auto;font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.05em;text-transform:uppercase}
-.ns-store .meal-add{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-store .meal-add{width:100%;background:var(--y);border:none;border-radius:3px;color:var(--on-y);
           font:700 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
           padding:12px;cursor:pointer;margin-top:12px;transition:opacity .15s}
 .ns-store .meal-add:active{opacity:.82}
@@ -299,7 +299,7 @@
 .ns-store .td-acts .setting-btn{text-align:center}
 .ns-store .td-last{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.08em;
          text-align:center;padding:10px 0 2px}
-.ns-store .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-store .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:var(--on-y);
      font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
      padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-store .btn:active{opacity:.82}

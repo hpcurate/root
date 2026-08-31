@@ -148,7 +148,6 @@ function go(id) {
   if (id === 'travel-new') renderTravelNew();
   if (id === 'travel-cl') renderTravelCl();
   if (id === 'travel-edit') renderTravelEdit();
-  if (id === 'settings') renderTodoistSettings();
 }
 
 function openRoutine(key) {
@@ -258,7 +257,7 @@ function renderChecklist() {
       <span>${item}</span>
       <div class="item-check-ico">
         <svg class="item-check-svg" viewBox="0 0 10 10" fill="none">
-          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0e0e0e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
     </button>`;
@@ -335,7 +334,7 @@ function renderTravelNew() {
       <span class="tv-cat-count">${n} items</span>
       <div class="tv-check">
         <svg class="tv-check-svg" viewBox="0 0 10 10" fill="none">
-          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0e0e0e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
     </button>`;
@@ -397,7 +396,7 @@ function renderTravelCl() {
         <span class="tv-rm" onclick="event.stopPropagation();DO.removeItem('${sec}','${safeItem}')">✕</span>
         <div class="tv-check">
           <svg class="tv-check-svg" viewBox="0 0 10 10" fill="none">
-            <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0e0e0e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
       </button>`;
@@ -551,7 +550,9 @@ function loadTodoist() {
   const today = tdLocalDate();
   Object.keys(td.closedOn).forEach(k => { if (td.closedOn[k] !== today) delete td.closedOn[k]; });
 }
-function tdPersist() { localStorage.setItem(TD_KEY, JSON.stringify(td)); }
+/* The key itself lives in Creds now. It is still written back into this app's
+   own record on every save so the standalone complete/ app keeps working. */
+function tdPersist() { td.token = Creds.token(); localStorage.setItem(TD_KEY, JSON.stringify(td)); }
 
 /* Todoist due dates are local calendar days, so "today" here has to be too —
    the app's own TODAY is UTC and would be a day behind after midnight. */
@@ -574,13 +575,14 @@ const TD_ROUTINE_BY_SLUG = Object.fromEntries(
 function tdBase() { return td.endpoint === 'proxy' ? TD_PROXY : TD_DIRECT; }
 
 async function tdFetch(path, opts = {}) {
-  if (!td.token) throw new Error('no API token saved — add one in settings');
+  const tok = Creds.token();
+  if (!tok) throw new Error('no Todoist key saved — add one in settings');
   let res;
   try {
     res = await fetch(tdBase() + path, {
       ...opts,
       headers: {
-        'Authorization': 'Bearer ' + td.token,
+        'Authorization': 'Bearer ' + tok,
         ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
         ...(opts.headers || {}),
       },
@@ -664,7 +666,7 @@ function markRoutineDone(key) {
 
 async function syncTodoist() {
   if (tdBusy) return;
-  if (!td.token) { toast('add a Todoist token in settings'); go('settings'); return; }
+  if (!Creds.token()) { toast('add a Todoist key in settings'); Shell.settings('do'); return; }
   tdBusy = true; renderTdButtons(); tdStatus('syncing…', 'busy');
   const today = tdLocalDate();
   try {
@@ -715,7 +717,7 @@ async function syncTodoist() {
 /* Ticking the last item closes just that one task, so a list finished here does
    not sit around waiting for the next manual sync. */
 async function tdAutoPush(key) {
-  if (tdBusy || !td.token || !td.autoPush) return;
+  if (tdBusy || !Creds.token() || !td.autoPush) return;
   const today = tdLocalDate();
   if (td.closedOn[key] === today) return;
   tdBusy = true; renderTdButtons();
@@ -736,7 +738,7 @@ async function tdAutoPush(key) {
 
 async function testTodoist() {
   if (tdBusy) return;
-  if (!td.token) { tdStatus('add your API token first', 'bad'); return; }
+  if (!Creds.token()) { tdStatus('add your Todoist key in General first', 'bad'); return; }
   tdBusy = true; renderTdButtons(); tdStatus('checking…', 'busy');
   try {
     const byRoutine = await tdRoutineTasks(true);
@@ -768,16 +770,16 @@ function tdStatus(msg, kind) {
   el.className = 'td-status' + (kind ? ' ' + kind : '');
 }
 
+/* The key is set once in Settings › General; this only owns the target. */
 function saveTodoistSettings() {
-  const tok  = $id('td-token').value.trim();
   const proj = $id('td-project').value.trim() || TD_DEFAULTS.project;
   const sec  = $id('td-section').value.trim() || TD_DEFAULTS.section;
   // a changed target invalidates the cached ids
   if (proj !== td.project || sec !== td.section) { td.projectId = null; td.sectionId = null; }
-  td.token = tok; td.project = proj; td.section = sec;
+  td.project = proj; td.section = sec;
   tdPersist();
   renderTodoistSettings();
-  toast(tok ? 'todoist settings saved' : 'todoist token cleared');
+  toast('DO target saved');
 }
 
 function toggleAutoPush() { td.autoPush = !td.autoPush; tdPersist(); renderTodoistSettings(); }
@@ -789,9 +791,7 @@ function toggleEndpoint() {
 }
 
 function renderTodoistSettings() {
-  const tok = $id('td-token');
-  if (!tok) return;
-  tok.value = td.token;
+  if (!$id('td-project')) return;
   $id('td-project').value = td.project;
   $id('td-section').value = td.section;
   $id('td-auto').textContent = td.autoPush ? 'on' : 'off';
@@ -813,10 +813,11 @@ window.addEventListener('resize', positionGlider);
 
 Shell.register('do', { onShow: positionGlider });
 
-return { go, toggle, toggleAll, openRoutine, setTab, resetDay,
+return { go, renderSettings: renderTodoistSettings,
+         toggle, toggleAll, openRoutine, setTab, resetDay,
          openList, deleteList, toggleCat, createList, toggleTravel,
          bumpCount, decCount, removeItem, openTravelEdit, addEditItem,
          deleteEditItem, saveTravelEdit, resetTravel, exportTravelMd,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
-         toggleEndpoint, reload: () => location.reload() };
+         toggleEndpoint };
 })();

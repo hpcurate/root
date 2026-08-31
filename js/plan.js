@@ -1,11 +1,14 @@
 /* ── PLAN ─────────────────────────────────────────────────────────────────────
    Build a queue of tasks against a project/section map, then push the batch to
-   Todoist through the worker proxy. Logic is unchanged from plan/index.html.
-   Merge-only changes: one IIFE published as window.PLAN, DOM lookups scoped to
-   .ns-plan, the slide scrolls instead of the window, toast() goes to the shell,
-   and the settings button is plain markup rather than one injected on every
-   home render. Storage keys are untouched: plan_queue, plan_mappings,
-   plan_projects, plan_sections, plan_token. */
+   Todoist through the worker proxy.
+
+   Reworked in the merge:
+     · the six projects were stacked accordions; they are a tile grid now, and
+       choosing a section happens in a sheet, so the queue never leaves the screen
+     · the Todoist key comes from Creds — one key for DO, PLAN and STORE
+     · settings live in the settings tab; this module just renders into that panel
+   Storage keys are untouched: plan_queue, plan_mappings, plan_projects,
+   plan_sections, plan_token (still mirrored for the standalone plan/ app). */
 window.PLAN = (function () {
 'use strict';
 
@@ -14,6 +17,8 @@ const view  = document.getElementById('view-plan');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
+
+const PROXY = 'https://todoist-proxy.hp-qrate.workers.dev/api/v1';
 
 // ── Task types ────────────────────────────────────────────────────────────────
 const TASK_TYPES = [
@@ -64,6 +69,7 @@ const TASK_TYPES = [
 function resolveColor(typeKey) {
   return TASK_TYPES.find(t => t.key === typeKey)?.color || '#4a4a4a';
 }
+function typeOf(key) { return TASK_TYPES.find(t => t.key === key); }
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let queue = [];
@@ -80,18 +86,15 @@ function loadState() {
 function saveQueue() { localStorage.setItem('plan_queue', JSON.stringify(queue)); }
 function saveMappingsStore() { localStorage.setItem('plan_mappings', JSON.stringify(mappings)); }
 function saveProjects() { localStorage.setItem('plan_projects', JSON.stringify(todoistProjects)); }
-function getToken() { return localStorage.getItem('plan_token') || ''; }
-function saveToken(t) { localStorage.setItem('plan_token', t); }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 function go(id) {
   $all('.scr').forEach(s=>s.classList.remove('on'));
   $id('s-'+id).classList.add('on');
   if (view) view.scrollTop = 0;
-  if (id==='home')     renderHome();
-  if (id==='form')     renderForm();
-  if (id==='settings') renderSettings();
-  if (id==='sending')  startSending();
+  if (id==='home')    renderHome();
+  if (id==='form')    renderForm();
+  if (id==='sending') startSending();
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -102,59 +105,73 @@ function renderHome() {
   renderQueue();
 }
 
+/* One tile per project. The tile carries the two things worth knowing before
+   you tap: how much of the queue is already going there, and whether it is
+   mapped at all — an unmapped project used to fail silently at send time. */
 function renderProjects() {
-  const list = $id('proj-list');
-  list.innerHTML = '';
-  TASK_TYPES.forEach(tt => {
-    const color = resolveColor(tt.key);
-    const card = document.createElement('div');
-    card.className = 'proj-card';
-    card.id = 'proj-' + tt.key;
-    card.style.setProperty('--proj-color', color);
-
-    const header = document.createElement('div');
-    header.className = 'proj-header';
-    header.innerHTML = `<div class="proj-dot"></div><div class="proj-name">${tt.label}</div><div class="proj-arrow">›</div>`;
-    header.addEventListener('click', () => toggleProj(tt.key));
-
-    const subs = document.createElement('div');
-    subs.className = 'proj-subs';
-    tt.subs.forEach(s => {
-      const btn = document.createElement('button');
-      btn.className = 'sub-btn';
-      btn.textContent = s.display;
-      btn.addEventListener('click', e => { e.stopPropagation(); openForm(tt.key, s.display, s.section); });
-      subs.appendChild(btn);
-    });
-
-    card.appendChild(header);
-    card.appendChild(subs);
-    list.appendChild(card);
-  });
+  $id('proj-list').innerHTML = TASK_TYPES.map(tt => {
+    const color  = resolveColor(tt.key);
+    const mapped = !!(mappings[tt.key] && mappings[tt.key].projectId);
+    const queued = queue.filter(q => q.typeKey === tt.key).length;
+    const meta = queued ? `<em>${queued} queued</em>`
+               : mapped ? `${tt.subs.length} sections`
+                        : `<span class="unmapped">not mapped</span>`;
+    return `<button class="proj-tile${queued ? ' has' : ''}" style="--proj-color:${color}"
+              onclick="PLAN.openProj('${tt.key}')">
+      <span class="proj-head"><span class="proj-dot"></span><span class="proj-name">${tt.label}</span></span>
+      <span class="proj-meta">${meta}</span>
+    </button>`;
+  }).join('');
 }
 
-function toggleProj(key) {
-  const card = $id('proj-'+key);
-  const wasOpen = card.classList.contains('open');
-  $all('.proj-card').forEach(c=>c.classList.remove('open'));
-  if (!wasOpen) card.classList.add('open');
+// ── Section sheet ─────────────────────────────────────────────────────────────
+/* Sections are addressed by index, never by interpolating their text into an
+   onclick — several of them contain "|" and spaces. */
+function openProj(key) {
+  const tt = typeOf(key);
+  if (!tt) return;
+  const color = resolveColor(key);
+  const sheet = $id('proj-sheet');
+  sheet.style.setProperty('--sheet-color', color);
+  $id('proj-sheet-name').textContent = tt.label;
+  $id('proj-sheet-subs').innerHTML = tt.subs.map((s, i) =>
+    `<button class="sub-btn" onclick="PLAN.pickSub('${key}',${i})">${esc(s.display)}</button>`).join('');
+  $id('proj-back').classList.add('on');
+  sheet.classList.add('on');
+}
+
+function closeProj() {
+  $id('proj-back').classList.remove('on');
+  $id('proj-sheet').classList.remove('on');
+}
+
+function pickSub(key, i) {
+  const tt = typeOf(key);
+  const s = tt && tt.subs[i];
+  if (!s) return;
+  closeProj();
+  openForm(key, s.display, s.section);
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
 function renderQueue() {
-  const section = $id('queue-section');
-  const emptyMsg = $id('queue-empty-msg');
   const list = $id('queue-list');
+  const empty = $id('queue-empty-msg');
   const sendBtn = $id('btn-send');
   const n = queue.length;
 
+  $id('queue-count').textContent = n ? `${n} task${n!==1?'s':''}` : 'empty';
+  $id('queue-clear').classList.toggle('hidden', !n);
+
   if (!n) {
-    section.classList.add('hidden'); emptyMsg.classList.remove('hidden');
-    sendBtn.disabled = true; sendBtn.textContent = 'send to todoist'; return;
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'send to todoist';
+    return;
   }
-  section.classList.remove('hidden'); emptyMsg.classList.add('hidden');
+  empty.classList.add('hidden');
   sendBtn.disabled = false;
-  $id('queue-title').textContent = `queue (${n})`;
   sendBtn.textContent = `send ${n} task${n!==1?'s':''} to todoist`;
 
   list.innerHTML = queue.map((t,i) => {
@@ -162,11 +179,12 @@ function renderQueue() {
     const pills = [t.subType, t.block ? `@${t.block}` : null, t.time ? `@${t.time}` : null,
       ['','urgent','mandatory','optional'][t.priority] || null].filter(Boolean);
     const stLine = t.subtasks?.length ? `<div class="q-pill">${t.subtasks.length} subtask${t.subtasks.length!==1?'s':''}</div>` : '';
-    return `<div class="q-item">
+    return `<div class="q-item" style="--q-color:${color}">
+      <span class="q-dot"></span>
       <div class="q-item-body">
         <div class="q-item-name">${esc(t.name)}</div>
         <div class="q-item-meta">
-          <div class="q-pill hl" style="color:${color}">${t.typeKey}</div>
+          <div class="q-pill hl">${esc(t.typeKey)}</div>
           ${pills.map(p=>`<div class="q-pill">${esc(p)}</div>`).join('')}
           ${stLine}
         </div>
@@ -176,19 +194,22 @@ function renderQueue() {
   }).join('');
 }
 
-function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); }
-function clearQueue() { if(!confirm('Clear all queued tasks?')) return; queue=[]; saveQueue(); renderQueue(); toast('Queue cleared'); }
+function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
+function clearQueue() {
+  if(!confirm('Clear all queued tasks?')) return;
+  queue=[]; saveQueue(); renderQueue(); renderProjects(); toast('Queue cleared');
+}
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 function openForm(typeKey, display, section) {
   try {
-    const tt = TASK_TYPES.find(t => t.key === typeKey);
+    const tt = typeOf(typeKey);
     if (!tt) { toast('Unknown project: ' + typeKey); return; }
     const color = resolveColor(typeKey);
     formState = { typeKey, subType: display, section, block: null, time: null, priority: 2, subtasks: [], hasSub: false };
     $id('s-form').style.setProperty('--proj-color', color);
     $id('form-dot').style.background = color;
-    $id('form-ctx-txt').innerHTML = `<em>${tt.label}</em> · ${display}`;
+    $id('form-ctx-txt').innerHTML = `<em>${esc(tt.label)}</em> · ${esc(display)}`;
     go('form');
   } catch(err) { toast('Error: ' + err.message); console.error(err); }
 }
@@ -253,7 +274,7 @@ function renderSubtasks() {
 
 function addToQueue() {
   const raw = $id('task-name').value.trim();
-  const tt = TASK_TYPES.find(t=>t.key===formState.typeKey);
+  const tt = typeOf(formState.typeKey);
   const name = raw ? raw : formState.subType;
   const map = mappings[formState.typeKey] || {};
   if (!map.projectId) {
@@ -267,8 +288,8 @@ function addToQueue() {
 
 // ── Sending ───────────────────────────────────────────────────────────────────
 async function startSending() {
-  const token = getToken();
-  if (!token) { toast('No API token'); go('settings'); return; }
+  const token = Creds.token();
+  if (!token) { toast('No Todoist key'); Shell.settings('general'); return; }
   const log = $id('send-log');
   const backBtn = $id('send-back');
   const doneBtn = $id('send-done-btn');
@@ -291,7 +312,7 @@ async function startSending() {
     log.innerHTML += `<div class="pending">→ ${esc(task.name)}</div>`;
     log.scrollTop = log.scrollHeight;
     try {
-      const res = await fetch('https://todoist-proxy.hp-qrate.workers.dev/api/v1/tasks', {
+      const res = await fetch(PROXY + '/tasks', {
         method:'POST', headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
         body: JSON.stringify(body),
       });
@@ -300,7 +321,7 @@ async function startSending() {
       success++;
       for (const st of (task.subtasks || [])) {
         const stBody = { content: st, parent_id: created.id, due_string: 'today', priority: task.priority };
-        const sr = await fetch('https://todoist-proxy.hp-qrate.workers.dev/api/v1/tasks', {
+        const sr = await fetch(PROXY + '/tasks', {
           method:'POST', headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
           body: JSON.stringify(stBody),
         });
@@ -331,43 +352,37 @@ function logLine(container, text, cls) {
 
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Settings (rendered into the settings tab) ─────────────────────────────────
 function renderSettings() {
-  const tok = getToken();
-  $id('api-token-input').value = tok ? '••••••••••••••••' : '';
   updateConnStatus();
   if (todoistProjects.length) renderMappingRows();
 }
 
 function updateConnStatus() {
   const el = $id('conn-status');
-  const tok = getToken();
-  if (!tok) { el.className='settings-status idle'; el.textContent='not connected'; return; }
+  if (!el) return;
+  const tok = Creds.token();
+  if (!tok) { el.className='settings-status idle'; el.textContent='no Todoist key yet — add one under General'; return; }
   if (todoistProjects.length) {
-    el.className='settings-status ok'; el.textContent=`connected · ${todoistProjects.length} projects loaded`;
+    el.className='settings-status ok'; el.textContent=`${todoistProjects.length} projects loaded`;
   } else {
-    el.className='settings-status idle'; el.textContent='token set · tap connect to fetch projects';
+    el.className='settings-status idle'; el.textContent='key set · fetch your projects to map them';
   }
 }
 
 async function connectTodoist() {
-  const inp = $id('api-token-input');
-  let tok = inp.value.trim();
-  if (!tok || tok.startsWith('•')) { tok = getToken(); if (!tok) { toast('Paste your API token first'); return; } }
+  const tok = Creds.token();
+  if (!tok) { toast('add your Todoist key under General first'); Shell.settings('general'); return; }
   const btn = $id('btn-connect');
   btn.textContent = 'fetching…'; btn.disabled = true;
   try {
-    const res = await fetch('https://todoist-proxy.hp-qrate.workers.dev/api/v1/projects', {
-      headers:{ 'Authorization':'Bearer '+tok }
-    });
-    if (res.status === 401) throw new Error('invalid token — check and paste again');
-    if (res.status === 403) throw new Error('forbidden — token may lack permissions');
+    const res = await fetch(PROXY + '/projects', { headers:{ 'Authorization':'Bearer '+tok } });
+    if (res.status === 401) throw new Error('invalid key — check it under General');
+    if (res.status === 403) throw new Error('forbidden — the key may lack permissions');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const projData = await res.json();
     const projects = Array.isArray(projData) ? projData : (projData.results || projData.projects || []);
-    const secRes = await fetch('https://todoist-proxy.hp-qrate.workers.dev/api/v1/sections', {
-      headers:{ 'Authorization':'Bearer '+tok }
-    });
+    const secRes = await fetch(PROXY + '/sections', { headers:{ 'Authorization':'Bearer '+tok } });
     if (secRes.ok) {
       const secData = await secRes.json();
       const sections = Array.isArray(secData) ? secData : (secData.results || secData.sections || []);
@@ -375,15 +390,15 @@ async function connectTodoist() {
       sections.forEach(s => { if (!sectionMap[s.project_id]) sectionMap[s.project_id]={}; sectionMap[s.project_id][s.name]=s.id; });
       localStorage.setItem('plan_sections', JSON.stringify(sectionMap));
     }
-    saveToken(tok); todoistProjects = projects; saveProjects(); updateConnStatus(); renderMappingRows();
+    todoistProjects = projects; saveProjects(); updateConnStatus(); renderMappingRows();
     toast('Connected — map your projects');
   } catch(err) {
     const el = $id('conn-status');
     el.className='settings-status err';
     el.textContent = err.message.includes('fetch')
-      ? 'network error — check your connection or try Safari if using another browser'
+      ? 'network error — check your connection'
       : 'error: '+err.message;
-  } finally { btn.textContent='connect & fetch projects'; btn.disabled=false; }
+  } finally { btn.textContent='fetch projects'; btn.disabled=false; }
 }
 
 function renderMappingRows() {
@@ -393,8 +408,8 @@ function renderMappingRows() {
   sec.style.display='block'; rows.style.display='block'; saveBtn.classList.remove('hidden');
   rows.innerHTML = TASK_TYPES.map(tt => {
     const current = mappings[tt.key]?.projectId || '';
-    const opts = todoistProjects.map(p=>`<option value="${p.id}" ${p.id===current?'selected':''}>${p.name}</option>`).join('');
-    return `<div class="f"><label class="lbl">${tt.label}</label>
+    const opts = todoistProjects.map(p=>`<option value="${p.id}" ${p.id===current?'selected':''}>${esc(p.name)}</option>`).join('');
+    return `<div class="f"><label class="lbl">${esc(tt.label)}</label>
       <select id="map-${tt.key}"><option value="">— not mapped —</option>${opts}</select></div>`;
   }).join('');
 }
@@ -419,7 +434,7 @@ renderHome();
 
 Shell.register('plan', {});
 
-return { go, clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
-         deleteSubtask, addToQueue, connectTodoist, saveMappings,
-         reload: () => location.reload() };
+return { go, renderSettings, openProj, closeProj, pickSub,
+         clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
+         deleteSubtask, addToQueue, connectTodoist, saveMappings };
 })();

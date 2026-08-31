@@ -1,20 +1,135 @@
 /* ── Shell ────────────────────────────────────────────────────────────────────
-   Owns the five-slide track, the tab bar, the shared toast and the settings
-   view. It knows nothing about what the four apps do — each module registers
-   itself with Shell.register() and is otherwise left alone.
+   Owns the five-slide track, the floating tab pill and its two arrows, the
+   shared toast, the shared Todoist credential, the theme, and the settings view.
+   It knows nothing about what the four apps do — each module registers itself
+   with Shell.register() and is otherwise left alone.
 
-   Loaded before the app modules, so Shell.toast() exists by the time any of
-   them boots and reports something. */
+   Loaded before the app modules, so Shell.toast() and Creds.token() exist by the
+   time any of them boots. */
+
+/* ── Shared Todoist credential ────────────────────────────────────────────────
+   DO, PLAN and STORE each used to keep their own copy of the same key. There is
+   one now, and every module reads it live through Creds.token() rather than
+   caching it, so saving in settings takes effect everywhere without a reload.
+
+   Saving also mirrors the value back into the three original keys, so the
+   standalone complete/, plan/ and eat/ apps keep working off the same token. */
+window.Creds = (function () {
+  'use strict';
+  const KEY          = 'root_todoist_v1';
+  const LEGACY_DO    = 'do_todoist_v1';
+  const LEGACY_PLAN  = 'plan_token';
+  const LEGACY_STORE = 'store_state_v1';
+
+  const readJSON = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+
+  function token() { return (readJSON(KEY) || {}).token || ''; }
+
+  /* Whichever app still holds one wins; they are all meant to be the same
+     Todoist account key anyway. */
+  function legacyToken() {
+    const d = readJSON(LEGACY_DO);
+    if (d && d.token) return d.token;
+    const s = readJSON(LEGACY_STORE);
+    if (s && s.todoist && s.todoist.token) return s.todoist.token;
+    try { return localStorage.getItem(LEGACY_PLAN) || ''; } catch { return ''; }
+  }
+
+  function mirror(tok) {
+    try {
+      const d = readJSON(LEGACY_DO) || {};
+      d.token = tok;
+      localStorage.setItem(LEGACY_DO, JSON.stringify(d));
+      localStorage.setItem(LEGACY_PLAN, tok);
+      const s = readJSON(LEGACY_STORE);
+      if (s) {
+        s.todoist = Object.assign({}, s.todoist, { token: tok });
+        localStorage.setItem(LEGACY_STORE, JSON.stringify(s));
+      }
+    } catch {}
+  }
+
+  function save(tok) {
+    try { localStorage.setItem(KEY, JSON.stringify({ token: tok, saved: Date.now() })); } catch {}
+    mirror(tok);
+  }
+
+  // adopt an existing key on first run, before any module reads it
+  if (!token()) { const t = legacyToken(); if (t) save(t); }
+
+  return { token, save };
+})();
+
+
+/* ── Theme ────────────────────────────────────────────────────────────────── */
+window.Theme = (function () {
+  'use strict';
+  const KEY = 'root_theme';
+
+  const THEMES = [
+    { id:'void',  name:'Void',  desc:'the original — near-black, purple',
+      sw:['#0e0e0e','#161616','#A78BFA','#dedede'] },
+    { id:'ember', name:'Ember', desc:'warm charcoal, amber accent',
+      sw:['#100d0b','#191512','#e8a33d','#e6ded3'] },
+    { id:'frost', name:'Frost', desc:'cold slate, cyan accent',
+      sw:['#0b0f13','#12181e','#5ad4e6','#d6e3ea'] },
+    { id:'paper', name:'Paper', desc:'light ground, serif display, soft shadows',
+      sw:['#f2ede3','#fffdf7','#6b4df0','#22201c'] },
+  ];
+
+  function current() {
+    try { const v = localStorage.getItem(KEY); return THEMES.some(t => t.id === v) ? v : 'void'; }
+    catch { return 'void'; }
+  }
+
+  /* PAPER is the only theme that needs faces we do not already load, so they are
+     fetched the first time it is chosen rather than on every cold start. */
+  function ensurePaperFonts() {
+    if (document.getElementById('paper-fonts')) return;
+    const l = document.createElement('link');
+    l.id = 'paper-fonts';
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800' +
+             '&family=IBM+Plex+Mono:wght@400;700&display=swap';
+    document.head.appendChild(l);
+  }
+
+  function apply(id, opts = {}) {
+    const t = THEMES.find(x => x.id === id) ? id : 'void';
+    if (t === 'paper') ensurePaperFonts();
+    document.documentElement.setAttribute('data-theme', t);
+    if (opts.persist !== false) { try { localStorage.setItem(KEY, t); } catch {} }
+    // keep the iOS status bar / Android chrome in step with the ground colour
+    requestAnimationFrame(() => {
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta && bg) meta.setAttribute('content', bg);
+    });
+    return t;
+  }
+
+  // index.html sets the attribute inline before first paint; this re-runs the
+  // rest of apply() so the theme-color meta matches on a cold start too.
+  apply(current(), { persist: false });
+
+  return { THEMES, current, apply };
+})();
+
+
 window.Shell = (function () {
   'use strict';
 
   const TABS = ['do', 'log', 'plan', 'store', 'settings'];
   const TAB_KEY = 'root_tab';          // last tab, so a reload lands where you left
 
-  const track   = document.getElementById('track');
-  const viewport= document.getElementById('views');
-  const navBtns = Array.from(document.querySelectorAll('.tab-b'));
-  const toastEl = document.getElementById('toast');
+  const track    = document.getElementById('track');
+  const viewport = document.getElementById('views');
+  const navEl    = document.getElementById('nav');
+  const navBtns  = Array.from(document.querySelectorAll('.tab-b'));
+  const arrows   = Array.from(document.querySelectorAll('.nav-arrow'));
+  const prevBtn  = document.getElementById('nav-prev');
+  const nextBtn  = document.getElementById('nav-next');
+  const toastEl  = document.getElementById('toast');
 
   let index = 0;
   const apps = {};                     // name → { onShow }
@@ -29,6 +144,30 @@ window.Shell = (function () {
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+
+  // ── Floating chrome ─────────────────────────────────────────────────────────
+  /* The pill and arrows hover over the content, so they step aside while you
+     read and come back the moment you scroll up, stop, or change tab. */
+  let chromeTimer = null;
+  function showChrome() {
+    navEl.classList.remove('chrome-off');
+    arrows.forEach(a => a.classList.remove('chrome-off'));
+  }
+  function hideChrome() {
+    navEl.classList.add('chrome-off');
+    arrows.forEach(a => a.classList.add('chrome-off'));
+  }
+  function watchScroll(view) {
+    let last = 0;
+    view.addEventListener('scroll', () => {
+      const y = view.scrollTop, dy = y - last;
+      last = y;
+      clearTimeout(chromeTimer);
+      if (y > 72 && dy > 6)      hideChrome();
+      else if (dy < -6 || y < 8) showChrome();
+      chromeTimer = setTimeout(showChrome, 900);   // idle always brings it back
+    }, { passive: true });
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
@@ -48,6 +187,10 @@ window.Shell = (function () {
       b.classList.toggle('on', n === i);
       b.setAttribute('aria-selected', n === i ? 'true' : 'false');
     });
+    if (prevBtn) prevBtn.disabled = i === 0;
+    if (nextBtn) nextBtn.disabled = i === TABS.length - 1;
+    showChrome();
+    clearTimeout(chromeTimer);
     try { localStorage.setItem(TAB_KEY, TABS[i]); } catch {}
     if (!opts.silent) {
       const h = '#' + TABS[i];
@@ -59,9 +202,18 @@ window.Shell = (function () {
     if (app && app.onShow) app.onShow();
   }
 
+  /* Every app's "settings" entry point routes here now. */
+  function settings(panel) {
+    go('settings');
+    if (window.SET && panel) SET.panel(panel);
+  }
+
   function register(name, api) { apps[name] = api || {}; }
 
   navBtns.forEach((b, i) => b.addEventListener('click', () => go(i)));
+  if (prevBtn) prevBtn.addEventListener('click', () => go(index - 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
+  document.querySelectorAll('.view').forEach(watchScroll);
 
   // ── Swipe ───────────────────────────────────────────────────────────────────
   /* Horizontal drag moves the track live; vertical is left to the browser via
@@ -107,6 +259,7 @@ window.Shell = (function () {
       if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
       axis = Math.abs(mx) > Math.abs(my) * 1.3 ? 'x' : 'y';
       if (axis === 'y') { tracking = false; return; }
+      showChrome();
     }
     dx = mx;
     // rubber-band at the two ends so the track never looks broken
@@ -155,19 +308,23 @@ window.Shell = (function () {
     go(start);
   })();
 
-  return { toast, go, register, TABS };
+  return { toast, go, settings, register, showChrome, TABS };
 })();
 
 
 /* ── Settings view ────────────────────────────────────────────────────────────
-   General housekeeping plus a jump into each app's own settings screen. The
-   per-app screens were deliberately left where they are: moving that markup out
-   of its slide would have broken each app's own go('settings') navigation. */
+   Every app's settings now live here, one panel each, behind a segmented
+   control. The panels carry .ns-do / .ns-log / .ns-plan / .ns-store, so each
+   app's own stylesheet still dresses its controls and each module's scoped
+   $id() still finds them wherever they sit in the document. */
 window.SET = (function () {
   'use strict';
 
   const SCOPE = '.ns-set ';
   const $id = id => document.querySelector(SCOPE + '#' + id);
+
+  const PANELS = ['general', 'do', 'log', 'plan', 'store'];
+  let currentPanel = 'general';
 
   /* Which keys belong to which app. Everything here is read-only bookkeeping —
      the shell never writes to another app's keys. */
@@ -176,18 +333,94 @@ window.SET = (function () {
     { name: 'LOG',   match: k => k.startsWith('log_') || k === 'log-scale-v2' },
     { name: 'PLAN',  match: k => k.startsWith('plan_') },
     { name: 'STORE', match: k => k === 'store_state_v1' || k === 'eat_state_v1' },
+    { name: 'ROOT',  match: k => k.startsWith('root_') },
   ];
 
-  function allKeys() {
-    try { return Object.keys(localStorage); } catch { return []; }
-  }
+  const allKeys = () => { try { return Object.keys(localStorage); } catch { return []; } };
 
   function fmtSize(chars) {
     const kb = chars / 1024;
     return kb < 1 ? chars + ' B' : kb < 1024 ? kb.toFixed(1) + ' KB' : (kb / 1024).toFixed(2) + ' MB';
   }
 
-  function render() {
+  // ── Panels ──────────────────────────────────────────────────────────────────
+  function panel(name) {
+    if (!PANELS.includes(name)) return;
+    currentPanel = name;
+    document.querySelectorAll(SCOPE + '.set-panel').forEach(p =>
+      p.classList.toggle('on', p.dataset.panel === name));
+    document.querySelectorAll(SCOPE + '.seg-b').forEach(b =>
+      b.classList.toggle('on', b.dataset.seg === name));
+    const view = document.getElementById('view-settings');
+    if (view) view.scrollTop = 0;
+    Shell.showChrome();
+    // let each app fill in its own controls when its panel comes up
+    ({ do: () => DO.renderSettings(), log: () => LOG.renderDataScreen(),
+       plan: () => PLAN.renderSettings(), store: () => STORE.renderSettings() })[name]?.();
+    if (name === 'general') renderGeneral();
+  }
+
+  // ── General panel ───────────────────────────────────────────────────────────
+  function renderThemes() {
+    const cur = Theme.current();
+    $id('theme-grid').innerHTML = Theme.THEMES.map(t => `
+      <button class="theme-card${t.id === cur ? ' on' : ''}" data-theme-id="${t.id}"
+              onclick="SET.pickTheme('${t.id}')">
+        <span class="theme-swatch">${t.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+        <span class="theme-name">${t.name}<span class="tick">✓</span></span>
+        <span class="theme-desc">${t.desc}</span>
+      </button>`).join('');
+  }
+
+  function pickTheme(id) {
+    Theme.apply(id);
+    renderThemes();
+    Shell.toast('theme · ' + (Theme.THEMES.find(t => t.id === id) || {}).name);
+  }
+
+  function renderToken() {
+    const tok = Creds.token();
+    const inp = $id('set-td-token');
+    if (inp) inp.value = tok;
+    tdStatus(tok ? 'key saved · used by DO, PLAN and STORE' : 'no key yet', tok ? 'good' : '');
+  }
+
+  function tdStatus(msg, kind) {
+    const el = $id('set-td-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'td-status' + (kind ? ' ' + kind : '');
+  }
+
+  function saveToken() {
+    const tok = $id('set-td-token').value.trim();
+    Creds.save(tok);
+    renderToken();
+    Shell.toast(tok ? 'todoist key saved' : 'todoist key cleared');
+  }
+
+  /* A single check against the account, rather than three per-app ones. Each
+     app still has its own project/section test in its own panel. */
+  async function testToken() {
+    const tok = Creds.token();
+    if (!tok) { tdStatus('paste your key and save it first', 'bad'); return; }
+    const btn = $id('set-td-test');
+    btn.disabled = true;
+    tdStatus('checking…', 'busy');
+    try {
+      const res = await fetch('https://api.todoist.com/api/v1/projects?limit=1',
+                              { headers: { 'Authorization': 'Bearer ' + tok } });
+      if (res.status === 401 || res.status === 403) throw new Error('key rejected by Todoist');
+      if (!res.ok) throw new Error('Todoist error ' + res.status);
+      tdStatus('key works — DO, PLAN and STORE are all using it', 'good');
+    } catch (e) {
+      tdStatus(location.protocol === 'file:'
+        ? 'blocked by the browser — serve over http(s), not as a local file'
+        : e.message, 'bad');
+    } finally { btn.disabled = false; }
+  }
+
+  function renderStorage() {
     const keys = allKeys();
     let total = 0;
     const sizes = {};
@@ -210,16 +443,11 @@ window.SET = (function () {
        <span class="data-stat-v">${keys.length} · ${fmtSize(total)}</span></div>`;
   }
 
-  function jump(app) {
-    Shell.go(app);
-    const opener = { do: () => DO.go('settings'), log: () => LOG.go('datascreen'),
-                     plan: () => PLAN.go('settings'), store: () => STORE.go('settings') }[app];
-    if (opener) opener();
-  }
+  function renderGeneral() { renderThemes(); renderToken(); renderStorage(); }
 
   // ── Backup: every key on this origin, in one file ──────────────────────────
-  /* Deliberately not filtered to the four prefixes: a backup that silently drops
-     a key is worse than one that carries a few bytes too many. */
+  /* Deliberately not filtered to the known prefixes: a backup that silently
+     drops a key is worse than one that carries a few bytes too many. */
   async function exportAll() {
     const keys = allKeys();
     if (!keys.length) { Shell.toast('nothing stored yet'); return; }
@@ -269,11 +497,14 @@ window.SET = (function () {
     reader.readAsText(file);
   }
 
-  Shell.register('settings', { onShow: render });
+  document.querySelectorAll(SCOPE + '.seg-b').forEach(b =>
+    b.addEventListener('click', () => panel(b.dataset.seg)));
+
+  Shell.register('settings', { onShow: () => { if (currentPanel === 'general') renderGeneral(); } });
   // Shell has already picked the opening tab by the time this file's second half
   // runs, so onShow cannot have fired for a reload that lands here.
-  render();
+  renderGeneral();
 
-  return { render, jump, exportAll, pickImport, importAll,
-           reload: () => location.reload() };
+  return { panel, pickTheme, saveToken, testToken, renderGeneral, renderStorage,
+           exportAll, pickImport, importAll, reload: () => location.reload() };
 })();

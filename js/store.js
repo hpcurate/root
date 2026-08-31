@@ -266,7 +266,12 @@ function loadState() {
   state.todoist = Object.assign({ ...TD_DEFAULTS }, state.todoist || {});
   if (!state.learned || typeof state.learned !== 'object') state.learned = {};
 }
-function saveState() { localStorage.setItem(SK, JSON.stringify(state)); }
+/* The Todoist key lives in Creds now; it is mirrored back into this app's own
+   record on every write so the standalone eat/ app keeps working off it. */
+function saveState() {
+  state.todoist.token = Creds.token();
+  localStorage.setItem(SK, JSON.stringify(state));
+}
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 function go(id) {
@@ -278,7 +283,6 @@ function go(id) {
   if (id === 'cat')      renderCategoryItems();
   if (id === 'meals')    renderMeals();
   if (id === 'history')  renderHistory();
-  if (id === 'settings') renderSettings();
 }
 
 // ─── Cart counter ────────────────────────────────────────────────────────────
@@ -831,14 +835,14 @@ function tdContent(item) {
 function tdGuessCat(name) { return classify(name).cat; }
 
 async function tdFetch(path, opts = {}) {
-  const t = state.todoist;
-  if (!t.token) throw new Error('no API token saved — add one in settings');
+  const tok = Creds.token();
+  if (!tok) throw new Error('no Todoist key saved — add one in settings');
   let res;
   try {
     res = await fetch(TD_BASE + path, {
       ...opts,
       headers: {
-        'Authorization': 'Bearer ' + t.token,
+        'Authorization': 'Bearer ' + tok,
         ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
         ...(opts.headers || {}),
       },
@@ -893,7 +897,7 @@ async function tdResolveTarget(force = false) {
 }
 
 async function testTodoist() {
-  if (!state.todoist.token) { tdStatus('add your API token first', 'bad'); return; }
+  if (!Creds.token()) { tdStatus('add your Todoist key in General first', 'bad'); return; }
   tdStatus('checking…', 'busy');
   try {
     const t = await tdResolveTarget(true);
@@ -908,7 +912,7 @@ async function testTodoist() {
    each side only gains the items the other side has and it is missing. */
 async function syncTodoist() {
   if (tdBusy) return;
-  if (!state.todoist.token) { toast('add a Todoist token in settings'); go('settings'); return; }
+  if (!Creds.token()) { toast('add a Todoist key in settings'); Shell.settings('store'); return; }
   tdBusy = true;
   renderTdButtons();
   tdStatus('syncing…', 'busy');
@@ -988,26 +992,23 @@ function tdStatus(msg, kind) {
   el.className = 'td-status' + (kind ? ' ' + kind : '');
 }
 
+/* The key is set once in Settings › General; this only owns the target. */
 function saveTodoist() {
-  const tok  = $id('td-token').value.trim();
   const proj = $id('td-project').value.trim();
   const sec  = $id('td-section').value.trim();
   const t = state.todoist;
   // a changed target invalidates the cached ids
   if (proj !== t.project || sec !== t.section) { t.projectId = null; t.sectionId = null; }
-  t.token = tok;
   t.project = proj || TD_DEFAULTS.project;
   t.section = sec || TD_DEFAULTS.section;
   saveState();
   renderTodoistSettings();
-  toast(tok ? 'todoist settings saved' : 'todoist token cleared');
+  toast('STORE target saved');
 }
 
 function renderTodoistSettings() {
   const t = state.todoist;
-  const tok = $id('td-token');
-  if (!tok) return;
-  tok.value = t.token;
+  if (!$id('td-project')) return;
   $id('td-project').value = t.project;
   $id('td-section').value = t.section;
   $id('td-last').textContent =
@@ -1034,6 +1035,5 @@ return { go, addCart, resetCart, openPad, closePad, padKey, padBack, padClear,
          openCatPick, closeCatPick, setCat,
          openCategory, addItemAndRefresh, toggleMeal, addMeal,
          restoreTrip, deleteTrip, clearHistory,
-         saveBudget, saveTodoist, testTodoist, syncTodoist,
-         reload: () => location.reload() };
+         renderSettings, saveBudget, saveTodoist, testTodoist, syncTodoist };
 })();

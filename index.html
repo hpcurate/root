@@ -14,13 +14,32 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- tokens first, app sheets next, shell last so its cross-cutting rules win -->
+  <!-- Stamp the saved theme before the first paint, so a non-default theme does
+       not flash the default palette on every cold start. -->
+  <script>
+    try {
+      var t = localStorage.getItem('root_theme');
+      if (t && ['void','ember','frost','paper'].indexOf(t) >= 0) {
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'paper') {
+          var l = document.createElement('link');
+          l.id = 'paper-fonts'; l.rel = 'stylesheet';
+          l.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800'
+                 + '&family=IBM+Plex+Mono:wght@400;700&display=swap';
+          document.head.appendChild(l);
+        }
+      }
+    } catch (e) {}
+  </script>
+
+  <!-- tokens, app sheets, shell, then themes last -->
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/do.css">
   <link rel="stylesheet" href="css/log.css">
   <link rel="stylesheet" href="css/plan.css">
   <link rel="stylesheet" href="css/store.css">
   <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/themes.css">
 </head>
 <body>
 
@@ -47,6 +66,12 @@
   <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3.4"/>
     <path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7M18.6 18.6l-1.7-1.7M7.1 7.1 5.4 5.4"/>
+  </symbol>
+  <symbol id="ico-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="15 5 8 12 15 19"/>
+  </symbol>
+  <symbol id="ico-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 5 16 12 9 19"/>
   </symbol>
 
   <!-- LOG -->
@@ -190,7 +215,6 @@
       </div>
       <div class="h-acts">
         <button class="h-act sync" data-td-btn="sync" data-td-busy="⋯" onclick="DO.syncTodoist()">sync</button>
-        <button class="h-act" onclick="DO.go('settings')">settings</button>
       </div>
     </div>
     <div class="grid" id="home-grid"></div>
@@ -271,70 +295,6 @@
       <div id="tv-edit-list"></div>
     </div>
   </div>
-
-  <!-- ── SETTINGS ── -->
-  <div id="s-settings" class="scr">
-    <div class="hd">
-      <button class="hd-back" onclick="DO.go('home')">← back</button>
-      <span class="hd-title">DO · Settings</span>
-    </div>
-    <div class="cnt">
-      <div class="sec">App</div>
-      <div class="data-warn">Data is stored locally on this device and resets automatically each day.</div>
-      <div class="setting-row">
-        <span class="setting-lbl">Reload page</span>
-        <button class="setting-btn" onclick="DO.reload()">reload</button>
-      </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Reset today's progress</span>
-        <button class="setting-btn danger" onclick="DO.resetDay()">reset</button>
-      </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Reset travel list</span>
-        <button class="setting-btn danger" onclick="DO.resetTravel()">reset</button>
-      </div>
-
-      <div class="sec">Todoist</div>
-      <div class="data-warn hidden" id="td-file-warn">
-        DO is open as a local file, so the browser will block calls to Todoist.
-        Serve it over http(s) — e.g. GitHub Pages — for sync to work.
-      </div>
-      <div class="f">
-        <label class="lbl">API token</label>
-        <input type="password" id="td-token" placeholder="paste your API token"
-               autocomplete="off" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="f">
-        <label class="lbl">Project</label>
-        <input type="text" id="td-project" placeholder="04 | life" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="f">
-        <label class="lbl">Section</label>
-        <input type="text" id="td-section" placeholder="daily routine" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Close in Todoist on finish</span>
-        <button class="setting-btn" id="td-auto" onclick="DO.toggleAutoPush()">on</button>
-      </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Endpoint</span>
-        <button class="setting-btn" id="td-endpoint" onclick="DO.toggleEndpoint()">direct</button>
-      </div>
-      <div class="td-status" id="td-status">Todoist → Settings → Integrations → Developer → API token</div>
-      <div class="td-acts">
-        <button class="setting-btn" onclick="DO.saveTodoistSettings()">save</button>
-        <button class="setting-btn" data-td-btn="test connection" onclick="DO.testTodoist()">test connection</button>
-      </div>
-      <button class="btn" data-td-btn="sync now" onclick="DO.syncTodoist()">sync now</button>
-      <div class="td-last" id="td-last">never synced</div>
-      <div class="data-warn" style="margin-top:12px">
-        Each daily list is matched to the task of the same name in that section.
-        A recurring task whose due date has already moved past today counts as done —
-        its list is ticked off here, and it is never closed a second time.
-        Sync only ever completes; it never un-ticks a list or reopens a task.
-      </div>
-    </div>
-  </div>
 </section>
 
 
@@ -378,7 +338,7 @@
         <div class="card-t"><svg class="ico"><use href="#ico-chart"/></svg>Reports</div>
         <div class="card-s">weekly · monthly</div>
       </div>
-      <div class="card full muted" onclick="LOG.go('datascreen')">
+      <div class="card full muted" onclick="Shell.settings('log')">
         <div class="card-t"><svg class="ico"><use href="#ico-sliders"/></svg>data management</div>
       </div>
       <div class="card full muted" onclick="LOG.clearDay()">
@@ -611,7 +571,7 @@
 
       <!-- Step 2: pick week or month -->
       <div id="rep-step-pick" class="hidden">
-        <div id="rep-parsed-info" style="font:400 10px/1.6 var(--mono);color:var(--mu);margin-bottom:18px;padding:10px 12px;background:var(--s1);border:1px solid var(--bd);border-radius:3px"></div>
+        <div id="rep-parsed-info" style="font:400 10px/1.6 var(--mono);color:var(--mu);margin-bottom:18px;padding:10px 12px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r1)"></div>
         <div class="sec">Weekly</div>
         <div id="rep-week-btns" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px"></div>
         <div class="sec">Monthly</div>
@@ -631,31 +591,6 @@
 
     </div>
   </div>
-
-  <!-- ── DATA MANAGEMENT ── -->
-  <div id="s-datascreen" class="scr">
-    <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Data</span></div>
-    <div class="cnt">
-      <div class="data-stat"><span class="data-stat-k">Days stored</span><span class="data-stat-v" id="ds-days">—</span></div>
-      <div class="data-stat"><span class="data-stat-k">Entries total</span><span class="data-stat-v" id="ds-entries">—</span></div>
-      <div class="data-stat"><span class="data-stat-k">Earliest day</span><span class="data-stat-v" id="ds-earliest">—</span></div>
-      <div class="data-warn" style="margin-top:16px">
-        Data is stored locally on this device only. Clearing Safari data or switching devices will remove it permanently. Export below to back up or move your full history to another device.
-      </div>
-      <div class="sec">Backup &amp; transfer</div>
-      <button class="btn" onclick="LOG.exportAllData()">↑ Export all data</button>
-      <button class="btn btn-2" onclick="LOG.pickImport()">↓ Import data</button>
-      <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="LOG.importAllData(event)">
-      <div class="data-warn" style="margin-top:8px">
-        Export saves every logged day as one .json file — AirDrop or send it to your other device, then Import there to restore your full history, streaks and trends. Importing merges the days in; any day with the same date is overwritten by the file.
-      </div>
-      <div class="data-stat" style="margin-bottom:8px;margin-top:16px">
-        <span class="data-stat-k">Reload page</span>
-        <button onclick="LOG.reload()" style="background:var(--s2);border:1px solid var(--bd);border-radius:3px;color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.08em;padding:9px 13px;cursor:pointer">reload</button>
-      </div>
-      <button class="btn btn-danger" onclick="LOG.openDeleteModal()" style="margin-top:8px">Delete all data</button>
-    </div>
-  </div>
 </section>
 
 
@@ -669,20 +604,20 @@
     <div class="h-top">
       <div class="h-label" id="home-date">—</div>
       <div class="h-logo">PLAN<em>.</em></div>
-      <button class="h-settings-btn" onclick="PLAN.go('settings')">settings</button>
     </div>
 
-    <div class="projects" id="proj-list"></div>
+    <div class="projects">
+      <div class="row-lbl"><span>projects</span></div>
+      <div class="proj-grid" id="proj-list"></div>
+    </div>
 
-    <div style="padding:0 18px;margin-top:4px">
-      <div id="queue-section" class="hidden">
-        <div class="queue-header">
-          <span class="queue-title" id="queue-title">queue</span>
-          <button class="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
-        </div>
-        <div id="queue-list"></div>
+    <div class="queue">
+      <div class="row-lbl">
+        <span>queue <em id="queue-count">empty</em></span>
+        <button class="muted-act hidden" id="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
       </div>
-      <div id="queue-empty-msg" class="queue-empty">no tasks queued yet<br>tap a project to start</div>
+      <div id="queue-list"></div>
+      <div id="queue-empty-msg" class="queue-empty">nothing queued yet<br>pick a project above to start</div>
     </div>
 
     <div class="send-wrap">
@@ -778,30 +713,6 @@
       <button class="btn hidden" id="send-done-btn" onclick="PLAN.go('home')">done</button>
     </div>
   </div>
-
-  <!-- ── SETTINGS ── -->
-  <div id="s-settings" class="scr">
-    <div class="hd">
-      <button class="hd-back" onclick="PLAN.go('home')">← back</button>
-      <span class="hd-title">PLAN · Settings</span>
-    </div>
-    <div class="cnt">
-      <div class="sec">API</div>
-      <div id="conn-status" class="settings-status idle">not connected</div>
-      <div class="f">
-        <label class="lbl">Todoist API token</label>
-        <input type="password" id="api-token-input" placeholder="paste token here…">
-      </div>
-      <button class="btn" onclick="PLAN.connectTodoist()" id="btn-connect">connect &amp; fetch projects</button>
-
-      <div class="sec" id="map-sec" style="display:none">Project mapping</div>
-      <div id="map-rows" style="display:none"></div>
-      <button class="btn hidden" id="btn-save-map" onclick="PLAN.saveMappings()">save mapping</button>
-
-      <div class="sec" style="margin-top:28px">App</div>
-      <button class="btn btn-ghost" onclick="PLAN.reload()" style="margin-bottom:8px">reload page</button>
-    </div>
-  </div>
 </section>
 
 
@@ -815,7 +726,6 @@
     <div class="h-top">
       <div class="h-label" id="date-label">—</div>
       <div class="h-logo">STORE<em>.</em></div>
-      <button class="h-settings-btn" onclick="STORE.go('settings')">settings</button>
     </div>
 
     <div class="cnt">
@@ -925,30 +835,179 @@
     </div>
     <div class="cnt" id="hist-list"></div>
   </div>
+</section>
 
-  <!-- ── SETTINGS ── -->
-  <div id="s-settings" class="scr">
-    <div class="hd">
-      <button class="hd-back" onclick="STORE.go('home')">← back</button>
-      <span class="hd-title">STORE · Settings</span>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SETTINGS — every app's settings, one panel each
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-set" id="view-settings" aria-label="Settings">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">one place for all of it</div>
+      <div class="h-logo">ROOT<em>.</em></div>
     </div>
-    <div class="cnt">
-      <div class="sec">Budget</div>
+
+    <div class="set-seg">
+      <button class="seg-b on" data-seg="general">general</button>
+      <button class="seg-b" data-seg="do">do</button>
+      <button class="seg-b" data-seg="log">log</button>
+      <button class="seg-b" data-seg="plan">plan</button>
+      <button class="seg-b" data-seg="store">store</button>
+    </div>
+
+    <!-- ── GENERAL ── -->
+    <div class="set-panel on" data-panel="general">
+      <div class="sec">Theme</div>
+      <div class="theme-grid" id="theme-grid"></div>
+
+      <div class="sec">Todoist key</div>
+      <div class="data-warn">
+        One key for all three apps that talk to Todoist. DO closes finished
+        routines, PLAN sends its queue, STORE syncs the shopping list — each has
+        its own project and section under its own tab, but they share this key.
+      </div>
+      <div class="f">
+        <label class="lbl">API key</label>
+        <input type="password" id="set-td-token" placeholder="paste your Todoist API key"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="td-status" id="set-td-status">no key yet</div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="SET.saveToken()">save key</button>
+        <button class="setting-btn" id="set-td-test" onclick="SET.testToken()">test key</button>
+      </div>
+
+      <div class="sec">Backup</div>
+      <div class="data-warn">
+        One file with every key the four apps keep on this device — checklists,
+        logged days, the plan queue, the shopping list and history, and every
+        Todoist setting. Keep a copy before clearing browser data or moving phone.
+      </div>
+      <button class="btn" onclick="SET.exportAll()">↑ Export everything</button>
+      <button class="btn btn-2" onclick="SET.pickImport()">↓ Restore from file</button>
+      <input type="file" id="set-import-file" accept="application/json,.json" class="hidden" onchange="SET.importAll(event)">
+      <div class="data-warn" style="margin-top:8px">
+        Restoring overwrites any key present in the file and leaves the rest
+        alone, then reloads so every view re-reads its data.
+      </div>
+
+      <div class="sec">Storage</div>
+      <div id="set-storage"></div>
+
+      <div class="sec">App</div>
+      <div class="data-warn">
+        Swipe left and right to move between tabs, use the arrows in the bottom
+        corners, or tap the bar. Everything runs offline against this device's own
+        storage — nothing leaves it except the Todoist calls you ask for.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reload app</span>
+        <button class="setting-btn" onclick="SET.reload()">reload</button>
+      </div>
+    </div>
+
+    <!-- ── DO ── -->
+    <div class="set-panel ns-do" data-panel="do">
+      <div class="sec">Daily data</div>
+      <div class="data-warn">Stored locally on this device; the daily lists reset automatically each day.</div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset today's progress</span>
+        <button class="setting-btn danger" onclick="DO.resetDay()">reset</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset travel lists</span>
+        <button class="setting-btn danger" onclick="DO.resetTravel()">reset</button>
+      </div>
+
+      <div class="sec">Todoist target</div>
+      <div class="data-warn hidden" id="td-file-warn">
+        ROOT is open as a local file, so the browser will block calls to Todoist.
+        Serve it over http(s) — e.g. GitHub Pages — for sync to work.
+      </div>
+      <div class="f">
+        <label class="lbl">Project</label>
+        <input type="text" id="td-project" placeholder="04 | life" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Section</label>
+        <input type="text" id="td-section" placeholder="daily routine" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Close in Todoist on finish</span>
+        <button class="setting-btn" id="td-auto" onclick="DO.toggleAutoPush()">on</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Endpoint</span>
+        <button class="setting-btn" id="td-endpoint" onclick="DO.toggleEndpoint()">direct</button>
+      </div>
+      <div class="td-status" id="td-status">each daily list matches the task of the same name in that section</div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="DO.saveTodoistSettings()">save target</button>
+        <button class="setting-btn" data-td-btn="test connection" onclick="DO.testTodoist()">test connection</button>
+      </div>
+      <button class="btn" data-td-btn="sync now" onclick="DO.syncTodoist()">sync now</button>
+      <div class="td-last" id="td-last">never synced</div>
+      <div class="data-warn" style="margin-top:12px">
+        A recurring task whose due date has already moved past today counts as
+        done — its list is ticked off here, and it is never closed a second time.
+        Sync only ever completes; it never un-ticks a list or reopens a task.
+      </div>
+    </div>
+
+    <!-- ── LOG ── -->
+    <div class="set-panel ns-log" data-panel="log">
+      <div class="sec">Stored data</div>
+      <div class="data-stat"><span class="data-stat-k">Days stored</span><span class="data-stat-v" id="ds-days">—</span></div>
+      <div class="data-stat"><span class="data-stat-k">Entries total</span><span class="data-stat-v" id="ds-entries">—</span></div>
+      <div class="data-stat"><span class="data-stat-k">Earliest day</span><span class="data-stat-v" id="ds-earliest">—</span></div>
+      <div class="data-warn" style="margin-top:16px">
+        Stored on this device only. Clearing Safari data or switching devices
+        removes it permanently. Export below to back up or move your full history.
+      </div>
+
+      <div class="sec">Backup &amp; transfer</div>
+      <button class="btn" onclick="LOG.exportAllData()">↑ Export all days</button>
+      <button class="btn btn-2" onclick="LOG.pickImport()">↓ Import days</button>
+      <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="LOG.importAllData(event)">
+      <div class="data-warn" style="margin-top:8px">
+        Export saves every logged day as one .json — AirDrop it to your other
+        device and Import there to restore history, streaks and trends. Importing
+        merges the days in; any day with the same date is overwritten by the file.
+      </div>
+
+      <div class="sec">Danger</div>
+      <button class="btn btn-danger" onclick="LOG.openDeleteModal()">Delete all logged days</button>
+    </div>
+
+    <!-- ── PLAN ── -->
+    <div class="set-panel ns-plan" data-panel="plan">
+      <div class="sec">Todoist projects</div>
+      <div id="conn-status" class="settings-status idle">no Todoist key yet — add one under General</div>
+      <div class="data-warn">
+        Fetch your Todoist projects, then map each PLAN project to one of them.
+        Sections are matched by name when the queue is sent.
+      </div>
+      <button class="btn" onclick="PLAN.connectTodoist()" id="btn-connect">fetch projects</button>
+
+      <div class="sec" id="map-sec" style="display:none">Project mapping</div>
+      <div id="map-rows" style="display:none"></div>
+      <button class="btn hidden" id="btn-save-map" onclick="PLAN.saveMappings()">save mapping</button>
+    </div>
+
+    <!-- ── STORE ── -->
+    <div class="set-panel ns-store" data-panel="store">
+      <div class="sec"><span>Budget</span></div>
       <div class="f">
         <label class="lbl">Budget (€) — 0 to disable</label>
         <input type="number" inputmode="decimal" id="budget-input" placeholder="100" step="1">
       </div>
       <button class="btn" onclick="STORE.saveBudget()">save budget</button>
 
-      <div class="sec">Todoist sync</div>
+      <div class="sec"><span>Todoist target</span></div>
       <div class="data-warn hidden" id="td-file-warn">
-        STORE is open as a local file, so the browser will block calls to Todoist.
+        ROOT is open as a local file, so the browser will block calls to Todoist.
         Serve it over http(s) — e.g. GitHub Pages — for sync to work.
-      </div>
-      <div class="f">
-        <label class="lbl">API token</label>
-        <input type="password" id="td-token" placeholder="paste your API token"
-               autocomplete="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="f">
         <label class="lbl">Project</label>
@@ -958,20 +1017,15 @@
         <label class="lbl">Section</label>
         <input type="text" id="td-section" placeholder="home|groceries" autocapitalize="off" spellcheck="false">
       </div>
-      <div class="td-status" id="td-status">Todoist → Settings → Integrations → Developer → API token</div>
+      <div class="td-status" id="td-status">sync only ever adds — nothing is deleted or completed on either side</div>
       <div class="td-acts">
-        <button class="setting-btn" onclick="STORE.saveTodoist()">save</button>
+        <button class="setting-btn" onclick="STORE.saveTodoist()">save target</button>
         <button class="setting-btn" onclick="STORE.testTodoist()">test connection</button>
       </div>
       <button class="btn" data-td-btn="sync now" onclick="STORE.syncTodoist()">sync now</button>
       <div class="td-last" id="td-last">never synced</div>
-      <div class="data-warn" style="margin-top:12px">
-        Sync only ever <em style="color:var(--tx);font-style:normal">adds</em>. Items missing on one
-        side are created on the other; nothing is deleted or completed in either place.
-      </div>
 
-      <div class="sec">Data</div>
-      <div class="data-warn">All data is stored locally on this device. Clearing browser data will permanently remove it.</div>
+      <div class="sec"><span>Data</span></div>
       <div class="setting-row">
         <span class="setting-lbl">Reset cart counter</span>
         <button class="setting-btn danger" onclick="STORE.resetCart()">reset</button>
@@ -981,91 +1035,11 @@
         <button class="setting-btn danger" onclick="STORE.confirmClearList()">clear</button>
       </div>
       <div class="setting-row">
-        <span class="setting-lbl">Clear history</span>
+        <span class="setting-lbl">Clear trip history</span>
         <button class="setting-btn danger" onclick="STORE.clearHistory()">clear</button>
       </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Reload page</span>
-        <button class="setting-btn" onclick="STORE.reload()">reload</button>
-      </div>
     </div>
-  </div>
-</section>
 
-
-<!-- ══════════════════════════════════════════════════════════════════════════
-     SETTINGS
-     ═════════════════════════════════════════════════════════════════════════ -->
-<section class="view ns-set" id="view-settings" aria-label="Settings">
-  <div id="s-home" class="scr on">
-    <div class="h-top">
-      <div class="h-label">do · log · plan · store</div>
-      <div class="h-logo">ROOT<em>.</em></div>
-    </div>
-    <div class="cnt">
-
-      <div class="sec">App settings</div>
-      <button class="jump" style="--jc:#A78BFA" onclick="SET.jump('do')">
-        <svg><use href="#tab-do"/></svg>
-        <span class="jump-body">
-          <span class="jump-t">DO</span>
-          <span class="jump-s">daily resets · travel lists · todoist close-on-finish</span>
-        </span>
-        <span class="jump-arr">›</span>
-      </button>
-      <button class="jump" style="--jc:#5cdb7d" onclick="SET.jump('log')">
-        <svg><use href="#tab-log"/></svg>
-        <span class="jump-body">
-          <span class="jump-t">LOG</span>
-          <span class="jump-s">stored days · export / import · delete all</span>
-        </span>
-        <span class="jump-arr">›</span>
-      </button>
-      <button class="jump" style="--jc:#5e8cff" onclick="SET.jump('plan')">
-        <svg><use href="#tab-plan"/></svg>
-        <span class="jump-body">
-          <span class="jump-t">PLAN</span>
-          <span class="jump-s">todoist token · project mapping</span>
-        </span>
-        <span class="jump-arr">›</span>
-      </button>
-      <button class="jump" style="--jc:#e0a060" onclick="SET.jump('store')">
-        <svg><use href="#tab-store"/></svg>
-        <span class="jump-body">
-          <span class="jump-t">STORE</span>
-          <span class="jump-s">budget · todoist sync · clear list &amp; history</span>
-        </span>
-        <span class="jump-arr">›</span>
-      </button>
-
-      <div class="sec">Backup</div>
-      <div class="data-warn">
-        One file with every key the four apps keep on this device — checklists, logged days,
-        the plan queue, the shopping list and history, and each Todoist setting. Keep a copy
-        before clearing browser data or moving to a new phone.
-      </div>
-      <button class="btn" onclick="SET.exportAll()">↑ Export everything</button>
-      <button class="btn btn-2" onclick="SET.pickImport()">↓ Restore from file</button>
-      <input type="file" id="set-import-file" accept="application/json,.json" class="hidden" onchange="SET.importAll(event)">
-      <div class="data-warn" style="margin-top:8px">
-        Restoring overwrites any key present in the file and leaves the rest alone,
-        then reloads so every view re-reads its data.
-      </div>
-
-      <div class="sec">Storage</div>
-      <div id="set-storage"></div>
-
-      <div class="sec">App</div>
-      <div class="data-warn">
-        Swipe left and right to move between views, or use the bar below.
-        Everything runs offline against this device's own storage — nothing is uploaded
-        except the Todoist calls each app makes on your instruction.
-      </div>
-      <div class="setting-row">
-        <span class="setting-lbl">Reload app</span>
-        <button class="setting-btn" onclick="SET.reload()">reload</button>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -1073,7 +1047,14 @@
 </div><!-- /#views -->
 
 
-<!-- ═══ TAB BAR ══════════════════════════════════════════════════════════════ -->
+<!-- ═══ FLOATING CHROME ══════════════════════════════════════════════════════ -->
+<button class="nav-arrow" id="nav-prev" aria-label="Previous tab">
+  <svg aria-hidden="true"><use href="#ico-chev-l"/></svg>
+</button>
+<button class="nav-arrow" id="nav-next" aria-label="Next tab">
+  <svg aria-hidden="true"><use href="#ico-chev-r"/></svg>
+</button>
+
 <nav id="nav" role="tablist" aria-label="Apps">
   <button class="tab-b" role="tab" aria-selected="false" aria-label="DO">
     <svg aria-hidden="true"><use href="#tab-do"/></svg><span class="tb-l">do</span>
@@ -1099,6 +1080,18 @@
      app's namespace class, so the scoped CSS and $id lookups still find it. -->
 
 <div id="toast"></div>
+
+<!-- PLAN — section picker -->
+<div class="ns-plan">
+  <div class="sheet-back" id="proj-back" onclick="PLAN.closeProj()"></div>
+  <div class="sheet" id="proj-sheet">
+    <div class="sheet-head">
+      <span class="sheet-ttl"><span class="sheet-dot"></span><span id="proj-sheet-name">—</span></span>
+      <button class="sheet-close" onclick="PLAN.closeProj()">close</button>
+    </div>
+    <div class="sub-wrap" id="proj-sheet-subs"></div>
+  </div>
+</div>
 
 <!-- LOG — delete-everything modal -->
 <div class="ns-log">
@@ -1201,7 +1194,8 @@
 
 </div>
 
-<!-- shell first: it defines Shell.toast, which every module uses while booting -->
+<!-- shell first: it defines Creds, Theme and Shell.toast, which the modules use
+     while booting -->
 <script src="js/shell.js"></script>
 <script src="js/do.js"></script>
 <script src="js/log.js"></script>

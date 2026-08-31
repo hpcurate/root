@@ -1,11 +1,17 @@
 /* ── PLAN ─────────────────────────────────────────────────────────────────────
    Queue up tasks by project/section, then push the batch to Todoist.
-   Original rules from plan/index.html, scoped under .ns-plan. */
 
-.ns-plan .scr{display:none;min-height:100%;padding-bottom:34px}
+   Layout reworked for the merge: the six projects were six stacked accordions
+   that pushed the queue below the fold and left a lot of dead space on a wide
+   window. They are a tile grid now, and picking a section happens in a sheet —
+   the same gesture STORE already uses — so the queue stays in view throughout.
+   Settings moved out to the settings tab; the mapping rules below still apply
+   there, because that panel carries .ns-plan. */
+
+.ns-plan .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-plan .scr.on{display:block}
 .ns-plan #s-home{padding-top:env(safe-area-inset-top)}
-.ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--bd);
+.ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:14px;z-index:10}
 .ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
@@ -15,48 +21,58 @@
 
 /* ── Home header ── */
 .ns-plan .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px;padding-right:80px}
-.ns-plan .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:28px}
+.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-plan .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:22px}
 .ns-plan .h-logo em{color:var(--y);font-style:normal}
-/* Was injected from JS on every home render; it is plain markup now. */
-.ns-plan .h-settings-btn{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
-                  background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
-                  cursor:pointer;letter-spacing:.06em;padding:4px 0;transition:color .12s;z-index:11}
-.ns-plan .h-settings-btn:active{color:var(--y)}
 
 /* ── Content ── */
 .ns-plan .cnt{padding:18px}
 .ns-plan .f{margin-bottom:17px}
 .ns-plan .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
 .ns-plan input[type=text],.ns-plan input[type=password],.ns-plan textarea{
-  width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+  width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx);font:400 15px/1 var(--mono);padding:12px 13px;outline:none;
   -webkit-appearance:none;transition:border-color .12s}
 .ns-plan input:focus,.ns-plan textarea:focus{border-color:var(--y)}
 .ns-plan textarea{resize:none;line-height:1.65;min-height:72px}
 
-/* ── Project type cards ── */
-.ns-plan .projects{padding:0 18px}
-.ns-plan .proj-card{background:var(--s1);border:1px solid var(--bd);border-radius:4px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
-.ns-plan .proj-card.open{border-color:var(--proj-color,var(--y))}
-.ns-plan .proj-header{display:flex;align-items:center;gap:12px;padding:16px 15px;cursor:pointer;user-select:none}
-.ns-plan .proj-header:active{background:var(--s2)}
-.ns-plan .proj-dot{width:8px;height:8px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0;transition:background .15s}
-.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;flex:1}
-.ns-plan .proj-arrow{font:400 11px/1 var(--mono);color:var(--mu);transition:transform .15s}
-.ns-plan .proj-card.open .proj-arrow{transform:rotate(90deg);color:var(--proj-color,var(--y))}
-.ns-plan .proj-subs{display:flex;flex-wrap:wrap;gap:6px;padding:0 15px;
-           max-height:0;overflow:hidden;opacity:0;pointer-events:none;
-           padding-bottom:0;transition:max-height .2s ease,opacity .15s ease,padding-bottom .2s ease}
-.ns-plan .proj-card.open .proj-subs{max-height:300px;opacity:1;pointer-events:auto;padding-bottom:14px}
-.ns-plan .sub-btn{background:var(--s2);border:1px solid var(--bd);border-radius:3px;
-         color:var(--mu);font:400 11px/1 var(--mono);letter-spacing:.06em;
-         padding:10px 13px;cursor:pointer;transition:all .1s;white-space:nowrap}
-.ns-plan .sub-btn:active{background:var(--yd);border-color:var(--y);color:var(--y)}
+/* ── Row label used on the home screen ── */
+.ns-plan .row-lbl{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  padding-bottom:8px;margin:0 0 12px;border-bottom:var(--bw) solid var(--bd)}
+.ns-plan .row-lbl .muted-act{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
+  letter-spacing:.08em;cursor:pointer;padding:2px 0;text-transform:uppercase}
+.ns-plan .row-lbl .muted-act:active{color:var(--re)}
+.ns-plan .row-lbl em{color:var(--mu);font-style:normal;font:400 10px/1 var(--mono);
+  letter-spacing:.06em;text-transform:none}
+
+/* ── Project tiles ── */
+.ns-plan .projects{padding:0 18px;margin-bottom:26px}
+.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ns-plan .proj-tile{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:15px 14px 13px;cursor:pointer;text-align:left;user-select:none;
+  display:flex;flex-direction:column;gap:9px;min-height:92px;
+  transition:border-color .14s,background .14s}
+.ns-plan .proj-tile:active{background:var(--s2)}
+.ns-plan .proj-tile.has{border-color:var(--proj-color)}
+.ns-plan .proj-head{display:flex;align-items:center;gap:9px}
+.ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
+.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+.ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
+.ns-plan .proj-meta em{color:var(--proj-color);font-style:normal}
+/* a project with nothing mapped says so here rather than failing at send time */
+.ns-plan .proj-meta .unmapped{color:var(--or)}
+
+/* ── Section chips (inside the sheet) ── */
+.ns-plan .sub-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.ns-plan .sub-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;
+  padding:12px 14px;cursor:pointer;transition:all .1s;white-space:nowrap}
+.ns-plan .sub-btn:active{background:var(--yd);border-color:var(--sheet-color,var(--y));color:var(--sheet-color,var(--y))}
 
 /* ── Options (scale buttons) ── */
 .ns-plan .opts{display:flex;flex-wrap:wrap;gap:5px}
-.ns-plan .opt-b{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+.ns-plan .opt-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--mu);font:400 12px/1 var(--mono);letter-spacing:.05em;
        padding:11px 12px;cursor:pointer;transition:all .1s;flex:1;text-align:center;min-width:0;white-space:nowrap}
 .ns-plan .opt-b.on{background:var(--yd);border-color:var(--y);color:var(--y)}
@@ -64,7 +80,7 @@
 
 /* ── Priority buttons ── */
 .ns-plan .prio-row{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-.ns-plan .prio-b{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+.ns-plan .prio-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
         color:var(--mu);font:400 11px/1 var(--mono);letter-spacing:.05em;
         padding:12px 6px;cursor:pointer;text-align:center;transition:all .1s}
 .ns-plan .prio-b.on.p1{background:rgba(224,96,96,.12);border-color:var(--re);color:var(--re)}
@@ -74,84 +90,82 @@
 
 /* ── Toggle (subtasks) ── */
 .ns-plan .tg2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.ns-plan .tg2-b{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+.ns-plan .tg2-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--mu);font:400 12px/1 var(--mono);letter-spacing:.08em;
        padding:12px;cursor:pointer;text-align:center;transition:all .1s}
 .ns-plan .tg2-b.on{background:var(--yd);border-color:var(--y);color:var(--y)}
 
 /* ── Subtask input ── */
 .ns-plan .st-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:6px}
-.ns-plan .st-add{background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-plan .st-add{background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
         font:700 11px/1 var(--mono);letter-spacing:.06em;padding:12px 14px;cursor:pointer;white-space:nowrap}
 .ns-plan .st-add:active{opacity:.82}
 .ns-plan .st-list{display:flex;flex-direction:column;gap:5px;margin-top:4px}
-.ns-plan .st-item{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+.ns-plan .st-item{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
          padding:9px 12px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
 .ns-plan .st-item-txt{font:400 12px/1 var(--mono);color:var(--tx)}
 .ns-plan .st-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:2px}
 .ns-plan .st-del:active{color:var(--re)}
 
 /* ── Form context banner ── */
-.ns-plan .form-ctx{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
-          padding:10px 13px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
-.ns-plan .form-ctx-dot{width:7px;height:7px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
-.ns-plan .form-ctx-txt{font:400 10px/1 var(--mono);letter-spacing:.08em;color:var(--mu)}
+.ns-plan .form-ctx{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+          padding:11px 13px;margin-bottom:20px;display:flex;align-items:center;gap:9px}
+.ns-plan .form-ctx-dot{width:8px;height:8px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
+.ns-plan .form-ctx-txt{font:400 11px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
 .ns-plan .form-ctx-txt em{color:var(--tx);font-style:normal}
 
 /* ── Buttons ── */
-.ns-plan .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-plan .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
      font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
      padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-plan .btn:active{opacity:.82}
-.ns-plan .btn-ghost{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+.ns-plan .btn-ghost{background:var(--s2);border:var(--bw) solid var(--bd);color:var(--tx);
            font:400 11px/1 var(--mono);letter-spacing:.06em}
 
 /* ── Queue ── */
-.ns-plan .queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.ns-plan .queue-title{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y)}
-.ns-plan .queue-clear{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.08em;cursor:pointer;padding:2px 0}
-.ns-plan .queue-clear:active{color:var(--re)}
-.ns-plan .q-item{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
-        padding:11px 13px;margin-bottom:6px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.ns-plan .queue{padding:0 18px}
+.ns-plan .q-item{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+        padding:13px 14px;margin-bottom:7px;display:grid;grid-template-columns:auto 1fr auto;
+        gap:11px;align-items:start;transition:border-color .14s}
+.ns-plan .q-dot{width:8px;height:8px;border-radius:50%;background:var(--q-color,var(--mu));margin-top:4px}
 .ns-plan .q-item-body{min-width:0}
-.ns-plan .q-item-name{font:400 13px/1.4 var(--mono);color:var(--tx);margin-bottom:5px;word-break:break-word}
+.ns-plan .q-item-name{font:400 13px/1.4 var(--mono);color:var(--tx);margin-bottom:7px;word-break:break-word}
 .ns-plan .q-item-meta{display:flex;gap:5px;flex-wrap:wrap}
 .ns-plan .q-pill{font:400 8px/1 var(--mono);letter-spacing:.08em;background:var(--s2);
-        border-radius:2px;padding:3px 6px;color:var(--mu);white-space:nowrap}
-.ns-plan .q-pill.hl{color:var(--y)}
-.ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:2px 0 2px 4px;flex-shrink:0}
+        border-radius:2px;padding:4px 7px;color:var(--mu);white-space:nowrap}
+.ns-plan .q-pill.hl{color:var(--q-color,var(--y))}
+.ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:2px 0 2px 4px}
 .ns-plan .q-del:active{color:var(--re)}
-.ns-plan .queue-empty{color:var(--mu);font:400 11px/1.6 var(--mono);text-align:center;padding:30px 0}
+.ns-plan .queue-empty{color:var(--mu);font:400 11px/1.7 var(--mono);text-align:center;padding:34px 20px;
+        background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r2)}
 
-/* ── Send button ── */
-.ns-plan .send-wrap{position:sticky;bottom:12px;padding:0 18px;margin-top:4px}
-.ns-plan .btn-send{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+/* ── Send button ──────────────────────────────────────────────────────────────
+   Sticky, and parked clear of the floating tab pill rather than under it. */
+.ns-plan .send-wrap{position:sticky;padding:0 18px;margin-top:14px;
+  bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
+.ns-plan .btn-send{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
           font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
           padding:16px;cursor:pointer;transition:opacity .15s;
-          box-shadow:0 4px 24px rgba(167,139,250,.25)}
+          box-shadow:0 6px 26px -6px rgba(0,0,0,.55)}
 .ns-plan .btn-send:active{opacity:.82}
 .ns-plan .btn-send:disabled{opacity:.3;cursor:not-allowed}
 
-/* ── Settings ── */
-.ns-plan .settings-status{font:400 10px/1.5 var(--mono);letter-spacing:.06em;padding:10px 13px;border-radius:3px;margin-bottom:14px}
-.ns-plan .settings-status.ok{background:rgba(92,219,125,.08);border:1px solid rgba(92,219,125,.25);color:var(--gr)}
-.ns-plan .settings-status.err{background:rgba(224,96,96,.08);border:1px solid rgba(224,96,96,.25);color:var(--re)}
-.ns-plan .settings-status.idle{background:var(--s1);border:1px solid var(--bd);color:var(--mu)}
-.ns-plan .map-row{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
-         padding:12px 13px;margin-bottom:6px;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
-.ns-plan .map-key{font:700 11px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx);min-width:70px}
-.ns-plan .map-val{font:400 10px/1 var(--mono);color:var(--mu);letter-spacing:.06em;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
-.ns-plan .map-val.set{color:var(--y)}
-.ns-plan select{width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+/* ── Settings (rendered inside the settings tab) ── */
+.ns-plan .settings-status{font:400 10px/1.5 var(--mono);letter-spacing:.06em;padding:10px 13px;border-radius:var(--r1);margin-bottom:14px}
+.ns-plan .settings-status.ok{background:rgba(92,219,125,.08);border:var(--bw) solid rgba(92,219,125,.28);color:var(--gr)}
+.ns-plan .settings-status.err{background:rgba(224,96,96,.08);border:var(--bw) solid rgba(224,96,96,.28);color:var(--re)}
+.ns-plan .settings-status.idle{background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu)}
+.ns-plan select{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--tx);font:400 13px/1 var(--mono);padding:11px 12px;outline:none;
        -webkit-appearance:none;cursor:pointer}
 .ns-plan select:focus{border-color:var(--y)}
 .ns-plan .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
-     margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
-.ns-plan hr{border:none;border-top:1px solid var(--bd);margin:6px 0 18px}
+     margin:20px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd)}
+.ns-plan .sec:first-child{margin-top:0}
+.ns-plan hr{border:none;border-top:var(--bw) solid var(--bd);margin:6px 0 18px}
 
 /* ── Sending state ── */
-.ns-plan .send-log{background:var(--s1);border:1px solid var(--bd);border-radius:3px;
+.ns-plan .send-log{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           padding:13px;font:400 11px/1.8 var(--mono);color:var(--mu);
           max-height:240px;overflow-y:auto;margin-bottom:14px}
 .ns-plan .send-log .ok{color:var(--gr)}

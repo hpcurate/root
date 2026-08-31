@@ -4,7 +4,7 @@
    lives outside the slide track (a transformed ancestor would trap a fixed
    overlay), but it is still wrapped in .ns-log so these rules reach it. */
 
-.ns-log .scr{display:none;min-height:100%;padding-bottom:34px}
+.ns-log .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-log .scr.on{display:block}
 .ns-log #s-home{padding-top:env(safe-area-inset-top)}
 .ns-log .hd{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--bd);
@@ -142,7 +142,7 @@
 .ns-log .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
      margin:24px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
 .ns-log hr{border:none;border-top:1px solid var(--bd);margin:6px 0 18px}
-.ns-log .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-log .btn{width:100%;background:var(--y);border:none;border-radius:3px;color:var(--on-y);
      font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
      padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-log .btn:active{opacity:.82}
@@ -167,7 +167,7 @@
 .ns-log .out-pre{background:var(--s1);border:1px solid var(--bd);border-radius:3px;padding:13px;
          font:400 11px/1.75 var(--mono);color:#777;white-space:pre;overflow-x:auto;
          max-height:280px;overflow-y:auto;margin-bottom:14px}
-.ns-log .btn-share{width:100%;background:var(--y);border:none;border-radius:3px;color:#0e0e0e;
+.ns-log .btn-share{width:100%;background:var(--y);border:none;border-radius:3px;color:var(--on-y);
            font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
            padding:16px;cursor:pointer;margin-bottom:8px;transition:opacity .15s}
 .ns-log .btn-share:active{opacity:.82}
