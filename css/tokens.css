@@ -48,14 +48,26 @@
 /* ── Shared toast ─────────────────────────────────────────────────────────────
    One toast for the whole app instead of four identical ones. Every module's
    toast() forwards here, so messages never stack or fight over an element.
-   It sits above the floating nav. */
+   It sits above the floating nav.
+
+   It fades rather than sliding off-screen: the old hide was a fixed
+   translateY(140px), which is shorter than the resting offset once
+   env(safe-area-inset-bottom) is non-zero, so on a phone with a home indicator
+   a sliver of the pill stayed parked at the bottom of the screen for good.
+   visibility (switched only after the fade) makes the hidden state absolute
+   however the offsets work out. */
 #toast{
   position:fixed;
   bottom:calc(var(--nav-fh) + var(--nav-gap) + 22px + env(safe-area-inset-bottom));
   left:50%;
-  transform:translateX(-50%) translateY(140px);
+  transform:translateX(-50%) translateY(8px);
+  opacity:0;visibility:hidden;
   background:var(--y);color:var(--on-y);
   font:700 11px/1 var(--mono);letter-spacing:.08em;padding:10px 18px;border-radius:var(--r1);
-  transition:transform .18s ease;z-index:120;pointer-events:none;white-space:nowrap;max-width:84vw;
+  transition:opacity .24s ease,transform .24s ease,visibility 0s linear .24s;
+  z-index:120;pointer-events:none;white-space:nowrap;max-width:84vw;
   overflow:hidden;text-overflow:ellipsis;box-shadow:var(--shadow-lift)}
-#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;visibility:visible;
+  transition:opacity .16s ease,transform .16s ease,visibility 0s}
