@@ -164,8 +164,13 @@
 .ns-log .out-tag{font:400 9px/1 var(--mono);letter-spacing:.08em;padding:calc(5px * var(--dens)) calc(9px * var(--dens));border-radius:var(--r1)}
 .ns-log .out-tag.ok{background:rgba(92,219,125,.1);color:var(--gr);border:var(--bw) solid rgba(92,219,125,.3)}
 .ns-log .out-tag.no{background:rgba(60,60,60,.15);color:var(--mu);border:var(--bw) solid var(--bd)}
+/* white-space:pre means the note is read by scrolling sideways, which the shell's
+   swipe handler already steps aside for — but #track claims pan-y, and gestures
+   intersect touch-action up the ancestor chain, so pan-x has to be handed back
+   here or the pane is unscrollable by finger and the swipe declines to act too. */
 .ns-log .out-pre{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(13px * var(--dens));
          font:400 11px/1.75 var(--mono);color:#777;white-space:pre;overflow-x:auto;
+         touch-action:pan-x pan-y;
          max-height:280px;overflow-y:auto;margin-bottom:14px}
 .ns-log .btn-share{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
            font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
@@ -228,6 +233,7 @@
 .ns-log .rep-btn span{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.08em}
 .ns-log .rep-pre{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(13px * var(--dens));
          font:400 11px/1.75 var(--mono);color:#777;white-space:pre;overflow-x:auto;
+         touch-action:pan-x pan-y;
          max-height:280px;overflow-y:auto;margin-bottom:10px;margin-top:14px}
 .ns-log .rep-actions{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens));margin-bottom:20px}
 .ns-log .rep-act-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);

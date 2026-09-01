@@ -259,6 +259,16 @@ drops a key is worse than one carrying a few bytes too many.
   `#track input,textarea,[contenteditable]{touch-action:auto}` gives them back
   inside a field. Without it a sideways drag steals caret placement and the paste
   callout, which made the Todoist key impossible to paste on a phone.
+- **Anything inside `#track` that scrolls sideways must say so itself.** A
+  gesture is resolved by intersecting `touch-action` up the ancestor chain, so
+  the track's `pan-y` reaches every descendant and `overflow-x:auto` alone buys a
+  scroller that works with a mouse and is dead under a finger. Every such element
+  needs `touch-action:pan-x pan-y` of its own. Four have it: DO's `.tabs`, the
+  settings `.set-seg`, and LOG's `.out-pre` / `.rep-pre`.
+- **Anything built from Config has no fixed width.** A strip drawn for the two
+  entries it shipped with breaks the moment the editor adds a third — and the
+  editor is the whole point of 2.0. Wrap it, or scroll it; DO's tab strip was
+  neither and lost its tabs off the right edge.
 - **The toast fades, it does not slide.** A fixed `translateY` is shorter than the
   resting offset once `env(safe-area-inset-bottom)` is non-zero, which parked a
   sliver of the pill at the bottom of a phone screen permanently.
@@ -320,6 +330,50 @@ changelog entry below.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.0.1 — 2026-09-01 — the horizontal scrollers inside the track
+
+Reported as "my tabs are no longer centred and some I can't even access", blamed
+on the swipe. The swipe was implicated, but it was the CSS half of it.
+
+**DO's home tab strip could not hold more than the two tabs it shipped with.**
+2.0 made `do.tabs` editable and built the strip from Config, but `.ns-do .tabs`
+was still `inline-flex` with no shrink and no overflow — drawn for exactly
+`daily` / `other`. Add a third or fourth tab in Settings and the strip outgrows
+`.h-logo-row`, which is `flex-wrap:wrap`, so it drops onto its own line (there
+goes the alignment against the logo) and runs off the right edge with no way to
+reach what is past it. It now shrinks to the row (`min-width:0; max-width:100%`)
+and scrolls sideways, `.tab` chips no longer squash (`flex:0 0 auto;
+white-space:nowrap`), and `DO.positionGlider()` nudges the strip's own
+`scrollLeft` so the active tab is never off the edge — its own `scrollLeft`, not
+`scrollIntoView()`, which would drag the whole slide back to the top and break
+"every tab remembers where you left it". The glider's inset was `3px` against a
+`calc(3px * var(--dens))` padding; it is a `--dens` calc now too.
+
+**`#track{touch-action:pan-y}` had frozen every horizontal scroller inside it.**
+A gesture is resolved by intersecting `touch-action` up the ancestor chain, so
+the track's claim on horizontal reaches every descendant. 2.0 wrote the one
+exemption it knew it needed (`#track input,textarea,[contenteditable]`) and
+nothing else, which left three scrollers that work with a mouse and are dead
+under a finger: the settings segmented control — the very thing added in 2.0
+because nine panels no longer fit — and LOG's two `.md` preview panes, which
+`js/shell.js` explicitly steps aside for in `scrollsSideways()`. Between the two
+halves the gesture did nothing at all: the shell declined it and the browser was
+not allowed to act on it. All four scrollers now state
+`touch-action:pan-x pan-y` for themselves, and the rule in `shell.css` says why,
+because the next one added will hit the same wall.
+
+The swipe interaction falls out of the fix rather than needing one: once the
+strip genuinely overflows, `scrollsSideways()` sees it and refuses the app-level
+swipe, so dragging the tabs moves the tabs instead of sliding the app to LOG.
+
+**Verified** in jsdom (§7): all eight modules load with no console errors, the
+strip renders the shipped two tabs, grows to five through `Config.set`, keeps its
+glider across the re-render, activates a far tab, hides itself at one tab, and
+restores on reset. **Not verified** — jsdom does not lay out or paint, so none of
+the CSS above has been seen. The overflow, the wrap and the scroll are exactly
+the kind of thing that only a real viewport proves; open DO with four or five
+tabs on a phone before trusting this entry.
 
 ### 2.0 — 2026-09-01 — the customisation rewrite
 

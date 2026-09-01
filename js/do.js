@@ -208,6 +208,20 @@ function positionGlider() {
   if (!active || !glider) return;
   glider.style.width = active.offsetWidth + 'px';
   glider.style.transform = `translateX(${active.offsetLeft}px)`;
+  revealTab(active);
+}
+
+/* Enough tabs and the strip scrolls, so the selected one can be off its edge —
+   on a fresh load as much as after a tap. The strip's own scrollLeft is nudged
+   rather than scrollIntoView(): that would also scroll the slide, and each slide
+   is meant to stay exactly where you left it. offsetLeft and scrollLeft share an
+   origin here (the strip is the glider's offsetParent), so the maths is direct. */
+function revealTab(active) {
+  const bar = $id('home-tabs');
+  if (!bar || bar.scrollWidth <= bar.clientWidth) return;
+  const left = active.offsetLeft, right = left + active.offsetWidth;
+  if (left < bar.scrollLeft) bar.scrollLeft = left;
+  else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth;
 }
 
 function listStats(list) {

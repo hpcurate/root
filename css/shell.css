@@ -38,7 +38,14 @@ body{
 #track.dragging{transition:none;will-change:transform}
 /* pan-y on the track hands horizontal gestures to the swipe handler, which is
    wrong inside a text field: there a sideways drag is caret placement and text
-   selection, and the browser needs it back to offer the paste callout. */
+   selection, and the browser needs it back to offer the paste callout.
+
+   The same trap catches anything inside the track that scrolls sideways. A
+   gesture is resolved by intersecting touch-action up the ancestor chain, so
+   overflow-x:auto on its own buys a scroller that works with a mouse and is dead
+   under a finger — every such element must state touch-action:pan-x pan-y for
+   itself. Four do: DO's home tab strip, the settings segmented control and LOG's
+   two .md preview panes. */
 #track input,#track textarea,#track [contenteditable]{touch-action:auto}
 .view{
   flex:0 0 100%;width:100%;height:100%;

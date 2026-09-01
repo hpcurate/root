@@ -26,13 +26,30 @@
 .ns-do .h-logo{font:800 48px/1 var(--head);letter-spacing:-.02em}
 .ns-do .h-logo em{color:var(--y);font-style:normal}
 
-/* ── Daily / Other tab selector ── */
-.ns-do .tabs{position:relative;display:inline-flex;background:var(--s1);
-      border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:calc(3px * var(--dens))}
-.ns-do .tab-glider{position:absolute;top:3px;bottom:3px;left:0;width:0;background:var(--y);
+/* ── Home tab selector ────────────────────────────────────────────────────────
+   The strip is built from Config, so its width follows however many tabs the
+   user has defined — it can no longer be drawn for the two it shipped with. It
+   shrinks to the row rather than running off the screen edge, and scrolls
+   sideways once the chips stop fitting, so a fifth tab is still reachable.
+
+   touch-action is what makes that scroll work at all: the browser resolves a
+   gesture by intersecting touch-action up the ancestor chain, and #track claims
+   pan-y, so without handing pan-x back here the strip is scrollable by mouse and
+   frozen under a finger. Shell's scrollsSideways() sees the same overflow and
+   declines the app-level swipe, so a drag on the strip moves the strip instead
+   of sliding the whole app to LOG. */
+.ns-do .tabs{position:relative;display:flex;background:var(--s1);
+      border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:calc(3px * var(--dens));
+      flex:0 1 auto;min-width:0;max-width:100%;
+      overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.ns-do .tabs::-webkit-scrollbar{display:none}
+.ns-do .tab-glider{position:absolute;top:calc(3px * var(--dens));bottom:calc(3px * var(--dens));
+            left:0;width:0;background:var(--y);
             border-radius:var(--r2);z-index:1;
             transition:transform .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1)}
 .ns-do .tab{position:relative;z-index:2;background:none;border:none;cursor:pointer;
+     flex:0 0 auto;white-space:nowrap;
      font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
      color:var(--mu);padding:calc(9px * var(--dens)) calc(15px * var(--dens));border-radius:var(--r2);transition:color .25s}
 .ns-do .tab.active{color:var(--on-y)}

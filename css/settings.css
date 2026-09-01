@@ -16,9 +16,15 @@
 
 /* ── Segmented control ────────────────────────────────────────────────────────
    Nine panels now, so it scrolls sideways and the active chip is scrolled into
-   view by SET.panel() rather than left off the edge. */
+   view by SET.panel() rather than left off the edge.
+
+   touch-action:pan-x is not optional here. #track claims pan-y for the app
+   swipe, and a gesture is resolved by intersecting touch-action up the ancestor
+   chain, so overflow-x:auto alone gives a strip that scrolls under a mouse and
+   does nothing at all under a finger. */
 .set-seg{display:flex;gap:6px;padding:0 18px 4px;overflow-x:auto;scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;margin-bottom:16px;scroll-padding:0 18px}
+  -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+  margin-bottom:16px;scroll-padding:0 18px}
 .set-seg::-webkit-scrollbar{display:none}
 .seg-b{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
   color:var(--mu);font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
