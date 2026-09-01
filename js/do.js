@@ -19,41 +19,32 @@ const $one  = sel => document.querySelector(SCOPE + sel);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
-// Daily lists mirror system_tool_do.md. Glyph prefixes match the app's existing
-// visual language — the words after them are the file's, verbatim.
-const ROUTINES = {
-  routinep1: { label: 'Routine P1', items: ['≈ shower','≋ teeth','◡ cream','○ breakfast p1','✚ meds','↑ walk kamo','▲ gym'] },
-  routinep2: { label: 'Routine P2', items: ['○ breakfast p2','≡ morning log','≡ log meds','✎ journal entry'] },
-  routinep3: { label: 'Routine P3', items: ['◐ lunch p1','✎ journal entry','✦ feed kamo','≈ fill kamo water','◐ lunch p2','↑ kamo walk'] },
-  routinep4: { label: 'Routine P4', items: ['≡ evening log','✎ journal entry','▤ plan blocks','▦ schedule','○ cleanup / dishes'] },
-  cooldown:  { label: 'Cooldown',   items: ['▭ bed out','≈ fill water','≋ teeth','◇ tongue','◡ cream'] },
-  cleanup:   { label: 'Cleanup',    items: ['○ dishes','✿ plants','⟳ vacuum','⊞ tidy up','✕ trash/recycle'] },
-  deepclean: { label: 'Deep Clean', items: ['≋ dusting','⟳ vacuum','▧ mop','▭ surfaces','≈ bathroom sink','○ toilet','✕ trash'] },
-};
+/* ── Content ──────────────────────────────────────────────────────────────────
+   The routines, the packing categories and the tab layout used to be three
+   literals in this file. They live in js/config.js now and are editable from
+   Settings → content; these four are refreshed from it on boot and again
+   whenever an edit lands. They stay module-level bindings rather than a call at
+   every use site, because the rest of the file reads them dozens of times per
+   render. */
+let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS;
 
-// Travel: master categories. Every item is a counter that starts at 1.
-// A new checklist is built by picking which categories to include.
-const TRAVEL_CATEGORIES = {
-  clothes:     ['shirts','boxers','short socks','long socks','sweatpant','pants','shorts','sweater','swim trunks','rain coat','belt','jacket','packing cubes'],
-  toiletries:  ['toothbrush','toothbrush charger','toothpaste','face cream','eye cream','soap tube','facewash tube','shampoo tube','deodorant','gel','towel','nail care','nail file','nail cutter','talc','wash cloth','hygiene wipes','razor','razor charger'],
-  meds:        ['lamotrigine','ritalin','caffeine pill','vitamins','biseptine','disenfectant','cottons','sunscreen','band aids'],
-  electronics: ['phone','watch','headset','earphones','portable speaker','usb a plug','usb a to c','usb c to c','usb a to micro','watch cable','charge block','usb a fast power','mac','mac charger','laptop','laptop charger','laptop pounch','battery bank small','battery bank big','controller','headphones (dj)'],
-  kamo:        ['toys','croquette bag','treats','black leash','long leash','towel','duvet','frontale','harness','poop bag','bowls','cold mat','kamo id'],
-  essentials:  ['id','wallet','tissues','chapstick','ecig','ecig juice','water bottle','slippers','sunglasses','extra shoes','hand sanitizer','passport'],
-  rave:        ['rave pants','earplugs','stickers','big satchel','rave shirt','bucket hat','spoon','pill','vacuum','polaroid','usb','dummy charger'],
-  festival:    ['tent','sardines','party tent','chairs','table','matress','pillows','duvet','bedsheet','cart','cart screws','key','tarp','elastic cables','camelback','water pouch','boots','electric pump','wet wipes','toilet paper','trash bags','lighter','duct tape','rubber mallet'],
-};
-const CATEGORY_ORDER = ['clothes','toiletries','meds','electronics','kamo','essentials','rave','festival'];
+function readConfig() {
+  ROUTINES          = Config.get('do.routines');
+  TRAVEL_CATEGORIES = Config.get('do.travelCategories');
+  CATEGORY_ORDER    = Config.get('do.categoryOrder').filter(c => TRAVEL_CATEGORIES[c]);
+  // any category added in the editor but missing from the order still shows
+  Object.keys(TRAVEL_CATEGORIES).forEach(c => { if (!CATEGORY_ORDER.includes(c)) CATEGORY_ORDER.push(c); });
+  TABS = Config.get('do.tabs');
+}
+readConfig();
+
 const TRAVEL_KEY = 'travel_state_v2';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const SK = 'do_' + TODAY;
 
-// Which routines live under each home tab. Travel is shown under "other".
-const TAB_ROUTINES = {
-  daily: ['routinep1', 'routinep2', 'routinep3', 'routinep4', 'cooldown', 'cleanup'],
-  other: ['deepclean'],
-};
+const routinesOfTab = id => (TABS.find(t => t.id === id) || TABS[0] || { routines: [] })
+  .routines.filter(k => ROUTINES[k]);
 
 let state = {};
 let currentRoutine = null;
@@ -156,11 +147,24 @@ function openRoutine(key) {
   go('checklist');
 }
 
-function renderHome() {
-  $id('date-label').textContent =
-    new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).toUpperCase();
+/* The home tab strip is built from Config too, so adding a tab in the editor
+   gives you a real tab here rather than an orphaned group of routines. */
+function renderTabs() {
+  const bar = $id('home-tabs');
+  if (!bar) return;
+  if (!TABS.some(t => t.id === currentTab)) currentTab = (TABS[0] || {}).id;
+  bar.innerHTML = `<div class="tab-glider" id="tab-glider"></div>` + TABS.map(t =>
+    `<button class="tab${t.id === currentTab ? ' active' : ''}" data-tab="${t.id}"
+             onclick="DO.setTab('${t.id}')">${t.label}</button>`).join('');
+  // a single tab is not a choice; hide the strip rather than show a lone chip
+  bar.classList.toggle('hidden', TABS.length < 2);
+  positionGlider();
+}
 
-  const routineCards = (TAB_ROUTINES[currentTab] || []).map(key => {
+function renderHome() {
+  $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();
+
+  const routineCards = routinesOfTab(currentTab).map(key => {
     const r = ROUTINES[key];
     const done = r.items.filter(i => state[key]?.[i]).length;
     const pct  = r.items.length ? Math.round((done / r.items.length) * 100) : 0;
@@ -172,8 +176,9 @@ function renderHome() {
     </div>`;
   }).join('');
 
+  // Travel lives on the last tab, wherever that ends up being
   let travelCard = '';
-  if (currentTab === 'other') {
+  if (currentTab === (TABS[TABS.length - 1] || {}).id) {
     const tStat = travelStatsAll();
     const tDone = tStat.done === tStat.total && tStat.total > 0;
     const n = travel.order.length;
@@ -806,12 +811,23 @@ function renderTodoistSettings() {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadState();
 loadTodoist();
+renderTabs();
 renderHome();
-positionGlider();
 // the glider is measured in px, so it has to be re-measured when the width moves
 window.addEventListener('resize', positionGlider);
 
-Shell.register('do', { onShow: positionGlider });
+/* A routine added, renamed or moved to another tab in Settings shows up here at
+   once. Progress is keyed by routine id, so an edit never loses today's ticks —
+   a routine whose id is gone simply stops being drawn. */
+Config.subscribe(path => {
+  if (path !== '*' && !String(path).startsWith('do.')) return;
+  readConfig();
+  Object.keys(ROUTINES).forEach(k => { if (!state[k]) state[k] = {}; });
+  renderTabs();
+  renderHome();
+});
+
+Shell.register('do', { onShow: () => { renderTabs(); positionGlider(); } });
 
 return { go, renderSettings: renderTodoistSettings,
          toggle, toggleAll, openRoutine, setTab, resetDay,

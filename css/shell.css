@@ -1,10 +1,14 @@
 /* ── Shell ────────────────────────────────────────────────────────────────────
-   The frame the four apps live in: a five-slide horizontal track, a floating
-   tab pill with a prev/next arrow either side, and the settings view that now
-   holds every app's settings.
+   The frame the four apps live in: a five-slide horizontal track, a floating tab
+   pill with a prev/next arrow either side, and the generic bottom sheet. The
+   settings view moved to css/settings.css in 2.0.
 
-   Loaded after the app stylesheets (and before themes.css) so its cross-cutting
-   rules — content width cap, responsive grids, hover states — win ties. */
+   Loaded after the app stylesheets (and before settings.css and themes.css) so
+   its cross-cutting rules — content width cap, responsive grids, hover states —
+   win ties.
+
+   The nav's three shapes — floating pill, bottom bar, hidden — are chosen by
+   [data-nav] in themes.css; what is here is the pill, which is the default. */
 
 html{height:100%}
 /* position:fixed rather than height:100dvh: on iOS the dynamic viewport unit
@@ -58,7 +62,7 @@ body{
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
   border:var(--bw) solid var(--bd);
   border-radius:var(--r-pill);
-  box-shadow:0 10px 34px -12px rgba(0,0,0,.65);
+  box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease}
 #nav.chrome-off{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
 
@@ -90,7 +94,7 @@ body{
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
   border:var(--bw) solid var(--bd);color:var(--tx);
   cursor:pointer;
-  box-shadow:0 10px 34px -12px rgba(0,0,0,.65);
+  box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease, color .15s ease, border-color .15s ease}
 .nav-arrow svg{width:17px;height:17px}
 #nav-prev{left:calc(14px + env(safe-area-inset-left))}
@@ -118,87 +122,8 @@ body{
 .sheet-close{background:none;border:none;color:var(--y);font:400 11px/1 var(--mono);
              letter-spacing:.06em;cursor:pointer;padding:4px 0}
 
-/* ── Settings view ────────────────────────────────────────────────────────────
-   One home for every app's settings. A segmented control swaps panels instead
-   of stacking five apps' worth of controls into one endless scroll. */
-.ns-set .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
-.ns-set .scr.on{display:block}
-.ns-set #s-home{padding-top:env(safe-area-inset-top)}
-.ns-set .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0}
-.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
-.ns-set .h-logo{font:800 44px/1 var(--head);letter-spacing:var(--head-ls,-.02em);margin-bottom:18px}
-.ns-set .h-logo em{color:var(--y);font-style:normal}
-
-/* segmented control — scrolls sideways on a narrow phone */
-.set-seg{display:flex;gap:6px;padding:0 18px 4px;overflow-x:auto;scrollbar-width:none;
-         -webkit-overflow-scrolling:touch;margin-bottom:16px}
-.set-seg::-webkit-scrollbar{display:none}
-.seg-b{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
-       color:var(--mu);font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
-       padding:10px 15px;cursor:pointer;transition:all .14s}
-.seg-b.on{background:var(--y);border-color:var(--y);color:var(--on-y)}
-
-.set-panel{display:none;padding:0 18px}
-.set-panel.on{display:block}
-.set-panel .set-note{font:400 10px/1.6 var(--mono);color:var(--mu);padding:12px 14px;margin-bottom:14px;
-  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
-
-/* shared settings furniture, used by the General panel and reused visually by
-   the four app panels through their own namespaced rules */
-.ns-set .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
-  margin:22px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd)}
-.ns-set .sec:first-child{margin-top:0}
-.ns-set .data-warn{font:400 10px/1.6 var(--mono);color:var(--mu);padding:12px 14px;margin-bottom:14px;
-  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
-.ns-set .setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:13px 14px;margin-bottom:8px}
-.ns-set .setting-lbl{font:400 11px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
-.ns-set .setting-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.08em;
-  padding:9px 13px;cursor:pointer;transition:all .12s;white-space:nowrap}
-.ns-set .setting-btn:active{border-color:var(--y);color:var(--y)}
-.ns-set .setting-btn.danger{color:var(--re)}
-.ns-set .setting-btn.danger:active{border-color:var(--re)}
-.ns-set .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-  font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
-  padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
-.ns-set .btn:active{opacity:.82}
-.ns-set .btn-2{background:var(--s2);color:var(--tx);border:var(--bw) solid var(--bd)}
-.ns-set .f{margin-bottom:14px}
-.ns-set .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
-  color:var(--mu);margin-bottom:7px}
-.ns-set input[type=text],.ns-set input[type=password]{
-  width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  color:var(--tx);font:400 14px/1 var(--mono);padding:12px 13px;outline:none;
-  -webkit-appearance:none;appearance:none;transition:border-color .12s}
-.ns-set input:focus{border-color:var(--y)}
-.ns-set .data-stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.ns-set .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
-.ns-set .data-stat-v{font:700 13px/1 var(--mono);color:var(--tx)}
-
-/* one Todoist key for all three apps that talk to it */
-.ns-set .td-status{font:400 10px/1.6 var(--mono);color:var(--mu);letter-spacing:.04em;
-  padding:10px 12px;margin-bottom:8px;border-radius:var(--r1);
-  background:var(--s1);border:var(--bw) solid var(--bd);word-break:break-word}
-.ns-set .td-status.good{color:var(--gr);border-color:rgba(92,219,125,.35)}
-.ns-set .td-status.bad{color:var(--re);border-color:rgba(224,96,96,.35)}
-.ns-set .td-status.busy{color:var(--y);border-color:var(--yb)}
-.ns-set .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.ns-set .td-acts .setting-btn{text-align:center}
-
-/* theme picker */
-.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
-.theme-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
-  padding:13px;cursor:pointer;text-align:left;transition:border-color .14s;display:block}
-.theme-card.on{border-color:var(--y)}
-.theme-swatch{display:flex;gap:4px;margin-bottom:10px}
-.theme-swatch i{width:100%;height:26px;border-radius:var(--r1);border:1px solid rgba(128,128,128,.22)}
-.theme-name{font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;color:var(--tx);
-  display:flex;align-items:center;justify-content:space-between;gap:8px}
-.theme-name .tick{color:var(--y);font:400 11px/1 var(--mono)}
-.theme-card:not(.on) .tick{visibility:hidden}
-.theme-desc{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:5px}
+/* The settings view lives in css/settings.css — it grew past what belonged in
+   the frame's stylesheet when the panel count went from five to nine. */
 
 /* ── Content width: cap the line length once the window has room ──────────── */
 @media (min-width:560px){
@@ -258,10 +183,6 @@ body{
   .tab-b:hover{color:var(--tx)}
   .tab-b.on:hover{color:var(--on-y)}
   .nav-arrow:hover{color:var(--y);border-color:var(--y)}
-  .seg-b:hover{border-color:var(--mu)}
-  .seg-b.on:hover{border-color:var(--y)}
-  .theme-card:hover{border-color:var(--mu)}
-  .theme-card.on:hover{border-color:var(--y)}
   .ns-do .card:hover,.ns-log .card:hover,.ns-store .card:hover,
   .ns-store .cat-card:hover,.ns-do .tv-list-card:hover,
   .ns-store .hist-card:hover,.ns-plan .proj-tile:hover,

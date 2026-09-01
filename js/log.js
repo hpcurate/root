@@ -191,9 +191,8 @@ function calcStreak() {
 }
 
 function refreshHome() {
-  const d = new Date(TODAY + 'T00:00:00');
-  $id('home-date').textContent =
-    d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  // one date format for the whole app, set under Settings → behaviour
+  $id('home-date').textContent = Prefs.formatDate(TODAY);
   $id('btn-today').classList.toggle('hidden', TODAY === REAL_TODAY);
   $id('card-m').classList.toggle('done', !!data.m.wt);
   $id('card-e').classList.toggle('done', !!data.e.kme);
@@ -301,15 +300,117 @@ function syncCurUI() {
 function incCur(id)  { dirty = true; data.e[CUR_KEYS[id]] = (data.e[CUR_KEYS[id]] || 0) + 1; syncCurUI(); }
 function resetCur()  { Object.values(CUR_KEYS).forEach(k => data.e[k] = 0); syncCurUI(); }
 
-const MAX_BLOCKS = 6;
+/* The cap used to be a constant; it is a setting now. Read it live rather than
+   caching, so raising it in Settings takes effect without a reload. */
+const maxBlocks = () => Config.get('log.maxBlocks') || 6;
+
+/* The exported .md has always written six block columns and the Obsidian side
+   parses that shape, so six is the floor: lowering the cap keeps the table
+   identical (the extra columns come out empty, as they always did on a light
+   day), and only deliberately raising it past six widens the table. */
+const EXPORT_BLOCK_FLOOR = 6;
+const exportBlockCols = () => Math.max(EXPORT_BLOCK_FLOOR, maxBlocks());
+
 function toggleBlock(btn, name) {
   dirty=true;
   const idx = data.e.blocks.indexOf(name);
   if (idx >= 0) { data.e.blocks.splice(idx,1); btn.classList.remove('on'); }
-  else { if(data.e.blocks.length>=MAX_BLOCKS){toast(`max ${MAX_BLOCKS} blocks`);return;} data.e.blocks.push(name); btn.classList.add('on'); }
+  else { const m = maxBlocks();
+         if(data.e.blocks.length>=m){toast(`max ${m} blocks`);return;}
+         data.e.blocks.push(name); btn.classList.add('on'); }
 }
 function syncBlocks() {
   $all('.blk-b').forEach(b => b.classList.toggle('on', data.e.blocks.includes(b.textContent.trim())));
+}
+
+/* ── Config-driven form furniture ─────────────────────────────────────────────
+   The evening and morning forms used to be nine hardcoded block buttons, two
+   named medications, four meals and three curate counters written straight into
+   index.html. They are built from Config here instead, keeping the exact ids and
+   classes the sync* functions already look for, so nothing downstream changed.
+
+   A colour is turned into the two custom properties each control expects; the
+   translucent variant is mixed in CSS rather than hand-written as an rgba(). */
+function tint(hex, pct) { return `color-mix(in srgb, ${hex} ${pct}%, transparent)`; }
+
+function renderForms() {
+  const cfg = {
+    blocks: Config.get('log.blocks'),
+    meds:   Config.get('log.meds'),
+    meals:  Config.get('log.mealCount'),
+    mealLabel: Config.get('log.mealLabel'),
+    caf:    Config.get('log.caffeine'),
+    curate: Config.get('log.curate'),
+    scales: Config.get('log.scales'),
+    workouts: Config.get('log.workouts'),
+  };
+
+  // workout types
+  const wo = $id('wo4');
+  if (wo) wo.innerHTML = cfg.workouts.map(w =>
+    `<button class="wo4-b" onclick="LOG.setWo(this,'${esc(w)}')">${esc(w)}</button>`).join('');
+
+  // meds — two fixed slots, free labels
+  const medG = $id('med-g');
+  if (medG) medG.innerHTML = ['lam','rit'].map(k =>
+    `<button class="med-b ${k}" id="med-${k}" onclick="LOG.toggleMed('${k}')">
+       <span class="med-name">${esc(cfg.meds[k])}</span>
+       <span class="med-state" id="med-${k}-s">no</span>
+     </button>`).join('');
+
+  // meals — count is a setting
+  const mealG = $id('meal-g');
+  if (mealG) mealG.innerHTML = Array.from({ length: cfg.meals }, (_, i) =>
+    `<button class="meal-b" onclick="LOG.toggleMeal(${i + 1})">${esc(cfg.mealLabel)} ${i + 1}</button>`).join('');
+
+  // caffeine — two fixed counters, free labels
+  const cafR = $id('caf-row');
+  if (cafR) cafR.innerHTML = ['c','ed'].map(k =>
+    `<button class="caf-b" id="caf-${k}-btn" onclick="LOG.incCaf('${k}')">
+       <span class="cnt-n" id="caf-${k}-n">0</span>
+       <span class="cnt-l">${esc(cfg.caf[k])}</span>
+     </button>`).join('');
+
+  // blocks
+  const blkG = $id('blk-g');
+  if (blkG) blkG.innerHTML = cfg.blocks.map(b =>
+    `<button class="blk-b" onclick="LOG.toggleBlock(this,'${esc(b.name)}')"
+             style="--blk-c:${esc(b.color)};--blk-bg:${tint(b.color, 14)}">${esc(b.name)}</button>`).join('');
+  const hint = $id('blk-max-hint');
+  if (hint) hint.textContent = `(max ${maxBlocks()})`;
+
+  // curate — three fixed counters, free labels and colours
+  const curG = $id('cur-g');
+  if (curG) curG.innerHTML = ['mix','prod','cont'].map(k =>
+    `<button class="cur-b" id="cur-${k}-btn" onclick="LOG.incCur('${k}')"
+             style="--cur-c:${esc(cfg.curate[k].color)};--cur-bg:${tint(cfg.curate[k].color, 13)}">
+       <span class="cnt-n" id="cur-${k}-n">0</span>
+       <span class="cnt-l">${esc(cfg.curate[k].label)}</span>
+     </button>`).join('');
+
+  // scale endpoints
+  $all('.sc-ends[data-scale]').forEach(row => {
+    const s = cfg.scales[row.dataset.scale];
+    if (!s) return;
+    const spans = row.querySelectorAll('span');
+    if (spans[0]) spans[0].textContent = s.low;
+    if (spans[1]) spans[1].textContent = s.high;
+  });
+
+  applyFieldVisibility();
+}
+
+/* Hiding a field never touches what is already recorded: the input keeps its
+   value, save* still reads it, and the .md export still writes the column. Turn
+   the field back on and yesterday's number is exactly where it was. */
+function applyFieldVisibility() {
+  const f = Config.get('log.fields') || {};
+  $all('[data-field]').forEach(el => {
+    const on = f[el.dataset.field] !== false;
+    el.classList.toggle('hidden', !on);
+  });
+  // the workout detail block is only shown when a non-rest workout is picked
+  if (f.workout !== false) $id('wo-fields')?.classList.toggle('hidden', woGet() === 'rest');
 }
 
 // ── Last weight ───────────────────────────────────────────────────────────────
@@ -387,7 +488,7 @@ function renderEntries() {
 // ── Build daily note ──────────────────────────────────────────────────────────
 function buildNote() {
   const m=data.m, e=data.e;
-  const bl=e.blocks||[], b=Array.from({length:MAX_BLOCKS},(_,i)=>bl[i]||'');
+  const bl=e.blocks||[], b=Array.from({length:exportBlockCols()},(_,i)=>bl[i]||'');
   const ents = data.entries.map(en=>` > ${en.time} - ${en.text}`).join('\n\n');
   const kmM=parseFloat(m.km)||0, kmE=parseFloat(e.kme)||0;
   const kmTot = (m.km!==''||e.kme!=='') ? (kmM+kmE).toFixed(1) : '';
@@ -405,9 +506,9 @@ function buildNote() {
 
 #### blocks
 
-|    #     | block 1 | block 2 | block 3 | block 4 | block 5 | block 6 |
-| :------: | :-----: | :-----: | :-----: | :-----: | :-----: | :-----: |
-| activity | ${b[0]} | ${b[1]} | ${b[2]} | ${b[3]} | ${b[4]} | ${b[5]} |
+|    #     | ${b.map((_, i) => 'block ' + (i + 1)).join(' | ')} |
+| :------: | ${b.map(() => ':-----:').join(' | ')} |
+| activity | ${b.join(' | ')} |
 
 #### workout
 
@@ -1180,9 +1281,21 @@ function esc(s) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 const _rescaled = migrateScales();
+renderForms();          // build the Config-driven controls before anything fills them
 initData();
 refreshHome();
 if (_rescaled) toast(`rescaled ${_rescaled} day${_rescaled !== 1 ? 's' : ''} to 1–5`);
+
+/* An edit in Settings → content rebuilds the controls and refills whichever
+   screen is open, so a renamed block or an extra meal appears immediately
+   rather than after a reload. */
+Config.subscribe(path => {
+  if (path !== '*' && !String(path).startsWith('log.')) return;
+  renderForms();
+  const open = $all('.scr.on')[0];
+  const id = open ? open.id.replace('s-', '') : 'home';
+  ({ morning: popM, evening: popE, home: refreshHome })[id]?.();
+});
 
 Shell.register('log', {});
 

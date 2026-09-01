@@ -20,51 +20,11 @@ const toast = msg => Shell.toast(msg);
 
 const PROXY = 'https://todoist-proxy.hp-qrate.workers.dev/api/v1';
 
-// ── Task types ────────────────────────────────────────────────────────────────
-const TASK_TYPES = [
-  { key:'curate', label:'curate', pLabel:'curate', color:'#A78BFA',
-    subs:[
-      { display:'mixing',     section:'mixing' },
-      { display:'production', section:'production' },
-      { display:'socials',    section:'socials' },
-    ]},
-  { key:'alive',  label:'alive',  pLabel:'alive',  color:'#b8255f',
-    subs:[
-      { display:'kamo',        section:'kamo' },
-      { display:'activities',  section:'activities' },
-      { display:'create',      section:'create' },
-      { display:'music',       section:'music' },
-      { display:'social',      section:'social' },
-      { display:'movie | show',section:'movie | show' },
-      { display:'raves',       section:'raves' },
-      { display:'trip',        section:'trip' },
-    ]},
-  { key:'admin',  label:'admin',  pLabel:'admin',  color:'#808080',
-    subs:[
-      { display:'tasks', section:'admin | tasks' },
-      { display:'rdv',   section:'admin | rdv' },
-      { display:'calls', section:'admin | calls' },
-    ]},
-  { key:'system', label:'system', pLabel:'system', color:'#158fad',
-    subs:[
-      { display:'update',   section:'system | update' },
-      { display:'projects', section:'system | projects' },
-    ]},
-  { key:'home',   label:'home',   pLabel:'home',   color:'#4073ff',
-    subs:[
-      { display:'food',      section:'home | food' },
-      { display:'projects',  section:'home | projects' },
-      { display:'chores',    section:'home | chores' },
-      { display:'groceries', section:'home | groceries' },
-    ]},
-  { key:'edu',    label:'edu',    pLabel:'edu',    color:'#e05194',
-    subs:[
-      { display:'study',    section:'study' },
-      { display:'practice', section:'practice' },
-      { display:'exam',     section:'exam' },
-      { display:'rdv',      section:'rdv' },
-    ]},
-];
+/* ── Task types ────────────────────────────────────────────────────────────────
+   The project tree used to be a literal here. It lives in js/config.js now and
+   is edited from Settings → content. `key` is the identity plan_mappings is
+   filed under, so the editor preserves it across a rename. */
+let TASK_TYPES = Config.get('plan.types');
 
 function resolveColor(typeKey) {
   return TASK_TYPES.find(t => t.key === typeKey)?.color || '#4a4a4a';
@@ -217,9 +177,11 @@ function openForm(typeKey, display, section) {
 function renderForm() {
   resetOpts('opts-block', formState.block);
   resetOpts('opts-time', formState.time);
-  $all('.prio-b').forEach(b=>b.classList.remove('on'));
-  $all('.prio-b')[2].classList.add('on');
-  formState.priority = 2;
+  const prios = $all('.prio-b');
+  prios.forEach(b => b.classList.remove('on'));
+  const di = defaultPrioIndex();
+  if (prios[di]) prios[di].classList.add('on');
+  formState.priority = Config.get('plan.defaultPriority');
   setSub(false);
   formState.subtasks = [];
   renderSubtasks();
@@ -234,6 +196,40 @@ function resetOpts(id, activeVal) {
     b.classList.toggle('on', isNone ? activeVal===null : b.textContent===activeVal);
   });
   if (activeVal === null) { const noneBtn = row.querySelector('.none-opt'); if (noneBtn) noneBtn.classList.add('on'); }
+}
+
+/* ── Form chips ───────────────────────────────────────────────────────────────
+   The block, time and priority rows were three hardcoded lists in index.html.
+   They are drawn from Config here, keeping the same classes and the same
+   onclick contract, so resetOpts() and optPick() are untouched. */
+function renderFormChips() {
+  const blocks = Config.get('plan.blocks');
+  const times  = Config.get('plan.times');
+  const prios  = Config.get('plan.priorities');
+  const none   = field => `<button class="opt-b none-opt on" onclick="PLAN.optPick(this,'${field}',null)">none</button>`;
+
+  const ob = $id('opts-block');
+  if (ob) ob.innerHTML = blocks.map(b =>
+    `<button class="opt-b" onclick="PLAN.optPick(this,'block','${esc(b)}')">${esc(b)}</button>`).join('') + none('block');
+
+  const ot = $id('opts-time');
+  if (ot) ot.innerHTML = times.map(t =>
+    `<button class="opt-b" onclick="PLAN.optPick(this,'time','${esc(t.value)}')">${esc(t.label)}</button>`).join('') + none('time');
+
+  const pr = $id('opts-prio');
+  if (pr) pr.innerHTML = prios.map((p, i) =>
+    `<button class="prio-b p${i + 1}" onclick="PLAN.prioPick(this,${p.value})">
+       <div>${esc(p.label)}</div><div class="prio-label">${esc(p.p)}</div>
+     </button>`).join('');
+}
+
+/* Which priority button is pre-selected — the default from Config, or the last
+   one if that default no longer exists. */
+function defaultPrioIndex() {
+  const prios = Config.get('plan.priorities');
+  const want = Config.get('plan.defaultPriority');
+  const i = prios.findIndex(p => p.value === want);
+  return i >= 0 ? i : prios.length - 1;
 }
 
 function optPick(btn, field, val) {
@@ -430,7 +426,19 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadState();
+renderFormChips();
 renderHome();
+
+/* An edited project tree redraws the tiles and the form chips immediately.
+   Queued tasks are left alone — they already carry the label, colour and section
+   they were built with, so a rename never rewrites something you were about to
+   send. */
+Config.subscribe(path => {
+  if (path !== '*' && !String(path).startsWith('plan.')) return;
+  TASK_TYPES = Config.get('plan.types');
+  renderFormChips();
+  renderHome();
+});
 
 Shell.register('plan', {});
 

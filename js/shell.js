@@ -1,11 +1,19 @@
 /* ── Shell ────────────────────────────────────────────────────────────────────
-   Owns the five-slide track, the floating tab pill and its two arrows, the
-   shared toast, the shared Todoist credential, the theme, and the settings view.
-   It knows nothing about what the four apps do — each module registers itself
-   with Shell.register() and is otherwise left alone.
+   The frame the four apps live in: a five-slide horizontal track, the floating
+   tab chrome, the shared toast, and the shared Todoist credential. It knows
+   nothing about what the apps do — each module registers itself with
+   Shell.register() and is otherwise left alone.
 
-   Loaded before the app modules, so Shell.toast() and Creds.token() exist by the
-   time any of them boots. */
+   Load order matters. js/prefs.js runs from <head> and has already stamped the
+   look onto <html> by the time this file executes; this file then defines
+   Creds.token() and Shell.toast(), which every app module needs while booting.
+   js/settings.js loads last and owns the settings view.
+
+   What the appearance engine changed here: every behaviour that used to be a
+   constant — the toast duration, whether swiping is on and how far it has to go,
+   whether the chrome auto-hides, which tab opens — now reads from Prefs on the
+   spot rather than being captured at boot, so changing a setting takes effect
+   without a reload. */
 
 /* ── Shared Todoist credential ────────────────────────────────────────────────
    DO, PLAN and STORE each used to keep their own copy of the same key. There is
@@ -61,61 +69,6 @@ window.Creds = (function () {
 })();
 
 
-/* ── Theme ────────────────────────────────────────────────────────────────── */
-window.Theme = (function () {
-  'use strict';
-  const KEY = 'root_theme';
-
-  const THEMES = [
-    { id:'void',  name:'Void',  desc:'the original — near-black, purple',
-      sw:['#0e0e0e','#161616','#A78BFA','#dedede'] },
-    { id:'ember', name:'Ember', desc:'warm charcoal, amber accent',
-      sw:['#100d0b','#191512','#e8a33d','#e6ded3'] },
-    { id:'frost', name:'Frost', desc:'cold slate, cyan accent',
-      sw:['#0b0f13','#12181e','#5ad4e6','#d6e3ea'] },
-    { id:'paper', name:'Paper', desc:'light ground, serif display, soft shadows',
-      sw:['#f2ede3','#fffdf7','#6b4df0','#22201c'] },
-  ];
-
-  function current() {
-    try { const v = localStorage.getItem(KEY); return THEMES.some(t => t.id === v) ? v : 'void'; }
-    catch { return 'void'; }
-  }
-
-  /* PAPER is the only theme that needs faces we do not already load, so they are
-     fetched the first time it is chosen rather than on every cold start. */
-  function ensurePaperFonts() {
-    if (document.getElementById('paper-fonts')) return;
-    const l = document.createElement('link');
-    l.id = 'paper-fonts';
-    l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800' +
-             '&family=IBM+Plex+Mono:wght@400;700&display=swap';
-    document.head.appendChild(l);
-  }
-
-  function apply(id, opts = {}) {
-    const t = THEMES.find(x => x.id === id) ? id : 'void';
-    if (t === 'paper') ensurePaperFonts();
-    document.documentElement.setAttribute('data-theme', t);
-    if (opts.persist !== false) { try { localStorage.setItem(KEY, t); } catch {} }
-    // keep the iOS status bar / Android chrome in step with the ground colour
-    requestAnimationFrame(() => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta && bg) meta.setAttribute('content', bg);
-    });
-    return t;
-  }
-
-  // index.html sets the attribute inline before first paint; this re-runs the
-  // rest of apply() so the theme-color meta matches on a cold start too.
-  apply(current(), { persist: false });
-
-  return { THEMES, current, apply };
-})();
-
-
 window.Shell = (function () {
   'use strict';
 
@@ -131,11 +84,13 @@ window.Shell = (function () {
   const nextBtn  = document.getElementById('nav-next');
   const toastEl  = document.getElementById('toast');
 
+  const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
+
   let index = 0;
   const apps = {};                     // name → { onShow }
 
   // ── Toast ───────────────────────────────────────────────────────────────────
-  /* One element for all five views. Each module's toast() forwards here, so a
+  /* One element for all five views. Every module's toast() forwards here, so a
      message from STORE cannot be clobbered by a stale timer from LOG. */
   let toastTimer = null;
   function toast(msg) {
@@ -143,18 +98,20 @@ window.Shell = (function () {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), pref('toastMs', 1800));
   }
 
   // ── Floating chrome ─────────────────────────────────────────────────────────
   /* The pill and arrows hover over the content, so they step aside while you
-     read and come back the moment you scroll up, stop, or change tab. */
+     read and come back the moment you scroll up, stop, or change tab. Turning
+     "get out of the way" off in settings pins them permanently. */
   let chromeTimer = null;
   function showChrome() {
     navEl.classList.remove('chrome-off');
     arrows.forEach(a => a.classList.remove('chrome-off'));
   }
   function hideChrome() {
+    if (!pref('autoHideChrome', true)) return;
     navEl.classList.add('chrome-off');
     arrows.forEach(a => a.classList.add('chrome-off'));
   }
@@ -202,7 +159,7 @@ window.Shell = (function () {
     if (app && app.onShow) app.onShow();
   }
 
-  /* Every app's "settings" entry point routes here now. */
+  /* Every app's "settings" entry point routes here. */
   function settings(panel) {
     go('settings');
     if (window.SET && panel) SET.panel(panel);
@@ -210,7 +167,7 @@ window.Shell = (function () {
 
   function register(name, api) { apps[name] = api || {}; }
 
-  navBtns.forEach((b, i) => b.addEventListener('click', () => go(i)));
+  navBtns.forEach((b, i) => b.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); go(i); }));
   if (prevBtn) prevBtn.addEventListener('click', () => go(index - 1));
   if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
   document.querySelectorAll('.view').forEach(watchScroll);
@@ -220,8 +177,7 @@ window.Shell = (function () {
      touch-action:pan-y. A gesture is refused outright when a sheet or modal is
      up, and when it starts inside something that scrolls sideways itself (the
      .md preview panes), where a swipe means "read the rest of this line". */
-  const THRESHOLD = 0.22;   // fraction of the width that commits to the next tab
-  const FLICK     = 0.45;   // px/ms that commits regardless of distance
+  const FLICK = 0.45;   // px/ms that commits regardless of distance
 
   let sx = 0, sy = 0, st = 0, dx = 0;
   let tracking = false, axis = null;
@@ -251,6 +207,7 @@ window.Shell = (function () {
   }
 
   track.addEventListener('touchstart', e => {
+    if (!pref('swipe', true)) { tracking = false; return; }
     if (e.touches.length !== 1 || overlayOpen()) { tracking = false; return; }
     const t = e.touches[0];
     // iOS reserves the left edge for its own back gesture
@@ -282,11 +239,12 @@ window.Shell = (function () {
     if (axis !== 'x') { setTransform(null, true); return; }
     const w = viewport.clientWidth || 1;
     const speed = Math.abs(dx) / Math.max(1, Date.now() - st);
-    const far = Math.abs(dx) > w * THRESHOLD || speed > FLICK;
+    const far = Math.abs(dx) > w * pref('swipeStrength', 0.22) || speed > FLICK;
     let next = index;
     if (far && dx < 0) next = Math.min(TABS.length - 1, index + 1);
     if (far && dx > 0) next = Math.max(0, index - 1);
-    if (next === index) setTransform(null, true); else go(next);
+    if (next === index) setTransform(null, true);
+    else { if (window.Prefs) Prefs.tap(); go(next); }
     dx = 0; axis = null;
   }
   track.addEventListener('touchend', endDrag, { passive: true });
@@ -301,11 +259,28 @@ window.Shell = (function () {
     if (TABS.includes(name) && TABS[index] !== name) go(name, { silent: true });
   });
 
-  // ── Boot: hash wins, then the last tab used, then DO ───────────────────────
+  /* ── Keyboard ─────────────────────────────────────────────────────────────
+     ROOT is a phone app that also runs on a laptop, where five slides and no
+     keyboard route is a real gap. Every binding is ignored while a field has
+     focus, so typing never navigates. */
+  document.addEventListener('keydown', e => {
+    if (!pref('keyboardNav', true)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const el = document.activeElement;
+    if (el && el.closest && el.closest('input,textarea,select,[contenteditable]')) return;
+    if (e.key === 'ArrowRight') { go(index + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { go(index - 1); e.preventDefault(); }
+    else if (e.key >= '1' && e.key <= '5') { go(+e.key - 1); e.preventDefault(); }
+    else if (e.key === '/') { settings(); e.preventDefault(); }
+  });
+
+  // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
   (function boot() {
     let start = 'do';
     const fromHash = location.hash.replace('#', '');
+    const want = pref('startTab', 'last');
     if (TABS.includes(fromHash)) start = fromHash;
+    else if (want !== 'last' && TABS.includes(want)) start = want;
     else { try { const s = localStorage.getItem(TAB_KEY); if (TABS.includes(s)) start = s; } catch {} }
     // Land on the opening tab without animating in from DO: park the track there
     // with the transition off and flush it, so go()'s identical transform is a
@@ -317,210 +292,11 @@ window.Shell = (function () {
     go(start);
   })();
 
+  /* Turning auto-hide off should bring the chrome back immediately, not at the
+     next scroll. */
+  if (window.Prefs) Prefs.subscribe(k => {
+    if (k === 'autoHideChrome' || k === '*') { if (pref('autoHideChrome', true) === false) showChrome(); }
+  });
+
   return { toast, go, settings, register, showChrome, TABS };
-})();
-
-
-/* ── Settings view ────────────────────────────────────────────────────────────
-   Every app's settings now live here, one panel each, behind a segmented
-   control. The panels carry .ns-do / .ns-log / .ns-plan / .ns-store, so each
-   app's own stylesheet still dresses its controls and each module's scoped
-   $id() still finds them wherever they sit in the document. */
-window.SET = (function () {
-  'use strict';
-
-  const SCOPE = '.ns-set ';
-  const $id = id => document.querySelector(SCOPE + '#' + id);
-
-  const PANELS = ['general', 'do', 'log', 'plan', 'store'];
-  let currentPanel = 'general';
-
-  /* Which keys belong to which app. Everything here is read-only bookkeeping —
-     the shell never writes to another app's keys. */
-  const GROUPS = [
-    { name: 'DO',    match: k => k.startsWith('do_') || k.startsWith('travel_state_') },
-    { name: 'LOG',   match: k => k.startsWith('log_') || k === 'log-scale-v2' },
-    { name: 'PLAN',  match: k => k.startsWith('plan_') },
-    { name: 'STORE', match: k => k === 'store_state_v1' || k === 'eat_state_v1' },
-    { name: 'ROOT',  match: k => k.startsWith('root_') },
-  ];
-
-  const allKeys = () => { try { return Object.keys(localStorage); } catch { return []; } };
-
-  function fmtSize(chars) {
-    const kb = chars / 1024;
-    return kb < 1 ? chars + ' B' : kb < 1024 ? kb.toFixed(1) + ' KB' : (kb / 1024).toFixed(2) + ' MB';
-  }
-
-  // ── Panels ──────────────────────────────────────────────────────────────────
-  function panel(name) {
-    if (!PANELS.includes(name)) return;
-    currentPanel = name;
-    document.querySelectorAll(SCOPE + '.set-panel').forEach(p =>
-      p.classList.toggle('on', p.dataset.panel === name));
-    document.querySelectorAll(SCOPE + '.seg-b').forEach(b =>
-      b.classList.toggle('on', b.dataset.seg === name));
-    const view = document.getElementById('view-settings');
-    if (view) view.scrollTop = 0;
-    Shell.showChrome();
-    // let each app fill in its own controls when its panel comes up
-    ({ do: () => DO.renderSettings(), log: () => LOG.renderDataScreen(),
-       plan: () => PLAN.renderSettings(), store: () => STORE.renderSettings() })[name]?.();
-    if (name === 'general') renderGeneral();
-  }
-
-  // ── General panel ───────────────────────────────────────────────────────────
-  function renderThemes() {
-    const cur = Theme.current();
-    $id('theme-grid').innerHTML = Theme.THEMES.map(t => `
-      <button class="theme-card${t.id === cur ? ' on' : ''}" data-theme-id="${t.id}"
-              onclick="SET.pickTheme('${t.id}')">
-        <span class="theme-swatch">${t.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>
-        <span class="theme-name">${t.name}<span class="tick">✓</span></span>
-        <span class="theme-desc">${t.desc}</span>
-      </button>`).join('');
-  }
-
-  function pickTheme(id) {
-    Theme.apply(id);
-    renderThemes();
-    Shell.toast('theme · ' + (Theme.THEMES.find(t => t.id === id) || {}).name);
-  }
-
-  /* onShow re-renders this panel every time the settings tab comes back up, so
-     the field is only refilled from storage when it holds nothing the user has
-     not saved yet — otherwise leaving the tab and returning wiped a key that had
-     been pasted but not saved. */
-  function renderToken() {
-    const tok = Creds.token();
-    const inp = $id('set-td-token');
-    if (inp) {
-      const unsaved = inp.value && inp.value !== tok;
-      if (!unsaved && document.activeElement !== inp) inp.value = tok;
-    }
-    tdStatus(tok ? 'key saved · used by DO, PLAN and STORE' : 'no key yet', tok ? 'good' : '');
-  }
-
-  function tdStatus(msg, kind) {
-    const el = $id('set-td-status');
-    if (!el) return;
-    el.textContent = msg;
-    el.className = 'td-status' + (kind ? ' ' + kind : '');
-  }
-
-  function saveToken() {
-    const tok = $id('set-td-token').value.trim();
-    Creds.save(tok);
-    renderToken();
-    Shell.toast(tok ? 'todoist key saved' : 'todoist key cleared');
-  }
-
-  /* A single check against the account, rather than three per-app ones. Each
-     app still has its own project/section test in its own panel. */
-  async function testToken() {
-    const tok = Creds.token();
-    if (!tok) { tdStatus('paste your key and save it first', 'bad'); return; }
-    const btn = $id('set-td-test');
-    btn.disabled = true;
-    tdStatus('checking…', 'busy');
-    try {
-      const res = await fetch('https://api.todoist.com/api/v1/projects?limit=1',
-                              { headers: { 'Authorization': 'Bearer ' + tok } });
-      if (res.status === 401 || res.status === 403) throw new Error('key rejected by Todoist');
-      if (!res.ok) throw new Error('Todoist error ' + res.status);
-      tdStatus('key works — DO, PLAN and STORE are all using it', 'good');
-    } catch (e) {
-      tdStatus(location.protocol === 'file:'
-        ? 'blocked by the browser — serve over http(s), not as a local file'
-        : e.message, 'bad');
-    } finally { btn.disabled = false; }
-  }
-
-  function renderStorage() {
-    const keys = allKeys();
-    let total = 0;
-    const sizes = {};
-    keys.forEach(k => {
-      const v = localStorage.getItem(k) || '';
-      const n = k.length + v.length;
-      total += n;
-      const g = GROUPS.find(g => g.match(k));
-      if (g) sizes[g.name] = (sizes[g.name] || 0) + n;
-    });
-    const rows = GROUPS.map(g => {
-      const n = keys.filter(g.match).length;
-      return `<div class="data-stat">
-        <span class="data-stat-k">${g.name}</span>
-        <span class="data-stat-v">${n} key${n === 1 ? '' : 's'} · ${fmtSize(sizes[g.name] || 0)}</span>
-      </div>`;
-    }).join('');
-    $id('set-storage').innerHTML = rows +
-      `<div class="data-stat"><span class="data-stat-k">All keys on this origin</span>
-       <span class="data-stat-v">${keys.length} · ${fmtSize(total)}</span></div>`;
-  }
-
-  function renderGeneral() { renderThemes(); renderToken(); renderStorage(); }
-
-  // ── Backup: every key on this origin, in one file ──────────────────────────
-  /* Deliberately not filtered to the known prefixes: a backup that silently
-     drops a key is worse than one that carries a few bytes too many. */
-  async function exportAll() {
-    const keys = allKeys();
-    if (!keys.length) { Shell.toast('nothing stored yet'); return; }
-    const data = {};
-    keys.forEach(k => { data[k] = localStorage.getItem(k); });
-    const payload = { app: 'root', version: 1, exported: new Date().toISOString(), data };
-    const json = JSON.stringify(payload);
-    const d = new Date();
-    const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const filename = `root_backup_${stamp}.json`;
-    try {
-      const file = new File([json], filename, { type: 'application/json' });
-      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return; }
-      if (navigator.share) { await navigator.share({ title: filename, text: json }); return; }
-    } catch (err) { if (err.name === 'AbortError') return; }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    a.download = filename; a.click();
-    Shell.toast(`exported ${keys.length} keys`);
-  }
-
-  function pickImport() { $id('set-import-file').click(); }
-
-  function importAll(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      event.target.value = '';
-      let payload;
-      try { payload = JSON.parse(reader.result); } catch { Shell.toast('invalid file'); return; }
-      const data = payload && typeof payload.data === 'object' ? payload.data : null;
-      if (!data) { Shell.toast('not a root backup'); return; }
-      const incoming = Object.keys(data);
-      if (!incoming.length) { Shell.toast('nothing in that file'); return; }
-      const existing = new Set(allKeys());
-      const overwrite = incoming.filter(k => existing.has(k)).length;
-      const msg = `Restore ${incoming.length} key${incoming.length !== 1 ? 's' : ''}?\n\n`
-                + `${incoming.length - overwrite} new · ${overwrite} will overwrite what is here.\n\n`
-                + `The app reloads afterwards.`;
-      if (!confirm(msg)) return;
-      try {
-        incoming.forEach(k => { if (typeof data[k] === 'string') localStorage.setItem(k, data[k]); });
-      } catch { Shell.toast('storage full — nothing changed'); return; }
-      location.reload();
-    };
-    reader.readAsText(file);
-  }
-
-  document.querySelectorAll(SCOPE + '.seg-b').forEach(b =>
-    b.addEventListener('click', () => panel(b.dataset.seg)));
-
-  Shell.register('settings', { onShow: () => { if (currentPanel === 'general') renderGeneral(); } });
-  // Shell has already picked the opening tab by the time this file's second half
-  // runs, so onShow cannot have fired for a reload that lands here.
-  renderGeneral();
-
-  return { panel, pickTheme, saveToken, testToken, renderGeneral, renderStorage,
-           exportAll, pickImport, importAll, reload: () => location.reload() };
 })();

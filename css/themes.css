@@ -1,156 +1,273 @@
 /* ── Themes ───────────────────────────────────────────────────────────────────
-   Loaded last so its overrides beat the app stylesheets on equal specificity.
+   Loaded last, so its overrides beat the app stylesheets on equal specificity.
 
-   VOID   the original — near-black, purple accent
-   EMBER  warm charcoal, amber accent
-   FROST  cold slate, cyan accent
-   PAPER  a different aesthetic, not just a repaint: light warm ground, ink
-          text, serif display face, generous radii and real shadows
+   A preset here is only ever a palette. Everything else that makes it a *look* —
+   corner radius, border weight, depth, texture, and the display/mono pairing —
+   is declared as the theme's "character" in js/prefs.js and applied as
+   data-attributes and inline anchors. Which means every one of those stays
+   individually overridable by the user afterwards, and adding a preset is a
+   dozen colour values rather than a hundred-line stylesheet.
 
-   The first three are palette-only, so they are a handful of variables. PAPER
-   also restates shape, because the shape is the point. Class names repeat across
-   the four namespaces (.card is a card in DO, LOG and STORE), so one unscoped
-   selector reaches all of them. */
+   Ten dark, five light. --chrome-rgb is the ground as bare channels so the
+   floating nav's translucency follows both the theme and the opacity dial.
+   --yd / --yb / --y-fade are mixed from --y in tokens.css, so a preset states
+   only the accent and what reads on top of it.
 
-/* ── EMBER ─────────────────────────────────────────────────────────────────── */
-:root[data-theme="ember"]{
-  --bg:#100d0b; --s1:#191512; --s2:#221d18; --bd:#2e2721;
-  --y:#e8a33d; --yd:rgba(232,163,61,.13); --yb:rgba(232,163,61,.28);
-  --tx:#e6ded3; --mu:#5c5147;
+   Below the presets: the depth ramps, the card treatments, the nav variants and
+   the handful of light-mode corrections — all keyed off attributes, all shared
+   by every preset that opts into them. */
+
+/* ═══ DARK ════════════════════════════════════════════════════════════════ */
+
+[data-theme="void"]{
+  --bg:#0e0e0e; --s1:#161616; --s2:#1e1e1e; --s3:#252525; --bd:#272727; --bd-2:#343434;
+  --tx:#dedede; --tx-2:#9a9a9a; --mu:#4a4a4a;
+  --y:#A78BFA; --on-y:#0e0e0e;
+  --gr:#5cdb7d; --re:#e06060; --or:#e0a060;
+  --chrome-rgb:14,14,14}
+
+[data-theme="ember"]{
+  --bg:#100d0b; --s1:#191512; --s2:#221d18; --s3:#2a241d; --bd:#2e2721; --bd-2:#3d342b;
+  --tx:#e6ded3; --tx-2:#a2968a; --mu:#5c5147;
+  --y:#e8a33d; --on-y:#100d0b;
   --gr:#8fbf5e; --re:#e0645a; --or:#e0a060;
-  --on-y:#100d0b;
-  --chrome-bg:rgba(16,13,11,.82);
-}
+  --chrome-rgb:16,13,11}
 
-/* ── FROST ─────────────────────────────────────────────────────────────────── */
-:root[data-theme="frost"]{
-  --bg:#0b0f13; --s1:#12181e; --s2:#1a222a; --bd:#243039;
-  --y:#5ad4e6; --yd:rgba(90,212,230,.12); --yb:rgba(90,212,230,.26);
-  --tx:#d6e3ea; --mu:#4a5b68;
+[data-theme="frost"]{
+  --bg:#0b0f13; --s1:#12181e; --s2:#1a222a; --s3:#212b34; --bd:#243039; --bd-2:#31404c;
+  --tx:#d6e3ea; --tx-2:#8fa3b0; --mu:#4a5b68;
+  --y:#5ad4e6; --on-y:#080e12;
   --gr:#5cdb9d; --re:#e0687e; --or:#e0a860;
-  --on-y:#080e12;
-  --chrome-bg:rgba(11,15,19,.82);
-}
+  --chrome-rgb:11,15,19}
 
-/* ── PAPER ─────────────────────────────────────────────────────────────────── */
-:root[data-theme="paper"]{
-  --bg:#f2ede3; --s1:#fffdf7; --s2:#e9e2d4; --bd:#ded4c2;
-  --y:#6b4df0; --yd:rgba(107,77,240,.09); --yb:rgba(107,77,240,.24);
-  --tx:#22201c; --mu:#8a8071;
+[data-theme="moss"]{
+  --bg:#0a0f0c; --s1:#111813; --s2:#18211b; --s3:#1f2a22; --bd:#233028; --bd-2:#2f4036;
+  --tx:#d5e5da; --tx-2:#8ba396; --mu:#485c51;
+  --y:#6ee7a0; --on-y:#08130d;
+  --gr:#8ee89a; --re:#e07a6a; --or:#dcb166;
+  --chrome-rgb:10,15,12}
+
+[data-theme="bloom"]{
+  --bg:#120c11; --s1:#1b131a; --s2:#241924; --s3:#2d202c; --bd:#33242f; --bd-2:#44313e;
+  --tx:#ecdde6; --tx-2:#ab94a3; --mu:#5e4a58;
+  --y:#f087a8; --on-y:#160d13;
+  --gr:#7fd8a5; --re:#f0645f; --or:#f0a86a;
+  --chrome-rgb:18,12,17}
+
+[data-theme="abyss"]{
+  --bg:#070b14; --s1:#0d1320; --s2:#141c2d; --s3:#1b2438; --bd:#1e2a3c; --bd-2:#2b3a55;
+  --tx:#ccd8f0; --tx-2:#8494b5; --mu:#44546f;
+  --y:#6f9bff; --on-y:#050810;
+  --gr:#5fd7a8; --re:#e0697f; --or:#e5a95f;
+  --chrome-rgb:7,11,20}
+
+[data-theme="terminal"]{
+  --bg:#000000; --s1:#0a0a0a; --s2:#111111; --s3:#161616; --bd:#1e1e1e; --bd-2:#2b2b2b;
+  --tx:#cfe8d8; --tx-2:#7fa38e; --mu:#3f5a4a;
+  --y:#33ff88; --on-y:#000000;
+  --gr:#33ff88; --re:#ff5f56; --or:#ffbd2e;
+  --chrome-rgb:0,0,0}
+
+[data-theme="synth"]{
+  --bg:#0d0819; --s1:#150e26; --s2:#1d1433; --s3:#251a41; --bd:#2c1f4a; --bd-2:#3d2c66;
+  --tx:#e5dcf7; --tx-2:#a294c9; --mu:#584a7d;
+  --y:#ff4ecd; --on-y:#0d0819;
+  --gr:#4ef0c8; --re:#ff5470; --or:#ffb454;
+  --chrome-rgb:13,8,25}
+
+[data-theme="dune"]{
+  --bg:#14110d; --s1:#1d1913; --s2:#26211a; --s3:#2f2921; --bd:#332c22; --bd-2:#463c2e;
+  --tx:#e9e0d0; --tx-2:#a99c86; --mu:#5f5443;
+  --y:#d9b070; --on-y:#14110d;
+  --gr:#9ac47a; --re:#d97a63; --or:#e0a060;
+  --chrome-rgb:20,17,13}
+
+[data-theme="carbon"]{
+  --bg:#121212; --s1:#1a1a1a; --s2:#232323; --s3:#2c2c2c; --bd:#3a3a3a; --bd-2:#525252;
+  --tx:#e8e8e8; --tx-2:#a8a8a8; --mu:#6a6a6a;
+  --y:#ffffff; --on-y:#121212;
+  --gr:#7ee08c; --re:#ff6b6b; --or:#ffb057;
+  --chrome-rgb:18,18,18}
+
+/* ═══ LIGHT ═══════════════════════════════════════════════════════════════ */
+
+[data-theme="paper"]{
+  --bg:#f2ede3; --s1:#fffdf7; --s2:#e9e2d4; --s3:#ded5c3; --bd:#ded4c2; --bd-2:#c8bba3;
+  --tx:#22201c; --tx-2:#5b544a; --mu:#8a8071;
+  --y:#6b4df0; --on-y:#fffdf7;
   --gr:#3f8f52; --re:#c04a45; --or:#b5762a;
-  --on-y:#fffdf7;
+  --chrome-rgb:255,253,247}
 
-  --head:'Fraunces',Georgia,'Times New Roman',serif;
-  --mono:'IBM Plex Mono','JetBrains Mono',monospace;
+[data-theme="linen"]{
+  --bg:#f6f4ef; --s1:#ffffff; --s2:#eeebe3; --s3:#e4e0d6; --bd:#e0dcd1; --bd-2:#c9c3b4;
+  --tx:#242420; --tx-2:#5e5b53; --mu:#8c887e;
+  --y:#5c7a3f; --on-y:#ffffff;
+  --gr:#3f8f52; --re:#bd4a44; --or:#b07526;
+  --chrome-rgb:255,255,255}
 
-  --r1:9px; --r2:14px; --r3:12px; --r-sheet:18px;
-  --bw:1px;
-  --shadow:0 1px 2px rgba(60,46,20,.05), 0 6px 16px -8px rgba(60,46,20,.14);
-  --shadow-lift:0 6px 24px -6px rgba(60,46,20,.28);
-  --chrome-bg:rgba(255,253,247,.86);
+[data-theme="arctic"]{
+  --bg:#f0f4f8; --s1:#ffffff; --s2:#e6ecf3; --s3:#dae3ec; --bd:#d8e0e9; --bd-2:#bcc8d6;
+  --tx:#12202c; --tx-2:#4c5c6b; --mu:#7d8b99;
+  --y:#0f6fd1; --on-y:#ffffff;
+  --gr:#1f8f5f; --re:#c8433f; --or:#b3701c;
+  --chrome-rgb:255,255,255}
+
+[data-theme="blueprint"]{
+  --bg:#e8eef4; --s1:#f7fafc; --s2:#dde6ee; --s3:#d0dbe6; --bd:#c6d3e0; --bd-2:#a6b8cb;
+  --tx:#10222f; --tx-2:#44586a; --mu:#75879a;
+  --y:#1b4f8f; --on-y:#f7fafc;
+  --gr:#1e7f57; --re:#b9403c; --or:#9d6a1a;
+  --chrome-rgb:247,250,252}
+
+[data-theme="noir"]{
+  --bg:#fafafa; --s1:#ffffff; --s2:#f0f0f0; --s3:#e6e6e6; --bd:#e0e0e0; --bd-2:#bdbdbd;
+  --tx:#111111; --tx-2:#4d4d4d; --mu:#8a8a8a;
+  --y:#111111; --on-y:#ffffff;
+  --gr:#2d7a3e; --re:#b13c3c; --or:#9a6a1c;
+  --chrome-rgb:255,255,255}
+
+
+/* ═══ DEPTH ═══════════════════════════════════════════════════════════════════
+   How surfaces separate from the ground. A preset names its default ramp; the
+   Depth dial replaces it. `heavy` and `glow` are deliberately loud — they are
+   there because the point of this rewrite is that the app can look like more
+   than one thing. */
+[data-depth="flat"]{--shadow:none;--shadow-lift:none;
+  --shadow-chrome:0 10px 34px -12px rgba(0,0,0,.5)}
+
+[data-depth="soft"]{
+  --shadow:0 1px 2px rgba(0,0,0,.14);
+  --shadow-lift:0 8px 22px -10px rgba(0,0,0,.4);
+  --shadow-chrome:0 10px 30px -12px rgba(0,0,0,.55)}
+
+[data-depth="lift"]{
+  --shadow:0 1px 2px rgba(0,0,0,.1), 0 6px 16px -10px rgba(0,0,0,.35);
+  --shadow-lift:0 10px 34px -8px rgba(0,0,0,.45);
+  --shadow-chrome:0 14px 40px -14px rgba(0,0,0,.6)}
+
+[data-depth="heavy"]{
+  --shadow:0 2px 0 0 var(--bd-2), 0 4px 14px -6px rgba(0,0,0,.5);
+  --shadow-lift:0 6px 0 0 var(--bd-2), 0 18px 40px -12px rgba(0,0,0,.6);
+  --shadow-chrome:0 6px 0 0 var(--bd-2), 0 18px 44px -14px rgba(0,0,0,.7)}
+
+[data-depth="glow"]{
+  --shadow:0 0 0 1px var(--y-fade), 0 0 16px -6px var(--yd);
+  --shadow-lift:0 0 0 1px var(--yb), 0 0 34px -6px var(--yd);
+  --shadow-chrome:0 0 26px -6px var(--yd), 0 10px 30px -14px rgba(0,0,0,.7)}
+
+/* Light modes want the shadow tinted by the ground, not pure black. */
+[data-mode="light"][data-depth="soft"]{
+  --shadow:0 1px 2px rgba(60,46,20,.05), 0 5px 14px -9px rgba(60,46,20,.2)}
+[data-mode="light"][data-depth="lift"]{
+  --shadow:0 1px 2px rgba(60,46,20,.06), 0 8px 20px -10px rgba(60,46,20,.24);
+  --shadow-lift:0 8px 30px -8px rgba(60,46,20,.3)}
+[data-mode="light"]{--shadow-chrome:0 8px 28px -12px rgba(60,46,20,.32)}
+
+/* Anything that reads as a raised surface takes the ramp. The class list is long
+   because it spans four apps that each named their cards differently; the rule
+   itself is one line. */
+.card,.cat-card,.tv-list-card,.hist-card,.hist-day,.meal-card,.proj-tile,
+.kmc,.cw,.jump,.q-item,.e-item,.data-stat,.setting-row,.theme-card,.opt-card{
+  box-shadow:var(--shadow)}
+.pad,.sheet,.modal-box{box-shadow:var(--shadow-lift)}
+#nav,.nav-arrow{box-shadow:var(--shadow-chrome)}
+[data-depth="flat"] .card,[data-depth="flat"] .cat-card,[data-depth="flat"] .tv-list-card,
+[data-depth="flat"] .hist-card,[data-depth="flat"] .hist-day,[data-depth="flat"] .meal-card,
+[data-depth="flat"] .proj-tile,[data-depth="flat"] .kmc,[data-depth="flat"] .cw,
+[data-depth="flat"] .jump,[data-depth="flat"] .q-item,[data-depth="flat"] .e-item,
+[data-depth="flat"] .data-stat,[data-depth="flat"] .setting-row,
+[data-depth="flat"] .theme-card{box-shadow:none}
+
+
+/* ═══ CARD TREATMENT ══════════════════════════════════════════════════════════
+   Independent of depth: what a card is made of.
+     outline  surface + hairline          (the original)
+     fill     surface, no hairline        (quieter, relies on depth)
+     ghost    no surface, hairline only   (the lightest possible)
+     line     no surface, no hairline, a rule underneath — a list, not a grid */
+[data-cards="fill"] .card,[data-cards="fill"] .cat-card,[data-cards="fill"] .tv-list-card,
+[data-cards="fill"] .hist-card,[data-cards="fill"] .meal-card,[data-cards="fill"] .proj-tile,
+[data-cards="fill"] .q-item,[data-cards="fill"] .e-item,[data-cards="fill"] .data-stat,
+[data-cards="fill"] .setting-row{border-color:transparent;background:var(--s3)}
+
+[data-cards="ghost"] .card,[data-cards="ghost"] .cat-card,[data-cards="ghost"] .tv-list-card,
+[data-cards="ghost"] .hist-card,[data-cards="ghost"] .meal-card,[data-cards="ghost"] .proj-tile,
+[data-cards="ghost"] .q-item,[data-cards="ghost"] .e-item,[data-cards="ghost"] .data-stat,
+[data-cards="ghost"] .setting-row{background:transparent}
+
+[data-cards="line"] .card,[data-cards="line"] .cat-card,[data-cards="line"] .tv-list-card,
+[data-cards="line"] .hist-card,[data-cards="line"] .meal-card,[data-cards="line"] .proj-tile,
+[data-cards="line"] .q-item,[data-cards="line"] .e-item,[data-cards="line"] .data-stat,
+[data-cards="line"] .setting-row{
+  background:transparent;border:none;border-bottom:var(--bw) solid var(--bd);
+  border-radius:0;box-shadow:none}
+
+
+/* ═══ NAV VARIANTS ════════════════════════════════════════════════════════════
+   pill     floating capsule (the default)
+   bar      full-width dock along the bottom edge
+   minimal  no chrome at all — swipe, arrows and the hash are the navigation */
+@media (max-width:879px){
+  [data-nav="bar"] #nav{
+    left:0;right:0;bottom:0;transform:none;width:auto;
+    border-radius:0;border:none;border-top:var(--bw) solid var(--bd);
+    padding:5px 8px calc(5px + env(safe-area-inset-bottom));
+    height:calc(var(--nav-fh) + env(safe-area-inset-bottom))}
+  [data-nav="bar"] #nav.chrome-off{transform:translateY(100%)}
+  [data-nav="bar"] .tab-b::before{border-radius:var(--r3)}
+  [data-nav="bar"] .nav-arrow{display:none}
+  [data-nav="minimal"] #nav{display:none}
 }
+[data-tab-labels="off"] .tb-l{display:none}
+[data-tab-labels="off"] .tab-b svg{width:21px;height:21px}
 
-/* PAPER — shape. Everything below only ever runs under this one theme. */
-:root[data-theme="paper"] body{background:var(--bg)}
+/* Colour-coded tabs: each app keeps its own hue on the active pill instead of
+   everything sharing the accent. */
+[data-color-tabs="on"] #nav .tab-b:nth-child(1)::before{background:#A78BFA}
+[data-color-tabs="on"] #nav .tab-b:nth-child(2)::before{background:#5cdb7d}
+[data-color-tabs="on"] #nav .tab-b:nth-child(3)::before{background:#5e8cff}
+[data-color-tabs="on"] #nav .tab-b:nth-child(4)::before{background:#e8a33d}
+[data-color-tabs="on"] #nav .tab-b:nth-child(5)::before{background:var(--mu)}
+[data-color-tabs="on"] #nav .tab-b.on{color:#0e0e0e}
 
-/* cards lift off the ground instead of being outlined boxes */
-[data-theme="paper"] .card,
-[data-theme="paper"] .cat-card,
-[data-theme="paper"] .tv-list-card,
-[data-theme="paper"] .hist-card,
-[data-theme="paper"] .hist-day,
-[data-theme="paper"] .meal-card,
-[data-theme="paper"] .proj-tile,
-[data-theme="paper"] .kmc,
-[data-theme="paper"] .cw,
-[data-theme="paper"] .jump,
-[data-theme="paper"] .q-item,
-[data-theme="paper"] .e-item,
-[data-theme="paper"] .data-stat,
-[data-theme="paper"] .setting-row{
-  border-radius:var(--r2);box-shadow:var(--shadow);border-color:var(--bd)}
 
-/* controls: softer corners, no hard hairline */
-[data-theme="paper"] .item-btn,
-[data-theme="paper"] .tv-item,
-[data-theme="paper"] .tv-cat-row,
-[data-theme="paper"] .tv-edit-item,
-[data-theme="paper"] .li-item,
-[data-theme="paper"] .item-add,
-[data-theme="paper"] .sc-b,
-[data-theme="paper"] .meal-b,
-[data-theme="paper"] .wo4-b,
-[data-theme="paper"] .blk-b,
-[data-theme="paper"] .cs-tog-b,
-[data-theme="paper"] .caf-b,
-[data-theme="paper"] .cur-b,
-[data-theme="paper"] .opt-b,
-[data-theme="paper"] .prio-b,
-[data-theme="paper"] .tg2-b,
-[data-theme="paper"] .sub-btn,
-[data-theme="paper"] .setting-btn,
-[data-theme="paper"] .rep-btn,
-[data-theme="paper"] .hist-act,
-[data-theme="paper"] .cw-btn,
-[data-theme="paper"] .cw-reset,
-[data-theme="paper"] .cw-pad-btn,
-[data-theme="paper"] .pad-key,
-[data-theme="paper"] .pad-op,
-[data-theme="paper"] .cp-opt,
-[data-theme="paper"] .st-item,
-[data-theme="paper"] .caf-reset,
-[data-theme="paper"] .cur-reset,
-[data-theme="paper"] .data-warn,
-[data-theme="paper"] .td-status,
-[data-theme="paper"] .settings-status,
-[data-theme="paper"] input,
-[data-theme="paper"] textarea,
-[data-theme="paper"] select{border-radius:var(--r1)}
+/* ═══ LIGHT-MODE CORRECTIONS ══════════════════════════════════════════════════
+   Five presets are light now rather than one, so these are keyed off the mode
+   instead of a theme id.
 
-[data-theme="paper"] .btn,
-[data-theme="paper"] .btn-send,
-[data-theme="paper"] .btn-share,
-[data-theme="paper"] .btn-copy,
-[data-theme="paper"] .add-btn,
-[data-theme="paper"] .meal-add,
-[data-theme="paper"] .st-add,
-[data-theme="paper"] .tv-edit-add,
-[data-theme="paper"] .modal-delete,
-[data-theme="paper"] .modal-cancel{border-radius:var(--r1);box-shadow:var(--shadow)}
-
-[data-theme="paper"] .pad,
-[data-theme="paper"] .sheet{border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:var(--shadow-lift)}
-[data-theme="paper"] .modal-box{border-radius:var(--r2);box-shadow:var(--shadow-lift)}
-
-/* a serif display face wants a touch less negative tracking than Syne */
-[data-theme="paper"] .h-logo{letter-spacing:-.01em}
-
-/* the few hardcoded darks that only read on a dark ground */
-[data-theme="paper"] .out-pre,
-[data-theme="paper"] .rep-pre{color:var(--mu)}
-[data-theme="paper"] .wo4-b.rest-on{background:var(--s2);border-color:var(--bd);color:var(--mu)}
-[data-theme="paper"] .ti.neu{background:var(--s2);border-color:var(--bd);color:var(--mu)}
-[data-theme="paper"] .muted{background:transparent!important;box-shadow:none}
-[data-theme="paper"] .card.muted{box-shadow:none}
-
-[data-theme="paper"] .tab.active{color:var(--on-y)}
-
-/* ── PAPER — the category palette ─────────────────────────────────────────────
    STORE's category colours were chosen against near-black: dairy (#e8e0c8),
-   carbs (#c4a47a) and snacks (#d4a851) are pale, and disappear as TEXT on a
-   light ground. Keep them for identity — dots, borders, icons — and take the
-   text back to ink. */
-[data-theme="paper"] .li-qty-n,
-[data-theme="paper"] .cat-meta em,
-[data-theme="paper"] .item-add .qty-badge{color:var(--tx)}
-/* pale icons still need to read, and hue-shifting is not an option here */
-[data-theme="paper"] .cat-ico,
-[data-theme="paper"] .cp-opt svg{filter:brightness(.72) saturate(1.25)}
+   carbs (#c4a47a) and snacks (#d4a851) are pale, and vanish as TEXT on a light
+   ground. Keep them for identity — dots, rims, icons — and take the text to ink. */
+[data-mode="light"] .li-qty-n,
+[data-mode="light"] .cat-meta em,
+[data-mode="light"] .item-add .qty-badge{color:var(--tx)}
+[data-mode="light"] .cat-ico,
+[data-mode="light"] .cp-opt svg{filter:brightness(.72) saturate(1.25)}
 /* a hairline rim so a near-white dot is still a dot */
-[data-theme="paper"] .li-dot,
-[data-theme="paper"] .hist-pill .dot,
-[data-theme="paper"] .meal-row .dot,
-[data-theme="paper"] .proj-dot,
-[data-theme="paper"] .q-dot,
-[data-theme="paper"] .sheet-dot,
-[data-theme="paper"] .form-ctx-dot{box-shadow:inset 0 0 0 1px rgba(34,32,28,.3)}
+[data-mode="light"] .li-dot,
+[data-mode="light"] .hist-pill .dot,
+[data-mode="light"] .meal-row .dot,
+[data-mode="light"] .proj-dot,
+[data-mode="light"] .q-dot,
+[data-mode="light"] .sheet-dot,
+[data-mode="light"] .form-ctx-dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.28)}
+/* the few hardcoded darks that only read on a dark ground */
+[data-mode="light"] .out-pre,
+[data-mode="light"] .rep-pre{color:var(--tx-2)}
+[data-mode="light"] .wo4-b.rest-on{background:var(--s2);border-color:var(--bd);color:var(--mu)}
+[data-mode="light"] .ti.neu{background:var(--s2);border-color:var(--bd);color:var(--mu)}
+[data-mode="light"] .muted{background:transparent!important}
+[data-mode="light"] .card.muted{box-shadow:none}
+[data-mode="light"] .tab.active{color:var(--on-y)}
+[data-mode="light"] .sheet-back,
+[data-mode="light"] .modal-overlay{background:rgba(30,26,20,.42)}
+
+/* A serif display face wants a touch less negative tracking than a grotesk. */
+[data-theme="paper"] .h-logo,[data-theme="linen"] .h-logo,[data-theme="dune"] .h-logo{letter-spacing:-.01em}
+
+/* NOIR and CARBON use a neutral accent, so the "on accent" surfaces need the
+   opposite end of the scale to stay legible — handled by --on-y in the preset,
+   but the accent wash also has to stop tinting or it turns muddy grey. */
+[data-theme="noir"],[data-theme="carbon"]{
+  --yd:color-mix(in srgb, var(--y) 9%, transparent);
+  --yb:color-mix(in srgb, var(--y) 22%, transparent)}

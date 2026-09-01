@@ -1,0 +1,231 @@
+/* ── Settings ─────────────────────────────────────────────────────────────────
+   Split out of shell.css, which had grown to hold both the frame and the whole
+   settings view. Everything here is scoped to .ns-set except the small shared
+   controls the four app panels also borrow.
+
+   Loaded after shell.css and before themes.css. */
+
+.ns-set .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-set .scr.on{display:block}
+.ns-set #s-home{padding-top:env(safe-area-inset-top)}
+.ns-set .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0}
+.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--mu);margin-bottom:10px}
+.ns-set .h-logo{font:800 44px/1 var(--head);letter-spacing:-.02em;margin-bottom:18px}
+.ns-set .h-logo em{color:var(--y);font-style:normal}
+
+/* ── Segmented control ────────────────────────────────────────────────────────
+   Nine panels now, so it scrolls sideways and the active chip is scrolled into
+   view by SET.panel() rather than left off the edge. */
+.set-seg{display:flex;gap:6px;padding:0 18px 4px;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;margin-bottom:16px;scroll-padding:0 18px}
+.set-seg::-webkit-scrollbar{display:none}
+.seg-b{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--mu);font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
+  padding:10px 15px;cursor:pointer;transition:all var(--dur-1)}
+.seg-b.on{background:var(--y);border-color:var(--y);color:var(--on-y)}
+
+.set-panel{display:none;padding:0 18px}
+.set-panel.on{display:block}
+
+/* ── Shared furniture ─────────────────────────────────────────────────────── */
+.ns-set .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  margin:24px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ns-set .sec:first-child{margin-top:0}
+.ns-set .sec-reset{background:none;border:none;color:var(--mu);cursor:pointer;
+  font:400 9px/1 var(--mono);letter-spacing:.08em;text-transform:none;padding:2px 0}
+.ns-set .sec-reset:active,.ns-set .sec-reset:hover{color:var(--y)}
+.ns-set .sec-reset.hidden{display:none}
+
+.ns-set .data-warn,.ns-set .set-note{font:400 10px/1.6 var(--mono);color:var(--mu);
+  padding:12px 14px;margin-bottom:14px;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
+
+.ns-set .setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:13px 14px;margin-bottom:8px}
+.ns-set .setting-lbl{font:400 11px/1.4 var(--mono);letter-spacing:.06em;color:var(--tx-2)}
+.ns-set .setting-lbl small{display:block;color:var(--mu);font-size:9px;margin-top:4px;letter-spacing:.04em}
+.ns-set .setting-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.08em;
+  padding:9px 13px;cursor:pointer;transition:all var(--dur-1);white-space:nowrap}
+.ns-set .setting-btn:active{border-color:var(--y);color:var(--y)}
+.ns-set .setting-btn.danger{color:var(--re)}
+.ns-set .setting-btn.danger:active{border-color:var(--re)}
+
+.ns-set .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
+  font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+  padding:15px;cursor:pointer;margin-top:6px;transition:opacity var(--dur-1)}
+.ns-set .btn:active{opacity:.82}
+.ns-set .btn-2{background:var(--s2);color:var(--tx);border:var(--bw) solid var(--bd)}
+.ns-set .btn-danger{background:var(--re);color:#fff}
+
+.ns-set .f{margin-bottom:14px}
+.ns-set .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--mu);margin-bottom:7px}
+.ns-set input[type=text],.ns-set input[type=password],.ns-set input[type=number],
+.ns-set textarea,.ns-set select{
+  width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 13px/1.5 var(--mono);padding:11px 12px;outline:none;
+  -webkit-appearance:none;appearance:none;transition:border-color var(--dur-1)}
+.ns-set textarea{min-height:88px;resize:vertical}
+.ns-set select{cursor:pointer;background-image:none}
+.ns-set input:focus,.ns-set textarea:focus,.ns-set select:focus{border-color:var(--y)}
+
+.ns-set .data-stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ns-set .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.ns-set .data-stat-v{font:700 13px/1 var(--mono);color:var(--tx)}
+
+.ns-set .td-status{font:400 10px/1.6 var(--mono);color:var(--mu);letter-spacing:.04em;
+  padding:10px 12px;margin-bottom:8px;border-radius:var(--r1);
+  background:var(--s1);border:var(--bw) solid var(--bd);word-break:break-word}
+.ns-set .td-status.good{color:var(--gr);border-color:color-mix(in srgb,var(--gr) 40%,transparent)}
+.ns-set .td-status.bad{color:var(--re);border-color:color-mix(in srgb,var(--re) 40%,transparent)}
+.ns-set .td-status.busy{color:var(--y);border-color:var(--yb)}
+.ns-set .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ns-set .td-acts .setting-btn{text-align:center}
+
+/* ── Theme gallery ────────────────────────────────────────────────────────── */
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:6px}
+.theme-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:12px;cursor:pointer;text-align:left;transition:border-color var(--dur-1),transform var(--dur-1);
+  display:block;position:relative}
+.theme-card.on{border-color:var(--y)}
+.theme-card:active{transform:scale(.985)}
+.theme-swatch{display:flex;gap:3px;margin-bottom:10px;height:30px}
+.theme-swatch i{flex:1;border-radius:var(--r1);border:1px solid rgba(128,128,128,.2)}
+.theme-swatch i:nth-child(3){flex:1.4}
+.theme-name{font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;color:var(--tx);
+  display:flex;align-items:center;justify-content:space-between;gap:8px}
+.theme-name .tick{color:var(--y);font:400 11px/1 var(--mono)}
+.theme-card:not(.on) .tick{visibility:hidden}
+.theme-desc{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:5px}
+
+/* ── Accent picker ────────────────────────────────────────────────────────── */
+.acc-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.acc-b{width:34px;height:34px;border-radius:var(--r-pill);border:2px solid transparent;
+  cursor:pointer;padding:0;position:relative;background:var(--s2);
+  transition:transform var(--dur-1),border-color var(--dur-1)}
+.acc-b i{position:absolute;inset:3px;border-radius:var(--r-pill);display:block}
+.acc-b.on{border-color:var(--tx)}
+.acc-b:active{transform:scale(.9)}
+.acc-b.theme-acc i{background:linear-gradient(135deg,var(--y),var(--s2))}
+.acc-custom-row{display:flex;gap:8px;align-items:center}
+.acc-custom-row input[type=color]{width:46px;height:38px;padding:2px;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r1);cursor:pointer;flex:0 0 auto}
+.acc-custom-row input[type=text]{flex:1}
+
+/* ── Option rows: a label, then a row of chips ────────────────────────────── */
+.opt-set{margin-bottom:14px}
+.opt-set > .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.opt-set > .lbl em{font-style:normal;color:var(--tx-2);letter-spacing:.04em;text-transform:none}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--mu);font:400 10px/1 var(--mono);letter-spacing:.06em;
+  padding:9px 11px;cursor:pointer;transition:all var(--dur-1)}
+.chip.on{background:var(--yd);border-color:var(--y);color:var(--y)}
+
+/* ── Sliders ──────────────────────────────────────────────────────────────── */
+.slider-row{margin-bottom:16px}
+.slider-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.slider-head .lbl{margin-bottom:0}
+.slider-val{font:700 11px/1 var(--mono);color:var(--y);letter-spacing:.04em}
+.slider-val.is-auto{color:var(--mu);font-weight:400}
+input[type=range].sl{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;
+  display:block}
+input[type=range].sl::-webkit-slider-runnable-track{
+  height:3px;background:var(--bd-2);border-radius:var(--r-pill)}
+input[type=range].sl::-moz-range-track{
+  height:3px;background:var(--bd-2);border-radius:var(--r-pill)}
+input[type=range].sl::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-6.5px;
+  border-radius:var(--r-pill);background:var(--y);border:none;box-shadow:var(--shadow)}
+input[type=range].sl::-moz-range-thumb{
+  width:16px;height:16px;border-radius:var(--r-pill);background:var(--y);border:none}
+
+/* ── Toggles ──────────────────────────────────────────────────────────────── */
+.tog{position:relative;width:42px;height:24px;border-radius:var(--r-pill);flex:0 0 auto;
+  background:var(--s2);border:var(--bw) solid var(--bd);cursor:pointer;padding:0;
+  transition:background var(--dur-1),border-color var(--dur-1)}
+.tog::after{content:'';position:absolute;top:50%;left:3px;transform:translateY(-50%);
+  width:16px;height:16px;border-radius:var(--r-pill);background:var(--mu);
+  transition:transform var(--dur-2) var(--ease-out),background var(--dur-1)}
+.tog.on{background:var(--yd);border-color:var(--y)}
+.tog.on::after{transform:translateY(-50%) translateX(18px);background:var(--y)}
+
+/* ── Live preview ─────────────────────────────────────────────────────────────
+   A miniature of the app's real furniture, built out of the same tokens, so the
+   dials can be judged without leaving the panel. It is sticky: on a phone the
+   slider you are dragging is often below the fold otherwise. */
+.preview{position:sticky;top:8px;z-index:5;margin-bottom:18px;
+  background:var(--bg);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(14px * var(--dens));box-shadow:var(--shadow-lift)}
+.pv-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
+.pv-logo{font:800 20px/1 var(--head);letter-spacing:-.02em;color:var(--tx)}
+.pv-logo em{color:var(--y);font-style:normal}
+.pv-tag{font:700 8px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu)}
+.pv-row{display:grid;grid-template-columns:1fr 1fr;gap:calc(7px * var(--dens));margin-bottom:9px}
+.pv-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(11px * var(--dens));box-shadow:var(--shadow)}
+.pv-card-t{font:700 10px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+.pv-card-s{font:400 9px/1 var(--mono);color:var(--mu);margin-top:6px}
+.pv-bar{height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden;margin-bottom:9px}
+.pv-bar i{display:block;height:100%;width:62%;background:var(--y);border-radius:var(--r-pill)}
+.pv-btns{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.pv-btn{background:var(--y);color:var(--on-y);border:none;border-radius:var(--r1);
+  font:700 9px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(9px * var(--dens)) calc(12px * var(--dens));box-shadow:var(--shadow)}
+.pv-btn.ghost{background:var(--s2);color:var(--tx-2);border:var(--bw) solid var(--bd)}
+.pv-btn.acc{background:var(--yd);color:var(--y);border:var(--bw) solid var(--yb)}
+[data-caps="off"] .pv-card-t,[data-caps="off"] .pv-btn,[data-caps="off"] .pv-tag{text-transform:none}
+
+/* ── Content editors ──────────────────────────────────────────────────────────
+   One shape for every collection: a stack of cards, each with a header row of
+   inputs and a body that is either more inputs or a one-per-line textarea. */
+.ed-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.ed-head{display:flex;gap:6px;align-items:center;margin-bottom:9px}
+.ed-head input[type=text]{flex:1;min-width:0;font-size:12px;padding:9px 10px}
+.ed-head input[type=number]{width:66px;flex:0 0 auto;font-size:12px;padding:9px 10px;text-align:center}
+.ed-head select{flex:0 0 auto;width:auto;min-width:96px;font-size:11px;padding:9px 8px}
+.ed-swatch{width:34px;height:34px;flex:0 0 auto;padding:2px;background:var(--s2);
+  border:var(--bw) solid var(--bd);border-radius:var(--r1);cursor:pointer}
+.ed-del{flex:0 0 auto;width:34px;height:34px;background:var(--s2);border:var(--bw) solid var(--bd);
+  border-radius:var(--r1);color:var(--mu);font:400 14px/1 var(--mono);cursor:pointer;
+  transition:all var(--dur-1)}
+.ed-del:active,.ed-del:hover{color:var(--re);border-color:var(--re)}
+.ed-hint{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:6px}
+.ed-add{width:100%;background:var(--s2);border:var(--bw) dashed var(--bd-2);border-radius:var(--r1);
+  color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.08em;padding:13px;cursor:pointer;
+  transition:all var(--dur-1);margin-bottom:6px}
+.ed-add:active,.ed-add:hover{color:var(--y);border-color:var(--y)}
+.ed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.ed-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:10px 12px}
+.ed-toggle span{font:400 10px/1 var(--mono);color:var(--tx-2);letter-spacing:.04em}
+.ed-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.ed-pair .lbl{margin-bottom:5px}
+.ed-badge{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.06em;
+  border:var(--bw) solid var(--bd);border-radius:var(--r-pill);padding:4px 8px;flex:0 0 auto}
+
+/* ── Storage bars ─────────────────────────────────────────────────────────── */
+.st-meter{height:5px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden;margin-top:9px}
+.st-meter i{display:block;height:100%;background:var(--y)}
+.st-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.st-legend span{font:400 9px/1 var(--mono);color:var(--mu);display:flex;align-items:center;gap:5px}
+.st-legend i{width:8px;height:8px;border-radius:2px;display:block}
+
+@media (hover:hover) and (pointer:fine){
+  .seg-b:hover{border-color:var(--mu)}
+  .seg-b.on:hover{border-color:var(--y)}
+  .theme-card:hover{border-color:var(--mu)}
+  .theme-card.on:hover{border-color:var(--y)}
+  .chip:hover{border-color:var(--mu)}
+  .chip.on:hover{border-color:var(--y)}
+  .acc-b:hover{transform:scale(1.08)}
+  .ns-set .setting-btn:hover{border-color:var(--mu)}
+  .ns-set .btn:hover{opacity:.9}
+}

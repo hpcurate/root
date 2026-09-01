@@ -13,10 +13,10 @@
 .ns-plan #s-home{padding-top:env(safe-area-inset-top)}
 .ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
-    display:flex;align-items:center;gap:14px;z-index:10}
-.ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
+    display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
+.ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-plan .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;flex:1}
-.ns-plan .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0;transition:color .12s}
+.ns-plan .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-plan .hd-action:active{color:var(--y)}
 
 /* ── Home header ── */
@@ -26,36 +26,36 @@
 .ns-plan .h-logo em{color:var(--y);font-style:normal}
 
 /* ── Content ── */
-.ns-plan .cnt{padding:18px}
+.ns-plan .cnt{padding:calc(18px * var(--dens))}
 .ns-plan .f{margin-bottom:17px}
 .ns-plan .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
 .ns-plan input[type=text],.ns-plan input[type=password],.ns-plan textarea{
   width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  color:var(--tx);font:400 15px/1 var(--mono);padding:12px 13px;outline:none;
+  color:var(--tx);font:400 15px/1 var(--mono);padding:calc(12px * var(--dens)) calc(13px * var(--dens));outline:none;
   -webkit-appearance:none;transition:border-color .12s}
 .ns-plan input:focus,.ns-plan textarea:focus{border-color:var(--y)}
 .ns-plan textarea{resize:none;line-height:1.65;min-height:72px}
 
 /* ── Row label used on the home screen ── */
-.ns-plan .row-lbl{display:flex;align-items:center;justify-content:space-between;gap:10px;
+.ns-plan .row-lbl{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
-  padding-bottom:8px;margin:0 0 12px;border-bottom:var(--bw) solid var(--bd)}
+  padding-bottom:calc(8px * var(--dens));margin:0 0 12px;border-bottom:var(--bw) solid var(--bd)}
 .ns-plan .row-lbl .muted-act{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
-  letter-spacing:.08em;cursor:pointer;padding:2px 0;text-transform:uppercase}
+  letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:uppercase}
 .ns-plan .row-lbl .muted-act:active{color:var(--re)}
 .ns-plan .row-lbl em{color:var(--mu);font-style:normal;font:400 10px/1 var(--mono);
   letter-spacing:.06em;text-transform:none}
 
 /* ── Project tiles ── */
-.ns-plan .projects{padding:0 18px;margin-bottom:26px}
-.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ns-plan .projects{padding:0 calc(18px * var(--dens));margin-bottom:26px}
+.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens))}
 .ns-plan .proj-tile{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
-  padding:15px 14px 13px;cursor:pointer;text-align:left;user-select:none;
-  display:flex;flex-direction:column;gap:9px;min-height:92px;
+  padding:calc(15px * var(--dens)) calc(14px * var(--dens)) calc(13px * var(--dens));cursor:pointer;text-align:left;user-select:none;
+  display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:92px;
   transition:border-color .14s,background .14s}
 .ns-plan .proj-tile:active{background:var(--s2)}
 .ns-plan .proj-tile.has{border-color:var(--proj-color)}
-.ns-plan .proj-head{display:flex;align-items:center;gap:9px}
+.ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
 .ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
 .ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
@@ -64,52 +64,52 @@
 .ns-plan .proj-meta .unmapped{color:var(--or)}
 
 /* ── Section chips (inside the sheet) ── */
-.ns-plan .sub-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.ns-plan .sub-wrap{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens))}
 .ns-plan .sub-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;
-  padding:12px 14px;cursor:pointer;transition:all .1s;white-space:nowrap}
+  padding:calc(12px * var(--dens)) calc(14px * var(--dens));cursor:pointer;transition:all .1s;white-space:nowrap}
 .ns-plan .sub-btn:active{background:var(--yd);border-color:var(--sheet-color,var(--y));color:var(--sheet-color,var(--y))}
 
 /* ── Options (scale buttons) ── */
-.ns-plan .opts{display:flex;flex-wrap:wrap;gap:5px}
+.ns-plan .opts{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
 .ns-plan .opt-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--mu);font:400 12px/1 var(--mono);letter-spacing:.05em;
-       padding:11px 12px;cursor:pointer;transition:all .1s;flex:1;text-align:center;min-width:0;white-space:nowrap}
+       padding:calc(11px * var(--dens)) calc(12px * var(--dens));cursor:pointer;transition:all .1s;flex:1;text-align:center;min-width:0;white-space:nowrap}
 .ns-plan .opt-b.on{background:var(--yd);border-color:var(--y);color:var(--y)}
 .ns-plan .opt-b.none-opt{flex:0 0 auto}
 
 /* ── Priority buttons ── */
-.ns-plan .prio-row{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.ns-plan .prio-row{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(5px * var(--dens))}
 .ns-plan .prio-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
         color:var(--mu);font:400 11px/1 var(--mono);letter-spacing:.05em;
-        padding:12px 6px;cursor:pointer;text-align:center;transition:all .1s}
+        padding:calc(12px * var(--dens)) calc(6px * var(--dens));cursor:pointer;text-align:center;transition:all .1s}
 .ns-plan .prio-b.on.p1{background:rgba(224,96,96,.12);border-color:var(--re);color:var(--re)}
 .ns-plan .prio-b.on.p2{background:rgba(255,154,20,.12);border-color:#ff9a14;color:#ff9a14}
 .ns-plan .prio-b.on.p3{background:rgba(92,219,125,.12);border-color:var(--gr);color:var(--gr)}
 .ns-plan .prio-label{font:400 7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.7}
 
 /* ── Toggle (subtasks) ── */
-.ns-plan .tg2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.ns-plan .tg2{display:grid;grid-template-columns:1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-plan .tg2-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--mu);font:400 12px/1 var(--mono);letter-spacing:.08em;
-       padding:12px;cursor:pointer;text-align:center;transition:all .1s}
+       padding:calc(12px * var(--dens));cursor:pointer;text-align:center;transition:all .1s}
 .ns-plan .tg2-b.on{background:var(--yd);border-color:var(--y);color:var(--y)}
 
 /* ── Subtask input ── */
-.ns-plan .st-row{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:6px}
+.ns-plan .st-row{display:grid;grid-template-columns:1fr auto;gap:calc(6px * var(--dens));margin-bottom:6px}
 .ns-plan .st-add{background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-        font:700 11px/1 var(--mono);letter-spacing:.06em;padding:12px 14px;cursor:pointer;white-space:nowrap}
+        font:700 11px/1 var(--mono);letter-spacing:.06em;padding:calc(12px * var(--dens)) calc(14px * var(--dens));cursor:pointer;white-space:nowrap}
 .ns-plan .st-add:active{opacity:.82}
-.ns-plan .st-list{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.ns-plan .st-list{display:flex;flex-direction:column;gap:calc(5px * var(--dens));margin-top:4px}
 .ns-plan .st-item{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-         padding:9px 12px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+         padding:calc(9px * var(--dens)) calc(12px * var(--dens));display:grid;grid-template-columns:1fr auto;gap:calc(10px * var(--dens));align-items:center}
 .ns-plan .st-item-txt{font:400 12px/1 var(--mono);color:var(--tx)}
-.ns-plan .st-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:2px}
+.ns-plan .st-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens))}
 .ns-plan .st-del:active{color:var(--re)}
 
 /* ── Form context banner ── */
 .ns-plan .form-ctx{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-          padding:11px 13px;margin-bottom:20px;display:flex;align-items:center;gap:9px}
+          padding:calc(11px * var(--dens)) calc(13px * var(--dens));margin-bottom:20px;display:flex;align-items:center;gap:calc(9px * var(--dens))}
 .ns-plan .form-ctx-dot{width:8px;height:8px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
 .ns-plan .form-ctx-txt{font:400 11px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
 .ns-plan .form-ctx-txt em{color:var(--tx);font-style:normal}
@@ -117,56 +117,56 @@
 /* ── Buttons ── */
 .ns-plan .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
      font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
-     padding:15px;cursor:pointer;margin-top:6px;transition:opacity .15s}
+     padding:calc(15px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-plan .btn:active{opacity:.82}
 .ns-plan .btn-ghost{background:var(--s2);border:var(--bw) solid var(--bd);color:var(--tx);
            font:400 11px/1 var(--mono);letter-spacing:.06em}
 
 /* ── Queue ── */
-.ns-plan .queue{padding:0 18px}
+.ns-plan .queue{padding:0 calc(18px * var(--dens))}
 .ns-plan .q-item{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
-        padding:13px 14px;margin-bottom:7px;display:grid;grid-template-columns:auto 1fr auto;
-        gap:11px;align-items:start;transition:border-color .14s}
+        padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:7px;display:grid;grid-template-columns:auto 1fr auto;
+        gap:calc(11px * var(--dens));align-items:start;transition:border-color .14s}
 .ns-plan .q-dot{width:8px;height:8px;border-radius:50%;background:var(--q-color,var(--mu));margin-top:4px}
 .ns-plan .q-item-body{min-width:0}
 .ns-plan .q-item-name{font:400 13px/1.4 var(--mono);color:var(--tx);margin-bottom:7px;word-break:break-word}
-.ns-plan .q-item-meta{display:flex;gap:5px;flex-wrap:wrap}
+.ns-plan .q-item-meta{display:flex;gap:calc(5px * var(--dens));flex-wrap:wrap}
 .ns-plan .q-pill{font:400 8px/1 var(--mono);letter-spacing:.08em;background:var(--s2);
-        border-radius:2px;padding:4px 7px;color:var(--mu);white-space:nowrap}
+        border-radius:var(--r1);padding:calc(4px * var(--dens)) calc(7px * var(--dens));color:var(--mu);white-space:nowrap}
 .ns-plan .q-pill.hl{color:var(--q-color,var(--y))}
-.ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:2px 0 2px 4px}
+.ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) 0 calc(2px * var(--dens)) calc(4px * var(--dens))}
 .ns-plan .q-del:active{color:var(--re)}
-.ns-plan .queue-empty{color:var(--mu);font:400 11px/1.7 var(--mono);text-align:center;padding:34px 20px;
+.ns-plan .queue-empty{color:var(--mu);font:400 11px/1.7 var(--mono);text-align:center;padding:calc(34px * var(--dens)) calc(20px * var(--dens));
         background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r2)}
 
 /* ── Send button ──────────────────────────────────────────────────────────────
    Sticky, and parked clear of the floating tab pill rather than under it. */
-.ns-plan .send-wrap{position:sticky;padding:0 18px;margin-top:14px;
+.ns-plan .send-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:14px;
   bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
 .ns-plan .btn-send{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
           font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
-          padding:16px;cursor:pointer;transition:opacity .15s;
-          box-shadow:0 6px 26px -6px rgba(0,0,0,.55)}
+          padding:calc(16px * var(--dens));cursor:pointer;transition:opacity .15s;
+          box-shadow:var(--shadow-lift)}
 .ns-plan .btn-send:active{opacity:.82}
 .ns-plan .btn-send:disabled{opacity:.3;cursor:not-allowed}
 
 /* ── Settings (rendered inside the settings tab) ── */
-.ns-plan .settings-status{font:400 10px/1.5 var(--mono);letter-spacing:.06em;padding:10px 13px;border-radius:var(--r1);margin-bottom:14px}
+.ns-plan .settings-status{font:400 10px/1.5 var(--mono);letter-spacing:.06em;padding:calc(10px * var(--dens)) calc(13px * var(--dens));border-radius:var(--r1);margin-bottom:14px}
 .ns-plan .settings-status.ok{background:rgba(92,219,125,.08);border:var(--bw) solid rgba(92,219,125,.28);color:var(--gr)}
 .ns-plan .settings-status.err{background:rgba(224,96,96,.08);border:var(--bw) solid rgba(224,96,96,.28);color:var(--re)}
 .ns-plan .settings-status.idle{background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu)}
 .ns-plan select{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-       color:var(--tx);font:400 13px/1 var(--mono);padding:11px 12px;outline:none;
+       color:var(--tx);font:400 13px/1 var(--mono);padding:calc(11px * var(--dens)) calc(12px * var(--dens));outline:none;
        -webkit-appearance:none;cursor:pointer}
 .ns-plan select:focus{border-color:var(--y)}
 .ns-plan .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
-     margin:20px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd)}
+     margin:20px 0 12px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
 .ns-plan .sec:first-child{margin-top:0}
 .ns-plan hr{border:none;border-top:var(--bw) solid var(--bd);margin:6px 0 18px}
 
 /* ── Sending state ── */
 .ns-plan .send-log{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-          padding:13px;font:400 11px/1.8 var(--mono);color:var(--mu);
+          padding:calc(13px * var(--dens));font:400 11px/1.8 var(--mono);color:var(--mu);
           max-height:240px;overflow-y:auto;margin-bottom:14px}
 .ns-plan .send-log .ok{color:var(--gr)}
 .ns-plan .send-log .err{color:var(--re)}

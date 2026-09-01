@@ -12,33 +12,22 @@
   <link rel="apple-touch-icon" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- Stamp the saved theme before the first paint, so a non-default theme does
-       not flash the default palette on every cold start. -->
-  <script>
-    try {
-      var t = localStorage.getItem('root_theme');
-      if (t && ['void','ember','frost','paper'].indexOf(t) >= 0) {
-        document.documentElement.setAttribute('data-theme', t);
-        if (t === 'paper') {
-          var l = document.createElement('link');
-          l.id = 'paper-fonts'; l.rel = 'stylesheet';
-          l.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800'
-                 + '&family=IBM+Plex+Mono:wght@400;700&display=swap';
-          document.head.appendChild(l);
-        }
-      }
-    } catch (e) {}
-  </script>
+  <!-- The appearance engine runs BEFORE the stylesheets. It only touches
+       <html>, which already exists here, so the whole look — theme, corners,
+       density, depth, texture, type pairing, scale — is stamped on before the
+       first paint and nothing flashes the default palette on a cold start. It
+       also injects the one <link> for whichever faces the look needs. -->
+  <script src="js/prefs.js"></script>
 
-  <!-- tokens, app sheets, shell, then themes last -->
+  <!-- tokens, app sheets, shell, settings, then themes last -->
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/do.css">
   <link rel="stylesheet" href="css/log.css">
   <link rel="stylesheet" href="css/plan.css">
   <link rel="stylesheet" href="css/store.css">
   <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
 </head>
 <body>
@@ -207,11 +196,8 @@
       <div class="h-label" id="date-label">—</div>
       <div class="h-logo-row">
         <div class="h-logo">DO<em>.</em></div>
-        <div class="tabs" id="home-tabs">
-          <div class="tab-glider" id="tab-glider"></div>
-          <button class="tab active" data-tab="daily" onclick="DO.setTab('daily')">daily</button>
-          <button class="tab" data-tab="other" onclick="DO.setTab('other')">other</button>
-        </div>
+        <!-- filled by DO.renderTabs() from Config → do.tabs -->
+        <div class="tabs" id="home-tabs"></div>
       </div>
       <div class="h-acts">
         <button class="h-act sync" data-td-btn="sync" data-td-busy="⋯" onclick="DO.syncTodoist()">sync</button>
@@ -350,10 +336,13 @@
   <!-- ── MORNING ── -->
   <div id="s-morning" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Morning</span></div>
+    <!-- Every field carries data-field. LOG.applyFieldVisibility() hides the ones
+         switched off in Settings → content, and the scale endpoints, workout
+         types and counter labels are filled in from Config on each render. -->
     <div class="cnt">
-      <div class="f"><label class="lbl">Wakeup time</label><input type="time" id="m-wt" oninput="LOG.markDirty()"></div>
-      <div class="f"><label class="lbl">Sleep hours</label><input type="number" inputmode="decimal" id="m-sl" placeholder="7.5" step="0.5" oninput="LOG.markDirty()"></div>
-      <div class="f"><label class="lbl">Energy</label>
+      <div class="f" data-field="wakeTime"><label class="lbl">Wakeup time</label><input type="time" id="m-wt" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="sleepHours"><label class="lbl">Sleep hours</label><input type="number" inputmode="decimal" id="m-sl" placeholder="7.5" step="0.5" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="energyM"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-m">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">1</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">2</button>
@@ -361,9 +350,9 @@
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">4</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">5</button>
         </div>
-        <div class="sc-ends"><span>drained</span><span>wired</span></div>
+        <div class="sc-ends" data-scale="energy"><span>drained</span><span>wired</span></div>
       </div>
-      <div class="f"><label class="lbl">Mood</label>
+      <div class="f" data-field="moodM"><label class="lbl">Mood</label>
         <div class="sc" id="sc-mood-m">
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">1</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">2</button>
@@ -371,9 +360,9 @@
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">4</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-m')">5</button>
         </div>
-        <div class="sc-ends"><span>low</span><span>great</span></div>
+        <div class="sc-ends" data-scale="mood"><span>low</span><span>great</span></div>
       </div>
-      <div class="f">
+      <div class="f" data-field="coldShower">
         <label class="lbl">Cold shower</label>
         <div class="cs-tog" id="cs-tog">
           <button class="cs-tog-b" onclick="LOG.setColdShower(true)">yes</button>
@@ -381,22 +370,17 @@
         </div>
         <div class="hidden" id="cs-sec"><input type="number" inputmode="numeric" id="m-cs" placeholder="seconds…" oninput="LOG.markDirty()" style="margin-top:6px"></div>
       </div>
-      <div class="f">
+      <div class="f" data-field="weight">
         <label class="lbl">Weight (kg) <span class="lbl-hint" id="last-weight"></span></label>
         <input type="number" inputmode="decimal" id="m-wkg" placeholder="75.0" step="0.1" oninput="LOG.markDirty()">
       </div>
-      <div class="f"><label class="lbl">km walked (morning)</label><input type="number" inputmode="decimal" id="m-km" placeholder="2.0" step="0.1" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="kmMorning"><label class="lbl">km walked (morning)</label><input type="number" inputmode="decimal" id="m-km" placeholder="2.0" step="0.1" oninput="LOG.markDirty()"></div>
       <hr>
-      <div class="f">
+      <div class="f" data-field="workout">
         <label class="lbl">Workout</label>
-        <div class="wo4" id="wo4">
-          <button class="wo4-b" onclick="LOG.setWo(this,'push')">push</button>
-          <button class="wo4-b" onclick="LOG.setWo(this,'pull')">pull</button>
-          <button class="wo4-b" onclick="LOG.setWo(this,'legs')">legs</button>
-          <button class="wo4-b" onclick="LOG.setWo(this,'rest')">rest</button>
-        </div>
+        <div class="wo4" id="wo4"></div>
       </div>
-      <div id="wo-fields">
+      <div id="wo-fields" data-field="workout">
         <div class="f"><label class="lbl">Total kg lifted</label><input type="number" inputmode="numeric" id="m-tkg" placeholder="4500" oninput="LOG.markDirty()"></div>
         <div class="f"><label class="lbl">Duration (min)</label><input type="number" inputmode="numeric" id="m-tmin" placeholder="65" oninput="LOG.markDirty()"></div>
       </div>
@@ -408,8 +392,8 @@
   <div id="s-evening" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Evening</span></div>
     <div class="cnt">
-      <div class="f"><label class="lbl">km walked (evening)</label><input type="number" inputmode="decimal" id="e-kme" placeholder="3.5" step="0.1" oninput="LOG.markDirty()"></div>
-      <div class="f"><label class="lbl">Energy</label>
+      <div class="f" data-field="kmEvening"><label class="lbl">km walked (evening)</label><input type="number" inputmode="decimal" id="e-kme" placeholder="3.5" step="0.1" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="energyE"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-e">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">1</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">2</button>
@@ -417,9 +401,9 @@
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">4</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">5</button>
         </div>
-        <div class="sc-ends"><span>drained</span><span>wired</span></div>
+        <div class="sc-ends" data-scale="energy"><span>drained</span><span>wired</span></div>
       </div>
-      <div class="f"><label class="lbl">Mood</label>
+      <div class="f" data-field="moodE"><label class="lbl">Mood</label>
         <div class="sc" id="sc-mood-e">
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">1</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">2</button>
@@ -427,9 +411,9 @@
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">4</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-mood-e')">5</button>
         </div>
-        <div class="sc-ends"><span>low</span><span>great</span></div>
+        <div class="sc-ends" data-scale="mood"><span>low</span><span>great</span></div>
       </div>
-      <div class="f"><label class="lbl">Stress</label>
+      <div class="f" data-field="stress"><label class="lbl">Stress</label>
         <div class="sc" id="sc-stress">
           <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">1</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">2</button>
@@ -437,84 +421,26 @@
           <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">4</button>
           <button class="sc-b" onclick="LOG.sc(this,'sc-stress')">5</button>
         </div>
-        <div class="sc-ends"><span>calm</span><span>overwhelmed</span></div>
+        <div class="sc-ends" data-scale="stress"><span>calm</span><span>overwhelmed</span></div>
       </div>
-      <div class="f"><label class="lbl">Meds taken</label>
-        <div class="med-g">
-          <button class="med-b lam" id="med-lam" onclick="LOG.toggleMed('lam')">
-            <span class="med-name">lamotrigine</span>
-            <span class="med-state" id="med-lam-s">no</span>
-          </button>
-          <button class="med-b rit" id="med-rit" onclick="LOG.toggleMed('rit')">
-            <span class="med-name">ritalin</span>
-            <span class="med-state" id="med-rit-s">no</span>
-          </button>
-        </div>
+      <div class="f" data-field="meds"><label class="lbl">Meds taken</label>
+        <div class="med-g" id="med-g"></div>
       </div>
-      <div class="f"><label class="lbl">Meals</label>
-        <div class="meal-g" id="meal-g">
-          <button class="meal-b" onclick="LOG.toggleMeal(1)">meal 1</button>
-          <button class="meal-b" onclick="LOG.toggleMeal(2)">meal 2</button>
-          <button class="meal-b" onclick="LOG.toggleMeal(3)">meal 3</button>
-          <button class="meal-b" onclick="LOG.toggleMeal(4)">meal 4</button>
-        </div>
+      <div class="f" data-field="meals"><label class="lbl">Meals</label>
+        <div class="meal-g" id="meal-g"></div>
       </div>
-      <div class="f">
+      <div class="f" data-field="caffeine">
         <label class="lbl">Caffeine</label>
-        <div class="caf-row">
-          <button class="caf-b" id="caf-c-btn" onclick="LOG.incCaf('c')">
-            <span class="cnt-n" id="caf-c-n">0</span>
-            <span class="cnt-l">coffee</span>
-          </button>
-          <button class="caf-b" id="caf-ed-btn" onclick="LOG.incCaf('ed')">
-            <span class="cnt-n" id="caf-ed-n">0</span>
-            <span class="cnt-l">energy drink</span>
-          </button>
-        </div>
+        <div class="caf-row" id="caf-row"></div>
         <button class="caf-reset" onclick="LOG.resetCaf()">reset caffeine</button>
       </div>
-      <div class="f">
-        <label class="lbl">Blocks completed <span class="lbl-hint">(max 6)</span></label>
-        <div class="blk-g">
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'chores')"
-                  style="--blk-c:#9a9a9a;--blk-bg:rgba(154,154,154,.13)">chores</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'edu')"
-                  style="--blk-c:#6ec5e0;--blk-bg:rgba(110,197,224,.13)">edu</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'mixing')"
-                  style="--blk-c:#C4B5FD;--blk-bg:rgba(196,181,253,.13)">mixing</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'production')"
-                  style="--blk-c:#A78BFA;--blk-bg:rgba(167,139,250,.14)">production</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'content')"
-                  style="--blk-c:#8B5CF6;--blk-bg:rgba(139,92,246,.16)">content</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'system')"
-                  style="--blk-c:#5e8cff;--blk-bg:rgba(94,140,255,.14)">system</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'admin')"
-                  style="--blk-c:#e0a060;--blk-bg:rgba(224,160,96,.13)">admin</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'media')"
-                  style="--blk-c:#e06f9a;--blk-bg:rgba(224,111,154,.13)">media</button>
-          <button class="blk-b" onclick="LOG.toggleBlock(this,'cooking')"
-                  style="--blk-c:#5cdb7d;--blk-bg:rgba(92,219,125,.13)">cooking</button>
-        </div>
+      <div class="f" data-field="blocks">
+        <label class="lbl">Blocks completed <span class="lbl-hint" id="blk-max-hint"></span></label>
+        <div class="blk-g" id="blk-g"></div>
       </div>
-      <div class="f">
+      <div class="f" data-field="curate">
         <label class="lbl">Curate output</label>
-        <div class="cur-g">
-          <button class="cur-b" id="cur-mix-btn" onclick="LOG.incCur('mix')"
-                  style="--cur-c:#C4B5FD;--cur-bg:rgba(196,181,253,.12)">
-            <span class="cnt-n" id="cur-mix-n">0</span>
-            <span class="cnt-l">mix</span>
-          </button>
-          <button class="cur-b" id="cur-prod-btn" onclick="LOG.incCur('prod')"
-                  style="--cur-c:#A78BFA;--cur-bg:rgba(167,139,250,.14)">
-            <span class="cnt-n" id="cur-prod-n">0</span>
-            <span class="cnt-l">prod</span>
-          </button>
-          <button class="cur-b" id="cur-cont-btn" onclick="LOG.incCur('cont')"
-                  style="--cur-c:#8B5CF6;--cur-bg:rgba(139,92,246,.16)">
-            <span class="cnt-n" id="cur-cont-n">0</span>
-            <span class="cnt-l">cont</span>
-          </button>
-        </div>
+        <div class="cur-g" id="cur-g"></div>
         <button class="cur-reset" onclick="LOG.resetCur()">reset curate</button>
       </div>
       <button class="btn" onclick="LOG.saveEvening()">Save evening</button>
@@ -639,43 +565,20 @@
 
       <div class="f"><label class="lbl">Task name</label><input type="text" id="task-name" placeholder="describe the task…"></div>
 
+      <!-- the three chip rows are filled by PLAN.renderFormChips() from Config -->
       <div class="f">
         <label class="lbl">Block</label>
-        <div class="opts" id="opts-block">
-          <button class="opt-b" onclick="PLAN.optPick(this,'block','b1')">b1</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'block','b2')">b2</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'block','b3')">b3</button>
-          <button class="opt-b none-opt on" onclick="PLAN.optPick(this,'block',null)">none</button>
-        </div>
+        <div class="opts" id="opts-block"></div>
       </div>
 
       <div class="f">
         <label class="lbl">Time</label>
-        <div class="opts" id="opts-time" style="gap:5px">
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','2min')">2m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','5min')">5m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','15min')">15m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','30min')">30m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','45min')">45m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','60min')">60m</button>
-          <button class="opt-b" onclick="PLAN.optPick(this,'time','120min')">2h</button>
-          <button class="opt-b none-opt on" onclick="PLAN.optPick(this,'time',null)">none</button>
-        </div>
+        <div class="opts" id="opts-time" style="gap:5px"></div>
       </div>
 
       <div class="f">
         <label class="lbl">Priority</label>
-        <div class="prio-row">
-          <button class="prio-b p1" onclick="PLAN.prioPick(this,4)">
-            <div>urgent</div><div class="prio-label">p1</div>
-          </button>
-          <button class="prio-b p2" onclick="PLAN.prioPick(this,3)">
-            <div>mandatory</div><div class="prio-label">p2</div>
-          </button>
-          <button class="prio-b p3 on" onclick="PLAN.prioPick(this,2)">
-            <div>optional</div><div class="prio-label">p3</div>
-          </button>
-        </div>
+        <div class="prio-row" id="opts-prio"></div>
       </div>
 
       <div class="f">
@@ -844,24 +747,33 @@
 <section class="view ns-set" id="view-settings" aria-label="Settings">
   <div id="s-home" class="scr on">
     <div class="h-top">
-      <div class="h-label">one place for all of it</div>
+      <div class="h-label">make it yours</div>
       <div class="h-logo">ROOT<em>.</em></div>
     </div>
 
     <div class="set-seg">
-      <button class="seg-b on" data-seg="general">general</button>
+      <button class="seg-b on" data-seg="look">look</button>
+      <button class="seg-b" data-seg="layout">layout</button>
+      <button class="seg-b" data-seg="behave">behaviour</button>
+      <button class="seg-b" data-seg="content">content</button>
       <button class="seg-b" data-seg="do">do</button>
       <button class="seg-b" data-seg="log">log</button>
       <button class="seg-b" data-seg="plan">plan</button>
       <button class="seg-b" data-seg="store">store</button>
+      <button class="seg-b" data-seg="data">data</button>
     </div>
 
-    <!-- ── GENERAL ── -->
-    <div class="set-panel on" data-panel="general">
-      <div class="sec">Theme</div>
-      <div class="theme-grid" id="theme-grid"></div>
+    <!-- The five ROOT-level panels are generated by js/settings.js; the four app
+         panels below keep their original markup and ids, so each module's scoped
+         $id() still finds its own controls. -->
+    <div class="set-panel on" data-panel="look"    id="panel-look"></div>
+    <div class="set-panel"    data-panel="layout"  id="panel-layout"></div>
+    <div class="set-panel"    data-panel="behave"  id="panel-behave"></div>
+    <div class="set-panel"    data-panel="content" id="panel-content"></div>
 
-      <div class="sec">Todoist key</div>
+    <!-- ── DATA ── -->
+    <div class="set-panel" data-panel="data" id="panel-data">
+      <div class="sec"><span>Todoist key</span></div>
       <div class="data-warn">
         One key for all three apps that talk to Todoist. DO closes finished
         routines, PLAN sends its queue, STORE syncs the shopping list — each has
@@ -878,11 +790,12 @@
         <button class="setting-btn" id="set-td-test" onclick="SET.testToken()">test key</button>
       </div>
 
-      <div class="sec">Backup</div>
+      <div class="sec"><span>Backup</span></div>
       <div class="data-warn">
         One file with every key the four apps keep on this device — checklists,
-        logged days, the plan queue, the shopping list and history, and every
-        Todoist setting. Keep a copy before clearing browser data or moving phone.
+        logged days, the plan queue, the shopping list and history, your whole
+        appearance setup and every content edit. Keep a copy before clearing
+        browser data or moving phone.
       </div>
       <button class="btn" onclick="SET.exportAll()">↑ Export everything</button>
       <button class="btn btn-2" onclick="SET.pickImport()">↓ Restore from file</button>
@@ -892,14 +805,31 @@
         alone, then reloads so every view re-reads its data.
       </div>
 
-      <div class="sec">Storage</div>
+      <div class="sec"><span>Share a look</span></div>
+      <div class="data-warn">
+        Just the appearance and the content edits — no logged days, no keys, no
+        history. Small enough to paste into a note or send to yourself.
+      </div>
+      <button class="btn btn-2" data-act="export-look">copy this look</button>
+      <button class="btn btn-2" data-act="import-look">paste a look</button>
+
+      <div class="sec"><span>Storage</span></div>
       <div id="set-storage"></div>
 
-      <div class="sec">App</div>
+      <div class="sec"><span>Reset</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Content edits<small id="set-custom-count">—</small></span>
+        <button class="setting-btn danger" data-act="reset-content">reset all</button>
+      </div>
       <div class="data-warn">
-        Swipe left and right to move between tabs, use the arrows in the bottom
-        corners, or tap the bar. Everything runs offline against this device's own
-        storage — nothing leaves it except the Todoist calls you ask for.
+        Resets only the routines, blocks, aisles and projects you have edited.
+        Logged days, checklists, the queue and trip history are never touched.
+      </div>
+
+      <div class="sec"><span>App</span></div>
+      <div class="data-warn">
+        Everything runs offline against this device's own storage — nothing
+        leaves it except the Todoist calls you ask for.
       </div>
       <div class="setting-row">
         <span class="setting-lbl">Reload app</span>
@@ -1194,12 +1124,18 @@
 
 </div>
 
-<!-- shell first: it defines Creds, Theme and Shell.toast, which the modules use
-     while booting -->
+<!-- Order is load-bearing:
+     config  the content the four apps render, before any of them reads it
+     shell   defines Creds and Shell.toast, which the modules use while booting
+     apps    each registers itself with Shell and subscribes to Config
+     settings owns the settings view and needs every module to exist first
+     (js/prefs.js is already loaded, from <head>, before the stylesheets) -->
+<script src="js/config.js"></script>
 <script src="js/shell.js"></script>
 <script src="js/do.js"></script>
 <script src="js/log.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/store.js"></script>
+<script src="js/settings.js"></script>
 </body>
 </html>

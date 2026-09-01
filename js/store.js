@@ -15,62 +15,20 @@ const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
-// ─── Categories ──────────────────────────────────────────────────────────────
-const CATEGORIES = {
-  vegetables: { label:'vegetables', color:'#5cdb7d', icon:'ico-veg', items:[
-    'tomato','zuchini','avocado','carrot','brocolli','spinach','peppers','chili','potato','shallot','onion','garlic'
-  ]},
-  fruits: { label:'fruits', color:'#e0a060', icon:'ico-fruit', items:[
-    'apple','banana','kiwi','peach','avocado'
-  ]},
-  meats: { label:'meats', color:'#e06060', icon:'ico-meat', items:[
-    'chicken','porc','beef','duck','fish','eggs'
-  ]},
-  snacks: { label:'snacks', color:'#d4a851', icon:'ico-snack', items:[
-    'chips','nuts','cookies','dips','brioche'
-  ]},
-  carbs: { label:'carbs', color:'#c4a47a', icon:'ico-carbs', items:[
-    'pasta','rice','bread','baguette','tortilla','ramen'
-  ]},
-  cans: { label:'cans', color:'#8a8a8a', icon:'ico-can', items:[
-    'tomato puree','tomato concentrate','peas','chickpeas','corn','red beans','black beans','lentils'
-  ]},
-  dairy: { label:'dairy', color:'#e8e0c8', icon:'ico-dairy', items:[
-    'cheddar','mozarella','spread','buratta','gouda','creme fraiche','yogurt','butter'
-  ]},
-  frozen: { label:'frozen', color:'#6ec5e0', icon:'ico-frozen', items:[
-    'dumplings','beef','fries','pizza','cod','salmon','squid'
-  ]},
-  breakfast: { label:'breakfast', color:'#b58a5a', icon:'ico-breakfast', items:[
-    'coffee','jam','choco','muesli','oats'
-  ]},
-  condiments: { label:'condiments', color:'#a0b060', icon:'ico-cond', items:[
-    'olive oil','neutral oil','sesame oil','ketchup','mustard','sweet chili','soy sauce'
-  ]},
-  spices: { label:'spices', color:'#d96a40', icon:'ico-spice', items:[
-    'cumin','paprika','garlic powder','onion powder','origan','curry','italian herbs','salt','pepper','cayenne powder'
-  ]},
-  drinks: { label:'drinks', color:'#5e8cff', icon:'ico-drink', items:[
-    'sparkling water','coke zero','ice tea','multifruit','red juice','apple juice','orange juice','monster','redbull'
-  ]},
-  manual: { label:'other', color:'#A78BFA', icon:'ico-other', items:[] },
-};
+/* ─── Content ─────────────────────────────────────────────────────────────────
+   The aisles and the premade meals used to be two literals here. They live in
+   js/config.js now and are edited from Settings → content. Read once into
+   module bindings — every render touches them repeatedly — and refreshed
+   whenever an edit lands.
 
-// ─── Meals ───────────────────────────────────────────────────────────────────
-const MEALS = {
-  pasta_tomato:   { label:'pasta tomato',    items:[['pasta','carbs'],['tomato puree','cans'],['garlic','vegetables'],['onion','vegetables'],['mozarella','dairy'],['olive oil','condiments']] },
-  ramen_bowl:     { label:'ramen bowl',      items:[['ramen','carbs'],['eggs','meats'],['chicken','meats'],['garlic','vegetables'],['soy sauce','condiments'],['sesame oil','condiments']] },
-  chili_carne:    { label:'chili con carne', items:[['beef','meats'],['red beans','cans'],['tomato concentrate','cans'],['onion','vegetables'],['garlic','vegetables'],['chili','vegetables'],['cumin','spices'],['paprika','spices']] },
-  tacos:          { label:'tacos',           items:[['tortilla','carbs'],['beef','meats'],['peppers','vegetables'],['onion','vegetables'],['cheddar','dairy'],['creme fraiche','dairy']] },
-  pizza_night:    { label:'pizza night',     items:[['pizza','frozen'],['mozarella','dairy'],['tomato concentrate','cans']] },
-  chicken_curry:  { label:'chicken curry',   items:[['chicken','meats'],['curry','spices'],['garlic','vegetables'],['onion','vegetables'],['rice','carbs'],['creme fraiche','dairy']] },
-  stir_fry:       { label:'stir fry',        items:[['chicken','meats'],['peppers','vegetables'],['brocolli','vegetables'],['soy sauce','condiments'],['sesame oil','condiments'],['rice','carbs']] },
-  salad_bowl:     { label:'salad bowl',      items:[['spinach','vegetables'],['tomato','vegetables'],['avocado','vegetables'],['mozarella','dairy'],['olive oil','condiments']] },
-  oats_breakfast: { label:'oats breakfast',  items:[['oats','breakfast'],['banana','fruits'],['muesli','breakfast']] },
-  burger_night:   { label:'burger night',    items:[['beef','meats'],['cheddar','dairy'],['brioche','snacks'],['ketchup','condiments'],['mustard','condiments']] },
-  fish_rice:      { label:'fish & rice',     items:[['fish','meats'],['rice','carbs'],['garlic','vegetables'],['soy sauce','condiments']] },
-  dumpling_night: { label:'dumpling night',  items:[['dumplings','frozen'],['soy sauce','condiments'],['sweet chili','condiments']] },
-};
+   `manual` is load-bearing: anything the categoriser cannot place goes there,
+   so the editor pins it and this module falls back to it defensively. */
+let CATEGORIES = Config.get('store.categories');
+let MEALS      = Config.get('store.meals');
+
+/* The currency mark is a preference, not a constant — STORE was hardcoded to €
+   in nine places. */
+const CUR = () => Prefs.get('currency') || '€';
 
 // ─── Categorisation ──────────────────────────────────────────────────────────
 /* Extra vocabulary on top of the CATEGORIES item lists: synonyms, plurals the
@@ -302,13 +260,14 @@ function addCart(amt, note) {
 }
 function resetCart() {
   if (state.cart === 0 && !state.cartLog.length) { toast('cart already at 0'); return; }
-  if (!confirm('Reset cart counter to €0.00?')) return;
+  if (!confirm(`Reset cart counter to ${CUR()}0.00?`)) return;
   state.cart = 0; state.cartLog = [];
   saveState(); renderCart();
   toast('cart reset');
 }
 function renderCart() {
   $id('cw-cart').textContent = state.cart.toFixed(2);
+  $all('.cu').forEach(el => { el.textContent = CUR(); });
   const logBtn = $id('cw-log-btn');
   if (logBtn) logBtn.textContent = state.cartLog.length ? `history ${state.cartLog.length}` : 'history';
   const bud = state.budget;
@@ -320,8 +279,8 @@ function renderCart() {
     fill.style.background = colorFromPct(pct);
     const over = state.cart > bud;
     budEl.innerHTML = over
-      ? `<span class="b-line over">over by €${(state.cart - bud).toFixed(2)}</span><span class="b-line">/ €${bud.toFixed(2)}</span>`
-      : `<span class="b-line"><em>€${(bud - state.cart).toFixed(2)}</em> left</span><span class="b-line">/ €${bud.toFixed(2)}</span>`;
+      ? `<span class="b-line over">over by ${CUR()}${(state.cart - bud).toFixed(2)}</span><span class="b-line">/ ${CUR()}${bud.toFixed(2)}</span>`
+      : `<span class="b-line"><em>${CUR()}${(bud - state.cart).toFixed(2)}</em> left</span><span class="b-line">/ ${CUR()}${bud.toFixed(2)}</span>`;
   } else {
     fill.style.width = '0%';
     budEl.textContent = 'no budget set';
@@ -346,7 +305,7 @@ function renderCartLog() {
   const log = state.cartLog;
   const n = log.length;
   $id('clog-count').textContent = `${n} entr${n === 1 ? 'y' : 'ies'}`;
-  $id('clog-total').textContent = state.cart.toFixed(2) + '€';
+  $id('clog-total').textContent = state.cart.toFixed(2) + CUR();
   const box = $id('clog-list');
   if (!n) {
     box.innerHTML = '<div class="clog-empty">nothing added yet — amounts you punch in show up here</div>';
@@ -357,7 +316,7 @@ function renderCartLog() {
     const up = en.a > 0;
     return `<div class="clog-row">
       <span class="clog-i">${i + 1}</span>
-      <span class="clog-a ${up ? 'up' : 'dn'}">${up ? '+' : '−'}€${Math.abs(en.a).toFixed(2)}</span>
+      <span class="clog-a ${up ? 'up' : 'dn'}">${up ? '+' : '−'}${CUR()}${Math.abs(en.a).toFixed(2)}</span>
       <span class="clog-n">${en.n ? esc(en.n) : ''}</span>
       <span class="clog-t">${fmtClock(en.t)}</span>
     </div>`;
@@ -400,18 +359,18 @@ function padTotal() { return Math.round(padValue() * padN * 100) / 100; }
 
 function renderPad() {
   const amt = $id('pad-amt');
-  amt.innerHTML = (padBuf === '' ? '0.00' : esc(padBuf)) + '<span class="cu">€</span>';
+  amt.innerHTML = (padBuf === '' ? '0.00' : esc(padBuf)) + `<span class="cu">${esc(CUR())}</span>`;
   amt.classList.toggle('empty', padBuf === '');
   $id('pad-count').textContent = '×' + padN;
   $id('pad-calc').innerHTML =
-    padN > 1 ? `${padValue().toFixed(2)} × ${padN} = <em>€${padTotal().toFixed(2)}</em>` : '';
+    padN > 1 ? `${padValue().toFixed(2)} × ${padN} = <em>${CUR()}${padTotal().toFixed(2)}</em>` : '';
 }
 
 function padApply(sign) {
   const total = padTotal();
   if (total === 0) { toast('enter an amount first'); return; }
   addCart(sign * total, padN > 1 ? `${padValue().toFixed(2)} × ${padN}` : '');
-  toast(`${sign > 0 ? '+' : '−'}€${total.toFixed(2)}${padN > 1 ? ` (${padN}×)` : ''}`);
+  toast(`${sign > 0 ? '+' : '−'}${CUR()}${total.toFixed(2)}${padN > 1 ? ` (${padN}×)` : ''}`);
   padBuf = ''; padN = 1; renderPad();
 }
 
@@ -739,12 +698,12 @@ function renderHistory() {
       return `<span class="hist-pill" style="--cat-color:${color}"><span class="dot"></span>${esc(it.name)}${it.qty > 1 ? ` ×${it.qty}` : ''}</span>`;
     }).join('');
     const over = t.budget > 0 && t.cart > t.budget;
-    const budTxt = t.budget > 0 ? ` <span class="bud">/ €${t.budget.toFixed(2)}</span>` : '';
+    const budTxt = t.budget > 0 ? ` <span class="bud">/ ${CUR()}${t.budget.toFixed(2)}</span>` : '';
     return `
       <div class="hist-card">
         <div class="hist-head">
           <span class="hist-date">${t.name ? esc(t.name) : fmtDate(t.date)}</span>
-          <span class="hist-amt${over ? ' over' : ''}">€${(t.cart || 0).toFixed(2)}${budTxt}</span>
+          <span class="hist-amt${over ? ' over' : ''}">${CUR()}${(t.cart || 0).toFixed(2)}${budTxt}</span>
         </div>
         ${t.name ? `<div class="hist-sub">${fmtDate(t.date)}</div>` : ''}
         <div class="hist-items">${pills}</div>
@@ -806,7 +765,7 @@ function saveBudget() {
     state.budget = Math.round(v * 100) / 100;
   }
   saveState();
-  toast(state.budget > 0 ? `budget set to €${state.budget.toFixed(2)}` : 'budget disabled');
+  toast(state.budget > 0 ? `budget set to ${CUR()}${state.budget.toFixed(2)}` : 'budget disabled');
 }
 
 // ─── Todoist sync ────────────────────────────────────────────────────────────
@@ -1022,9 +981,43 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* ─── Counter steps ───────────────────────────────────────────────────────────
+   The +10/+5/+1/+.5/+.1 rows were ten hardcoded buttons. The amounts are a
+   setting now; the two rows are drawn from it, largest first. `.5` rather than
+   `0.5` on the face keeps the button narrow enough for five across a phone. */
+function renderSteps() {
+  const rows = $all('.cw-btns');
+  if (!rows.length) return;
+  const amts = (Config.get('store.quickAmounts') || [10,5,1,0.5,0.1])
+    .slice().sort((a, b) => b - a);
+  const face = n => String(n).replace(/^0\./, '.');
+  rows[0].innerHTML = amts.map(n =>
+    `<button class="cw-btn plus" onclick="STORE.addCart(${n})">+${face(n)}</button>`).join('');
+  if (rows[1]) rows[1].innerHTML = amts.map(n =>
+    `<button class="cw-btn minus" onclick="STORE.addCart(${-n})">−${face(n)}</button>`).join('');
+}
+
 // ─── Boot ────────────────────────────────────────────────────────────────────
 loadState();
+renderSteps();
 renderHome();
+
+/* An edited aisle, meal or step amount redraws the list and the tiles at once.
+   Items already on the list keep the category they were filed under; only ones
+   whose aisle no longer exists fall back to "other". */
+Config.subscribe(path => {
+  if (path !== '*' && !String(path).startsWith('store.')) return;
+  CATEGORIES = Config.get('store.categories');
+  MEALS      = Config.get('store.meals');
+  let moved = false;
+  state.list.forEach(it => { if (!CATEGORIES[it.cat]) { it.cat = 'manual'; moved = true; } });
+  if (moved) saveState();
+  renderSteps();
+  renderHome();
+});
+
+// the currency mark reaches nine different readouts; one redraw covers them all
+Prefs.subscribe(k => { if (k === 'currency' || k === '*') renderHome(); });
 
 Shell.register('store', {});
 

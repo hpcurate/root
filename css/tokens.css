@@ -1,61 +1,226 @@
 /* ── Design tokens ────────────────────────────────────────────────────────────
-   :root carries the default theme (VOID — the palette the four apps shipped
-   with, unchanged). themes.css overrides these per [data-theme].
+   ROOT 2.0. Everything the four app stylesheets draw with resolves to a token
+   defined here, and every token is either set by a theme preset (themes.css) or
+   overridden inline by the appearance engine (js/prefs.js).
 
-   Structural tokens (radii, borders, shadow, the colour of text sitting ON the
-   accent) live here too, so a theme can change the shape of the thing and not
-   only its colour. */
+   That is the whole point of the rewrite: before this, `.card` said
+   `border-radius:4px; border:1px solid var(--bd)`, so a theme could recolour the
+   app but never reshape it. The app sheets were normalised to tokens, and the
+   shape tokens below are all derived from a single anchor, so one dial moves the
+   whole system coherently.
+
+   Layers, lowest wins first:
+     1. :root here             — structural defaults + the VOID palette
+     2. themes.css             — [data-theme] presets: palette AND character
+     3. inline on <html>       — the user's dials, written by Prefs.apply()
+
+   Derived anchors
+     --r-base     card radius; every other radius is a ratio of it
+     --bw         border weight; hairline rules across the whole app
+     --dens       spacing multiplier baked into every padding/gap in the app CSS
+     --ui-scale   browser-native zoom on the root element
+     --tex-mult   strength of the overlay texture
+*/
+
 :root {
-  /* palette — VOID */
-  --bg:#0e0e0e; --s1:#161616; --s2:#1e1e1e; --bd:#272727;
-  --y:#A78BFA; --yd:rgba(167,139,250,.13); --yb:rgba(167,139,250,.25);
-  --tx:#dedede; --mu:#4a4a4a;
-  --gr:#5cdb7d; --re:#e06060; --or:#e0a060;
-  --on-y:#0e0e0e;            /* text/icons drawn on top of the accent */
+  /* ── Palette — VOID (the default preset) ────────────────────────────────── */
+  --bg:#0e0e0e;            /* ground */
+  --s1:#161616;            /* raised surface: cards, fields */
+  --s2:#1e1e1e;            /* pressed / secondary surface */
+  --s3:#252525;            /* tertiary, rarely used */
+  --bd:#272727;            /* hairline */
+  --bd-2:#333333;          /* emphasised hairline */
+  --tx:#dedede;            /* foreground */
+  --tx-2:#9a9a9a;          /* secondary foreground */
+  --mu:#4a4a4a;            /* muted / placeholder */
 
-  /* type */
-  /* --mono stays a real monospace in every theme: the .md previews are
-     white-space:pre and would come apart in a proportional face. */
+  /* Accent. Only --y and --on-y are ever restated by a theme or the accent
+     picker; the three washes are mixed from it, so a custom accent never needs
+     three hand-written rgba() values to stay consistent. */
+  --y:#A78BFA;
+  --yd:color-mix(in srgb, var(--y) 13%, transparent);   /* wash */
+  --yb:color-mix(in srgb, var(--y) 26%, transparent);   /* border */
+  --y-fade:color-mix(in srgb, var(--y) 6%, transparent);
+  --on-y:#0e0e0e;                    /* text/icons drawn on top of the accent */
+
+  --gr:#5cdb7d; --re:#e06060; --or:#e0a060;
+
+  /* ── Type ─────────────────────────────────────────────────────────────────
+     Both are overwritten inline by Prefs from the chosen pairing. --mono stays a
+     real monospace in every pairing: the .md previews are white-space:pre and
+     come apart in a proportional face. */
   --mono:'JetBrains Mono','Courier New',monospace;
   --head:'Syne',sans-serif;
 
-  /* shape */
-  --r1:3px;                  /* controls, rows */
-  --r2:4px;                  /* cards */
-  --r3:7px;                  /* segmented controls */
-  --r-sheet:10px;
+  /* ── Shape ────────────────────────────────────────────────────────────────
+     One anchor, four ratios. A preset picks the anchor; the Corners dial
+     overrides it. Radii clamp at 0 so a negative-looking calc can never leak. */
+  --r-base:4px;
+  --r1:calc(var(--r-base) * .75);    /* controls, rows, inputs */
+  --r2:var(--r-base);                /* cards */
+  --r3:calc(var(--r-base) * 1.75);   /* segmented controls, tiles */
+  --r-sheet:calc(var(--r-base) * 2.5);
   --r-pill:999px;
   --bw:1px;
+
+  /* ── Density & scale ──────────────────────────────────────────────────── */
+  --dens:1;
+  --ui-scale:1;
+  --icon-stroke:2;
+  --chrome-alpha:.82;
+  --tex-mult:1;
+
+  /* ── Depth ────────────────────────────────────────────────────────────────
+     Set per [data-depth] in themes.css. Flat is the default so a preset that
+     says nothing looks like the original app. */
   --shadow:none;
   --shadow-lift:none;
-  --chrome-bg:rgba(14,14,14,.82);   /* floating nav / arrows */
+  --shadow-chrome:0 10px 34px -12px rgba(0,0,0,.65);
+  --glow:none;
+
+  /* ── Motion ──────────────────────────────────────────────────────────────
+     Every transition in the app multiplies by --mo, so "reduced" and "none" are
+     one variable rather than a hunt through five stylesheets. */
+  --mo:1;
+  --dur-1:calc(.12s * var(--mo));
+  --dur-2:calc(.22s * var(--mo));
+  --dur-3:calc(.3s  * var(--mo));
+  --ease:cubic-bezier(.4,0,.2,1);
+  --ease-out:cubic-bezier(.34,1.4,.5,1);
+
+  /* ── Chrome ──────────────────────────────────────────────────────────────
+     --chrome-rgb is the ground colour as bare channels, so the floating nav's
+     translucency follows both the theme and the Chrome opacity dial. */
+  --chrome-rgb:14,14,14;
+  --chrome-bg:rgba(var(--chrome-rgb), var(--chrome-alpha));
   --chrome-blur:saturate(140%) blur(18px);
 
-  /* shell metrics */
-  --nav-fh:58px;             /* floating tab bar height */
+  /* ── Shell metrics ───────────────────────────────────────────────────── */
+  --nav-fh:58px;
   --nav-gap:12px;
   --rail-w:88px;
   --rail-w-wide:186px;
   --readable:780px;
-  /* every .scr clears the floating chrome by this much */
   --scr-pad-b:calc(var(--nav-fh) + 30px + env(safe-area-inset-bottom));
+
+  /* label casing, flipped by the Caps dial */
+  --caps:uppercase;
 }
+
+/* Interface scale. `zoom` on the root element is the one mechanism that scales
+   text, boxes, borders and fixed positioning together and re-resolves viewport
+   units, which is exactly what a UI-scale control should do. Where it is not
+   supported the page simply renders at 100%. */
+html{height:100%;zoom:var(--ui-scale)}
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
 .hidden{display:none!important}
 
-/* ── Shared toast ─────────────────────────────────────────────────────────────
-   One toast for the whole app instead of four identical ones. Every module's
-   toast() forwards here, so messages never stack or fight over an element.
-   It sits above the floating nav.
+/* ── Global consequences of the dials ─────────────────────────────────────────
+   Each of these is the single rule that makes one control real. */
 
-   It fades rather than sliding off-screen: the old hide was a fixed
-   translateY(140px), which is shorter than the resting offset once
-   env(safe-area-inset-bottom) is non-zero, so on a phone with a home indicator
-   a sliver of the pill stayed parked at the bottom of the screen for good.
-   visibility (switched only after the fade) makes the hidden state absolute
-   however the offsets work out. */
+/* Caps: every micro-label in the app is `text-transform:uppercase` in its own
+   sheet; they were rewritten to var(--caps) is not possible without touching
+   200 declarations, so the switch is expressed as an override instead. */
+[data-caps="off"] .h-label,[data-caps="off"] .sec,[data-caps="off"] .lbl,
+[data-caps="off"] .tb-l,[data-caps="off"] .seg-b,[data-caps="off"] .btn,
+[data-caps="off"] .sheet-ttl,[data-caps="off"] .data-stat-k,
+[data-caps="off"] .row-lbl,[data-caps="off"] .theme-name,
+[data-caps="off"] .btn-send,[data-caps="off"] .btn-share,[data-caps="off"] .pad-ttl,
+[data-caps="off"] .modal-title{text-transform:none}
+
+/* Icon weight. CSS beats the stroke-width presentation attribute on the sprite
+   symbols, so one rule retunes every icon in the app.
+
+   Gated on the attribute Prefs only sets once the dial has actually been moved:
+   the sprite mixes 1.8 and 2.2 weights on purpose, and flattening them all to the
+   default would silently change the shipped look for someone who never touched
+   the control. */
+[data-icon-stroke="custom"] svg[class],
+[data-icon-stroke="custom"] .tab-b svg,
+[data-icon-stroke="custom"] .nav-arrow svg,
+[data-icon-stroke="custom"] .ico,
+[data-icon-stroke="custom"] .cat-ico{stroke-width:var(--icon-stroke)}
+
+/* Motion */
+[data-motion="reduced"]{--mo:.45}
+[data-motion="none"]{--mo:0}
+[data-motion="none"] *,
+[data-motion="none"] *::before,
+[data-motion="none"] *::after{
+  animation-duration:.01ms!important;animation-iteration-count:1!important;
+  transition-duration:.01ms!important;scroll-behavior:auto!important}
+
+/* Contrast. Rather than a second palette per theme, the two boosted levels
+   lighten the foreground, harden the hairlines and lift the muted tone — the
+   three things that actually fail at low contrast. */
+[data-contrast="more"]{--mu:color-mix(in srgb, var(--tx) 55%, var(--bg));
+                       --bd:color-mix(in srgb, var(--tx) 26%, var(--bg));
+                       --tx-2:color-mix(in srgb, var(--tx) 78%, var(--bg))}
+[data-contrast="max"] {--mu:color-mix(in srgb, var(--tx) 72%, var(--bg));
+                       --bd:color-mix(in srgb, var(--tx) 45%, var(--bg));
+                       --tx-2:var(--tx);
+                       --bw:max(1px, var(--bw))}
+
+/* Tabular figures — counters, totals and the € display stop shuffling width. */
+[data-tnum="on"]{font-variant-numeric:tabular-nums}
+
+/* Accent intensity: how loudly the accent is allowed to wash a surface. */
+[data-accent-use="subtle"]{--yd:color-mix(in srgb, var(--y) 6%, transparent);
+                           --yb:color-mix(in srgb, var(--y) 14%, transparent)}
+[data-accent-use="loud"]  {--yd:color-mix(in srgb, var(--y) 22%, transparent);
+                           --yb:color-mix(in srgb, var(--y) 46%, transparent)}
+
+/* Accent glow — a halo on the things that carry the accent. Off by default.
+   One token, applied wherever the accent is the surface rather than the ink. */
+[data-glow="on"]{--glow:0 0 22px -6px var(--y), 0 0 0 1px var(--yb)}
+[data-glow="on"] .tab-b.on::before,
+[data-glow="on"] .btn,
+[data-glow="on"] .btn-send,
+[data-glow="on"] .btn-share,
+[data-glow="on"] .cl-bar-fill,
+[data-glow="on"] .card-bar-fill,
+[data-glow="on"] #toast{box-shadow:var(--glow)}
+
+/* ── Texture ──────────────────────────────────────────────────────────────────
+   A single fixed overlay on top of the ground and under everything else. It is
+   pointer-events:none and lives on body::before, so no app markup changes and
+   nothing can ever intercept a tap. */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity var(--dur-3) var(--ease)}
+[data-texture="grain"] body::before{
+  opacity:calc(.055 * var(--tex-mult));
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  mix-blend-mode:overlay}
+[data-texture="scan"] body::before{
+  opacity:calc(.5 * var(--tex-mult));
+  background-image:repeating-linear-gradient(0deg,
+    rgba(128,128,128,.055) 0 1px, transparent 1px 3px)}
+[data-texture="grid"] body::before{
+  opacity:calc(.6 * var(--tex-mult));
+  background-image:
+    linear-gradient(to right,  color-mix(in srgb, var(--y) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--y) 8%, transparent) 1px, transparent 1px);
+  background-size:34px 34px}
+[data-texture="dots"] body::before{
+  opacity:calc(.7 * var(--tex-mult));
+  background-image:radial-gradient(color-mix(in srgb, var(--tx) 12%, transparent) 1px, transparent 1px);
+  background-size:16px 16px}
+/* the slides and every piece of floating chrome sit above the overlay; each of
+   these already carries a position of its own, so only the stacking is set */
+#views,#nav,.nav-arrow,#toast,.sheet,.pad,.sheet-back,.modal-overlay{z-index:1}
+
+/* ── Shared toast ─────────────────────────────────────────────────────────────
+   One element for all five views. Every module's toast() forwards here, so a
+   message from STORE cannot be clobbered by a stale timer from LOG.
+
+   It fades rather than sliding off-screen: a fixed translateY is shorter than
+   the resting offset once env(safe-area-inset-bottom) is non-zero, which parked
+   a sliver of the pill at the bottom of a phone screen for good. visibility,
+   switched only after the fade, makes the hidden state absolute however the
+   offsets work out. */
 #toast{
   position:fixed;
   bottom:calc(var(--nav-fh) + var(--nav-gap) + 22px + env(safe-area-inset-bottom));
@@ -63,11 +228,13 @@
   transform:translateX(-50%) translateY(8px);
   opacity:0;visibility:hidden;
   background:var(--y);color:var(--on-y);
-  font:700 11px/1 var(--mono);letter-spacing:.08em;padding:10px 18px;border-radius:var(--r1);
-  transition:opacity .24s ease,transform .24s ease,visibility 0s linear .24s;
+  font:700 11px/1 var(--mono);letter-spacing:.08em;
+  padding:calc(10px * var(--dens)) calc(18px * var(--dens));
+  border-radius:var(--r1);
+  transition:opacity var(--dur-2) ease,transform var(--dur-2) ease,visibility 0s linear var(--dur-2);
   z-index:120;pointer-events:none;white-space:nowrap;max-width:84vw;
   overflow:hidden;text-overflow:ellipsis;box-shadow:var(--shadow-lift)}
 #toast.show{
   transform:translateX(-50%) translateY(0);
   opacity:1;visibility:visible;
-  transition:opacity .16s ease,transform .16s ease,visibility 0s}
+  transition:opacity var(--dur-1) ease,transform var(--dur-1) ease,visibility 0s}
