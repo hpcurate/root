@@ -17,7 +17,7 @@ const toast = msg => Shell.toast(msg);
 function localISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-const REAL_TODAY = localISO(new Date());
+let REAL_TODAY = localISO(new Date());
 let TODAY = REAL_TODAY;
 
 function dateOffset(base, n) {
@@ -28,6 +28,20 @@ function dateOffset(base, n) {
 
 function shiftDate(delta) { TODAY = dateOffset(TODAY, delta); initData(); refreshHome(); }
 function resetDate()       { TODAY = REAL_TODAY; initData(); refreshHome(); }
+
+/* Midnight with the app open. The selected day follows the calendar only when
+   it was already "today" AND no form is open: an evening being written at
+   00:10 belongs to the day that just ended, so the form keeps its day and the
+   "today" button simply appears once you are back on the home screen. */
+function rollDay(day) {
+  const open = $all('.scr.on')[0];
+  const id = open ? open.id.replace('s-', '') : 'home';
+  const editing = ['morning', 'evening', 'entries'].includes(id);
+  const follow = TODAY === REAL_TODAY && !editing;
+  REAL_TODAY = day;
+  if (follow) { TODAY = day; initData(); }
+  ({ home: refreshHome, output: renderOutput, history: renderHistory })[id]?.();
+}
 
 function fmtDateShort(iso) {
   const d = new Date(iso + 'T00:00:00');
@@ -178,15 +192,38 @@ function goBack() {
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
+/* "Has this half of the day been logged?" used to mean "has a wake time" and
+   "has an evening km figure". 2.0 made both fields optional, and with either
+   switched off the card could never turn green and the streak could never
+   grow. Any recorded value in that half now counts. */
+const has = v => v !== '' && v !== null && v !== undefined && v !== false && v !== 0 &&
+                 !(Array.isArray(v) && !v.length);
+function morningLogged(d) {
+  const m = d?.m;
+  return !!m && (['wt','sl','nrg','mood','wkg','km','wo','tkg','tmin'].some(k => has(m[k])) ||
+                 m.cs_on === true || m.cs_on === false);
+}
+function eveningLogged(d) {
+  const e = d?.e;
+  return !!e && (['kme','nrg','mood','stress','meds_lam','meds_rit','meals','blocks',
+                  'caf_c','caf_ed','cur_mix','cur_prod','cur_cont','bmix'].some(k => has(e[k])) ||
+                 e.meds === 'yes');
+}
+/* What a day needs before it extends the streak — Settings → content. */
+function dayLogged(d) {
+  const req = Config.get('log.streakRequires') || 'both';
+  if (req === 'morning') return morningLogged(d);
+  if (req === 'evening') return eveningLogged(d);
+  return morningLogged(d) && eveningLogged(d);
+}
+function readDay(iso) {
+  try { return JSON.parse(localStorage.getItem('log_' + iso)); } catch { return null; }
+}
 function calcStreak() {
   let streak = 0, d = REAL_TODAY;
-  while (true) {
-    let day;
-    try { day = JSON.parse(localStorage.getItem('log_' + d)); } catch {}
-    if (!day?.m?.wt || !day?.e?.kme) break;
-    streak++;
-    d = dateOffset(d, -1);
-  }
+  // today not being finished yet does not break a streak: start from yesterday
+  if (!dayLogged(readDay(d))) d = dateOffset(d, -1);
+  while (dayLogged(readDay(d))) { streak++; d = dateOffset(d, -1); }
   return streak;
 }
 
@@ -194,8 +231,8 @@ function refreshHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('home-date').textContent = Prefs.formatDate(TODAY);
   $id('btn-today').classList.toggle('hidden', TODAY === REAL_TODAY);
-  $id('card-m').classList.toggle('done', !!data.m.wt);
-  $id('card-e').classList.toggle('done', !!data.e.kme);
+  $id('card-m').classList.toggle('done', morningLogged(data));
+  $id('card-e').classList.toggle('done', eveningLogged(data));
   const ec = data.entries.length;
   $id('en-ct').textContent = ec ? `${ec} entr${ec===1?'y':'ies'}` : 'no entries yet';
   const s = calcStreak();
@@ -333,11 +370,19 @@ function syncBlocks() {
    translucent variant is mixed in CSS rather than hand-written as an rgba(). */
 function tint(hex, pct) { return `color-mix(in srgb, ${hex} ${pct}%, transparent)`; }
 
+/* For a Config value that ends up inside onclick="…('…')": JS-string escaped,
+   then attribute escaped. A block called "it's" used to be a syntax error. */
+function attr(s) {
+  return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function renderForms() {
   const cfg = {
     blocks: Config.get('log.blocks'),
     meds:   Config.get('log.meds'),
-    meals:  Config.get('log.mealCount'),
+    // the editor's number field can be emptied mid-edit; never draw zero meals
+    meals:  Math.max(1, Math.min(12, parseInt(Config.get('log.mealCount'), 10) || 4)),
     mealLabel: Config.get('log.mealLabel'),
     caf:    Config.get('log.caffeine'),
     curate: Config.get('log.curate'),
@@ -348,7 +393,7 @@ function renderForms() {
   // workout types
   const wo = $id('wo4');
   if (wo) wo.innerHTML = cfg.workouts.map(w =>
-    `<button class="wo4-b" onclick="LOG.setWo(this,'${esc(w)}')">${esc(w)}</button>`).join('');
+    `<button class="wo4-b" onclick="LOG.setWo(this,'${attr(w)}')">${esc(w)}</button>`).join('');
 
   // meds — two fixed slots, free labels
   const medG = $id('med-g');
@@ -374,7 +419,7 @@ function renderForms() {
   // blocks
   const blkG = $id('blk-g');
   if (blkG) blkG.innerHTML = cfg.blocks.map(b =>
-    `<button class="blk-b" onclick="LOG.toggleBlock(this,'${esc(b.name)}')"
+    `<button class="blk-b" onclick="LOG.toggleBlock(this,'${attr(b.name)}')"
              style="--blk-c:${esc(b.color)};--blk-bg:${tint(b.color, 14)}">${esc(b.name)}</button>`).join('');
   const hint = $id('blk-max-hint');
   if (hint) hint.textContent = `(max ${maxBlocks()})`;
@@ -567,7 +612,7 @@ function renderOutput() {
   $id('out-pre').textContent = note;
   const tags = $id('out-tags'); tags.innerHTML = '';
   const tag = (label,ok) => { const t=document.createElement('span'); t.className=`out-tag ${ok?'ok':'no'}`; t.textContent=label; tags.appendChild(t); };
-  tag('morning', !!data.m.wt); tag('evening', !!data.e.kme);
+  tag('morning', morningLogged(data)); tag('evening', eveningLogged(data));
   const ec=data.entries.length; tag(`${ec} entr${ec===1?'y':'ies'}`, ec>0);
 }
 
@@ -603,8 +648,21 @@ function trendBadge(curr, prev, higherIsBetter=true) {
 }
 
 // ── Weekly km chart ───────────────────────────────────────────────────────────
-const KM_TARGET = 6;        // target km per day
+/* The daily target was a constant; it is Settings → content now. Read live. */
+const kmTarget = () => Number(Config.get('log.kmTarget')) || 6;
 const DAY_LBL = ['M','T','W','T','F','S','S'];
+
+/* First day of the week that holds `iso`, honouring Settings → behaviour →
+   "week starts on". Only the km chart uses it: the reports keep ISO weeks,
+   because their "wk 36" numbering is ISO and ISO weeks start on Monday. */
+function weekStartOf(iso) {
+  if ((Prefs.get('weekStart') || 'mon') === 'sun') {
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() - d.getDay());
+    return localISO(d);
+  }
+  return weekMonday(iso);
+}
 
 function dayTotalKm(iso) {
   let d; try { d = JSON.parse(localStorage.getItem('log_' + iso)); } catch {}
@@ -615,7 +673,8 @@ function dayTotalKm(iso) {
 }
 
 function renderKmChart() {
-  const mon = weekMonday(REAL_TODAY);
+  const KM_TARGET = kmTarget();
+  const mon = weekStartOf(REAL_TODAY);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const iso = dateOffset(mon, i);
@@ -623,7 +682,7 @@ function renderKmChart() {
   }
   const logged   = days.filter(d => d.km !== null);
   const weekTot  = logged.reduce((s, d) => s + d.km, 0);
-  const weekGoal = KM_TARGET * 7;
+  const weekGoal = Math.round(KM_TARGET * 7 * 10) / 10;
   const hitDays  = logged.filter(d => d.km >= KM_TARGET).length;
 
   // scale so both the tallest bar and the target line stay visible
@@ -776,8 +835,10 @@ function parseDayContent(date, content) {
 
   // Meals: "1,2,3" or "-"
   const mealsRaw = tableVal('meals', content);
+  // the meal count is a setting now (up to 8), so the old cap of 4 would have
+  // silently dropped meals 5–8 out of every report
   d.e.meals = mealsRaw && mealsRaw !== '-'
-    ? mealsRaw.split(/[,\s]+/).map(n => parseInt(n, 10)).filter(n => n >= 1 && n <= 4)
+    ? mealsRaw.split(/[,\s]+/).map(n => parseInt(n, 10)).filter(n => n >= 1 && n <= 12)
     : [];
 
   // Curate output: new three-way split, falling back to the old blocks_mix row
@@ -1271,7 +1332,7 @@ function confirmDeleteAll() {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function clearDay() {
-  if (!confirm('Clear all data for selected day?')) return;
+  if (!Shell.confirm('Clear all data for selected day?')) return;
   data=fresh(); save(); refreshHome(); toast('Cleared');
 }
 
@@ -1297,7 +1358,16 @@ Config.subscribe(path => {
   ({ morning: popM, evening: popE, home: refreshHome })[id]?.();
 });
 
-Shell.register('log', {});
+/* The date format and the week start are preferences; the home date and the
+   km chart follow them without a reload. */
+Prefs.subscribe(k => {
+  if (k !== '*' && k !== 'dateFormat' && k !== 'weekStart') return;
+  const open = $all('.scr.on')[0];
+  const id = open ? open.id.replace('s-', '') : 'home';
+  ({ home: refreshHome, history: renderHistory })[id]?.();
+});
+
+Shell.register('log', { onDayChange: rollDay });
 
 return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,

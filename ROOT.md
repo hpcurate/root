@@ -63,6 +63,10 @@ root/
 ├── ROOT.md            this file — read first, update last
 ├── index.html         all markup for all five views + the icon sprite
 ├── favicon.png
+├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
+├── test/
+│   ├── harness.mjs    jsdom boot + behaviour checks — see §7
+│   └── package.json   its one dev dependency (jsdom); not part of the site
 ├── css/
 │   ├── tokens.css     the token system + every global consequence of a dial
 │   ├── themes.css     15 presets, depth ramps, card treatments, nav variants
@@ -112,6 +116,32 @@ All four apps use ids like `#s-home` and `#td-project`. The `.ns-*` prefix is
 what keeps them from colliding. **Never query the document unscoped from inside
 an app module.** Inline `onclick` handlers therefore read `DO.go(...)`, not
 `go(...)`.
+
+Any *user-editable* value that is interpolated into an inline handler —
+`onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
+which escapes it as a JS string literal and then as an HTML attribute. `esc()`
+alone is not enough: a block called `it's` was a syntax error in every handler
+on the evening form.
+
+### What the shell gives every module
+
+```js
+Shell.toast(msg)                       // the one toast
+Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
+Shell.confirm(msg)                     // window.confirm, unless "confirm before clearing" is off
+Shell.settings(panel)                  // jump to a settings panel ('general' still maps to 'data')
+Shell.register(name, { onShow, onDayChange })
+```
+
+`onShow` fires on every visit to the tab. `onDayChange(iso)` fires when the
+calendar day changes while the app is open — the shell checks on
+`visibilitychange`, on window focus, on every tab change and once a minute.
+DO moves to the new day's record; LOG moves its selected day only if it was
+"today" and no form is open (an evening written at 00:10 belongs to the day
+that just ended). Nothing else captures "today" at boot any more.
+
+Routes: `#do` … `#settings` pick a tab; `#settings/<panel>` lands on one
+settings panel and is kept in the address bar as you switch panels.
 
 ### The slide track
 
@@ -295,6 +325,25 @@ drops a key is worse than one carrying a few bytes too many.
 - **`color-mix()` and `zoom` are both used unpolyfilled.** Baseline in every
   browser that matters since 2023/2024. Where `zoom` is unsupported the page
   simply renders at 100%.
+- **"Today" can change under you.** DO's `TODAY`/`SK` and LOG's `REAL_TODAY` are
+  `let`, re-derived by `rollDay()` when the shell's day check fires. Never copy
+  them into another module-level constant, and never build a day key from
+  `new Date().toISOString()` — that is UTC, and in France it is yesterday until
+  01:00 or 02:00. Use `Shell.today()`.
+- **A `confirm()` in an app module is a bug.** Route it through `Shell.confirm()`
+  so Settings → behaviour → "confirm before clearing" means something. The one
+  exception is LOG's "go back without saving?", which guards unsaved input, not
+  a clear.
+- **STORE's classifier caches its vocabulary in `VOCAB`.** It is built from
+  `CATEGORIES`; the Config subscriber sets it to `null` so an aisle edit is
+  picked up. Anything else that changes what the categoriser should know must
+  do the same.
+- **DO's Todoist name map is built per call**, not at boot (`tdRoutineBySlug()`),
+  because routines are editable. Do not cache it.
+- **A sheet owns the keyboard.** The shell's shortcuts (`←` `→` `1–5` `/`) are
+  suppressed while any `.sheet-back.on` or visible `.modal-overlay` exists, and
+  Escape closes it by clicking its own backdrop/cancel button. A new overlay
+  that does not use `.sheet-back` gets neither for free.
 
 ---
 
@@ -318,11 +367,18 @@ an `EDITORS` entry plus its path in `EDITOR_ORDER`.
 `css/x.css` scoped to `.ns-x`, a module that calls `Shell.register('x', …)`, and
 `'x'` in `Shell.TABS`, the nav markup, and `Prefs.SCHEMA.startTab.values`.
 
-**Test without a browser** — the app boots cleanly in jsdom. Load
-`prefs → config → shell → do → log → plan → store → settings`, stub `matchMedia`,
-`requestAnimationFrame` and `Element.prototype.scrollIntoView`, then drive real
-DOM events. Both harnesses used for the 2.0 rewrite are documented in the
-changelog entry below.
+**Test without a browser** — `test/harness.mjs` boots the real `index.html` in
+jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
+through DOM events: 35 checks covering boot, every theme and panel, and the
+behaviour fixed in 2.1. Run it before trusting any change:
+
+```
+cd root/test && npm install && node harness.mjs
+```
+
+jsdom does not lay out or paint, so it proves the DOM is built and the logic
+runs, and proves nothing about how anything looks. Add a check for every
+behaviour you fix; a bug that has a check does not come back.
 
 ---
 
@@ -330,6 +386,91 @@ changelog entry below.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.1 — 2026-09-01 — the audit: what 2.0 left dangling
+
+A read-through of every file against the vision in §1, looking for settings
+that existed but did nothing, constants that 2.0 had made editable in one place
+and left cached in another, and the phone-app cases (midnight, quotes, a flaky
+request) that a jsdom boot pass cannot see. Nothing here changes a storage key,
+a day-record field or the `.md` export.
+
+**Settings that were decorative are real now.** Three preferences were written
+by the settings view and read by nothing: *confirm before clearing* (only the
+settings view's own buttons honoured it; every reset/clear in the four apps
+called `confirm()` directly — they go through `Shell.confirm()` now), *week
+starts on* (nothing read it; the km chart honours it, reports stay ISO/Monday
+and the chip says so), and `log.streakRequires` (in Config, no editor, never
+read; the streak uses it and Settings → content → LOG has a select for it).
+
+**Midnight with the app open.** Every module captured "today" once at boot, so
+a phone that keeps ROOT open — which is how it is used — filed ticks made after
+midnight into yesterday's record until someone reloaded. Worse, DO and STORE
+derived the day from `toISOString()`, which is UTC: the checklist did not reset
+until 01:00 (winter) or 02:00 (summer), and a tick in that window went to the
+wrong day. `Shell.today()` is now the only definition of the local day, and the
+shell re-checks it on visibility, focus, tab change and once a minute, calling
+each module's `onDayChange`. DO rolls to the new record; LOG follows only when
+the selected day was today and no form is open, because an evening logged at
+00:10 belongs to the day that just ended. STORE's trip date is local too.
+
+**Editable in one place, cached in another.** DO's Todoist name→routine map was
+built once at boot from `ROUTINES` — rename a routine in Settings and sync
+stopped matching it until a reload. STORE's classifier vocabulary (`VOCAB`)
+was built once from `CATEGORIES` — add a word to an aisle and the categoriser
+never saw it. LOG's note parser capped meals at 4 while the meal count goes to
+8, so meals 5–8 vanished from every pasted-notes report. LOG's daily km target
+was still a constant (`log.kmTarget`, editable now, next to the streak rule).
+PLAN's and STORE's home dates ignored the date-format preference that DO and
+LOG already followed.
+
+**A quote in an editable value broke its button.** Block names, workout types,
+PLAN's chips and DO's checklist items are interpolated into inline `onclick`
+strings; `esc()` handles `<>&` but not `'` or `\`, so a block called `it's` was
+a syntax error and could not be toggled. Every such site goes through `attr()`
+(JS-string escape, then attribute escape). See §3.
+
+**Streak and "done" cards depended on two specific fields.** Morning counted as
+logged only with a wake time, evening only with an evening km — and 2.0 made
+both fields switchable off, after which the card could never turn green and
+the streak was stuck at zero. Any recorded value in that half of the day counts
+now. The streak also no longer resets to zero every morning: if today is not
+finished it counts back from yesterday.
+
+**PLAN re-sent tasks after a partial failure.** The queue was cleared only when
+every task went through; one failed request kept all of them, and the next
+"send" created duplicates in Todoist for the ones that had succeeded. Only the
+failed tasks stay queued, and the log says so.
+
+**Keyboard and sheets.** STORE's numpad reads digit keys; so did the shell's
+tab shortcuts, on the same document, so typing `3` into the numpad on a laptop
+also jumped to PLAN, and `/` decremented the count *and* opened settings. All
+shortcuts are suppressed while a sheet or modal is up, and Escape closes it
+(the shell clicks the overlay's own backdrop, so it knows nothing about who
+owns which sheet).
+
+**Smaller.** `Shell.settings('general')` was called from PLAN in three places
+and matched no panel (the key lives under *data*) — every "add your key under
+General" message pointed at a panel that does not exist. `Prefs.preview()` set
+`data-theme` but not `data-mode`, so hovering a light preset from a dark one
+previewed it without the light-mode corrections. `loadFonts()` set the font
+link's `href` to `''` when both faces were system faces, which resolves to the
+page itself and fetched `index.html` as a stylesheet; the link is removed
+instead. A pasted "look" can now no longer inject a non-string currency or a
+malformed accent (`coerce()` covers `text` and `color`). The meal count is
+clamped to 1–12 on render, since the editor's number field is empty mid-edit.
+`#settings/<panel>` deep-links to a settings panel. `manifest.webmanifest`
+makes the site installable as a standalone app on Android; iOS was already
+covered by the apple-* metas.
+
+**Verified** — `test/harness.mjs`, 35 checks, all green: boot with no console
+errors, all 15 presets, all nine panels, and one check per behaviour above
+(the day rollover is driven by shimming `Date` a day forward and calling
+`Shell.checkDay()`; the partial send by a scripted `fetch`). Before the changes
+the same harness failed 22 of them, which is the diagnosis in numbers. **Not
+verified**: nothing above has been seen in a browser, and the manifest has not
+been installed on a phone. The rollover in particular deserves one real night
+with the app open before it is trusted.
 
 ### 2.0.1 — 2026-09-01 — the horizontal scrollers inside the track
 

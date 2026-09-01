@@ -309,7 +309,8 @@ function renderBehave() {
       { v:'short', l:'Mon 1 Sep' },
       { v:'iso', l:'2026-09-01' },
     ], 'Dates')}
-    ${chips('weekStart', [{ v:'mon', l:'Monday' }, { v:'sun', l:'Sunday' }], 'Week starts on')}
+    ${chips('weekStart', [{ v:'mon', l:'Monday' }, { v:'sun', l:'Sunday' }], 'Week starts on',
+      'the km chart — reports keep ISO weeks, which start on Monday')}
     <div class="f">
       <label class="lbl">Currency symbol</label>
       <input type="text" id="cur-sym" value="${esc(Prefs.get('currency'))}" maxlength="3"
@@ -463,8 +464,9 @@ const EDITORS = {
   /* ── LOG · labels ──────────────────────────────────────────────────────── */
   'log.labels': {
     title: 'Names and counts',
-    paths: ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts'],
-    note: 'What the evening form calls things. The underlying field names in the exported .md never change, so your Obsidian notes stay parseable.',
+    paths: ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
+            'log.kmTarget','log.streakRequires'],
+    note: 'What the forms call things, plus the walking target and the streak rule. The underlying field names in the exported .md never change, so your Obsidian notes stay parseable.',
     render() {
       const meds = Config.get('log.meds'), caf = Config.get('log.caffeine');
       const cur  = Config.get('log.curate'), sc = Config.get('log.scales');
@@ -505,6 +507,17 @@ const EDITORS = {
         <div class="f" style="margin-top:14px">
           <label class="lbl">Workout types <em>comma separated</em></label>
           <input type="text" data-cfg="log.workouts" data-list="1" value="${esc(Config.get('log.workouts').join(', '))}">
+        </div>
+
+        <label class="lbl">Walking and streak</label>
+        <div class="ed-pair">
+          <div><label class="lbl">km target per day</label>
+            <input type="number" inputmode="decimal" min="0.5" max="50" step="0.5" data-cfg="log.kmTarget"
+                   value="${esc(Config.get('log.kmTarget'))}"></div>
+          <div><label class="lbl">a day counts when</label>
+            <select data-cfg="log.streakRequires" aria-label="streak rule">${[
+              ['both', 'morning + evening'], ['morning', 'morning logged'], ['evening', 'evening logged'],
+            ].map(([v, l]) => `<option value="${v}"${Config.get('log.streakRequires') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
         </div>`;
     },
     read() { /* per-field, handled by the data-cfg listener */ },
@@ -744,7 +757,8 @@ const RESET_BUNDLE = {
   'do.routines':          ['do.routines','do.tabs'],
   'do.travelCategories':  ['do.travelCategories','do.categoryOrder'],
   'log.blocks':           ['log.blocks','log.maxBlocks'],
-  'log.labels':           ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts'],
+  'log.labels':           ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
+                           'log.kmTarget','log.streakRequires'],
   'plan.chips':           ['plan.blocks','plan.times'],
 };
 
@@ -936,6 +950,8 @@ function panel(name) {
   const view = document.getElementById('view-settings');
   if (view) view.scrollTop = 0;
   Shell.showChrome();
+  // #settings/<panel> is linkable; the shell leaves this segment alone
+  try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings/' + name); } catch {}
   RENDERERS[name] && RENDERERS[name]();
 }
 
@@ -1005,6 +1021,9 @@ view.addEventListener('input', e => {
 
 view.addEventListener('change', e => {
   const el = e.target;
+  // a select bound straight to a path (the streak rule) commits here — it does
+  // not reliably fire `input`, and its group's read() is a no-op
+  if (el.dataset.cfg) { commitField(el); return; }
   if (el.tagName === 'SELECT' && el.closest('[data-group]')) { commitGroup(el); return; }
   if (el.id === 'acc-color') {
     Prefs.set('accentCustom', el.value);
@@ -1126,7 +1145,9 @@ Config.subscribe(() => {
 });
 
 Shell.register('settings', { onShow: render });
-panel('look');
+// a deep link (#settings/data) opens on that panel; anything else on `look`
+const linked = Shell.hashTarget();
+panel(linked.name === 'settings' && PANELS.includes(linked.sub) ? linked.sub : 'look');
 
 return { panel, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,

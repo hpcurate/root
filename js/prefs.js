@@ -251,6 +251,9 @@ function coerce(k, v) {
     const vals = typeof s.values === 'function' ? s.values() : s.values;
     return vals.includes(v) ? v : s.def;
   }
+  // a pasted "look" can carry anything; keep text and colour well-formed
+  if (s.kind === 'text')  return String(v ?? '').slice(0, 8) || s.def;
+  if (s.kind === 'color') return normHex(v);
   return v;
 }
 
@@ -323,7 +326,10 @@ function resolvedMono() {
 let fontLink = null;
 function loadFonts() {
   const fams = [resolvedDisplay().google, resolvedMono().google].filter(Boolean);
-  if (!fams.length) { if (fontLink) fontLink.href = ''; return; }
+  // both faces on the device: drop the link outright. Setting href to '' does
+  // not blank it — it resolves to the page itself, which is then fetched as a
+  // stylesheet.
+  if (!fams.length) { if (fontLink) { fontLink.remove(); fontLink = null; } return; }
   const href = 'https://fonts.googleapis.com/css2?' +
                fams.map(f => 'family=' + f).join('&') + '&display=swap';
   if (!fontLink) {
@@ -415,8 +421,13 @@ function apply() {
 /* Preview a theme without saving it — used by the picker so hovering a card
    shows the real thing. revert() puts the saved look back. */
 function preview(id) {
-  if (!THEMES.some(t => t.id === id)) return;
+  const info = THEMES.find(t => t.id === id);
+  if (!info) return;
   root.setAttribute('data-theme', id);
+  // the light-mode corrections and the form controls' colour scheme key off
+  // the mode, so a light preset previewed from a dark one needs both to move
+  root.setAttribute('data-mode', info.mode);
+  root.style.colorScheme = info.mode;
   const ch = THEME_CHARACTER[id];
   if (prefs.radius === null) root.style.setProperty('--r-base', ch.radius + 'px');
   if (prefs.border === null) root.style.setProperty('--bw', ch.border + 'px');

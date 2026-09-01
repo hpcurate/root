@@ -10,6 +10,8 @@
   <title>ROOT</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
+  <!-- Android/Chrome install as a standalone app; iOS reads the apple-* metas -->
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -913,7 +915,7 @@
     <!-- ── PLAN ── -->
     <div class="set-panel ns-plan" data-panel="plan">
       <div class="sec">Todoist projects</div>
-      <div id="conn-status" class="settings-status idle">no Todoist key yet — add one under General</div>
+      <div id="conn-status" class="settings-status idle">no Todoist key yet — add one under data</div>
       <div class="data-warn">
         Fetch your Todoist projects, then map each PLAN project to one of them.
         Sections are matched by name when the queue is sent.

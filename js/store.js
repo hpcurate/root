@@ -260,7 +260,7 @@ function addCart(amt, note) {
 }
 function resetCart() {
   if (state.cart === 0 && !state.cartLog.length) { toast('cart already at 0'); return; }
-  if (!confirm(`Reset cart counter to ${CUR()}0.00?`)) return;
+  if (!Shell.confirm(`Reset cart counter to ${CUR()}0.00?`)) return;
   state.cart = 0; state.cartLog = [];
   saveState(); renderCart();
   toast('cart reset');
@@ -403,8 +403,8 @@ function lerpColor(c1, c2, t) {
 
 // ─── Home ────────────────────────────────────────────────────────────────────
 function renderHome() {
-  $id('date-label').textContent =
-    new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).toUpperCase();
+  // one date format for the whole app, set under Settings → behaviour
+  $id('date-label').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
   renderCart();
   renderList();
   $id('hist-count').textContent = state.history.length;
@@ -453,7 +453,7 @@ function deleteItem(idx) {
 }
 function confirmClearList() {
   if (!state.list.length) { toast('list is empty'); return; }
-  if (!confirm(`Clear all ${state.list.length} items from list?`)) return;
+  if (!Shell.confirm(`Clear all ${state.list.length} items from list?`)) return;
   state.list = [];
   saveState();
   renderList();
@@ -499,7 +499,7 @@ function confirmTripName() {
   }
   if (!state.list.length) { closeTripName(); toast('list is empty'); return; }
   state.history.unshift({
-    date: new Date().toISOString().split('T')[0],
+    date: Shell.today(),        // local day — toISOString() dated a late shop tomorrow
     name,                                        // '' is fine — the date shows instead
     items: state.list.map(i => ({ ...i })),
     cart: state.cart,
@@ -736,7 +736,7 @@ function restoreTrip(i) {
 }
 
 function deleteTrip(i) {
-  if (!confirm('Delete this trip from history?')) return;
+  if (!Shell.confirm('Delete this trip from history?')) return;
   state.history.splice(i, 1);
   saveState();
   renderHistory();
@@ -744,7 +744,7 @@ function deleteTrip(i) {
 
 function clearHistory() {
   if (!state.history.length) { toast('history is empty'); return; }
-  if (!confirm(`Clear all ${state.history.length} past trips?`)) return;
+  if (!Shell.confirm(`Clear all ${state.history.length} past trips?`)) return;
   state.history = [];
   saveState();
   renderHistory();
@@ -856,7 +856,7 @@ async function tdResolveTarget(force = false) {
 }
 
 async function testTodoist() {
-  if (!Creds.token()) { tdStatus('add your Todoist key in General first', 'bad'); return; }
+  if (!Creds.token()) { tdStatus('add your Todoist key under settings → data first', 'bad'); return; }
   tdStatus('checking…', 'busy');
   try {
     const t = await tdResolveTarget(true);
@@ -1009,6 +1009,7 @@ Config.subscribe(path => {
   if (path !== '*' && !String(path).startsWith('store.')) return;
   CATEGORIES = Config.get('store.categories');
   MEALS      = Config.get('store.meals');
+  VOCAB = null;   // the categoriser's vocabulary is built from CATEGORIES; rebuild it
   let moved = false;
   state.list.forEach(it => { if (!CATEGORIES[it.cat]) { it.cat = 'manual'; moved = true; } });
   if (moved) saveState();
@@ -1016,8 +1017,9 @@ Config.subscribe(path => {
   renderHome();
 });
 
-// the currency mark reaches nine different readouts; one redraw covers them all
-Prefs.subscribe(k => { if (k === 'currency' || k === '*') renderHome(); });
+// the currency mark reaches nine different readouts and the date label follows
+// the date format; one redraw covers them all
+Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === '*') renderHome(); });
 
 Shell.register('store', {});
 

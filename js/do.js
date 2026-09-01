@@ -40,8 +40,12 @@ readConfig();
 
 const TRAVEL_KEY = 'travel_state_v2';
 
-const TODAY = new Date().toISOString().split('T')[0];
-const SK = 'do_' + TODAY;
+/* Local calendar day, from the shell. This was toISOString(), which is UTC: in
+   France the checklist did not reset until 01:00 or 02:00, and a tick made in
+   that window went into the previous day's record. Both are re-derived by
+   rollDay() when midnight passes with the app open. */
+let TODAY = Shell.today();
+let SK = 'do_' + TODAY;
 
 const routinesOfTab = id => (TABS.find(t => t.id === id) || TABS[0] || { routines: [] })
   .routines.filter(k => ROUTINES[k]);
@@ -75,6 +79,16 @@ function loadState() {
 }
 
 function saveState() { localStorage.setItem(SK, JSON.stringify(state)); }
+
+/* Midnight with the app open: move to the new day's record (loadState sweeps
+   the old one) and redraw whatever is on screen. */
+function rollDay(day) {
+  TODAY = day;
+  SK = 'do_' + TODAY;
+  loadState();
+  renderHome();
+  if ($one('#s-checklist.on')) renderChecklist();
+}
 
 function loadTravel() {
   try {
@@ -271,9 +285,8 @@ function renderChecklist() {
 
   $id('cl-items').innerHTML = items.map(item => {
     const checked = !!state[key]?.[item];
-    const safeItem = item.replace(/'/g, "\\'");
-    return `<button class="item-btn${checked ? ' checked' : ''}" onclick="DO.toggle('${key}','${safeItem}')">
-      <span>${item}</span>
+    return `<button class="item-btn${checked ? ' checked' : ''}" onclick="DO.toggle('${key}','${attr(item)}')">
+      <span>${esc(item)}</span>
       <div class="item-check-ico">
         <svg class="item-check-svg" viewBox="0 0 10 10" fill="none">
           <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -298,7 +311,7 @@ function toggleAll() {
 }
 
 function resetDay() {
-  if (!confirm('Reset all items for today?')) return;
+  if (!Shell.confirm('Reset all items for today?')) return;
   state = blankState();
   saveState();
   go('home');
@@ -306,6 +319,15 @@ function resetDay() {
 
 // ── Travel ────────────────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* For a value that ends up inside onclick="…('…')": escaped as a JS string
+   literal first, then as an HTML attribute, so an apostrophe, a backslash or a
+   quote in an item — all of which the editor lets you type — never breaks the
+   handler. The browser undoes both layers before the value reaches toggle(),
+   so the key round-trips exactly. */
+function attr(s) {
+  return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // list of saved checklists
 function renderTravelList() {
@@ -333,7 +355,7 @@ function openList(id) { currentList = id; go('travel-cl'); }
 
 function deleteList(id) {
   const list = travel.lists[id];
-  if (!confirm('Delete “' + (list ? list.name : 'this list') + '”?')) return;
+  if (!Shell.confirm('Delete “' + (list ? list.name : 'this list') + '”?')) return;
   delete travel.lists[id];
   travel.order = travel.order.filter(x => x !== id);
   if (currentList === id) currentList = null;
@@ -404,7 +426,7 @@ function renderTravelCl() {
       const checked = !!list.checked[key];
       const n = itemCount(list, key);
       const decDisabled = n <= 1 ? ' disabled' : '';
-      const safeItem = item.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const safeItem = attr(item);
       return `<button class="tv-item${checked ? ' checked' : ''}" onclick="DO.toggleTravel('${sec}','${safeItem}')">
         <span class="tv-count-grp" onclick="event.stopPropagation()">
           <span class="tv-step${decDisabled}" onclick="event.stopPropagation();DO.decCount('${sec}','${safeItem}')">−</span>
@@ -506,7 +528,7 @@ function saveTravelEdit() {
 }
 
 function resetTravel() {
-  if (!confirm('Delete ALL travel checklists? This cannot be undone.')) return;
+  if (!Shell.confirm('Delete ALL travel checklists? This cannot be undone.')) return;
   localStorage.removeItem(TRAVEL_KEY);
   localStorage.removeItem('travel_state_v1');
   travel = { lists:{}, order:[] };
@@ -532,7 +554,7 @@ function exportTravelMd() {
     lines.push('');
   });
   const md = lines.join('\n');
-  const date = new Date().toISOString().split('T')[0];
+  const date = Shell.today();
   const slug = (list.name || 'travel').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'travel';
   const filename = `${slug}_${date}.md`;
   const blob = new Blob([md], { type: 'text/markdown' });
@@ -573,11 +595,8 @@ function loadTodoist() {
    own record on every save so the standalone complete/ app keeps working. */
 function tdPersist() { td.token = Creds.token(); localStorage.setItem(TD_KEY, JSON.stringify(td)); }
 
-/* Todoist due dates are local calendar days, so "today" here has to be too —
-   the app's own TODAY is UTC and would be a day behind after midnight. */
-function tdLocalDate(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+/* Todoist due dates are local calendar days; so is TODAY now, via the shell. */
+function tdLocalDate(d = new Date()) { return Shell.today(d); }
 
 function tdFold(s) {
   return String(s || '').toLowerCase().normalize('NFD')
@@ -588,8 +607,12 @@ function tdSlug(s) { return tdFold(s).replace(/[^a-z0-9]+/g, ''); }
 /* Looser form for project and section names, where words must stay apart:
    "04 | life" and "04|life" both become "04 life". */
 function tdName(s) { return tdFold(s).replace(/[^a-z0-9]+/g, ' ').trim(); }
-const TD_ROUTINE_BY_SLUG = Object.fromEntries(
-  Object.keys(ROUTINES).flatMap(k => [[tdSlug(k), k], [tdSlug(ROUTINES[k].label), k]]));
+/* Built on demand, not once at boot: ROUTINES is editable now, and a routine
+   renamed or added in Settings has to match its Todoist task without a reload. */
+function tdRoutineBySlug() {
+  return Object.fromEntries(
+    Object.keys(ROUTINES).flatMap(k => [[tdSlug(k), k], [tdSlug(ROUTINES[k].label), k]]));
+}
 
 function tdBase() { return td.endpoint === 'proxy' ? TD_PROXY : TD_DIRECT; }
 
@@ -656,8 +679,9 @@ async function tdRoutineTasks(force = false) {
   const t = await tdResolveTarget(force);
   const tasks = await tdGetAll('/tasks', { project_id: t.projectId, section_id: t.sectionId });
   const byRoutine = new Map();
+  const bySlug = tdRoutineBySlug();
   tasks.forEach(task => {
-    const key = TD_ROUTINE_BY_SLUG[tdSlug(task.content)];
+    const key = bySlug[tdSlug(task.content)];
     if (key && !byRoutine.has(key)) byRoutine.set(key, task);
   });
   return byRoutine;
@@ -757,7 +781,7 @@ async function tdAutoPush(key) {
 
 async function testTodoist() {
   if (tdBusy) return;
-  if (!Creds.token()) { tdStatus('add your Todoist key in General first', 'bad'); return; }
+  if (!Creds.token()) { tdStatus('add your Todoist key under settings → data first', 'bad'); return; }
   tdBusy = true; renderTdButtons(); tdStatus('checking…', 'busy');
   try {
     const byRoutine = await tdRoutineTasks(true);
@@ -841,7 +865,12 @@ Config.subscribe(path => {
   renderHome();
 });
 
-Shell.register('do', { onShow: () => { renderTabs(); positionGlider(); } });
+Shell.register('do', {
+  onShow: () => { renderTabs(); positionGlider(); },
+  onDayChange: rollDay,
+});
+// the date label follows Settings → behaviour → dates without a reload
+Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
 return { go, renderSettings: renderTodoistSettings,
          toggle, toggleAll, openRoutine, setTab, resetDay,

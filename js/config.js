@@ -106,6 +106,8 @@ const DEFAULTS = {
       stress: { low: 'calm',    high: 'overwhelmed' },
     },
     workouts: ['push','pull','legs','rest'],
+    /* Daily walking target, km — the line on the weekly chart under History. */
+    kmTarget: 6,
     /* Turn a field off and it vanishes from the form and from the day's UI.
        Already-recorded values are kept, never deleted. */
     fields: {
@@ -114,6 +116,7 @@ const DEFAULTS = {
       kmEvening: true, energyE: true, moodE: true, stress: true,
       meds: true, meals: true, caffeine: true, blocks: true, curate: true,
     },
+    /* What a day needs before it counts towards the streak on the home screen. */
     streakRequires: 'both',   // 'both' | 'morning' | 'evening'
   },
 

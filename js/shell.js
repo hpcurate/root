@@ -87,7 +87,44 @@ window.Shell = (function () {
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
 
   let index = 0;
-  const apps = {};                     // name → { onShow }
+  const apps = {};                     // name → { onShow, onDayChange }
+
+  // ── Dates ───────────────────────────────────────────────────────────────────
+  /* The local calendar day as YYYY-MM-DD, and the one definition of it. Every
+     module used to derive "today" its own way — DO and STORE through
+     toISOString(), which is UTC and so a day behind until 01:00 or 02:00 in
+     France, while Todoist due dates and LOG's records are local days. */
+  function today(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /* A phone keeps ROOT open for days at a time. Each module captured "today"
+     once at boot, so a tick made after midnight went into yesterday's record
+     until someone reloaded. The shell re-checks the date whenever the page
+     comes back, on every tab change and once a minute, and tells each module
+     that registered an onDayChange hook. */
+  let dayNow = today();
+  function checkDay() {
+    const d = today();
+    if (d === dayNow) return false;
+    dayNow = d;
+    Object.values(apps).forEach(a => {
+      if (a.onDayChange) { try { a.onDayChange(d); } catch (e) { console.error(e); } }
+    });
+    return true;
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkDay(); });
+  window.addEventListener('focus', checkDay);
+  setInterval(checkDay, 60 * 1000);
+
+  /* Honours Settings → behaviour → "confirm before clearing". Every reset and
+     clear button in the four apps routes here; the preference used to be read
+     only by the settings view's own buttons, so turning it off did nothing
+     where it mattered. */
+  function confirmAction(msg) {
+    if (pref('confirmDestructive', true) === false) return true;
+    return window.confirm(msg);
+  }
 
   // ── Toast ───────────────────────────────────────────────────────────────────
   /* One element for all five views. Every module's toast() forwards here, so a
@@ -138,6 +175,7 @@ window.Shell = (function () {
   function go(name, opts = {}) {
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
+    checkDay();
     index = i;
     setTransform(null, true);
     navBtns.forEach((b, n) => {
@@ -152,8 +190,10 @@ window.Shell = (function () {
     if (!opts.silent) {
       const h = '#' + TABS[i];
       // replaceState throws on a file:// origin in some browsers; the tab still
-      // works, it just cannot be linked to.
-      try { if (location.hash !== h) history.replaceState(null, '', h); } catch {}
+      // works, it just cannot be linked to. A settings deep link
+      // (#settings/data) keeps its panel segment.
+      const keep = TABS[i] === 'settings' && location.hash.startsWith(h + '/');
+      try { if (location.hash !== h && !keep) history.replaceState(null, '', h); } catch {}
     }
     const app = apps[TABS[i]];
     if (app && app.onShow) app.onShow();
@@ -162,7 +202,16 @@ window.Shell = (function () {
   /* Every app's "settings" entry point routes here. */
   function settings(panel) {
     go('settings');
+    if (panel === 'general') panel = 'data';   // the 1.0 name for the key panel
     if (window.SET && panel) SET.panel(panel);
+  }
+
+  /* Escape closes whatever sheet or modal is up. Each overlay's backdrop and
+     cancel button already know how to close their own sheet, so the shell just
+     presses them rather than knowing which module owns what. */
+  function closeOverlays() {
+    document.querySelectorAll('.sheet-back.on').forEach(b => b.click());
+    document.querySelectorAll('.modal-overlay:not(.hidden) .modal-cancel').forEach(b => b.click());
   }
 
   function register(name, api) { apps[name] = api || {}; }
@@ -254,18 +303,29 @@ window.Shell = (function () {
   // only matters if the window is resized mid-drag.
   window.addEventListener('resize', () => { if (!tracking) setTransform(null, false); });
 
+  /* #do … #settings select a tab; #settings/<panel> lands on one panel. */
+  function hashTarget() {
+    const [name, sub] = location.hash.replace('#', '').split('/');
+    return { name: TABS.includes(name) ? name : null, sub: sub || null };
+  }
   window.addEventListener('hashchange', () => {
-    const name = location.hash.replace('#', '');
-    if (TABS.includes(name) && TABS[index] !== name) go(name, { silent: true });
+    const { name, sub } = hashTarget();
+    if (!name) return;
+    if (TABS[index] !== name) go(name, { silent: true });
+    if (name === 'settings' && sub && window.SET) SET.panel(sub);
   });
 
   /* ── Keyboard ─────────────────────────────────────────────────────────────
      ROOT is a phone app that also runs on a laptop, where five slides and no
      keyboard route is a real gap. Every binding is ignored while a field has
-     focus, so typing never navigates. */
+     focus, so typing never navigates, and while a sheet is up, because a sheet
+     owns the keyboard — STORE's numpad reads digits, and "3" used to type a 3
+     AND jump to PLAN. */
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlayOpen()) { closeOverlays(); return; }
     if (!pref('keyboardNav', true)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (overlayOpen()) return;
     const el = document.activeElement;
     if (el && el.closest && el.closest('input,textarea,select,[contenteditable]')) return;
     if (e.key === 'ArrowRight') { go(index + 1); e.preventDefault(); }
@@ -277,9 +337,9 @@ window.Shell = (function () {
   // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
   (function boot() {
     let start = 'do';
-    const fromHash = location.hash.replace('#', '');
+    const fromHash = hashTarget().name;
     const want = pref('startTab', 'last');
-    if (TABS.includes(fromHash)) start = fromHash;
+    if (fromHash) start = fromHash;
     else if (want !== 'last' && TABS.includes(want)) start = want;
     else { try { const s = localStorage.getItem(TAB_KEY); if (TABS.includes(s)) start = s; } catch {} }
     // Land on the opening tab without animating in from DO: park the track there
@@ -298,5 +358,6 @@ window.Shell = (function () {
     if (k === 'autoHideChrome' || k === '*') { if (pref('autoHideChrome', true) === false) showChrome(); }
   });
 
-  return { toast, go, settings, register, showChrome, TABS };
+  return { toast, go, settings, register, showChrome, TABS,
+           today, checkDay, confirm: confirmAction, hashTarget };
 })();

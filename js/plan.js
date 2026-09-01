@@ -59,8 +59,8 @@ function go(id) {
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 function renderHome() {
-  $id('home-date').textContent =
-    new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase();
+  // one date format for the whole app, set under Settings → behaviour
+  $id('home-date').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
   renderProjects();
   renderQueue();
 }
@@ -156,7 +156,7 @@ function renderQueue() {
 
 function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
 function clearQueue() {
-  if(!confirm('Clear all queued tasks?')) return;
+  if(!Shell.confirm('Clear all queued tasks?')) return;
   queue=[]; saveQueue(); renderQueue(); renderProjects(); toast('Queue cleared');
 }
 
@@ -210,11 +210,11 @@ function renderFormChips() {
 
   const ob = $id('opts-block');
   if (ob) ob.innerHTML = blocks.map(b =>
-    `<button class="opt-b" onclick="PLAN.optPick(this,'block','${esc(b)}')">${esc(b)}</button>`).join('') + none('block');
+    `<button class="opt-b" onclick="PLAN.optPick(this,'block','${attr(b)}')">${esc(b)}</button>`).join('') + none('block');
 
   const ot = $id('opts-time');
   if (ot) ot.innerHTML = times.map(t =>
-    `<button class="opt-b" onclick="PLAN.optPick(this,'time','${esc(t.value)}')">${esc(t.label)}</button>`).join('') + none('time');
+    `<button class="opt-b" onclick="PLAN.optPick(this,'time','${attr(t.value)}')">${esc(t.label)}</button>`).join('') + none('time');
 
   const pr = $id('opts-prio');
   if (pr) pr.innerHTML = prios.map((p, i) =>
@@ -285,7 +285,7 @@ function addToQueue() {
 // ── Sending ───────────────────────────────────────────────────────────────────
 async function startSending() {
   const token = Creds.token();
-  if (!token) { toast('No Todoist key'); Shell.settings('general'); return; }
+  if (!token) { toast('No Todoist key'); Shell.settings('data'); return; }
   const log = $id('send-log');
   const backBtn = $id('send-back');
   const doneBtn = $id('send-done-btn');
@@ -294,7 +294,11 @@ async function startSending() {
   title.textContent = 'sending…';
   let sectionMap = {};
   try { sectionMap = JSON.parse(localStorage.getItem('plan_sections') || '{}'); } catch {}
+  /* Only what failed stays queued. The queue used to be kept whole after any
+     failure, so the next "send" re-created every task that had already gone
+     through — duplicates in Todoist for one flaky request. */
   let success = 0, failed = 0;
+  const remaining = [];
   for (const task of queue) {
     const labels = [task.projectLabel];
     if (task.block) labels.push(task.block);
@@ -325,19 +329,20 @@ async function startSending() {
         else logLine(log, `  ↳ ${esc(st)}`, 'ok');
       }
       const lines = log.querySelectorAll('.pending');
-      if (lines.length) { const last=lines[lines.length-1]; last.className='ok'; last.textContent='✓ '+esc(task.name); }
+      if (lines.length) { const last=lines[lines.length-1]; last.className='ok'; last.textContent='✓ '+task.name; }
     } catch (err) {
       failed++;
+      remaining.push(task);
       const lines = log.querySelectorAll('.pending');
-      if (lines.length) { const last=lines[lines.length-1]; last.className='err'; last.textContent='✗ '+esc(task.name)+' ('+err.message+')'; }
+      if (lines.length) { const last=lines[lines.length-1]; last.className='err'; last.textContent='✗ '+task.name+' ('+err.message+')'; }
     }
     await sleep(100);
   }
-  log.innerHTML += `<div style="margin-top:8px;color:${failed?'var(--re)':'var(--gr)'}">${success} sent${failed?', '+failed+' failed':''}</div>`;
+  log.innerHTML += `<div style="margin-top:8px;color:${failed?'var(--re)':'var(--gr)'}">${success} sent${failed?', '+failed+' failed — still in the queue':''}</div>`;
   log.scrollTop = log.scrollHeight;
   title.textContent = failed ? 'done with errors' : 'done';
   backBtn.disabled = false; doneBtn.classList.remove('hidden');
-  if (!failed) { queue = []; saveQueue(); }
+  queue = remaining; saveQueue();
 }
 
 function logLine(container, text, cls) {
@@ -358,7 +363,7 @@ function updateConnStatus() {
   const el = $id('conn-status');
   if (!el) return;
   const tok = Creds.token();
-  if (!tok) { el.className='settings-status idle'; el.textContent='no Todoist key yet — add one under General'; return; }
+  if (!tok) { el.className='settings-status idle'; el.textContent='no Todoist key yet — add one under data'; return; }
   if (todoistProjects.length) {
     el.className='settings-status ok'; el.textContent=`${todoistProjects.length} projects loaded`;
   } else {
@@ -368,12 +373,12 @@ function updateConnStatus() {
 
 async function connectTodoist() {
   const tok = Creds.token();
-  if (!tok) { toast('add your Todoist key under General first'); Shell.settings('general'); return; }
+  if (!tok) { toast('add your Todoist key under data first'); Shell.settings('data'); return; }
   const btn = $id('btn-connect');
   btn.textContent = 'fetching…'; btn.disabled = true;
   try {
     const res = await fetch(PROXY + '/projects', { headers:{ 'Authorization':'Bearer '+tok } });
-    if (res.status === 401) throw new Error('invalid key — check it under General');
+    if (res.status === 401) throw new Error('invalid key — check it under data');
     if (res.status === 403) throw new Error('forbidden — the key may lack permissions');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const projData = await res.json();
@@ -423,6 +428,12 @@ function saveMappings() {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* For a Config value inside onclick="…('…')": JS-string escaped, then attribute
+   escaped, so a chip value with a quote in it does not break its handler. */
+function attr(s) {
+  return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadState();
@@ -439,6 +450,9 @@ Config.subscribe(path => {
   renderFormChips();
   renderHome();
 });
+
+// the date label follows Settings → behaviour → dates without a reload
+Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
 Shell.register('plan', {});
 

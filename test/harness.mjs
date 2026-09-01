@@ -1,0 +1,252 @@
+// ROOT boot + behaviour harness (jsdom).
+//   cd root/test && npm install && node harness.mjs [path-to-root]
+// Boots the real index.html with the scripts read from disk (stylesheets and
+// fonts are skipped — jsdom does not lay out or paint), then drives it through
+// DOM events. Every behaviour fixed in 2.1 has a check here; add one for each
+// behaviour you fix, and a bug that has a check does not come back.
+import { JSDOM, ResourceLoader, VirtualConsole } from 'jsdom';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(process.argv[2] || path.join(HERE, '..'));
+const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+
+class LocalLoader extends ResourceLoader {
+  fetch(url) {
+    const u = new URL(url);
+    if (u.hostname === 'localhost' && u.pathname.endsWith('.js')) {
+      const p = path.join(ROOT, u.pathname.replace(/^\/root\//, ''));
+      return Promise.resolve(fs.readFileSync(p));
+    }
+    return Promise.resolve(Buffer.from(''));   // css, fonts, favicon: nothing to run
+  }
+}
+
+const errors = [];
+const vc = new VirtualConsole();
+vc.on('jsdomError', e => errors.push('jsdomError: ' + (e.detail?.message || e.message)));
+vc.on('error', (...a) => errors.push('console.error: ' + a.map(String).join(' ')));
+
+let fetchScript = async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '' });
+let confirmCalls = 0, confirmAnswer = true;
+
+const dom = new JSDOM(html, {
+  url: 'http://localhost/root/index.html',
+  runScripts: 'dangerously',
+  resources: new LocalLoader(),
+  pretendToBeVisual: true,
+  virtualConsole: vc,
+  beforeParse(w) {
+    w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
+    w.requestAnimationFrame = fn => setTimeout(fn, 0);
+    w.Element.prototype.scrollIntoView = function () {};
+    w.HTMLElement.prototype.scrollIntoView = function () {};
+    w.confirm = () => { confirmCalls++; return confirmAnswer; };
+    w.fetch = (...a) => fetchScript(...a);
+    w.navigator.vibrate = () => true;
+  },
+});
+
+const w = dom.window, d = w.document;
+await new Promise(r => w.addEventListener('load', r));
+await new Promise(r => setTimeout(r, 50));
+
+let pass = 0, fail = 0;
+const results = [];
+function check(name, cond, note) {
+  if (cond) { pass++; results.push(`  ok   ${name}`); }
+  else { fail++; results.push(`  FAIL ${name}${note ? ' — ' + note : ''}`); }
+}
+const $ = s => d.querySelector(s);
+const iso = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+const today = iso(new w.Date());
+const offset = (n) => { const x = new w.Date(); x.setDate(x.getDate() + n); return iso(x); };
+const tick = (ms = 20) => new Promise(r => setTimeout(r, ms));
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+const key = (k, target = d) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+
+// ── 1. boot ──────────────────────────────────────────────────────────────────
+check('modules defined', ['Prefs','Config','Creds','Shell','DO','LOG','PLAN','STORE','SET'].every(k => w[k]));
+check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3).join(' | '));
+for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
+check('all themes apply', d.documentElement.dataset.theme === 'noir');
+w.Prefs.set('theme', 'void');
+for (const p of ['look','layout','behave','content','do','log','plan','store','data']) w.SET.panel(p);
+check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+// ── 2. settings routing ─────────────────────────────────────────────────────
+w.Shell.go('plan');
+w.PLAN.connectTodoist();                     // no token → routes to the key panel
+await tick();
+check("PLAN 'no key' routes to the data panel", $('.ns-set .set-panel.on')?.dataset.panel === 'data',
+  'landed on ' + $('.ns-set .set-panel.on')?.dataset.panel);
+check('conn-status text no longer says General', !/General/.test($('.ns-plan #conn-status').textContent));
+
+// ── 3. keyboard while an overlay is open + Escape ───────────────────────────
+w.Shell.go('store');
+w.STORE.openPad();
+key('3');
+check('digit keys stay with the numpad, do not switch tab', $('.tab-b.on').getAttribute('aria-label') === 'STORE');
+check('numpad received the digit', /3/.test($('.ns-store #pad-amt').textContent));
+key('Escape');
+check('Escape closes the numpad', !$('.ns-store #pad').classList.contains('on'));
+w.STORE.openCartLog();
+key('Escape');
+check('Escape closes the cart log', !$('.ns-store #clog').classList.contains('on'));
+
+// ── 4. confirmDestructive honoured app-wide ─────────────────────────────────
+$('.ns-store #manual-input').value = 'milk'; w.STORE.addManual();
+w.Prefs.set('confirmDestructive', false);
+confirmCalls = 0;
+w.STORE.confirmClearList();
+check('STORE clear list skips confirm() when the pref is off', confirmCalls === 0 &&
+  JSON.parse(w.localStorage.getItem('store_state_v1')).list.length === 0, 'confirm calls ' + confirmCalls);
+w.Prefs.set('confirmDestructive', true);
+confirmCalls = 0; confirmAnswer = false;
+w.DO.resetDay();
+check('DO resetDay asks when the pref is on', confirmCalls === 1);
+confirmAnswer = true;
+
+// ── 5. STORE classifier follows aisle edits ─────────────────────────────────
+const cats = w.Config.get('store.categories');
+cats.vegetables.items.push('zzzfoo');
+w.Config.set('store.categories', cats);
+$('.ns-store #manual-input').value = 'zzzfoo'; w.STORE.addManual();
+const st = JSON.parse(w.localStorage.getItem('store_state_v1'));
+check('new aisle vocabulary is used immediately', st.list.find(i => i.name === 'zzzfoo')?.cat === 'vegetables',
+  'filed under ' + st.list.find(i => i.name === 'zzzfoo')?.cat);
+w.Config.reset('store.categories');
+
+// ── 6. PLAN partial send keeps only the failed tasks ────────────────────────
+w.Creds.save('tok');
+let n = 0;
+fetchScript = async (url, opts) => {
+  if (opts?.method === 'POST') { n++; return n === 2
+    ? { ok: false, status: 500, json: async () => ({}), text: async () => '' }
+    : { ok: true, status: 200, json: async () => ({ id: 'x' + n }), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+w.Shell.go('plan');
+for (const name of ['a', 'b', 'c']) {          // through the real form: unmapped → confirm() → queued
+  w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
+  $('.ns-plan #task-name').value = name; w.PLAN.addToQueue();
+}
+check('three tasks queued through the form', JSON.parse(w.localStorage.getItem('plan_queue')).length === 3);
+w.PLAN.go('sending');
+await tick(600);
+const q = JSON.parse(w.localStorage.getItem('plan_queue') || '[]');
+check('only the failed task stays queued after a partial send', q.length === 1 && q[0].name === 'b', 'queue now ' + q.map(t => t.name).join(','));
+
+// ── 7. LOG streak ────────────────────────────────────────────────────────────
+const day = (m, e) => JSON.stringify({ date: 'x', scale: 5, m: Object.assign({ wt:'', sl:'', nrg:'', mood:'', cs_on:null, cs:'', wkg:'', km:'', wo:'', tkg:'', tmin:'' }, m),
+  e: Object.assign({ kme:'', nrg:'', mood:'', stress:'', meds_lam:false, meds_rit:false, meals:[], caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[] }, e), entries: [] });
+w.localStorage.removeItem('log_' + today);
+w.localStorage.setItem('log_' + offset(-1), day({ wt: '07:00' }, { kme: '2' }));
+w.localStorage.setItem('log_' + offset(-2), day({ wt: '07:00' }, { kme: '2' }));
+w.LOG.resetDate();
+check('streak counts back from yesterday when today is not logged yet', /2 days/.test($('.ns-log #h-streak').textContent),
+  'streak text: "' + $('.ns-log #h-streak').textContent + '"');
+w.localStorage.setItem('log_' + offset(-3), day({ sl: '7' }, {}));           // morning only, no wake time
+w.Config.set('log.streakRequires', 'morning');
+w.LOG.resetDate();
+check("streakRequires 'morning' counts a morning-only day", /3 days/.test($('.ns-log #h-streak').textContent),
+  'streak text: "' + $('.ns-log #h-streak').textContent + '"');
+w.Config.reset('log.streakRequires');
+w.Config.set('log.fields', Object.assign(w.Config.get('log.fields'), { wakeTime: false }));
+w.LOG.go('morning'); $('.ns-log #m-sl').value = '8'; w.LOG.saveMorning();
+check('morning card is done without a wake time when that field is off', $('.ns-log #card-m').classList.contains('done'));
+w.Config.reset('log.fields');
+
+// ── 8. LOG km target + week start ───────────────────────────────────────────
+w.Config.set('log.kmTarget', 8);
+w.LOG.go('history');
+check('km chart reads the configured target', /8 km\/day/.test($('.ns-log .kmc-goal')?.textContent || ''),
+  $('.ns-log .kmc-goal')?.textContent);
+w.Prefs.set('weekStart', 'sun');
+w.LOG.go('history');
+check('week start pref moves the km chart to Sunday', $('.ns-log .kmc-day')?.textContent === 'S');
+w.Prefs.set('weekStart', 'mon');
+w.Config.reset('log.kmTarget');
+
+// ── 9. onclick values with quotes ───────────────────────────────────────────
+errors.length = 0;
+w.Config.set('log.blocks', [{ name: "it's \"odd\" \\ block", color: '#ffffff' }]);
+w.LOG.go('evening');
+const blk = $('.ns-log .blk-b');
+click(blk);
+check('a block name with quotes still toggles', blk.classList.contains('on') && errors.length === 0, errors[0]);
+w.Config.reset('log.blocks');
+w.Config.set('do.routines', { r1: { label: "Rick's", items: ["it's \\ tricky"] } });
+w.Config.set('do.tabs', [{ id: 'daily', label: 'daily', routines: ['r1'] }]);
+w.DO.openRoutine('r1');
+click($('.ns-do .item-btn'));
+check('a routine item with quotes still ticks', $('.ns-do .item-btn').classList.contains('checked') && errors.length === 0, errors[0]);
+w.Config.reset('do.routines'); w.Config.reset('do.tabs');
+
+// ── 10. day rollover ────────────────────────────────────────────────────────
+w.DO.go('home');
+w.DO.openRoutine('routinep1'); click($('.ns-do .item-btn')); w.DO.go('home');   // a tick today → do_<today> exists
+check('a tick writes today\'s record', w.localStorage.getItem('do_' + today) !== null);
+const tomorrow = offset(1);                  // before the mock: offset() reads w.Date
+const RealDate = w.Date;
+w.Date = class extends RealDate {
+  constructor(...a) { a.length ? super(...a) : super(RealDate.now() + 86400000); }
+  static now() { return RealDate.now() + 86400000; }
+};
+const rolled = w.Shell.checkDay();
+check('shell notices the day changed', rolled === true);
+check('DO switched to the new day (label moved, old day swept, ticks cleared)',
+  $('.ns-do #date-label').textContent === w.Prefs.formatDate(tomorrow).toUpperCase() &&
+  w.localStorage.getItem('do_' + today) === null &&
+  /0 \/ /.test($('.ns-do #home-grid .card .card-s').textContent),
+  $('.ns-do #date-label').textContent + ' | ' + $('.ns-do #home-grid .card .card-s').textContent);
+w.DO.openRoutine('routinep1'); click($('.ns-do .item-btn')); w.DO.go('home');
+check('a tick after midnight lands in the new day\'s record', w.localStorage.getItem('do_' + tomorrow) !== null);
+check('Todoist token survived the day sweep', w.localStorage.getItem('do_todoist_v1') !== null);
+check('LOG followed to the new day on its home screen', $('.ns-log #btn-today').classList.contains('hidden'));
+w.Date = RealDate;
+
+// ── 11. Prefs fixes ─────────────────────────────────────────────────────────
+w.Prefs.preview('paper');
+check('preview of a light theme also flips data-mode', d.documentElement.dataset.mode === 'light');
+w.Prefs.revert();
+w.Prefs.set('displayFont', 'system'); w.Prefs.set('monoFont', 'system');
+const fl = d.getElementById('root-fonts');
+check('no font link pointing at the page itself', !fl || (fl.getAttribute('href') && fl.getAttribute('href') !== ''),
+  fl && 'href="' + fl.getAttribute('href') + '"');
+w.Prefs.set('displayFont', 'auto'); w.Prefs.set('monoFont', 'auto');
+w.Prefs.set('dateFormat', 'iso');
+check('PLAN and STORE home dates follow the date format', $('.ns-plan #home-date').textContent === today &&
+  $('.ns-store #date-label').textContent === today, $('.ns-plan #home-date').textContent);
+w.Prefs.set('dateFormat', 'long');
+
+// ── 12. meals beyond 4 survive the note parser ──────────────────────────────
+const note = `*:LiCalendar: ${offset(-1)}*\n| meals         | 1,2,5,6 |\n| meals_count   | 4 |\n| scale         | 1-5 |\n`;
+w.LOG.go('reports');
+$('.ns-log #rep-paste').value = note;
+w.LOG.parseNotes();
+click($('.ns-log #rep-week-btns .rep-btn'));
+check('parsed meals above 4 are kept', /\| meals \| 4 total/.test($('.ns-log #rep-pre').textContent),
+  ($('.ns-log #rep-pre').textContent.match(/\| meals \|[^\n]*/) || [])[0]);
+
+// ── 13. hash deep link into a settings panel ────────────────────────────────
+w.location.hash = '#settings/data';
+w.dispatchEvent(new w.Event('hashchange'));
+await tick();
+check('#settings/<panel> opens that panel', $('.tab-b.on').getAttribute('aria-label') === 'Settings' &&
+  $('.ns-set .set-panel.on')?.dataset.panel === 'data');
+
+// ── 14. content editor: select with data-cfg commits on change ──────────────
+w.SET.panel('content');
+const sel = $('.ns-set select[data-cfg="log.streakRequires"]');
+if (sel) { sel.value = 'evening'; sel.dispatchEvent(new w.Event('change', { bubbles: true })); }
+check('streak rule select commits to Config', w.Config.get('log.streakRequires') === 'evening', sel ? 'got ' + w.Config.get('log.streakRequires') : 'no select rendered');
+w.Config.reset('log.streakRequires');
+
+check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+console.log(results.join('\n'));
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
