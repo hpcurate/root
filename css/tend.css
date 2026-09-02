@@ -1,0 +1,223 @@
+/* ── TEND ─────────────────────────────────────────────────────────────────────
+   Plant care. Today's round grouped by room, a shelf of every plant, and two
+   bottom sheets (detail, editor) that live outside #track like every other
+   overlay. Settings moved to the settings tab; the rules below still reach that
+   panel because it carries .ns-tend.
+
+   Ported from tend/index.html for 2.2: every literal radius, hairline and
+   padding was rewritten to the token system (§4 of ROOT.md), the fixed "add
+   plant" bar became a sticky one inside the slide, and the app's own palette
+   names (--surface, --accent, --muted…) were mapped onto ROOT's tokens.
+
+   --tend-blue is the one colour the token set does not carry: water is blue.
+   It is defined here and corrected for light mode in themes.css. */
+
+.ns-tend{--tend-blue:#7cc4f0}
+
+.ns-tend .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-tend .scr.on{display:block}
+.ns-tend #s-home{padding-top:env(safe-area-inset-top)}
+
+/* ── Home header ── */
+.ns-tend .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
+.ns-tend .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-tend .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:18px}
+.ns-tend .h-logo em{color:var(--y);font-style:normal}
+
+.ns-tend .cnt{padding:0 calc(18px * var(--dens))}
+
+.ns-tend .season{display:flex;align-items:center;gap:calc(9px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(10px * var(--dens)) calc(12px * var(--dens));
+  font:400 10.5px/1.5 var(--mono);color:var(--tx-2);letter-spacing:.06em;margin-bottom:14px}
+.ns-tend .season b{color:var(--tx);font-weight:400}
+.ns-tend .season .sdot{width:7px;height:7px;border-radius:50%;background:var(--y);flex:0 0 auto}
+
+/* ── round / shelf switch ── */
+.ns-tend .tabs{display:flex;gap:calc(6px * var(--dens));margin-bottom:18px}
+.ns-tend .tab{flex:1;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu);
+  font:400 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  padding:calc(11px * var(--dens));border-radius:var(--r1);cursor:pointer;transition:all var(--dur-1)}
+.ns-tend .tab.on{background:var(--yd);border-color:var(--y);color:var(--y)}
+.ns-tend .sub{display:none}
+.ns-tend .sub.on{display:block}
+
+/* ── round ── */
+.ns-tend .hero{text-align:center;padding:calc(14px * var(--dens)) 0 calc(22px * var(--dens))}
+.ns-tend .hero .n{font:800 66px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
+.ns-tend .hero .n.zero{color:var(--gr)}
+.ns-tend .hero .k{font:400 10px/1 var(--mono);letter-spacing:.24em;color:var(--tx-2);text-transform:uppercase;margin-top:12px}
+.ns-tend .hero .sub2{font:400 11px/1 var(--mono);color:var(--mu);letter-spacing:.04em;margin-top:8px}
+
+.ns-tend .roomHead{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));margin:22px 2px 9px}
+.ns-tend .roomHead h2{font:700 13px/1 var(--head);letter-spacing:.12em;text-transform:lowercase;color:var(--tx)}
+.ns-tend .roomHead .cnt-n{font:400 10px/1 var(--mono);color:var(--mu)}
+.ns-tend .doAll{background:var(--s2);border:var(--bw) solid var(--bd);color:var(--tx-2);
+  font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(7px * var(--dens)) calc(11px * var(--dens));border-radius:var(--r1);cursor:pointer}
+.ns-tend .doAll:active{border-color:var(--y);color:var(--y)}
+
+.ns-tend .task{display:flex;align-items:center;gap:calc(13px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:7px;cursor:pointer;transition:border-color var(--dur-1)}
+.ns-tend .task:active{border-color:var(--y)}
+.ns-tend .task.overdue{border-color:color-mix(in srgb,var(--re) 40%,transparent)}
+.ns-tend .tick{flex:0 0 auto;width:22px;height:22px;border:1.5px solid var(--mu);border-radius:var(--r1);
+  display:grid;place-items:center;font-size:12px;color:transparent;transition:all var(--dur-1)}
+.ns-tend .task:active .tick{background:var(--y);border-color:var(--y);color:var(--on-y)}
+.ns-tend .glyph{flex:0 0 auto;width:34px;height:34px;display:grid;place-items:center;font-size:18px;
+  background:var(--s2);border:var(--bw) solid var(--bd);border-radius:50%}
+.ns-tend .tmeta{flex:1;min-width:0}
+.ns-tend .tname{font:400 13.5px/1.2 var(--mono);letter-spacing:.01em;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-tend .twhat{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--tx-2);margin-top:5px;
+  display:flex;align-items:center;gap:calc(7px * var(--dens));flex-wrap:wrap}
+.ns-tend .twhat .k{padding:1px 5px;border-radius:var(--r1);border:1px solid currentColor;font-size:8.5px}
+.ns-tend .k.water{color:var(--tend-blue)} .ns-tend .k.feed{color:var(--gr)} .ns-tend .k.repot{color:var(--or)}
+.ns-tend .twhat .od{color:var(--re)}
+.ns-tend .twhat .nh{color:var(--mu)}
+.ns-tend .more{flex:0 0 auto;width:32px;height:32px;background:var(--s2);border:var(--bw) solid var(--bd);
+  color:var(--tx-2);border-radius:var(--r1);font-size:13px;cursor:pointer}
+.ns-tend .more:active{color:var(--y)}
+
+.ns-tend .emptyRound{text-align:center;padding:calc(26px * var(--dens)) calc(18px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2)}
+.ns-tend .emptyRound .e1{font:400 13px/1.4 var(--mono);color:var(--tx);margin-bottom:9px}
+.ns-tend .emptyRound .e2{font:400 11px/1.7 var(--mono);color:var(--tx-2)}
+
+.ns-tend .soonWrap{margin-top:26px}
+.ns-tend .soonHead{font:400 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--mu);text-transform:uppercase;margin:0 2px 10px}
+.ns-tend .soon{display:flex;align-items:center;gap:calc(11px * var(--dens));
+  padding:calc(9px * var(--dens)) calc(12px * var(--dens));background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);margin-bottom:6px;opacity:.78;
+  font:400 12px/1.3 var(--mono);color:var(--tx);cursor:pointer}
+.ns-tend .soon .sg{font-size:14px}
+.ns-tend .soon .sn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-tend .soon .sd{font-size:10px;color:var(--tx-2);letter-spacing:.06em;white-space:nowrap}
+
+/* ── shelf ── */
+.ns-tend .shelfBar{display:flex;gap:calc(6px * var(--dens));margin-bottom:16px}
+.ns-tend .sortBtn{flex:1;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu);
+  font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(9px * var(--dens));border-radius:var(--r1);cursor:pointer;transition:all var(--dur-1)}
+.ns-tend .sortBtn.on{border-color:var(--y);color:var(--y);background:var(--yd)}
+
+.ns-tend .row{display:flex;align-items:center;gap:calc(12px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(12px * var(--dens)) calc(13px * var(--dens));margin-bottom:7px;cursor:pointer;transition:border-color var(--dur-1)}
+.ns-tend .row:active{border-color:var(--y)}
+.ns-tend .rmeta{flex:1;min-width:0}
+.ns-tend .rname{font:400 13px/1.2 var(--mono);color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-tend .rspec{font:400 10px/1.2 var(--mono);color:var(--mu);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-tend .meter{height:4px;background:var(--s2);border-radius:var(--r-pill);margin-top:8px;overflow:hidden}
+.ns-tend .meter i{display:block;height:100%;width:0;border-radius:var(--r-pill);background:var(--y);
+  transition:width calc(.55s * var(--mo)) cubic-bezier(.2,.8,.2,1)}
+.ns-tend .meter i.soon{background:var(--or)} .ns-tend .meter i.due{background:var(--re)}
+.ns-tend .rday{flex:0 0 auto;text-align:right;font:400 10px/1.5 var(--mono);color:var(--tx-2);letter-spacing:.06em}
+.ns-tend .rday b{display:block;font:800 15px/1.2 var(--head);color:var(--tx)}
+.ns-tend .rday.due b{color:var(--re)} .ns-tend .rday.soon b{color:var(--or)}
+
+/* ── add plant — sticky, parked above the floating pill like PLAN's send ── */
+.ns-tend .add-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:18px;
+  bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
+.ns-tend .add-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--tx);
+  font:400 12px/1 var(--mono);letter-spacing:.1em;text-transform:lowercase;
+  padding:calc(14px * var(--dens));border-radius:var(--r1);cursor:pointer;box-shadow:var(--shadow-lift)}
+.ns-tend .add-btn:active{border-color:var(--y);color:var(--y)}
+
+/* ── sheets (detail + editor) — the frame's .sheet, with TEND's furniture ── */
+.ns-tend .sheet h3{font:800 18px/1 var(--head);letter-spacing:.04em;text-transform:lowercase;color:var(--tx);margin-bottom:16px}
+.ns-tend .grab{width:34px;height:3px;background:var(--bd-2);border-radius:var(--r-pill);margin:0 auto 16px}
+
+.ns-tend .field{margin-bottom:12px}
+.ns-tend .field label{display:block;font:400 9.5px/1 var(--mono);color:var(--tx-2);letter-spacing:.14em;text-transform:lowercase;margin-bottom:6px}
+.ns-tend .field input,.ns-tend .field select,.ns-tend .field textarea{
+  width:100%;background:var(--bg);color:var(--tx);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(11px * var(--dens));font:400 13px/1.4 var(--mono);outline:none;-webkit-appearance:none;appearance:none}
+.ns-tend .field textarea{min-height:64px;resize:vertical;line-height:1.6}
+.ns-tend .field input:focus,.ns-tend .field select:focus,.ns-tend .field textarea:focus{border-color:var(--y)}
+.ns-tend .row2{display:flex;gap:calc(9px * var(--dens))} .ns-tend .row2 .field{flex:1;min-width:0}
+.ns-tend .fieldNote{font:400 9.5px/1.5 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:5px}
+
+.ns-tend .acts{display:flex;gap:calc(9px * var(--dens));margin-top:8px}
+.ns-tend .btn{flex:1;padding:calc(13px * var(--dens));border-radius:var(--r1);cursor:pointer;
+  font:400 12px/1 var(--mono);letter-spacing:.08em;text-transform:lowercase;
+  border:var(--bw) solid var(--bd);background:var(--s2);color:var(--tx);transition:opacity var(--dur-1)}
+.ns-tend .btn:active{opacity:.8}
+.ns-tend .btn.primary{background:var(--yd);color:var(--y);border-color:var(--y)}
+.ns-tend .btn.danger{color:var(--re)}
+.ns-tend .hint{font:400 9.5px/1.6 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:14px}
+.ns-tend .hint b{color:var(--tx-2);font-weight:400}
+
+/* detail */
+.ns-tend .dHead{display:flex;align-items:center;gap:calc(14px * var(--dens));margin-bottom:18px}
+.ns-tend .dHead .glyph{width:52px;height:52px;font-size:26px}
+.ns-tend .dName{font:800 19px/1.1 var(--head);letter-spacing:.02em;text-transform:lowercase;color:var(--tx)}
+.ns-tend .dSpec{font:400 11px/1.3 var(--mono);color:var(--tx-2);margin-top:4px}
+.ns-tend .dRoom{font:400 9.5px/1 var(--mono);color:var(--mu);letter-spacing:.12em;text-transform:uppercase;margin-top:6px}
+
+.ns-tend .careGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(8px * var(--dens));margin-bottom:16px}
+.ns-tend .care{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(11px * var(--dens)) calc(8px * var(--dens));text-align:center}
+.ns-tend .care .cv{font:800 17px/1.2 var(--head);color:var(--tx)}
+.ns-tend .care .ck{font:400 8.5px/1 var(--mono);letter-spacing:.12em;color:var(--tx-2);text-transform:uppercase;margin-top:5px}
+.ns-tend .care .ce{font:400 8.5px/1.3 var(--mono);color:var(--mu);margin-top:3px}
+.ns-tend .care.due .cv{color:var(--re)} .ns-tend .care.soon .cv{color:var(--or)} .ns-tend .care.off .cv{color:var(--mu)}
+
+.ns-tend .logRow{display:flex;gap:calc(7px * var(--dens));margin-bottom:10px}
+.ns-tend .logBtn{flex:1;background:var(--s2);border:var(--bw) solid var(--bd);color:var(--tx);
+  font:400 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:lowercase;
+  padding:calc(11px * var(--dens)) calc(6px * var(--dens));border-radius:var(--r1);cursor:pointer}
+.ns-tend .logBtn:active{border-color:var(--y);color:var(--y)}
+.ns-tend .logBtn.off{opacity:.45}
+.ns-tend .logDate{width:100%;background:var(--bg);color:var(--tx-2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens));font:400 11px/1.3 var(--mono);margin-bottom:14px;outline:none}
+.ns-tend .logDate:focus{border-color:var(--y)}
+
+.ns-tend .sug{background:var(--yd);border:var(--bw) solid var(--y);border-radius:var(--r2);
+  padding:calc(12px * var(--dens));font:400 10.5px/1.6 var(--mono);color:var(--tx);margin-bottom:14px}
+.ns-tend .sug b{color:var(--y);font-weight:400}
+.ns-tend .sug button{margin-top:9px;background:none;border:var(--bw) solid var(--y);color:var(--y);
+  font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(7px * var(--dens)) calc(11px * var(--dens));border-radius:var(--r1);cursor:pointer}
+
+.ns-tend .secLbl{font:400 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--tx-2);text-transform:lowercase;margin:18px 0 9px}
+.ns-tend .notes{font:400 11.5px/1.7 var(--mono);color:var(--tx-2);white-space:pre-wrap}
+.ns-tend .hist{display:flex;align-items:center;gap:calc(10px * var(--dens));padding:calc(8px * var(--dens)) 0;
+  border-top:var(--bw) solid var(--bd);font:400 11px/1.3 var(--mono)}
+.ns-tend .hist:first-of-type{border-top:none}
+.ns-tend .hist .ht{flex:0 0 54px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase}
+.ns-tend .hist .ht.water{color:var(--tend-blue)} .ns-tend .hist .ht.feed{color:var(--gr)} .ns-tend .hist .ht.repot{color:var(--or)}
+.ns-tend .hist .hd{flex:1;color:var(--tx-2);font-size:10.5px}
+.ns-tend .hist .hx{background:none;border:none;color:var(--mu);font-size:14px;cursor:pointer;padding:2px 5px}
+.ns-tend .hist .hx:active{color:var(--re)}
+.ns-tend .histEmpty{font:400 10.5px/1.4 var(--mono);color:var(--mu);padding:6px 0}
+
+/* ── undo pill — a sibling of #toast, same spot ── */
+.ns-tend .undo{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);
+  bottom:calc(var(--nav-fh) + var(--nav-gap) + 22px + env(safe-area-inset-bottom));
+  background:var(--s2);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
+  padding:calc(9px * var(--dens)) calc(9px * var(--dens)) calc(9px * var(--dens)) calc(18px * var(--dens));
+  display:flex;align-items:center;gap:calc(12px * var(--dens));
+  font:400 11px/1 var(--mono);letter-spacing:.04em;color:var(--tx);
+  opacity:0;visibility:hidden;pointer-events:none;z-index:121;white-space:nowrap;max-width:84vw;
+  box-shadow:var(--shadow-lift);
+  transition:opacity var(--dur-2) ease,transform var(--dur-2) ease,visibility 0s linear var(--dur-2)}
+.ns-tend .undo span{overflow:hidden;text-overflow:ellipsis}
+.ns-tend .undo.on{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0);
+  transition:opacity var(--dur-1) ease,transform var(--dur-1) ease,visibility 0s}
+.ns-tend .undo button{background:var(--yd);border:var(--bw) solid var(--y);color:var(--y);
+  font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(6px * var(--dens)) calc(12px * var(--dens));border-radius:var(--r-pill);cursor:pointer}
+
+/* ── settings panel: the season curve ── */
+.ns-tend .curve{display:flex;align-items:flex-end;gap:3px;height:52px;margin:10px 0 6px}
+.ns-tend .curve div{flex:1;background:var(--s2);border-radius:var(--r1) var(--r1) 0 0;position:relative}
+.ns-tend .curve div.now{background:var(--y)}
+.ns-tend .curveX{display:flex;gap:3px;font:400 7.5px/1 var(--mono);color:var(--mu);letter-spacing:.02em}
+.ns-tend .curveX span{flex:1;text-align:center}
+.ns-tend .imp-box{width:100%;min-height:72px}
+.ns-tend .file-btn{position:relative;overflow:hidden}
+.ns-tend .file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+@media (min-width:880px){ .ns-tend .undo{left:calc(50% + var(--rail-w)/2)} }
+@media (min-width:1180px){ .ns-tend .undo{left:calc(50% + var(--rail-w-wide)/2)} }

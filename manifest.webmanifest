@@ -1,7 +1,7 @@
 {
   "name": "ROOT",
   "short_name": "ROOT",
-  "description": "DO · LOG · PLAN · STORE — four small tools, one phone.",
+  "description": "DO · LOG · PLAN · STORE · TEND · TRACK · LEARN — seven small tools, one phone.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

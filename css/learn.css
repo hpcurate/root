@@ -1,0 +1,150 @@
+/* ── LEARN ────────────────────────────────────────────────────────────────────
+   Anki deck study on the go: import an .apkg, rate cards from "revision" to
+   "acquired", read the scoreboard. Four screens (home, deck, study, scoreboard);
+   its settings screen became a settings panel.
+
+   Ported from learn/index.html for 2.2. It was already written against ROOT's
+   token names (--s1, --bd, --y, --mu…), so the port is mostly the scope prefix,
+   the radius/border/padding normalisation, and the screen model: each .scr is
+   a block inside the slide rather than its own 100dvh scroller. */
+
+.ns-learn .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-learn .scr.on{display:block}
+.ns-learn #s-home{padding-top:env(safe-area-inset-top)}
+
+.ns-learn .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
+  padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+  display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
+.ns-learn .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
+.ns-learn .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-learn .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color var(--dur-1)}
+.ns-learn .hd-action:active{color:var(--y)}
+
+.ns-learn .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
+.ns-learn .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-learn .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:24px}
+.ns-learn .h-logo em{color:var(--y);font-style:normal}
+
+/* ── import zone ── */
+.ns-learn .import-zone{display:block;margin:0 18px 14px;border:var(--bw) dashed var(--bd-2);border-radius:var(--r2);
+  padding:calc(22px * var(--dens)) calc(16px * var(--dens));text-align:center;cursor:pointer;user-select:none;
+  transition:border-color var(--dur-1),background var(--dur-1)}
+.ns-learn .import-zone:active{background:var(--s1)}
+.ns-learn .import-zone.over{border-color:var(--y);background:var(--yd)}
+.ns-learn .iz-t{font:700 11px/1 var(--head);letter-spacing:.14em;text-transform:uppercase;color:var(--tx);margin-bottom:6px}
+.ns-learn .iz-s{font:400 10px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em}
+.ns-learn .import-zone input{display:none}
+
+/* ── deck list ── */
+.ns-learn .deck-list{padding:0 18px}
+.ns-learn .list-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin:8px 0 10px}
+.ns-learn .deck{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(16px * var(--dens)) calc(15px * var(--dens));margin-bottom:8px;cursor:pointer;
+  transition:border-color var(--dur-1),background var(--dur-1);user-select:none;
+  display:grid;grid-template-columns:1fr auto;gap:calc(10px * var(--dens));align-items:center}
+.ns-learn .deck:active{background:var(--s2)}
+.ns-learn .deck.has-due{border-color:var(--y)}
+.ns-learn .deck-name{font:700 13px/1.2 var(--head);letter-spacing:.06em;text-transform:uppercase;color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-learn .deck-meta{font:400 10px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em;margin-top:6px}
+.ns-learn .deck-meta em{color:var(--y);font-style:normal}
+.ns-learn .deck-meta .ml{color:var(--or);font-style:normal}
+.ns-learn .deck-arrow{color:var(--mu);font:400 14px/1 var(--mono)}
+.ns-learn .empty-state{padding:calc(32px * var(--dens)) 18px calc(40px * var(--dens));text-align:center;color:var(--mu);
+  font:400 12px/1.7 var(--mono);letter-spacing:.04em}
+.ns-learn .empty-state em{color:var(--y);font-style:normal}
+
+/* ── sections + content ── */
+.ns-learn .cnt{padding:calc(18px * var(--dens))}
+.ns-learn .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  margin:6px 0 14px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
+.ns-learn .sec:not(:first-child){margin-top:22px}
+
+.ns-learn .stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(6px * var(--dens));margin-bottom:18px}
+.ns-learn .stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(14px * var(--dens)) calc(6px * var(--dens));text-align:center}
+.ns-learn .stat-n{font:700 22px/1 var(--mono);margin-bottom:6px;color:var(--mu)}
+.ns-learn .stat-l{font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+.ns-learn .stat.has .stat-n{color:var(--tx)}
+.ns-learn .stat.new.has .stat-n{color:var(--y)}
+.ns-learn .stat.learn.has .stat-n{color:var(--or)}
+.ns-learn .stat.due.has .stat-n{color:var(--gr)}
+
+.ns-learn .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
+  font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+  padding:calc(16px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity var(--dur-1)}
+.ns-learn .btn:active{opacity:.82}
+.ns-learn .btn:disabled{opacity:.35;cursor:default}
+.ns-learn .btn-ghost{background:transparent;border:var(--bw) solid var(--bd);color:var(--tx)}
+.ns-learn .btn-ghost:active{background:var(--s2)}
+.ns-learn .btn-danger{background:var(--re);color:#fff;border:none}
+
+/* ── study ── */
+.ns-learn .study-wrap{padding:calc(18px * var(--dens));display:flex;flex-direction:column;
+  min-height:calc(100vh - 56px - var(--scr-pad-b) - env(safe-area-inset-top))}
+.ns-learn .study-progress{display:flex;gap:calc(14px * var(--dens));font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);margin-bottom:14px;flex-wrap:wrap}
+.ns-learn .study-progress em{font-style:normal}
+.ns-learn .p-new em{color:var(--y)} .ns-learn .p-learn em{color:var(--or)} .ns-learn .p-due em{color:var(--gr)}
+.ns-learn .card-face{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(24px * var(--dens)) calc(18px * var(--dens));
+  font:400 calc(17px * var(--learn-scale,1))/1.65 var(--mono);color:var(--tx);
+  min-height:220px;display:flex;align-items:center;justify-content:center;text-align:center;
+  flex:1;word-break:break-word;overflow-y:auto;overflow-wrap:break-word;box-shadow:var(--shadow)}
+.ns-learn .card-face > div{max-width:100%;width:100%}
+.ns-learn .card-face img{max-width:100%;height:auto;max-height:55vh;border-radius:var(--r1);display:block;margin:8px auto}
+.ns-learn .card-face hr{border:none;border-top:var(--bw) solid var(--bd);margin:14px auto;width:60%}
+.ns-learn .card-face audio{margin:10px auto;display:block;max-width:100%}
+.ns-learn .card-face code,.ns-learn .card-face pre{background:var(--bg);padding:2px 6px;border-radius:var(--r1);font-family:var(--mono);font-size:.9em}
+.ns-learn .card-face ul,.ns-learn .card-face ol{text-align:left;margin:8px 0 8px 20px}
+.ns-learn .card-face b,.ns-learn .card-face strong{color:var(--tx);font-weight:700}
+.ns-learn .card-face .cloze-on{color:var(--y);font-weight:700}
+.ns-learn .card-face .cloze-off{color:var(--mu)}
+.ns-learn .card-face .type-ans{color:var(--y)}
+.ns-learn .card-face .type-ask{color:var(--mu);font-style:italic}
+.ns-learn .card-tags{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.08em;text-align:center;margin-top:10px;word-break:break-word}
+
+.ns-learn .reveal-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
+  font:700 12px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
+  padding:calc(18px * var(--dens));cursor:pointer;margin-top:14px;transition:all var(--dur-1)}
+.ns-learn .reveal-btn:active{background:var(--s2);border-color:var(--y)}
+
+.ns-learn .answer-row{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(5px * var(--dens));margin-top:14px}
+.ns-learn .ans{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(13px * var(--dens)) calc(4px * var(--dens));cursor:pointer;text-align:center;transition:all var(--dur-1);
+  display:flex;flex-direction:column;gap:5px;align-items:center}
+.ns-learn .ans-l{font:700 10px/1 var(--head);letter-spacing:.1em;text-transform:uppercase}
+.ns-learn .ans.again{border-color:color-mix(in srgb,var(--re) 40%,transparent)} .ns-learn .ans.again .ans-l{color:var(--re)}
+.ns-learn .ans.hard{border-color:color-mix(in srgb,var(--or) 40%,transparent)}  .ns-learn .ans.hard .ans-l{color:var(--or)}
+.ns-learn .ans.good{border-color:var(--yb)}                                       .ns-learn .ans.good .ans-l{color:var(--y)}
+.ns-learn .ans.easy{border-color:color-mix(in srgb,var(--gr) 40%,transparent)}  .ns-learn .ans.easy .ans-l{color:var(--gr)}
+.ns-learn .ans:active{background:var(--s2)}
+
+/* ── scoreboard ── */
+.ns-learn .done-banner{background:color-mix(in srgb,var(--gr) 12%,transparent);border:var(--bw) solid color-mix(in srgb,var(--gr) 30%,transparent);
+  border-radius:var(--r2);padding:calc(22px * var(--dens)) calc(16px * var(--dens));text-align:center;margin-bottom:18px}
+.ns-learn .done-banner-t{font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;color:var(--gr);margin-bottom:8px}
+.ns-learn .done-banner-s{font:400 11px/1.6 var(--mono);color:var(--tx);letter-spacing:.04em}
+.ns-learn .score-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:calc(5px * var(--dens));margin-bottom:6px}
+.ns-learn .score-cell{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(14px * var(--dens)) calc(4px * var(--dens));text-align:center}
+.ns-learn .score-n{font:700 22px/1 var(--mono);margin-bottom:6px;color:var(--tx)}
+.ns-learn .score-l{font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+.ns-learn .sc-acq .score-n{color:var(--gr)} .ns-learn .sc-acq{border-color:color-mix(in srgb,var(--gr) 40%,transparent)}
+.ns-learn .sc-alm .score-n{color:var(--y)}  .ns-learn .sc-alm{border-color:var(--yb)}
+.ns-learn .sc-shk .score-n{color:var(--or)} .ns-learn .sc-shk{border-color:color-mix(in srgb,var(--or) 40%,transparent)}
+.ns-learn .sc-rev .score-n{color:var(--re)} .ns-learn .sc-rev{border-color:color-mix(in srgb,var(--re) 40%,transparent)}
+.ns-learn .needs-work-list{display:flex;flex-direction:column;gap:calc(5px * var(--dens))}
+.ns-learn .nw-item{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(11px * var(--dens)) calc(13px * var(--dens));display:grid;grid-template-columns:1fr auto;gap:calc(10px * var(--dens));align-items:center}
+.ns-learn .nw-text{font:400 12px/1.4 var(--mono);color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-learn .nw-tag{font:700 9px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;padding:4px 7px;border-radius:var(--r1)}
+.ns-learn .nw-tag.rev{color:var(--re);background:color-mix(in srgb,var(--re) 12%,transparent)}
+.ns-learn .nw-tag.shk{color:var(--or);background:color-mix(in srgb,var(--or) 12%,transparent)}
+.ns-learn .nw-tag.alm{color:var(--y);background:var(--yd)}
+
+/* ── misc ── */
+.ns-learn .spinner{display:inline-block;width:11px;height:11px;border:2px solid var(--bd);
+  border-top-color:var(--y);border-radius:50%;animation:learn-sp .7s linear infinite;
+  vertical-align:middle;margin-right:8px;margin-bottom:1px}
+@keyframes learn-sp{to{transform:rotate(360deg)}}
+.ns-learn .about{font:400 11px/1.75 var(--mono);color:var(--mu);letter-spacing:.04em;padding:6px 4px}
+.ns-learn .about em{color:var(--y);font-style:normal}

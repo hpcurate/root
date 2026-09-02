@@ -72,22 +72,56 @@ window.Creds = (function () {
 window.Shell = (function () {
   'use strict';
 
-  const TABS = ['do', 'log', 'plan', 'store', 'settings'];
+  /* Every app the markup carries, and the tabs actually shown. TABS is rebuilt
+     from Settings → layout → "apps in the bar" (Prefs `apps`): the chosen apps
+     in the chosen order, then settings. It is mutated in place, never replaced,
+     so the reference handed out below stays live. */
+  const APPS = (window.Prefs && Prefs.APPS) || ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn'];
+  const TABS = [];
   const TAB_KEY = 'root_tab';          // last tab, so a reload lands where you left
 
   const track    = document.getElementById('track');
   const viewport = document.getElementById('views');
   const navEl    = document.getElementById('nav');
-  const navBtns  = Array.from(document.querySelectorAll('.tab-b'));
   const arrows   = Array.from(document.querySelectorAll('.nav-arrow'));
   const prevBtn  = document.getElementById('nav-prev');
   const nextBtn  = document.getElementById('nav-next');
   const toastEl  = document.getElementById('toast');
+  let navBtns    = [];                 // in TABS order, rebuilt with it
 
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
 
   let index = 0;
   const apps = {};                     // name → { onShow, onDayChange }
+
+  const viewOf = n => document.getElementById('view-' + n);
+  const btnOf  = n => navEl.querySelector('.tab-b[data-app="' + n + '"]');
+
+  /* Order the slides and the tab buttons to match the preference, and hide the
+     apps that are switched off. A hidden .view is display:none, so the flex
+     track still moves by whole visible slides and index arithmetic holds. */
+  function rebuild() {
+    const want = (pref('apps', APPS) || APPS).filter(a => APPS.includes(a));
+    TABS.length = 0;
+    TABS.push(...want, 'settings');
+    TABS.forEach(n => {
+      const v = viewOf(n), b = btnOf(n);
+      if (v) track.appendChild(v);
+      if (b) navEl.appendChild(b);
+    });
+    APPS.forEach(a => {
+      const on = want.includes(a);
+      const v = viewOf(a), b = btnOf(a);
+      if (v) v.classList.toggle('hidden', !on);
+      if (b) {
+        b.classList.toggle('hidden', !on);
+        // a button that leaves the list leaves go()'s reach too: clear its state
+        // here or a hidden tab stays "selected" forever
+        if (!on) { b.classList.remove('on'); b.setAttribute('aria-selected', 'false'); }
+      }
+    });
+    navBtns = TABS.map(btnOf).filter(Boolean);
+  }
 
   // ── Dates ───────────────────────────────────────────────────────────────────
   /* The local calendar day as YYYY-MM-DD, and the one definition of it. Every
@@ -216,7 +250,9 @@ window.Shell = (function () {
 
   function register(name, api) { apps[name] = api || {}; }
 
-  navBtns.forEach((b, i) => b.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); go(i); }));
+  // bound by name, not position: the order is the user's to change
+  Array.from(navEl.querySelectorAll('.tab-b')).forEach(b =>
+    b.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); go(b.dataset.app); }));
   if (prevBtn) prevBtn.addEventListener('click', () => go(index - 1));
   if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
   document.querySelectorAll('.view').forEach(watchScroll);
@@ -330,13 +366,14 @@ window.Shell = (function () {
     if (el && el.closest && el.closest('input,textarea,select,[contenteditable]')) return;
     if (e.key === 'ArrowRight') { go(index + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { go(index - 1); e.preventDefault(); }
-    else if (e.key >= '1' && e.key <= '5') { go(+e.key - 1); e.preventDefault(); }
+    else if (e.key >= '1' && e.key <= '9') { go(+e.key - 1); e.preventDefault(); }
     else if (e.key === '/') { settings(); e.preventDefault(); }
   });
 
   // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
   (function boot() {
-    let start = 'do';
+    rebuild();
+    let start = TABS[0];
     const fromHash = hashTarget().name;
     const want = pref('startTab', 'last');
     if (fromHash) start = fromHash;
@@ -356,8 +393,15 @@ window.Shell = (function () {
      next scroll. */
   if (window.Prefs) Prefs.subscribe(k => {
     if (k === 'autoHideChrome' || k === '*') { if (pref('autoHideChrome', true) === false) showChrome(); }
+    /* the app list changed: re-order the slides and stay on the same app if it
+       is still shown, otherwise land on the first one */
+    if (k === 'apps' || k === '*') {
+      const cur = TABS[index];
+      rebuild();
+      go(TABS.includes(cur) ? cur : TABS[0]);
+    }
   });
 
-  return { toast, go, settings, register, showChrome, TABS,
+  return { toast, go, settings, register, showChrome, TABS, APPS,
            today, checkDay, confirm: confirmAction, hashTarget };
 })();

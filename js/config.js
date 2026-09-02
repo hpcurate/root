@@ -228,6 +228,158 @@ const DEFAULTS = {
     /* Counter step buttons, largest first. */
     quickAmounts: [10, 5, 1, 0.5, 0.1],
   },
+
+  /* ── TEND ───────────────────────────────────────────────────────────────── */
+  /* The plants themselves and their care log live in `tend.v3` (shared with the
+     standalone app). What is here is the vocabulary TEND reasons with: the plant
+     types and how seasonal each is, the three care tasks' names, the growth
+     curve that stretches every interval through the year, and the thresholds
+     the round is drawn with. `tasks` has three fixed keys — water / feed /
+     repot — because the event log is filed under them; the labels are free. */
+  tend: {
+    groups: [
+      { key:'herb',      label:'herb / edible',      season:0.6, note:'Drinks steadily even indoors in winter — only mildly seasonal.' },
+      { key:'seedling',  label:'seedling',           season:0.7, note:'Keep evenly moist. Small pots dry out fast.' },
+      { key:'tropical',  label:'tropical foliage',   season:1,   note:'Slows down noticeably in winter. Let the top few cm dry.' },
+      { key:'succulent', label:'cactus / succulent', season:1.5, note:'Nearly dormant in winter — stretch hard, and never feed then.' },
+    ],
+    tasks: {
+      water: { label:'water', verb:'watered' },
+      feed:  { label:'feed',  verb:'fed' },
+      repot: { label:'repot', verb:'repotted' },
+    },
+    /* Relative growth, January to December, northern hemisphere. One curve
+       drives everything: watering stretches as growth falls, and feeding stops
+       altogether once growth is under `feedFloor`. Southern hemisphere: rotate
+       it six months and rename the seasons to match. */
+    growth:  [0.10, 0.20, 0.50, 0.80, 1, 1, 1, 1, 0.80, 0.50, 0.20, 0.10],
+    seasons: ['winter','winter','spring','spring','spring','summer','summer','summer','autumn','autumn','autumn','winter'],
+    feedFloor: 0.4,
+    /* How the round is drawn: when a task starts showing as "coming up" (as a
+       fraction of its interval), how many days late turns a task red, how many
+       upcoming tasks to list, how long the undo pill stays, and how much history
+       the detail sheet shows. */
+    round: { soonAt: 0.75, overdueAfter: 2, soonCount: 6, undoSec: 7, historyCount: 10 },
+    /* What the editor is pre-filled with for a new plant. */
+    newPlant: { group:'tropical', water:7, feed:21, repot:12, glyph:'🌿' },
+    /* Seeded on a first-ever install, and by "reset to starter plants". Each row
+       is name, species, type, water-every (summer days), glyph, room. */
+    starter: [
+      ['Basil','Ocimum basilicum','herb',2,'🌿','kitchen'],
+      ['Chives','Allium schoenoprasum','herb',3,'🌿','kitchen'],
+      ['Spring onions','Allium fistulosum','herb',3,'🧅','kitchen'],
+      ['Apple seedling 1','Malus sp.','seedling',4,'🌱','windowsill'],
+      ['Apple seedling 2','Malus sp.','seedling',4,'🌱','windowsill'],
+      ['Apple seedling 3','Malus sp.','seedling',4,'🌱','windowsill'],
+      ['Pilea pup','Pilea peperomioides','tropical',7,'🪴','living room'],
+      ['Turtle vine','Callisia repens','tropical',6,'🌿','living room'],
+      ['Money tree','Pachira aquatica','tropical',9,'🌳','living room'],
+      ['Rubber plant','Ficus elastica','tropical',9,'🪴','living room'],
+      ['Aloe','Aloe sp.','succulent',14,'🪴','windowsill'],
+      ['Snake plant','Dracaena trifasciata','succulent',18,'🪴','bedroom'],
+      ['Snake plant pup','Dracaena trifasciata','succulent',16,'🌱','bedroom'],
+      ['Cane cactus','Austrocylindropuntia','succulent',18,'🌵','windowsill'],
+      ['Columnar cactus','Echinopsis sp.','succulent',20,'🌵','windowsill'],
+    ],
+  },
+
+  /* ── TRACK ──────────────────────────────────────────────────────────────── */
+  /* The CAP Électricien plan, transcribed from learn/plan_cap_elec.pdf: five
+     levels, three phases, 54 topics (44 theory + 10 bench). Ticks and dates live
+     in `capTracker.v2`, filed under the topic ids below — the id is the
+     identity, so a topic can be reworded but never renumbered without orphaning
+     what was ticked against it. There is deliberately no editor for the
+     curriculum itself for that reason; the labels around it are editable. */
+  track: {
+    phases: {
+      real: "Réalisation d'une installation",
+      mes:  "Mise en service d'une installation",
+      main: "Maintenance d'une installation",
+    },
+    levelLabel: 'Niveau',
+    curriculum: [
+      // ── LEVEL 1 ──
+      [1,'real',"Bases de l'électricité","Les circuits électriques"],
+      [1,'real',"Bases de l'électricité","Les moyens de productions électriques et son transport"],
+      [1,'real',"Bases de l'électricité","Les grandeurs électriques de base et lois fondamentales"],
+      [1,'real',"Lecture et compréhension des documents techniques","Lecture et interprétation des plans et schémas électriques"],
+      [1,'real',"Lecture et compréhension des documents techniques","Vocabulaire professionnel"],
+      [1,'real',"Normes, cadre professionnel et environnement","Présentation de la norme NF C 15-100 et ses exigences"],
+      [1,'real',"Normes, cadre professionnel et environnement","Le métier d'électricien"],
+      [1,'real',"Équipements, appareillages et réseaux","Les matériels et appareillages électriques 1"],
+      [1,'real',"Sécurité, risques et habilitations","Les risques professionnels, les EPI et les EPC"],
+      [1,'real',"Conduits, implantation et préparation du chantier","Façonner et implanter des conduits"],
+      [1,'real',"Exercices — mise en pratique","Exercices simple allumage / prise de courant / prise commandée",1],
+      [1,'real',"Exercices — mise en pratique","Exercice double allumage",1],
+      [1,'real',"Exercices — mise en pratique","Exercice va-et-vient",1],
+      [1,'mes' ,"Mesures et contrôles électriques","Les équipements de protection : disjoncteurs différentiels"],
+      // ── LEVEL 2 ──
+      [2,'real',"Bases de l'électricité","Le fonctionnement des systèmes électriques : des chaînes d'énergie aux chaînes d'information"],
+      [2,'real',"Équipements, appareillages et réseaux","Le tableau électrique"],
+      [2,'real',"Normes, cadre professionnel et environnement","Gestion des déchets et impact environnemental des installations électriques"],
+      [2,'real',"Sécurité, risques et habilitations","Les habilitations — tronc commun"],
+      [2,'mes' ,"Mise en service","Vérification hors tension"],
+      [2,'mes' ,"Mise en service","Vérification sous tension"],
+      [2,'mes' ,"Mise en service","Réaliser une mise en service"],
+      [2,'mes' ,"Mesures et contrôles électriques","Les appareils de mesure"],
+      [2,'mes' ,"Exercices — mise en pratique","Exercice interrupteur horaire",1],
+      [2,'mes' ,"Exercices — mise en pratique","Exercice sonnerie modulaire et gâche de porte",1],
+      // ── LEVEL 3 ──
+      [3,'real',"Confort thermique et gestion du bâtiment","L'éclairage et les systèmes de commande"],
+      [3,'real',"Confort thermique et gestion du bâtiment","Chauffage et isolation thermique"],
+      [3,'real',"Confort thermique et gestion du bâtiment","La climatisation"],
+      [3,'real',"Performance énergétique et régulation","Gestion de la performance énergétique"],
+      [3,'real',"Équipements, appareillages et réseaux","Initiation aux réseaux de communication"],
+      [3,'real',"Exercices — mise en pratique","Exercice contacteur HC/HP",1],
+      [3,'real',"Exercices — mise en pratique","Exercice télérupteur",1],
+      [3,'mes' ,"Exercices — mise en pratique","Exercice détecteur de mouvement",1],
+      [3,'mes' ,"Exercices — mise en pratique","Exercice interrupteur crépusculaire",1],
+      [3,'main',"Maintenance, dépannage et réparations","Diagnostic et correction des erreurs avant la validation finale"],
+      // ── LEVEL 4 ──
+      [4,'real',"Lecture et compréhension des documents techniques","Le SLT"],
+      [4,'real',"Performance énergétique et régulation","Régulation et optimisation de la consommation énergétique"],
+      [4,'real',"Sécurité, risques et habilitations","Procédure de consignation et déconsignation des circuits avant intervention"],
+      [4,'mes' ,"Exercices — mise en pratique","Exercice minuterie 3 fils ou 4 fils",1],
+      [4,'main',"Maintenance, dépannage et réparations","Les principes de la maintenance préventive et corrective"],
+      [4,'main',"Maintenance, dépannage et réparations","Méthodes de dépannage en électricité : recherche de panne et correction"],
+      [4,'main',"Maintenance, dépannage et réparations","Détection et réparation des défauts électriques"],
+      [4,'main',"Maintenance, dépannage et réparations","Analyse des causes de dysfonctionnements"],
+      [4,'main',"Maintenance, dépannage et réparations","Remplacement et réparation des composants défectueux"],
+      // ── LEVEL 5 ──
+      [5,'real',"Lecture et compréhension des documents techniques","Les schémas électriques en industrie"],
+      [5,'real',"Équipements, appareillages et réseaux","Les moteurs électriques"],
+      [5,'real',"Normes, cadre professionnel et environnement","Communication professionnelle interne"],
+      [5,'real',"Normes, cadre professionnel et environnement","Contexte administratif, juridique de l'acte de construire"],
+      [5,'real',"Sécurité, risques et habilitations","Procédure de consignation et déconsignation des circuits avant intervention"],
+      [5,'mes' ,"Programmation et paramétrage","Démarrage un sens de marche"],
+      [5,'mes' ,"Programmation et paramétrage","Démarrage deux sens de marche"],
+      [5,'mes' ,"Documentation professionnelle","Documentation professionnelle"],
+      [5,'main',"Sécurisation des interventions et traçabilité","Rédaction de rapports d'intervention et traçabilité des opérations de maintenance"],
+      [5,'main',"Sécurisation des interventions et traçabilité","Techniques de communication verbale et non verbale"],
+      [5,'main',"Gestion administrative et relation client","Les documents clients"],
+    ].map((r, i) => ({ id:'t' + String(i + 1).padStart(2, '0'), lv:r[0], ph:r[1], dom:r[2], t:r[3], ex:!!r[4] })),
+    /* The separately-examined subject and the standing revision reminders. */
+    pse: { label:'PSE — Prévention Santé Environnement', note:'Separately examined. Its own band in the plan, no topic list.' },
+    revision: [
+      "Apprendre les termes et schémas spécifiques à l'électricien",
+      'Maîtriser les techniques évoquées',
+      'Réaliser les entraînements et les évaluations de fin de niveau',
+    ],
+    /* The projection: how many weeks of ticks the pace is averaged over, and
+       how many topics "next up" lists. The dates themselves stay in
+       capTracker.v2 with the ticks, shared with the standalone app. */
+    pace: { window: 4, nextCount: 3 },
+  },
+
+  /* ── LEARN ──────────────────────────────────────────────────────────────── */
+  /* Decks and cards live in IndexedDB (`learn_v1`), the shuffle flag in
+     `learn_settings` — both shared with the standalone app. Here: the four
+     rating labels, lowest to highest (the fourth is "acquired", everything
+     below it is "needs work"), and the session shape. */
+  learn: {
+    ratings: ['revision', 'shaky', 'almost', 'acquired'],
+    study: { sessionCap: 0, cardScale: 1, flip: false, showTags: false },
+  },
 };
 
 /* ── Store ────────────────────────────────────────────────────────────────── */

@@ -1,0 +1,151 @@
+/* ── TRACK ────────────────────────────────────────────────────────────────────
+   The CAP Électricien curriculum tracker: 54 topics ticked with a date, a pace
+   derived from those dates, and a trajectory drawn against the exam, the
+   internship and the revision buffer. One long screen; the date settings moved
+   to the settings tab and reach this sheet through .ns-track on that panel.
+
+   Ported from track/index.html for 2.2. The app shipped with radii from 12 to
+   16px on a 4px system — they are ratios of --r-base now, so a preset that says
+   "round" rounds TRACK too and "sharp" squares it. Its palette names (--acc,
+   --dim, --dimmer, --card…) were mapped onto ROOT's tokens. */
+
+.ns-track .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-track .scr.on{display:block}
+.ns-track #s-home{padding-top:env(safe-area-inset-top)}
+
+.ns-track .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
+.ns-track .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-track .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:6px}
+.ns-track .h-logo em{color:var(--y);font-style:normal}
+
+.ns-track .cnt{padding:0 calc(18px * var(--dens))}
+
+.ns-track .secLabel{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:uppercase;
+  margin:26px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ns-track .secLabel em{font-style:normal;color:var(--bd-2)}
+
+/* ── hero ── */
+.ns-track .hero{text-align:center;margin:8px 0 20px}
+.ns-track .count{font:800 84px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
+.ns-track .count .of{color:var(--bd-2);font-size:30px;vertical-align:super}
+.ns-track .heroLabel{font:400 10px/1 var(--mono);letter-spacing:3px;color:var(--tx-2);text-transform:uppercase;margin-top:10px}
+.ns-track .pill{display:inline-block;margin-top:16px;padding:calc(7px * var(--dens)) calc(16px * var(--dens));
+  border-radius:var(--r-pill);font:700 11px/1 var(--mono);letter-spacing:1px;text-transform:uppercase;border:var(--bw) solid currentColor}
+.ns-track .pill.g{color:var(--gr)} .ns-track .pill.a{color:var(--or)} .ns-track .pill.r{color:var(--re)} .ns-track .pill.n{color:var(--tx-2)}
+
+.ns-track .split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(8px * var(--dens));margin:20px 0 0}
+.ns-track .chip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(10px * var(--dens)) calc(6px * var(--dens));text-align:center}
+.ns-track .chip .v{font:800 15px/1.2 var(--head);color:var(--tx)}
+.ns-track .chip .k{font:400 8px/1 var(--mono);letter-spacing:1.5px;color:var(--tx-2);text-transform:uppercase;margin-top:4px}
+
+.ns-track .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(10px * var(--dens));margin:10px 0 0}
+.ns-track .stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(13px * var(--dens)) calc(10px * var(--dens));text-align:center}
+.ns-track .stat .v{font:800 21px/1.2 var(--head);color:var(--tx)}
+.ns-track .stat .k{font:400 9px/1.3 var(--mono);letter-spacing:1.5px;color:var(--tx-2);text-transform:uppercase;margin-top:5px}
+.ns-track .stat .v.acc{color:var(--y)} .ns-track .stat .v.g{color:var(--gr)} .ns-track .stat .v.a{color:var(--or)} .ns-track .stat .v.r{color:var(--re)}
+
+/* ── squeeze ── */
+.ns-track .squeeze{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(16px * var(--dens)) calc(16px * var(--dens)) calc(14px * var(--dens));margin-top:10px}
+.ns-track .sqTitle{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--tx-2);text-transform:uppercase;margin-bottom:12px}
+.ns-track .sqRow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:calc(9px * var(--dens)) 0;border-top:var(--bw) solid var(--bd)}
+.ns-track .sqRow:first-of-type{border-top:none;padding-top:0}
+.ns-track .sqRow .l{font:400 11px/1.4 var(--mono);color:var(--tx)}
+.ns-track .sqRow .l s{display:block;color:var(--tx-2);font-size:9.5px;letter-spacing:.5px;text-decoration:none;margin-top:3px}
+.ns-track .sqRow .r{font:800 17px/1.2 var(--head);color:var(--tx);white-space:nowrap;padding-left:12px}
+.ns-track .sqRow .r small{font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:1px}
+.ns-track .sqNote{font:400 10px/1.6 var(--mono);color:var(--tx-2);margin-top:12px;padding-top:12px;border-top:var(--bw) solid var(--bd)}
+.ns-track .sqNote b{color:var(--or);font-weight:400}
+
+/* ── chart ── */
+.ns-track .chartWrap{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(16px * var(--dens)) calc(12px * var(--dens)) calc(10px * var(--dens));margin-top:10px}
+.ns-track .chartHead{display:flex;gap:calc(14px * var(--dens));font:400 9px/1 var(--mono);letter-spacing:1px;color:var(--tx-2);
+  text-transform:uppercase;padding:0 6px 12px;flex-wrap:wrap}
+.ns-track .chartHead span{display:flex;align-items:center;gap:6px}
+.ns-track .swatch{width:14px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+.ns-track svg#chart{width:100%;height:auto;display:block}
+.ns-track svg#chart text{font-family:var(--mono)}
+
+/* ── milestones ── */
+.ns-track .mile{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  padding:calc(11px * var(--dens)) calc(14px * var(--dens));background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r3);margin-bottom:7px;font:400 12px/1.4 var(--mono)}
+.ns-track .mile.hot{border-color:var(--or)}
+.ns-track .mile.past{opacity:.4}
+.ns-track .mile .ml{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ns-track .mile .mn{letter-spacing:.5px;color:var(--tx)}
+.ns-track .mile .md{font-size:9.5px;color:var(--tx-2);letter-spacing:1px;text-transform:uppercase}
+.ns-track .mile .mr{font:800 14px/1.2 var(--head);color:var(--tx);white-space:nowrap;text-align:right}
+.ns-track .mile .mr small{display:block;font:400 8.5px/1 var(--mono);color:var(--tx-2);letter-spacing:1px;margin-top:2px}
+.ns-track .mile.hot .mr{color:var(--or)}
+
+/* ── next up ── */
+.ns-track .next{background:var(--s1);border:var(--bw) solid var(--y);border-radius:var(--r3);
+  padding:calc(14px * var(--dens)) calc(14px * var(--dens)) calc(8px * var(--dens));margin-bottom:7px}
+.ns-track .nextRow{display:flex;align-items:center;gap:calc(11px * var(--dens));padding:calc(8px * var(--dens)) 0;border-top:var(--bw) solid var(--bd)}
+.ns-track .nextRow:first-of-type{border-top:none}
+.ns-track .nextRow .nt{flex:1;font:400 11.5px/1.4 var(--mono);color:var(--tx);min-width:0}
+.ns-track .nextRow .nm{font-size:9px;color:var(--tx-2);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+.ns-track .nextEmpty{padding:8px 0 14px;text-align:center;font:400 11px/1.4 var(--mono);color:var(--tx-2)}
+
+/* ── curriculum ── */
+.ns-track .lvl{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);margin-bottom:8px;overflow:hidden}
+.ns-track .lvl.done{border-color:color-mix(in srgb,var(--gr) 35%,transparent)}
+.ns-track .lvlHead{display:flex;align-items:center;gap:calc(12px * var(--dens));padding:calc(13px * var(--dens)) calc(14px * var(--dens));cursor:pointer;user-select:none}
+.ns-track .lvlHead .lh{flex:1;min-width:0}
+.ns-track .lvlHead .ln{font:800 12px/1.2 var(--head);letter-spacing:1.5px;text-transform:uppercase;color:var(--tx)}
+.ns-track .lvlHead .lc{font:400 9.5px/1 var(--mono);color:var(--tx-2);letter-spacing:1px;margin-top:5px}
+.ns-track .lvlHead .lx{color:var(--mu);font-size:13px;transition:transform var(--dur-1)}
+.ns-track .lvl.open .lvlHead .lx{transform:rotate(90deg)}
+.ns-track .bar{height:3px;background:var(--bd);border-radius:var(--r-pill);margin-top:7px;overflow:hidden}
+.ns-track .bar i{display:block;height:100%;background:var(--y);border-radius:var(--r-pill);transition:width var(--dur-2)}
+.ns-track .lvl.done .bar i{background:var(--gr)}
+.ns-track .lvlBody{display:none;padding:0 calc(14px * var(--dens)) calc(10px * var(--dens))}
+.ns-track .lvl.open .lvlBody{display:block}
+
+.ns-track .phase{font:400 8.5px/1.4 var(--mono);letter-spacing:2px;color:var(--y);text-transform:uppercase;
+  margin:14px 0 2px;padding-top:12px;border-top:var(--bw) solid var(--bd);opacity:.85}
+.ns-track .dom{font:400 9px/1.4 var(--mono);letter-spacing:1.3px;color:var(--tx-2);text-transform:uppercase;margin:12px 0 4px}
+.ns-track .row{display:flex;align-items:flex-start;gap:calc(11px * var(--dens));padding:calc(7px * var(--dens)) 0;cursor:pointer;user-select:none}
+.ns-track .tick{width:17px;height:17px;border:1.5px solid var(--mu);border-radius:var(--r1);flex:0 0 auto;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all var(--dur-1)}
+.ns-track .row.on .tick{background:var(--y);border-color:var(--y);color:var(--on-y)}
+.ns-track .row.on.ex .tick{background:var(--or);border-color:var(--or);color:#0e0e0e}
+.ns-track .row .t{flex:1;font:400 11.5px/1.45 var(--mono);color:var(--tx);min-width:0}
+.ns-track .row.on .t{color:var(--tx-2);text-decoration:line-through;text-decoration-color:var(--mu)}
+.ns-track .badge{display:inline-block;font-size:8px;letter-spacing:1px;text-transform:uppercase;
+  border:1px solid var(--or);color:var(--or);border-radius:var(--r1);padding:1px 4px;margin-left:6px;vertical-align:1px}
+.ns-track .when{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:1px;flex:0 0 auto;margin-top:2px;padding:2px 4px;
+  background:none;border:none;cursor:pointer}
+.ns-track .when:active{color:var(--y)}
+.ns-track .extraNote{font-size:9px;color:var(--tx-2);letter-spacing:1px;margin-top:4px}
+.ns-track .revList{font:400 10.5px/1.7 var(--mono);color:var(--tx-2);padding-bottom:6px}
+
+/* ── legacy banner ── */
+.ns-track .legacy{background:var(--s1);border:var(--bw) solid var(--or);border-radius:var(--r3);
+  padding:calc(12px * var(--dens)) calc(14px * var(--dens));font:400 10px/1.6 var(--mono);color:var(--tx-2);margin-bottom:18px;display:none}
+.ns-track .legacy b{color:var(--or);font-weight:400}
+.ns-track .legacy code{color:var(--tx)}
+.ns-track .legacy button{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
+  letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:8px;padding:0}
+
+/* ── settings panel ── */
+.ns-track .setRow{display:flex;align-items:center;justify-content:space-between;gap:calc(12px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(11px * var(--dens)) calc(14px * var(--dens));margin-bottom:8px}
+.ns-track .setRow .sl{font:400 11px/1.4 var(--mono);color:var(--tx-2);letter-spacing:.06em;flex:1;min-width:0}
+.ns-track .setRow .sl s{display:block;color:var(--mu);font-size:9px;letter-spacing:.5px;text-decoration:none;margin-top:3px}
+.ns-track .setRow input[type=date],.ns-track .setRow input[type=number]{
+  width:140px;flex:0 0 auto;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
+  font:400 11px/1.3 var(--mono);padding:calc(7px * var(--dens)) calc(9px * var(--dens));text-align:right;outline:none;-webkit-appearance:none;appearance:none}
+.ns-track .setRow input[type=number]{width:66px}
+.ns-track .setRow input:focus{border-color:var(--y)}
+.ns-track .rangeWrap{display:flex;align-items:center;gap:calc(9px * var(--dens));flex:0 0 auto}
+.ns-track .rangeWrap input[type=range]{width:120px}
+.ns-track .rangeWrap b{font:700 12px/1 var(--mono);color:var(--y);width:34px;text-align:right}
+.ns-track .btnRow{display:flex;gap:calc(8px * var(--dens));margin-top:10px}
+.ns-track .btnRow .btn{margin-top:0}

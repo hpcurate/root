@@ -1,13 +1,14 @@
 /* ── Settings ─────────────────────────────────────────────────────────────────
    Split out of shell.js, which used to be the frame AND the settings screen.
 
-   Nine panels behind one segmented control:
+   Twelve panels behind one segmented control:
 
      look      theme gallery, accent, fonts, live preview
-     layout    shape, density, depth, texture, nav, contrast — the dials
+     layout    shape, density, depth, texture, nav + the app list, contrast
      behave    start tab, gestures, haptics, confirmations, formats
      content   the editors for everything Config holds
-     do/log/plan/store   each app's own settings, rendered by the app module
+     do/log/plan/store/tend/track/learn   each app's own settings, rendered by
+               the app module into markup that carries its namespace
      data      Todoist key, backup, storage, resets
 
    Two conventions hold the whole file together:
@@ -30,16 +31,25 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','content','do','log','plan','store','data'];
+const PANELS = ['look','layout','behave','content','do','log','plan','store','tend','track','learn','data'];
 let currentPanel = 'look';
 
+/* Display names for the app list and the start-tab chips. */
+const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN' };
+const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
+                    tend:'plant care', track:'CAP curriculum', learn:'anki decks' };
+
 /* Which storage keys belong to which app — read-only bookkeeping for the
-   storage report. The shell never writes to another app's keys. */
+   storage report. The shell never writes to another app's keys. LEARN's decks
+   are in IndexedDB, not here; renderStorage() asks the module for them. */
 const GROUPS = [
   { name:'DO',    color:'#A78BFA', match:k => k.startsWith('do_') || k.startsWith('travel_state_') },
   { name:'LOG',   color:'#5cdb7d', match:k => k.startsWith('log_') || k === 'log-scale-v2' },
   { name:'PLAN',  color:'#5e8cff', match:k => k.startsWith('plan_') },
   { name:'STORE', color:'#e8a33d', match:k => k === 'store_state_v1' || k === 'eat_state_v1' },
+  { name:'TEND',  color:'#3fc9b0', match:k => k.startsWith('tend.') },
+  { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
+  { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
 ];
 
@@ -269,6 +279,13 @@ function renderLayout() {
     ${slider('chromeAlpha', 'Chrome opacity', v => pct(v))}
     ${toggle('autoHideChrome', 'Get out of the way', 'the bar steps aside while you scroll down')}
 
+    ${sectionHead('Apps in the bar')}
+    <div class="set-note">Which apps get a tab, and in what order. An app switched
+      off keeps its data and its settings panel — it just has no slide. Settings
+      is always last. With seven or more tabs the pill widens and the arrows step
+      aside; the swipe and the number keys still reach everything.</div>
+    ${appsList()}
+
     ${sectionHead('Motion & contrast')}
     ${chips('motion', [{ v:'full', l:'full' }, { v:'reduced', l:'reduced' }, { v:'none', l:'none' }],
       'Animation', 'the OS setting still wins when it asks for less')}
@@ -283,20 +300,39 @@ function renderLayout() {
 }
 
 
+/* The app list: the enabled apps in their order, then the disabled ones. Each
+   row has up/down and a switch; the shell rebuilds the track on every change. */
+function appsList() {
+  const on = Prefs.get('apps');
+  const order = on.concat(Prefs.APPS.filter(a => !on.includes(a)));
+  return order.map((a, i) => {
+    const active = on.includes(a);
+    return `<div class="setting-row app-row${active ? '' : ' off'}" data-app-row="${a}">
+      <span class="setting-lbl">${esc(APP_NAMES[a] || a)}<small>${esc(APP_HINTS[a] || '')}</small></span>
+      <span class="app-acts">
+        <button class="setting-btn" data-app-move="${a}:-1" aria-label="move ${esc(APP_NAMES[a] || a)} up"${!active || i === 0 ? ' disabled' : ''}>↑</button>
+        <button class="setting-btn" data-app-move="${a}:1" aria-label="move ${esc(APP_NAMES[a] || a)} down"${!active || i >= on.length - 1 ? ' disabled' : ''}>↓</button>
+        <button class="tog${active ? ' on' : ''}" data-app-toggle="${a}" role="switch" aria-checked="${active}" aria-label="show ${esc(APP_NAMES[a] || a)}"></button>
+      </span></div>`;
+  }).join('');
+}
+
+
 /* ══ BEHAVE ═══════════════════════════════════════════════════════════════════ */
 
 function renderBehave() {
   $id('panel-behave').innerHTML = `
     ${sectionHead('Opening')}
     ${chips('startTab', [
-      { v:'last', l:'where I left off' }, { v:'do', l:'do' }, { v:'log', l:'log' },
-      { v:'plan', l:'plan' }, { v:'store', l:'store' }, { v:'settings', l:'settings' },
+      { v:'last', l:'where I left off' },
+      ...Prefs.get('apps').map(a => ({ v:a, l:(APP_NAMES[a] || a).toLowerCase() })),
+      { v:'settings', l:'settings' },
     ], 'Start on')}
 
     ${sectionHead('Gestures')}
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
-    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–5 to jump, / to open settings')}
+    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to open settings')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
 
     ${sectionHead('Safety')}
@@ -492,16 +528,16 @@ const EDITORS = {
         <label class="lbl">Curate counters</label>
         ${Object.keys(cur).map(k => `<div class="ed-card">
           <div class="ed-head">
-            <input type="text" data-cfg="log.curate.${k}" data-sub="label" value="${esc(cur[k].label)}" aria-label="${k} label">
-            <input type="color" class="ed-swatch" data-cfg="log.curate.${k}" data-sub="color" value="${esc(cur[k].color)}" aria-label="${k} colour">
+            <input type="text" data-cfg="log.curate" data-sub="${k}.label" value="${esc(cur[k].label)}" aria-label="${k} label">
+            <input type="color" class="ed-swatch" data-cfg="log.curate" data-sub="${k}.color" value="${esc(cur[k].color)}" aria-label="${k} colour">
           </div></div>`).join('')}
 
         <label class="lbl">Scale endpoints</label>
         ${Object.keys(sc).map(k => `<div class="ed-card">
           <div class="ed-head">
             <span class="ed-badge">${esc(k)}</span>
-            <input type="text" data-cfg="log.scales.${k}" data-sub="low"  value="${esc(sc[k].low)}"  aria-label="${k} low">
-            <input type="text" data-cfg="log.scales.${k}" data-sub="high" value="${esc(sc[k].high)}" aria-label="${k} high">
+            <input type="text" data-cfg="log.scales" data-sub="${k}.low"  value="${esc(sc[k].low)}"  aria-label="${k} low">
+            <input type="text" data-cfg="log.scales" data-sub="${k}.high" value="${esc(sc[k].high)}" aria-label="${k} high">
           </div></div>`).join('')}
 
         <div class="f" style="margin-top:14px">
@@ -724,14 +760,126 @@ const EDITORS = {
     },
     read() {},
   },
+
+  /* ── TEND · plant types ────────────────────────────────────────────────── */
+  'tend.groups': {
+    title: 'Plant types',
+    note: 'How seasonal each type is: 1 stretches its watering fully with the growth curve, 0 not at all, above 1 harder still. The note shows under the type in the editor. A type in use by a plant can be renamed freely; deleting it sends the plant to the default type for its maths.',
+    render() {
+      return Config.get('tend.groups').map((g, i) => `
+        <div class="ed-card" data-key="${i}">
+          <div class="ed-head">
+            <input type="text" data-field="label" value="${esc(g.label)}" placeholder="type" aria-label="type name">
+            <input type="number" data-field="season" min="0" max="3" step="0.1" value="${esc(g.season)}" aria-label="season factor" title="season factor">
+            <button class="ed-del" data-del="${i}" aria-label="delete type">×</button>
+          </div>
+          <textarea data-field="note" rows="2" spellcheck="false" aria-label="note">${esc(g.note || '')}</textarea>
+        </div>`).join('') + `<button class="ed-add" data-add="1">+ add a type</button>`;
+    },
+    read(box) {
+      const prev = Config.get('tend.groups');
+      const out = [];
+      box.querySelectorAll('.ed-card').forEach(card => {
+        const i = +card.dataset.key;
+        const label = card.querySelector('[data-field=label]').value.trim();
+        if (!label) return;
+        out.push({
+          // the key is what each plant is filed under, so it survives a rename
+          key: (prev[i] && prev[i].key) || uniqueKey(label, out.map(g => g.key)),
+          label,
+          season: Math.max(0, Math.min(3, parseFloat(card.querySelector('[data-field=season]').value) || 0)),
+          note: card.querySelector('[data-field=note]').value.trim(),
+        });
+      });
+      if (out.length) Config.set('tend.groups', out);
+    },
+    add() {
+      const g = Config.get('tend.groups');
+      Config.set('tend.groups', g.concat({ key: uniqueKey('type', g.map(x => x.key)), label:'new type', season:1, note:'' }));
+    },
+    del(idx) {
+      const g = Config.get('tend.groups');
+      if (g.length <= 1) return;
+      Config.set('tend.groups', g.filter((_, i) => i !== +idx));
+    },
+  },
+
+  /* ── TEND · vocabulary + curve ─────────────────────────────────────────── */
+  'tend.labels': {
+    title: 'Care vocabulary and season',
+    paths: ['tend.tasks','tend.seasons','tend.growth','tend.feedFloor'],
+    note: 'The three care tasks are fixed slots with editable names (the log is filed under water / feed / repot). The growth curve is twelve values, January to December, from 0 to 1 — watering stretches as it falls, and feeding pauses below the cut-off.',
+    render() {
+      const t = Config.get('tend.tasks');
+      const row = (k, name) => `<div class="ed-card"><div class="ed-head">
+        <span class="ed-badge">${esc(name)}</span>
+        <input type="text" data-cfg="tend.tasks" data-sub="${k}.label" value="${esc(t[k].label)}" aria-label="${k} label" placeholder="label">
+        <input type="text" data-cfg="tend.tasks" data-sub="${k}.verb"  value="${esc(t[k].verb)}"  aria-label="${k} verb" placeholder="past tense">
+      </div></div>`;
+      return row('water', 'water') + row('feed', 'feed') + row('repot', 'repot') + `
+        <div class="f" style="margin-top:14px">
+          <label class="lbl">Growth curve <em>12 values, Jan → Dec</em></label>
+          <input type="text" data-cfg="tend.growth" data-numlist="all" inputmode="decimal"
+                 value="${esc(Config.get('tend.growth').join(', '))}">
+        </div>
+        <div class="f">
+          <label class="lbl">Season names <em>12, Jan → Dec</em></label>
+          <input type="text" data-cfg="tend.seasons" data-list="1"
+                 value="${esc(Config.get('tend.seasons').join(', '))}">
+        </div>
+        <div class="f">
+          <label class="lbl">Pause feeding below <em>growth, 0–1</em></label>
+          <input type="number" min="0" max="1" step="0.05" inputmode="decimal" data-cfg="tend.feedFloor"
+                 value="${esc(Config.get('tend.feedFloor'))}">
+        </div>`;
+    },
+    read() {},
+  },
+
+  /* ── TRACK · labels ────────────────────────────────────────────────────── */
+  'track.labels': {
+    title: 'Curriculum labels',
+    paths: ['track.phases','track.levelLabel','track.pse','track.revision'],
+    note: 'The names around the plan. The 54 topics themselves are not editable here — the ticks are filed under their ids, and renumbering would orphan them.',
+    render() {
+      const ph = Config.get('track.phases'), pse = Config.get('track.pse');
+      return `
+        <label class="lbl">Phases</label>
+        ${['real','mes','main'].map(k => `<div class="f"><input type="text" data-cfg="track.phases" data-sub="${k}" value="${esc(ph[k] || '')}" aria-label="phase ${k}"></div>`).join('')}
+        <div class="ed-pair">
+          <div><label class="lbl">level word</label><input type="text" data-cfg="track.levelLabel" value="${esc(Config.get('track.levelLabel'))}"></div>
+          <div><label class="lbl">separate subject</label><input type="text" data-cfg="track.pse" data-sub="label" value="${esc(pse.label)}"></div>
+        </div>
+        <div class="f"><label class="lbl">its note</label><input type="text" data-cfg="track.pse" data-sub="note" value="${esc(pse.note || '')}"></div>
+        <div class="f">
+          <label class="lbl">Revision reminders <em>one per line</em></label>
+          <textarea data-cfg="track.revision" data-lines="1" rows="4" spellcheck="false">${esc(Config.get('track.revision').join('\n'))}</textarea>
+        </div>`;
+    },
+    read() {},
+  },
+
+  /* ── LEARN · ratings ───────────────────────────────────────────────────── */
+  'learn.ratings': {
+    title: 'Rating names',
+    note: 'The four buttons under a revealed card, lowest first. The fourth is the one that counts as learned; the other three are "needs work".',
+    render() {
+      return `<div class="f">
+        <label class="lbl">Ratings <em>comma separated, four of them</em></label>
+        <input type="text" data-cfg="learn.ratings" data-list="1" value="${esc(Config.get('learn.ratings').join(', '))}">
+      </div>`;
+    },
+    read() {},
+  },
 };
 
 const EDITOR_ORDER = ['do.routines','do.travelCategories','log.blocks','log.labels','log.fields',
-                      'plan.types','plan.chips','store.categories','store.meals','store.quickAmounts'];
+                      'plan.types','plan.chips','store.categories','store.meals','store.quickAmounts',
+                      'tend.groups','tend.labels','track.labels','learn.ratings'];
 
 function renderContent() {
   $id('panel-content').innerHTML = `
-    <div class="set-note">Everything the four apps used to have baked into their
+    <div class="set-note">Everything the apps used to have baked into their
       code. Edits save as you type and take effect immediately — the screen
       behind this one re-renders itself. Each section can be put back to what
       ROOT ships with, independently.</div>
@@ -760,6 +908,8 @@ const RESET_BUNDLE = {
   'log.labels':           ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
                            'log.kmTarget','log.streakRequires'],
   'plan.chips':           ['plan.blocks','plan.times'],
+  'tend.labels':          ['tend.tasks','tend.seasons','tend.growth','tend.feedFloor'],
+  'track.labels':         ['track.phases','track.levelLabel','track.pse','track.revision'],
 };
 
 
@@ -836,7 +986,16 @@ function renderStorage() {
     <div class="data-stat"><span class="data-stat-k">All keys on this origin</span>
       <span class="data-stat-v">${keys.length} · ${fmtSize(total)}</span></div>
     <div class="st-meter"><i style="width:${Math.min(100, total / CAP * 100).toFixed(1)}%"></i></div>
-    <div class="st-legend"><span>${(total / CAP * 100).toFixed(1)}% of a typical 5 MB budget</span></div>`;
+    <div class="st-legend"><span>${(total / CAP * 100).toFixed(1)}% of a typical 5 MB budget</span></div>
+    <div class="data-stat" id="set-storage-idb"><span class="data-stat-k">LEARN decks (IndexedDB)</span>
+      <span class="data-stat-v">…</span></div>`;
+  // the decks are outside localStorage and outside the backup; say how much is there
+  if (window.LEARN) LEARN.deckStats().then(s => {
+    const el = $id('set-storage-idb'); if (!el) return;
+    el.querySelector('.data-stat-v').textContent = s.ok
+      ? `${s.decks} deck${s.decks === 1 ? '' : 's'} · ${s.cards} cards · ${fmtSize(s.bytes)} media · not in the backup`
+      : 'unavailable';
+  });
 }
 
 function renderData() {
@@ -935,6 +1094,9 @@ const RENDERERS = {
   log:  () => window.LOG  && LOG.renderDataScreen(),
   plan: () => window.PLAN && PLAN.renderSettings(),
   store:() => window.STORE&& STORE.renderSettings(),
+  tend: () => window.TEND && TEND.renderSettings(),
+  track:() => window.TRACK&& TRACK.renderSettings(),
+  learn:() => window.LEARN&& LEARN.renderSettings(),
 };
 
 function panel(name) {
@@ -974,26 +1136,46 @@ function commitGroup(el) {
   if (ed && ed.read) ed.read(box);
 }
 
-/* data-cfg fields write one value straight to a Config path. */
+/* data-cfg fields write one value straight to a Config path.
+
+   `data-sub` writes one key of an object and saves the object whole, which is
+   the only safe shape: an override is stored whole-branch, so writing the leaf
+   path alone would shadow the object with a one-key fragment and every other
+   key would read as undefined. A number or range input's sub is stored as a
+   number, so the modules never parse what they read. */
+const isNumeric = el => el.type === 'number' || el.type === 'range';
 function commitField(el) {
   const path = el.dataset.cfg;
   if (!path) return;
   if (el.dataset.sub) {
+    /* `data-sub` may be dotted (mix.label) so the branch that is saved whole is
+       the one the module reads whole. 2.1 pointed these at log.curate.mix with
+       sub=label, which overrode log.curate with a one-slot fragment: rename one
+       curate counter and the other two vanished from the evening form. */
     const obj = Config.get(path) || {};
-    obj[el.dataset.sub] = el.value;
+    const keys = el.dataset.sub.split('.');
+    const last = keys.pop();
+    let node = obj;
+    keys.forEach(k => { if (typeof node[k] !== 'object' || node[k] === null) node[k] = {}; node = node[k]; });
+    node[last] = isNumeric(el) ? (parseFloat(el.value) || 0) : el.value;
     Config.set(path, obj);
   } else if (el.dataset.list) {
     Config.set(path, el.value.split(',').map(s => s.trim()).filter(Boolean));
+  } else if (el.dataset.lines) {
+    Config.set(path, lines(el.value));
   } else if (el.dataset.numlist) {
+    // "all" keeps zeros (a growth curve may have one); the default drops them
+    // (a zero counter button is meaningless)
+    const keepZero = el.dataset.numlist === 'all';
     Config.set(path, el.value.split(',').map(s => parseFloat(s.trim()))
-                             .filter(n => isFinite(n) && n !== 0));
+                             .filter(n => isFinite(n) && (keepZero || n !== 0)));
   } else if (el.dataset.pairs) {
     const [a, b] = el.dataset.pairs.split(',');
     Config.set(path, lines(el.value).map(l => {
       const parts = l.split('|').map(x => x.trim());
       return { [a]: parts[0], [b]: parts[1] || parts[0] };
     }));
-  } else if (el.type === 'number') {
+  } else if (isNumeric(el)) {
     Config.set(path, parseFloat(el.value) || 0);
   } else {
     Config.set(path, el.value);
@@ -1041,8 +1223,24 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-act]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act]');
   if (!t) return;
+
+  // the app list: switch an app's tab on or off, or move it
+  if (t.dataset.appToggle) {
+    const a = t.dataset.appToggle, on = Prefs.get('apps');
+    const next = on.includes(a) ? on.filter(x => x !== a)
+               : Prefs.APPS.filter(x => on.includes(x) || x === a);   // re-enable in shipped order
+    if (!next.length) { Shell.toast('keep at least one app'); return; }
+    Prefs.set('apps', next); Prefs.tap(); renderLayout(); return;
+  }
+  if (t.dataset.appMove) {
+    const [a, dir] = t.dataset.appMove.split(':');
+    const on = Prefs.get('apps'), i = on.indexOf(a), j = i + (+dir);
+    if (i < 0 || j < 0 || j >= on.length) return;
+    [on[i], on[j]] = [on[j], on[i]];
+    Prefs.set('apps', on); renderLayout(); return;
+  }
 
   // theme card
   if (t.dataset.themePick) { Prefs.set('theme', t.dataset.themePick); Prefs.tap();
@@ -1090,7 +1288,7 @@ view.addEventListener('click', e => {
     ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
      'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
      'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount',
-     'showTabLabels','accentGlow','monoNumbers','colorfulTabs'].forEach(k => Prefs.reset(k));
+     'showTabLabels','accentGlow','monoNumbers','colorfulTabs','apps'].forEach(k => Prefs.reset(k));
     render(); Shell.toast('appearance reset');
   }
   if (t.dataset.act === 'reset-behaviour') {

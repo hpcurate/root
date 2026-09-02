@@ -136,6 +136,13 @@ const THEME_CHARACTER = {
   noir:      { display:'archivo',   mono:'jetbrains', radius:0,  border:1, depth:'flat',  texture:'none' },
 };
 
+/* ── Apps ─────────────────────────────────────────────────────────────────────
+   Every app the shell can host, in the order they ship. `apps` below is the
+   user's own subset and order; the shell builds its slide track and tab bar
+   from it, so an app switched off here has no tab and no slide. Settings is
+   always last and is not in this list. */
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn'];
+
 /* ── Schema ───────────────────────────────────────────────────────────────────
    Every setting in one table: its default, its kind, and its bounds. The
    settings UI is generated from this, so adding a knob is one line here plus
@@ -177,8 +184,11 @@ const SCHEMA = {
   monoNumbers:  { kind:'bool',   def:true,  attr:'data-tnum' },
   colorfulTabs: { kind:'bool',   def:false, attr:'data-color-tabs' },
 
+  // navigation — which apps have a tab, and in what order
+  apps:         { kind:'list',   def:APPS.slice() },
+
   // behaviour
-  startTab:     { kind:'enum',   def:'last', values:['last','do','log','plan','store','settings'] },
+  startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
   swipe:        { kind:'bool',   def:true },
   swipeStrength:{ kind:'range',  def:0.22, min:0.1, max:0.5, step:0.01 },
   autoHideChrome:{kind:'bool',   def:true },
@@ -199,7 +209,8 @@ const subs = [];
 
 function defaultsOf() {
   const o = {};
-  Object.keys(SCHEMA).forEach(k => { o[k] = SCHEMA[k].def; });
+  // arrays are copied so a list pref never aliases the schema's own default
+  Object.keys(SCHEMA).forEach(k => { const d = SCHEMA[k].def; o[k] = Array.isArray(d) ? d.slice() : d; });
   return o;
 }
 
@@ -251,6 +262,13 @@ function coerce(k, v) {
     const vals = typeof s.values === 'function' ? s.values() : s.values;
     return vals.includes(v) ? v : s.def;
   }
+  /* the app list: known ids only, no duplicates, never empty — a pasted look
+     that names an app this build does not have simply loses that entry */
+  if (s.kind === 'list') {
+    if (!Array.isArray(v)) return s.def.slice();
+    const out = v.filter((x, i, a) => APPS.includes(x) && a.indexOf(x) === i);
+    return out.length ? out : s.def.slice();
+  }
   // a pasted "look" can carry anything; keep text and colour well-formed
   if (s.kind === 'text')  return String(v ?? '').slice(0, 8) || s.def;
   if (s.kind === 'color') return normHex(v);
@@ -258,7 +276,7 @@ function coerce(k, v) {
 }
 
 function reset(k) {
-  if (k in SCHEMA) { prefs[k] = SCHEMA[k].def; persist(); apply(); notify(k); }
+  if (k in SCHEMA) { prefs[k] = defaultsOf()[k]; persist(); apply(); notify(k); }
 }
 function resetAll() { prefs = defaultsOf(); persist(); apply(); notify('*'); }
 
@@ -368,6 +386,10 @@ function apply() {
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
+  /* seven or more tabs (the app list plus settings) no longer fit the floating
+     pill at its phone width; shell.css widens it, shrinks the labels and drops
+     the arrows under [data-tabs="many"] */
+  root.setAttribute('data-tabs', prefs.apps.length + 1 >= 7 ? 'many' : 'few');
   root.style.colorScheme = info.mode;
 
   // continuous → inline custom properties (null means "leave it to the theme")
@@ -465,7 +487,7 @@ try {
   mq.addEventListener ? mq.addEventListener('change', onFlip) : mq.addListener(onFlip);
 } catch {}
 
-return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER,
+return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER, APPS,
          get, set, setMany, all, reset, resetAll, subscribe,
          apply, preview, revert, activeTheme, themeInfo, character,
          resolvedDisplay, resolvedMono, accentHex, normHex, luminance,

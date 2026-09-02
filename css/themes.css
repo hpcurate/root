@@ -222,12 +222,16 @@
 [data-tab-labels="off"] .tab-b svg{width:21px;height:21px}
 
 /* Colour-coded tabs: each app keeps its own hue on the active pill instead of
-   everything sharing the accent. */
-[data-color-tabs="on"] #nav .tab-b:nth-child(1)::before{background:#A78BFA}
-[data-color-tabs="on"] #nav .tab-b:nth-child(2)::before{background:#5cdb7d}
-[data-color-tabs="on"] #nav .tab-b:nth-child(3)::before{background:#5e8cff}
-[data-color-tabs="on"] #nav .tab-b:nth-child(4)::before{background:#e8a33d}
-[data-color-tabs="on"] #nav .tab-b:nth-child(5)::before{background:var(--mu)}
+   everything sharing the accent. Keyed on the app, not the position — the
+   order is the user's to change. */
+[data-color-tabs="on"] #nav .tab-b[data-app="do"]::before{background:#A78BFA}
+[data-color-tabs="on"] #nav .tab-b[data-app="log"]::before{background:#5cdb7d}
+[data-color-tabs="on"] #nav .tab-b[data-app="plan"]::before{background:#5e8cff}
+[data-color-tabs="on"] #nav .tab-b[data-app="store"]::before{background:#e8a33d}
+[data-color-tabs="on"] #nav .tab-b[data-app="tend"]::before{background:#3fc9b0}
+[data-color-tabs="on"] #nav .tab-b[data-app="track"]::before{background:#f0709a}
+[data-color-tabs="on"] #nav .tab-b[data-app="learn"]::before{background:#5ad4e6}
+[data-color-tabs="on"] #nav .tab-b[data-app="settings"]::before{background:var(--mu)}
 [data-color-tabs="on"] #nav .tab-b.on{color:#0e0e0e}
 
 
@@ -257,6 +261,9 @@
 [data-mode="light"] .wo4-b.rest-on{background:var(--s2);border-color:var(--bd);color:var(--mu)}
 [data-mode="light"] .ti.neu{background:var(--s2);border-color:var(--bd);color:var(--mu)}
 [data-mode="light"] .muted{background:transparent!important}
+/* TEND's water blue was chosen against near-black; as text on a light ground
+   it needs to go a good deal deeper to read. */
+[data-mode="light"] .ns-tend{--tend-blue:#2a7fb8}
 [data-mode="light"] .card.muted{box-shadow:none}
 [data-mode="light"] .tab.active{color:var(--on-y)}
 [data-mode="light"] .sheet-back,

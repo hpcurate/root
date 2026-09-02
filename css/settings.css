@@ -79,6 +79,18 @@
 .ns-set select{cursor:pointer;background-image:none}
 .ns-set input:focus,.ns-set textarea:focus,.ns-set select:focus{border-color:var(--y)}
 
+/* a number field sitting in a setting row is a small right-hand box, not the
+   full-width field the form rule above makes it */
+.ns-set .setting-row input[type=number],.ns-set .setting-row input[type=text]{
+  width:76px;flex:0 0 auto;text-align:center;padding:8px 6px;font-size:12px}
+.ns-set .setting-row select{width:auto;flex:0 0 auto}
+
+/* ── The app list (layout → navigation) ───────────────────────────────────── */
+.ns-set .app-row.off .setting-lbl{color:var(--mu)}
+.ns-set .app-acts{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.ns-set .app-acts .setting-btn{padding:7px 9px;font-size:11px}
+.ns-set .app-acts .setting-btn:disabled{opacity:.3;pointer-events:none}
+
 .ns-set .data-stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ns-set .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}

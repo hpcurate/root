@@ -28,6 +28,9 @@
   <link rel="stylesheet" href="css/log.css">
   <link rel="stylesheet" href="css/plan.css">
   <link rel="stylesheet" href="css/store.css">
+  <link rel="stylesheet" href="css/tend.css">
+  <link rel="stylesheet" href="css/track.css">
+  <link rel="stylesheet" href="css/learn.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -53,6 +56,16 @@
   <symbol id="tab-store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="9" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/>
     <path d="M2 3h3l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>
+  </symbol>
+  <symbol id="tab-tend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 20c0-8 5-14 14-15-1 9-6 14-14 15z"/><path d="M5 20l8-8"/>
+  </symbol>
+  <symbol id="tab-track" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/>
+  </symbol>
+  <symbol id="tab-learn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 6V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/>
+    <line x1="7" y1="11" x2="13" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/>
   </symbol>
   <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3.4"/>
@@ -744,6 +757,194 @@
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     TEND — today's round and the shelf. Both sections are drawn by TEND.render();
+     the detail and editor sheets are overlays, further down.
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-tend" id="view-tend" aria-label="TEND">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label" id="date-label">—</div>
+      <div class="h-logo">TEND<em>.</em></div>
+    </div>
+    <div class="cnt">
+      <div class="season card" id="season"></div>
+      <nav class="tabs" aria-label="TEND views">
+        <button class="tab on" data-act="tab" data-view="round">round</button>
+        <button class="tab" data-act="tab" data-view="shelf">shelf</button>
+      </nav>
+      <section id="sub-round" class="sub on"></section>
+      <section id="sub-shelf" class="sub"></section>
+    </div>
+    <div class="add-wrap"><button class="add-btn" data-act="add">+ add plant</button></div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TRACK — one long screen; the dates live in Settings → track
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-track" id="view-track" aria-label="TRACK">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">CAP · Électricien</div>
+      <div class="h-logo">TRACK<em>.</em></div>
+    </div>
+    <div class="cnt">
+      <div class="legacy" id="legacy"></div>
+
+      <div class="hero">
+        <div class="count"><span id="cum">0</span><span class="of" id="totalOf">/54</span></div>
+        <div class="heroLabel">of the plan complete</div>
+        <div id="pill" class="pill n">Tick your first topic</div>
+      </div>
+
+      <div class="split">
+        <div class="chip card"><div class="v" id="cTheory">0</div><div class="k">theory</div></div>
+        <div class="chip card"><div class="v" id="cPrac">0</div><div class="k">bench</div></div>
+        <div class="chip card"><div class="v" id="cPse">—</div><div class="k">PSE</div></div>
+      </div>
+
+      <div class="stats">
+        <div class="stat card"><div class="v acc" id="pace">—</div><div class="k">topics / week</div></div>
+        <div class="stat card"><div class="v" id="finish">—</div><div class="k">projected finish</div></div>
+        <div class="stat card"><div class="v" id="needed">—</div><div class="k">need / week</div></div>
+      </div>
+
+      <div class="squeeze card">
+        <div class="sqTitle">The January squeeze</div>
+        <div class="sqRow">
+          <div class="l">Clear everything before the internship<s id="sqPreW">—</s></div>
+          <div class="r" id="sqPre">—<small>/wk</small></div>
+        </div>
+        <div class="sqRow">
+          <div class="l">Finish in time to revise for the exam<s id="sqReqW">—</s></div>
+          <div class="r" id="sqReq">—<small>/wk</small></div>
+        </div>
+        <div class="sqRow">
+          <div class="l">Where you'd be on the day you start<s>at your current pace</s></div>
+          <div class="r" id="sqAt">—</div>
+        </div>
+        <div class="sqNote" id="sqNote"></div>
+      </div>
+
+      <div class="secLabel"><span>Trajectory</span><span id="trajRange"></span></div>
+      <div class="chartWrap card">
+        <div class="chartHead">
+          <span><i class="swatch" style="border-color:var(--y)"></i>Done</span>
+          <span><i class="swatch" style="border-color:var(--y);border-top-style:dashed"></i>Projected</span>
+          <span><i class="swatch" style="border-color:var(--gr);border-top-style:dashed"></i>Required</span>
+        </div>
+        <svg id="chart" viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet" aria-label="trajectory chart"></svg>
+      </div>
+
+      <div class="secLabel"><span>Milestones</span></div>
+      <div id="miles"></div>
+
+      <div class="secLabel"><span>Next up</span><em>as fast as possible</em></div>
+      <div class="next card" id="next"></div>
+
+      <div class="secLabel"><span>The plan</span><em id="planCount"></em></div>
+      <div id="levels"></div>
+
+      <div class="secLabel"><span>Also required</span></div>
+      <div class="lvl open card" id="extras"></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LEARN — decks, one deck, the study screen, the scoreboard
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-learn" id="view-learn" aria-label="LEARN">
+
+  <!-- ── HOME ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">study on the go</div>
+      <div class="h-logo">LEARN<em>.</em></div>
+    </div>
+    <label class="import-zone" id="import-zone">
+      <input type="file" id="file-input" accept=".apkg,.colpkg">
+      <div class="iz-t" id="iz-t">Import .apkg</div>
+      <div class="iz-s" id="iz-s">Tap to choose, or drop a file here</div>
+    </label>
+    <div class="deck-list" id="deck-list"></div>
+  </div>
+
+  <!-- ── DECK ── -->
+  <div id="s-deck" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="LEARN.go('home')">← back</button>
+      <div class="hd-title" id="deck-title">DECK</div>
+    </div>
+    <div class="cnt">
+      <div class="stat-row">
+        <div class="stat new card" id="stat-total-box"><div class="stat-n" id="stat-total">0</div><div class="stat-l">total</div></div>
+        <div class="stat due card" id="stat-acq-box"><div class="stat-n" id="stat-acq">0</div><div class="stat-l" id="stat-acq-l">acquired</div></div>
+        <div class="stat learn card" id="stat-work-box"><div class="stat-n" id="stat-work">0</div><div class="stat-l">needs work</div></div>
+      </div>
+      <button class="btn" id="btn-study" onclick="LEARN.startStudy('all')">Study all cards</button>
+      <button class="btn btn-ghost" id="btn-study-work" onclick="LEARN.startStudy('work')" style="margin-top:6px">Study needs-work only</button>
+      <div class="sec">Deck</div>
+      <button class="btn btn-ghost" onclick="LEARN.resetDeckProgress()">Reset ratings</button>
+      <button class="btn btn-ghost" onclick="LEARN.renameDeck()" style="margin-top:6px">Rename</button>
+      <button class="btn btn-ghost btn-danger" onclick="LEARN.deleteCurrentDeck()" style="margin-top:6px">Delete deck</button>
+    </div>
+  </div>
+
+  <!-- ── STUDY ── -->
+  <div id="s-study" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="LEARN.exitStudy()">✕</button>
+      <div class="hd-title" id="study-deck-title">STUDY</div>
+      <button class="hd-action" onclick="LEARN.skipCard()">skip</button>
+    </div>
+    <div class="study-wrap">
+      <div class="study-progress">
+        <span><em id="cnt-pos">0</em> / <em id="cnt-total">0</em></span>
+        <span class="p-due"><em id="cnt-acq">0</em> <span id="cnt-acq-l">acquired</span></span>
+        <span class="p-learn"><em id="cnt-work">0</em> needs work</span>
+      </div>
+      <div class="card-face" id="card-face">…</div>
+      <button class="reveal-btn" id="reveal-btn" onclick="LEARN.reveal()">Show answer</button>
+      <!-- filled by LEARN.renderAnswerRow() from Config → learn.ratings -->
+      <div class="answer-row hidden" id="answer-row"></div>
+    </div>
+  </div>
+
+  <!-- ── SCOREBOARD ── -->
+  <div id="s-done" class="scr">
+    <div class="hd">
+      <button class="hd-back" onclick="LEARN.go('home')">← home</button>
+      <div class="hd-title">SCOREBOARD</div>
+    </div>
+    <div class="cnt">
+      <div class="done-banner">
+        <div class="done-banner-t">session done</div>
+        <div class="done-banner-s" id="done-msg">You reviewed 0 cards.</div>
+      </div>
+      <div class="sec">Breakdown</div>
+      <div class="score-row">
+        <div class="score-cell sc-acq"><div class="score-n" id="sc-acq">0</div><div class="score-l" id="sc-acq-l">acquired</div></div>
+        <div class="score-cell sc-alm"><div class="score-n" id="sc-alm">0</div><div class="score-l" id="sc-alm-l">almost</div></div>
+        <div class="score-cell sc-shk"><div class="score-n" id="sc-shk">0</div><div class="score-l" id="sc-shk-l">shaky</div></div>
+        <div class="score-cell sc-rev"><div class="score-n" id="sc-rev">0</div><div class="score-l" id="sc-rev-l">revision</div></div>
+      </div>
+      <div id="needs-work-section" class="hidden">
+        <div class="sec">Needs work</div>
+        <div id="needs-work-list" class="needs-work-list"></div>
+      </div>
+      <button class="btn" id="btn-study-work-again" onclick="LEARN.startStudy('work')" style="margin-top:14px">Study needs-work only</button>
+      <button class="btn btn-ghost" onclick="LEARN.startStudy('all')" style="margin-top:6px">Study all again</button>
+      <button class="btn btn-ghost" onclick="LEARN.backToDeck()" style="margin-top:6px">Back to deck</button>
+      <button class="btn btn-ghost" onclick="LEARN.go('home')" style="margin-top:6px">Home</button>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      SETTINGS — every app's settings, one panel each
      ═════════════════════════════════════════════════════════════════════════ -->
 <section class="view ns-set" id="view-settings" aria-label="Settings">
@@ -762,10 +963,13 @@
       <button class="seg-b" data-seg="log">log</button>
       <button class="seg-b" data-seg="plan">plan</button>
       <button class="seg-b" data-seg="store">store</button>
+      <button class="seg-b" data-seg="tend">tend</button>
+      <button class="seg-b" data-seg="track">track</button>
+      <button class="seg-b" data-seg="learn">learn</button>
       <button class="seg-b" data-seg="data">data</button>
     </div>
 
-    <!-- The five ROOT-level panels are generated by js/settings.js; the four app
+    <!-- The five ROOT-level panels are generated by js/settings.js; the seven app
          panels below keep their original markup and ids, so each module's scoped
          $id() still finds its own controls. -->
     <div class="set-panel on" data-panel="look"    id="panel-look"></div>
@@ -794,10 +998,12 @@
 
       <div class="sec"><span>Backup</span></div>
       <div class="data-warn">
-        One file with every key the four apps keep on this device — checklists,
-        logged days, the plan queue, the shopping list and history, your whole
-        appearance setup and every content edit. Keep a copy before clearing
-        browser data or moving phone.
+        One file with every key the apps keep on this device — checklists,
+        logged days, the plan queue, the shopping list and history, the plants
+        and their care log, the curriculum ticks, your whole appearance setup
+        and every content edit. Keep a copy before clearing browser data or
+        moving phone. The one thing it cannot carry is LEARN's decks, which
+        live in IndexedDB — re-import the .apkg on the new device.
       </div>
       <button class="btn" onclick="SET.exportAll()">↑ Export everything</button>
       <button class="btn btn-2" onclick="SET.pickImport()">↓ Restore from file</button>
@@ -972,6 +1178,196 @@
       </div>
     </div>
 
+    <!-- ── TEND ── -->
+    <div class="set-panel ns-tend" data-panel="tend">
+      <div class="sec"><span>Season</span></div>
+      <div class="data-warn">
+        Water intervals are summer baselines. TEND stretches them through autumn
+        and winter off one growth curve — this dial is how hard. The curve, the
+        season names and the feeding cut-off are under <strong>content</strong>.
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label class="lbl">Season adjustment</label><span class="slider-val" id="seasonVal">100%</span></div>
+        <input type="range" class="sl" id="f-season" min="0" max="200" step="5" aria-label="season adjustment">
+      </div>
+      <div class="td-status" id="seasonNote"></div>
+      <div class="curve" id="curve"></div>
+      <div class="curveX" id="curveX"></div>
+      <div class="data-warn" style="margin-top:8px">Bar height is how far intervals stretch that month. At 0% every month is treated like summer.</div>
+
+      <div class="sec"><span>The round</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show as coming up<small>fraction of the interval elapsed (0.75 = last quarter)</small></span>
+        <input type="number" inputmode="decimal" min="0.3" max="1" step="0.05" data-cfg="tend.round" data-sub="soonAt" aria-label="coming up threshold">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Flag as overdue after<small>days late before a task turns red</small></span>
+        <input type="number" inputmode="numeric" min="0" max="60" step="1" data-cfg="tend.round" data-sub="overdueAfter" aria-label="overdue after days">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Coming-up list<small>how many upcoming tasks to show</small></span>
+        <input type="number" inputmode="numeric" min="0" max="30" step="1" data-cfg="tend.round" data-sub="soonCount" aria-label="coming up count">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Undo window<small>seconds the undo pill stays after a tick</small></span>
+        <input type="number" inputmode="numeric" min="1" max="60" step="1" data-cfg="tend.round" data-sub="undoSec" aria-label="undo seconds">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">History on a plant<small>entries shown in the detail sheet</small></span>
+        <input type="number" inputmode="numeric" min="1" max="100" step="1" data-cfg="tend.round" data-sub="historyCount" aria-label="history entries">
+      </div>
+
+      <div class="sec"><span>Shelf</span></div>
+      <div class="opt-set">
+        <label class="lbl">Default sort</label>
+        <div class="chips">
+          <button class="chip" data-act="sortdef" data-s="room">by room</button>
+          <button class="chip" data-act="sortdef" data-s="thirst">by thirst</button>
+          <button class="chip" data-act="sortdef" data-s="type">by type</button>
+        </div>
+      </div>
+
+      <div class="sec"><span>New plant defaults</span></div>
+      <div class="f">
+        <label class="lbl">Type</label>
+        <select id="np-group" data-cfg="tend.newPlant" data-sub="group" aria-label="default type"></select>
+      </div>
+      <div class="ed-pair">
+        <div><label class="lbl">water every (days)</label><input type="number" min="1" max="120" data-cfg="tend.newPlant" data-sub="water" aria-label="default water interval"></div>
+        <div><label class="lbl">feed every (days)</label><input type="number" min="0" max="180" data-cfg="tend.newPlant" data-sub="feed" aria-label="default feed interval"></div>
+      </div>
+      <div class="ed-pair">
+        <div><label class="lbl">repot every (months)</label><input type="number" min="0" max="60" data-cfg="tend.newPlant" data-sub="repot" aria-label="default repot interval"></div>
+        <div><label class="lbl">glyph</label><input type="text" maxlength="2" data-cfg="tend.newPlant" data-sub="glyph" aria-label="default glyph"></div>
+      </div>
+
+      <div class="sec"><span>Backup</span></div>
+      <div class="data-warn">TEND's own format — the plants and their full care history, readable by the standalone app too. The ROOT backup under <strong>data</strong> carries it as well.</div>
+      <div class="td-acts">
+        <button class="setting-btn" data-act="copy">copy</button>
+        <button class="setting-btn" data-act="download">download .json</button>
+      </div>
+      <div class="f" style="margin-top:10px"><textarea id="import-box" class="imp-box" placeholder="paste a backup here…" spellcheck="false"></textarea></div>
+      <div class="td-acts">
+        <button class="setting-btn file-btn">pick file<input type="file" id="f-file" accept=".json,application/json" aria-label="pick a backup file"></button>
+        <button class="setting-btn" data-act="import">import</button>
+      </div>
+
+      <div class="sec"><span>Reset</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset to starter plants<small>the shipped list, no history</small></span>
+        <button class="setting-btn danger" data-act="reseed">reset</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Delete every plant<small>and the whole care history</small></span>
+        <button class="setting-btn danger" data-act="wipe">delete</button>
+      </div>
+    </div>
+
+    <!-- ── TRACK ── -->
+    <div class="set-panel ns-track" data-panel="track">
+      <div class="sec"><span>Dates</span></div>
+      <div class="setRow">
+        <div class="sl">Plan start<s>where the trajectory begins</s></div>
+        <input type="date" id="setStart" aria-label="plan start">
+      </div>
+      <div class="setRow">
+        <div class="sl">Exam<s>CAP Électricien, mid-May</s></div>
+        <input type="date" id="setExam" aria-label="exam date">
+      </div>
+      <div class="setRow">
+        <div class="sl">Internship starts<s>throughput drops from here</s></div>
+        <input type="date" id="setStageStart" aria-label="internship start">
+      </div>
+      <div class="setRow">
+        <div class="sl">Internship ends<s>Jan–June, or 3 months minimum</s></div>
+        <input type="date" id="setStageEnd" aria-label="internship end">
+      </div>
+      <div class="setRow">
+        <div class="sl">Revision buffer<s>weeks of pure revision before the exam</s></div>
+        <input type="number" id="setRev" min="0" max="16" step="1" aria-label="revision weeks">
+      </div>
+      <div class="setRow">
+        <div class="sl">Applications lead<s>weeks before the start you must apply</s></div>
+        <input type="number" id="setLead" min="0" max="30" step="1" aria-label="application lead weeks">
+      </div>
+      <div class="setRow">
+        <div class="sl">Pace while working<s>fraction of your current pace</s></div>
+        <div class="rangeWrap"><input type="range" class="sl" id="setFactor" min="0" max="100" step="5" aria-label="pace while working"><b id="setFactorV">40%</b></div>
+      </div>
+
+      <div class="sec"><span>Projection</span></div>
+      <div class="setRow">
+        <div class="sl">Pace window<s>weeks of ticks the pace is averaged over</s></div>
+        <input type="number" min="1" max="26" step="1" data-cfg="track.pace" data-sub="window" aria-label="pace window weeks">
+      </div>
+      <div class="setRow">
+        <div class="sl">Next up<s>topics listed under "next up"</s></div>
+        <input type="number" min="1" max="12" step="1" data-cfg="track.pace" data-sub="nextCount" aria-label="next up count">
+      </div>
+
+      <div class="sec"><span>Backup</span></div>
+      <div class="data-warn">TRACK's own format — every tick with its date, plus the dates above. The ROOT backup under <strong>data</strong> carries it as well.</div>
+      <div class="btnRow">
+        <button class="btn btn-2" onclick="TRACK.exportData()">export</button>
+        <button class="btn btn-2" onclick="TRACK.pickImport()">import</button>
+        <input type="file" id="fileIn" accept=".json,application/json" class="hidden" onchange="TRACK.importData(event)">
+      </div>
+
+      <div class="sec"><span>Reset</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset all data<small>every tick and every date</small></span>
+        <button class="setting-btn danger" onclick="TRACK.resetAll()">reset</button>
+      </div>
+    </div>
+
+    <!-- ── LEARN ── -->
+    <div class="set-panel ns-learn" data-panel="learn">
+      <div class="sec"><span>Study</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Shuffle cards<small>randomise the order each session</small></span>
+        <button class="tog" id="set-shuffle" onclick="LEARN.toggleShuffle()" role="switch" aria-checked="true" aria-label="shuffle cards"></button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Cards per session<small>0 = the whole deck</small></span>
+        <input type="number" inputmode="numeric" min="0" max="500" step="1" data-cfg="learn.study" data-sub="sessionCap" aria-label="cards per session">
+      </div>
+      <div class="slider-row">
+        <div class="slider-head"><label class="lbl">Card text size</label><span class="slider-val" id="learn-scale-val">100%</span></div>
+        <input type="range" class="sl" min="0.7" max="1.6" step="0.05" data-cfg="learn.study" data-sub="cardScale" aria-label="card text size">
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show the back first<small>answer with the front instead</small></span>
+        <button class="tog" data-cfg-toggle="learn.study.flip" role="switch" aria-checked="false" aria-label="show the back first"></button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show tags under the card</span>
+        <button class="tog" data-cfg-toggle="learn.study.showTags" role="switch" aria-checked="false" aria-label="show tags"></button>
+      </div>
+      <div class="set-note">The four rating names are under <strong>content</strong>.</div>
+
+      <div class="sec"><span>Decks</span></div>
+      <div id="learn-stats"></div>
+      <div class="data-warn">
+        Decks, cards and media live in this browser's IndexedDB, not in
+        localStorage — so they are <strong>not in the ROOT backup file</strong>.
+        A new device needs the .apkg imported again; ratings do not travel.
+      </div>
+
+      <div class="sec"><span>Data</span></div>
+      <button class="btn btn-2" onclick="LEARN.resetAllProgress()">Reset all ratings</button>
+      <button class="btn btn-danger" onclick="LEARN.wipeAll()">Delete all decks</button>
+
+      <div class="sec"><span>About</span></div>
+      <div class="about">
+        <em>Learn</em> imports your <em>.apkg</em> decks for on-the-go study. The
+        three libraries it needs to unpack one are fetched the first time you
+        import, and never otherwise. Rate each card from the lowest name to
+        <em>acquired</em>; the scoreboard tells you what to drill next. Nothing
+        syncs back to desktop Anki.
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -987,20 +1383,32 @@
   <svg aria-hidden="true"><use href="#ico-chev-r"/></svg>
 </button>
 
+<!-- One button per app, addressed by data-app. The shell orders them (and the
+     slides) from Settings → layout → "apps in the bar", and hides the ones
+     switched off, so the order here is only the shipped default. -->
 <nav id="nav" role="tablist" aria-label="Apps">
-  <button class="tab-b" role="tab" aria-selected="false" aria-label="DO">
+  <button class="tab-b" data-app="do" role="tab" aria-selected="false" aria-label="DO">
     <svg aria-hidden="true"><use href="#tab-do"/></svg><span class="tb-l">do</span>
   </button>
-  <button class="tab-b" role="tab" aria-selected="false" aria-label="LOG">
+  <button class="tab-b" data-app="log" role="tab" aria-selected="false" aria-label="LOG">
     <svg aria-hidden="true"><use href="#tab-log"/></svg><span class="tb-l">log</span>
   </button>
-  <button class="tab-b" role="tab" aria-selected="false" aria-label="PLAN">
+  <button class="tab-b" data-app="plan" role="tab" aria-selected="false" aria-label="PLAN">
     <svg aria-hidden="true"><use href="#tab-plan"/></svg><span class="tb-l">plan</span>
   </button>
-  <button class="tab-b" role="tab" aria-selected="false" aria-label="STORE">
+  <button class="tab-b" data-app="store" role="tab" aria-selected="false" aria-label="STORE">
     <svg aria-hidden="true"><use href="#tab-store"/></svg><span class="tb-l">store</span>
   </button>
-  <button class="tab-b" role="tab" aria-selected="false" aria-label="Settings">
+  <button class="tab-b" data-app="tend" role="tab" aria-selected="false" aria-label="TEND">
+    <svg aria-hidden="true"><use href="#tab-tend"/></svg><span class="tb-l">tend</span>
+  </button>
+  <button class="tab-b" data-app="track" role="tab" aria-selected="false" aria-label="TRACK">
+    <svg aria-hidden="true"><use href="#tab-track"/></svg><span class="tb-l">track</span>
+  </button>
+  <button class="tab-b" data-app="learn" role="tab" aria-selected="false" aria-label="LEARN">
+    <svg aria-hidden="true"><use href="#tab-learn"/></svg><span class="tb-l">learn</span>
+  </button>
+  <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
   </button>
 </nav>
@@ -1126,8 +1534,43 @@
 
 </div>
 
+<!-- TEND — detail and editor sheets, and the undo pill -->
+<div class="ns-tend">
+  <div class="sheet-back" id="detail-back" data-act="close-detail"></div>
+  <div class="sheet" id="sheet-detail"><div class="grab"></div><div id="detail-body"></div></div>
+
+  <div class="sheet-back" id="edit-back" data-act="close-edit"></div>
+  <div class="sheet" id="sheet-edit">
+    <div class="grab"></div>
+    <h3 id="edit-title">edit plant</h3>
+    <div class="field"><label>name</label><input id="f-name" type="text" placeholder="kitchen basil" autocomplete="off"></div>
+    <div class="field"><label>species</label><input id="f-species" type="text" placeholder="ocimum basilicum" autocomplete="off"></div>
+    <div class="row2">
+      <div class="field"><label>room</label><input id="f-room" type="text" list="tend-roomlist" placeholder="kitchen" autocomplete="off">
+        <datalist id="tend-roomlist"></datalist></div>
+      <div class="field"><label>glyph</label><input id="f-glyph" type="text" maxlength="2" placeholder="🌿"></div>
+    </div>
+    <div class="field"><label>type</label><select id="f-group"></select>
+      <div class="fieldNote" id="groupNote"></div></div>
+    <div class="row2">
+      <div class="field"><label>water every (summer days)</label><input id="f-water" type="number" inputmode="numeric" min="1" max="120"></div>
+      <div class="field"><label>feed every (days, 0 = never)</label><input id="f-feed" type="number" inputmode="numeric" min="0" max="180"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>repot every (months, 0 = never)</label><input id="f-repot" type="number" inputmode="numeric" min="0" max="60"></div>
+      <div class="field"><label>last watered</label><input id="f-last" type="date"></div>
+    </div>
+    <div class="field"><label>notes</label><textarea id="f-notes" placeholder="south window, drops leaves if it dries out…"></textarea></div>
+    <div class="acts"><button class="btn" data-act="close-edit">cancel</button><button class="btn primary" data-act="save-edit">save</button></div>
+    <div class="acts hidden" id="delete-row" style="margin-top:9px"><button class="btn danger" data-act="delete-plant">delete plant</button></div>
+    <p class="hint">Water intervals are <b>summer baselines</b>. TEND stretches them automatically through autumn and winter — you never need to edit them for the season.</p>
+  </div>
+
+  <div class="undo" id="undo"><span id="undo-txt"></span><button data-act="undo">undo</button></div>
+</div>
+
 <!-- Order is load-bearing:
-     config  the content the four apps render, before any of them reads it
+     config  the content the apps render, before any of them reads it
      shell   defines Creds and Shell.toast, which the modules use while booting
      apps    each registers itself with Shell and subscribes to Config
      settings owns the settings view and needs every module to exist first
@@ -1138,6 +1581,9 @@
 <script src="js/log.js"></script>
 <script src="js/plan.js"></script>
 <script src="js/store.js"></script>
+<script src="js/tend.js"></script>
+<script src="js/track.js"></script>
+<script src="js/learn.js"></script>
 <script src="js/settings.js"></script>
 </body>
 </html>

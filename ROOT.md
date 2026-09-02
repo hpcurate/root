@@ -8,10 +8,11 @@
 
 ## 1. What ROOT is
 
-Four small single-purpose tools that share one phone, one frame and one set of
+Seven small single-purpose tools that share one phone, one frame and one set of
 storage keys. It is a static site — no build step, no framework, no dependencies,
-no network except the Todoist calls you explicitly ask for. Open `index.html`
-over http(s) and it runs.
+no network except the Todoist calls you explicitly ask for (and, only when you
+import an Anki deck, the three libraries LEARN needs to unpack it). Open
+`index.html` over http(s) and it runs.
 
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
@@ -19,7 +20,13 @@ over http(s) and it runs.
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter, premade meals, trip history. |
-| **Settings** | Nine panels: the whole appearance engine, behaviour, and editors for all four apps' content. |
+| **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
+| **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
+| **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
+| **Settings** | Twelve panels: the whole appearance engine, behaviour, editors for every app's content, and one panel per app. |
+
+Which of the seven get a tab, and in what order, is itself a setting
+(layout → apps in the bar). Settings is always last.
 
 ### The vision (2.0)
 
@@ -61,7 +68,7 @@ Two rules that fall out of the vision, and that every future change must respect
 ```
 root/
 ├── ROOT.md            this file — read first, update last
-├── index.html         all markup for all five views + the icon sprite
+├── index.html         all markup for all eight views + the icon sprite
 ├── favicon.png
 ├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
 ├── test/
@@ -71,16 +78,19 @@ root/
 │   ├── tokens.css     the token system + every global consequence of a dial
 │   ├── themes.css     15 presets, depth ramps, card treatments, nav variants
 │   ├── do.css         ┐
-│   ├── log.css        │ per-app sheets, each scoped to its .ns-* namespace
-│   ├── plan.css       │
-│   ├── store.css      ┘
+│   ├── log.css        │
+│   ├── plan.css       │ per-app sheets, each scoped to its .ns-* namespace
+│   ├── store.css      │
+│   ├── tend.css       │
+│   ├── track.css      │
+│   ├── learn.css      ┘
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
     ├── prefs.js       appearance + behaviour engine   (loaded from <head>)
     ├── config.js      the content layer
     ├── shell.js       Creds, Shell, the slide track, swipe, keyboard
-    ├── do.js  log.js  plan.js  store.js
+    ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js
     └── settings.js    the settings view
 ```
 
@@ -88,12 +98,17 @@ root/
 
 ```
 <head>   prefs.js          stamps the look on <html> before the first paint
-         tokens.css → do → log → plan → store → shell → settings → themes.css
+         tokens.css → do → log → plan → store → tend → track → learn
+                    → shell → settings → themes.css
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
-         do / log / plan / store
+         do / log / plan / store / tend / track / learn
          settings.js       needs every module to exist to render its panels
 ```
+
+LEARN's three libraries (JSZip, sql.js, fzstd) are **not** in this list. They
+are injected by `LEARN.ensureLibs()` the first time an `.apkg` import starts,
+and never otherwise — ROOT stays a no-dependency page until you bring a deck in.
 
 `themes.css` is last so its `[data-theme]` overrides beat the app sheets on equal
 specificity. `settings.css` is after `shell.css` for the same reason.
@@ -104,18 +119,22 @@ specificity. `settings.css` is after `shell.css` for the same reason.
 
 ### Namespacing
 
-Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE`, and
-each does its DOM lookups through a scoped helper:
+Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE` /
+`TEND` / `TRACK` / `LEARN`, and each does its DOM lookups through a scoped
+helper:
 
 ```js
 const SCOPE = '.ns-do ';
 const $id = id => document.querySelector(SCOPE + '#' + id);
 ```
 
-All four apps use ids like `#s-home` and `#td-project`. The `.ns-*` prefix is
+All seven apps use ids like `#s-home` and `#td-project`. The `.ns-*` prefix is
 what keeps them from colliding. **Never query the document unscoped from inside
 an app module.** Inline `onclick` handlers therefore read `DO.go(...)`, not
-`go(...)`.
+`go(...)`. TEND has no inline handlers at all: every button carries `data-act`
+and one document-level listener, filtered on `.closest('.ns-tend')`, dispatches
+— its markup is in three places (the slide, the overlays, the settings panel)
+and that is the one listener that reaches all of them.
 
 Any *user-editable* value that is interpolated into an inline handler —
 `onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
@@ -145,11 +164,22 @@ settings panel and is kept in the address bar as you switch panels.
 
 ### The slide track
 
-`#track` is a five-slide flexbox moved with a transform. Each `.view` is its own
-scroll container, so every tab remembers where you left it. **Nothing
-`position:fixed` may live inside `#track`** — a transformed ancestor becomes the
-containing block for fixed descendants. The toast, the nav, the LOG modal and all
-the sheets are siblings of `#views` for exactly that reason.
+`#track` is a flexbox of up to eight slides moved with a transform. Each `.view`
+is its own scroll container, so every tab remembers where you left it.
+**Nothing `position:fixed` may live inside `#track`** — a transformed ancestor
+becomes the containing block for fixed descendants. The toast, the nav, the LOG
+modal, TEND's sheets and undo pill, and all the STORE sheets are siblings of
+`#views` for exactly that reason.
+
+**Which slides exist, and in what order, is `Prefs.apps`.** `Shell.rebuild()`
+reads it, re-orders the `.view` sections inside `#track` and the `.tab-b`
+buttons inside `#nav` to match (each is addressed by `id="view-x"` /
+`data-app="x"`, never by position), hides the ones switched off, and appends
+settings. `Shell.TABS` is mutated in place so the reference stays live. A hidden
+view is `display:none`, so the percentage transform still counts only visible
+slides. With seven or more tabs Prefs sets `data-tabs="many"` on `<html>` and
+`shell.css` widens the pill, tightens the labels and hides the arrows. Keyboard
+`1`–`9` jump by position in the current order.
 
 ### Prefs — the appearance engine
 
@@ -271,6 +301,9 @@ versions still work off the same data.
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
+| `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
+| `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
+| `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_tab` | shell | last tab, so a reload lands where you left |
 | `root_theme` | shell | legacy; kept in step with the active theme for the standalone apps |
@@ -278,7 +311,9 @@ versions still work off the same data.
 | **`root_config_v1`** | Config | content **overrides only** — absent on an untouched install |
 
 Export writes **every** key on the origin, unfiltered. A backup that silently
-drops a key is worse than one carrying a few bytes too many.
+drops a key is worse than one carrying a few bytes too many. It cannot carry
+LEARN's decks, which are in IndexedDB; the data panel and the storage report
+both say so, and a new device needs the `.apkg` imported again.
 
 ---
 
@@ -340,10 +375,34 @@ drops a key is worse than one carrying a few bytes too many.
   do the same.
 - **DO's Todoist name map is built per call**, not at boot (`tdRoutineBySlug()`),
   because routines are editable. Do not cache it.
-- **A sheet owns the keyboard.** The shell's shortcuts (`←` `→` `1–5` `/`) are
+- **A sheet owns the keyboard.** The shell's shortcuts (`←` `→` `1–9` `/`) are
   suppressed while any `.sheet-back.on` or visible `.modal-overlay` exists, and
   Escape closes it by clicking its own backdrop/cancel button. A new overlay
-  that does not use `.sheet-back` gets neither for free.
+  that does not use `.sheet-back` gets neither for free. TEND's two sheets use
+  it, which is why they get both.
+- **`data-sub` saves the whole branch it names, and must name the branch the
+  module reads.** An override is stored whole-branch, so a field pointed at
+  `log.curate.mix` with `sub=label` overrode `log.curate` with a one-slot
+  fragment and the other two counters vanished from the evening form. Point it
+  at `log.curate` with `sub=mix.label` (dotted subs are walked). Number and
+  range inputs store numbers.
+- **`tend.tasks` has three fixed keys and `track.curriculum` has fixed ids.**
+  The care log is filed under water / feed / repot and the ticks under
+  `t01`…`t54`; labels are free, identities are not. There is deliberately no
+  curriculum editor — renumbering would orphan every tick.
+- **A plant's `group` can name a type that no longer exists.** The editor lets
+  you delete a type; TEND falls back to the default type (`tend.newPlant.group`)
+  for the season maths and lists the plant under "other" on the shelf. Do not
+  "fix" the plant's key on read — the type may come back.
+- **LEARN without IndexedDB.** jsdom, some private modes and some managed
+  browsers have none. `db()` rejects, `renderHome()` says so on the home screen,
+  and nothing throws. Keep it that way: the harness boots without it.
+- **TEND's `.tabs` are two fixed chips** and do not overflow. If they ever
+  become Config-driven they need the same `touch-action:pan-x pan-y` and
+  scroll treatment DO's strip got in 2.0.1.
+- **The app list can hide the app you are on.** `Shell.rebuild()` is followed
+  by `go()` to the same app if it is still shown, else to the first one, so no
+  transform ever points at a hidden slide.
 
 ---
 
@@ -363,14 +422,21 @@ relevant panel, and add the rule that makes it real.
 `Config.get()`, add a `Config.subscribe()` that re-reads and re-renders, and add
 an `EDITORS` entry plus its path in `EDITOR_ORDER`.
 
-**Add an app tab** — a `<section class="view ns-x">` in `index.html`, a
-`css/x.css` scoped to `.ns-x`, a module that calls `Shell.register('x', …)`, and
-`'x'` in `Shell.TABS`, the nav markup, and `Prefs.SCHEMA.startTab.values`.
+**Add an app tab** — a `<section class="view ns-x" id="view-x">` in
+`index.html`, a `css/x.css` scoped to `.ns-x`, a module that calls
+`Shell.register('x', …)`, a `.tab-b` with `data-app="x"` in the nav (plus a
+sprite symbol), `'x'` in `Prefs.APPS`, a `data-panel="x"` settings panel and
+its `seg-b`, `'x'` in `SET.PANELS` and `RENDERERS`, and a `GROUPS` row for its
+storage keys. `startTab`, the app list and the shell's TABS all follow
+`Prefs.APPS`. Use the `card` class on the app's raised surfaces so the depth
+ramp and the card treatments reach them without a new class list in
+`themes.css`.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 35 checks covering boot, every theme and panel, and the
-behaviour fixed in 2.1. Run it before trusting any change:
+through DOM events: 63 checks covering boot, every theme and panel, the
+behaviour fixed in 2.1 and the three apps added in 2.2. Run it before trusting
+any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -386,6 +452,86 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.2 — 2026-09-02 — TEND, TRACK and LEARN join the track
+
+The three remaining standalone apps (`tend/`, `track/`, `learn/`) are in ROOT.
+Same method as 1.0 — a port, not a rewrite: each is one IIFE under its own
+`.ns-*` namespace, its storage keys untouched so the standalone copy keeps
+working off the same data. The difference from 1.0 is that 2.0's rules applied
+from the first line: every literal each app carried is a Config branch with an
+editor, every stylesheet was written against the tokens, and each app's
+settings screen became a settings panel.
+
+**Eight slides do not fit a five-tab pill.** Rather than cram them in, which
+apps have a tab and in what order is now a preference (`apps`, under layout →
+"apps in the bar": a switch and up/down per app). The shell builds `TABS`, the
+slide order and the nav from it — `Shell.rebuild()` re-orders the real DOM by
+`id="view-x"` / `data-app="x"`, so nothing anywhere depends on position any
+more: the tab click handlers, the colour-coded tabs in `themes.css` and the
+start-tab chips were all positional and are keyed by app now. With seven or
+more tabs Prefs stamps `data-tabs="many"` and the pill goes to the viewport
+width with tighter labels and no arrows (they would sit on top of it; swipe,
+tap and `1`–`9` cover the same ground). Six or fewer look exactly as before.
+
+**TEND.** Its sheets moved out of the track onto the frame's `.sheet-back` /
+`.sheet`, which is how they get Escape and the keyboard lock for free. The
+fixed "add plant" bar became a sticky one inside the slide, the toast is
+`Shell.toast`, the undo pill is a sibling of `#toast` at the same spot. Made
+editable: the plant types (with their seasonal weight and note), the three care
+tasks' names, the growth curve, the season names, the feeding cut-off, the
+round thresholds (when a task is "coming up", how late is red, list length,
+undo window, history depth), the new-plant defaults, and the shelf's default
+sort. The starter list is Config too, used on a first-ever install and by
+"reset to starter plants". Its date label follows the date-format preference.
+
+**TRACK.** The 54-topic curriculum, the phase names, the level word, the PSE
+row and the revision reminders are Config; the curriculum deliberately has no
+editor (the ticks are filed under its ids). The start date, which the
+standalone kept in state but never showed, is a setting now, alongside the
+exam, the internship, the buffer, the lead and the pace factor; the pace window
+and the "next up" count are new knobs. The chart's SVG text lost its hardcoded
+font-family and follows `--mono`. Hardcoded 12–16px radii are ratios of
+`--r-base`, so a "sharp" preset squares TRACK too.
+
+**LEARN.** JSZip, sql.js and fzstd are fetched the first time an import starts
+and never otherwise — ROOT stays dependency-free until you bring a deck in.
+The four rating names are Config; the session shape (cap, card text size,
+back-first, tags under the card) is Config and sits in the learn panel next to
+the shuffle flag, which stays in `learn_settings` for the standalone app. Where
+IndexedDB is missing the home screen says so instead of throwing. The data
+panel, the storage report and the learn panel all say the decks are not in the
+backup file, because they cannot be.
+
+**A latent 2.1 bug, fixed while porting.** The content editors for LOG's curate
+counters and scale endpoints pointed `data-cfg` at `log.curate.mix` with
+`data-sub="label"`. Overrides are whole-branch, so the first keystroke overrode
+`log.curate` with `{ mix: … }` and the other two counters vanished from the
+evening form until a reset. `data-sub` walks dotted paths now (`mix.label`
+against `log.curate`), the LOG editors use that shape, and TEND's task editor
+was written against it. Number and range inputs bound this way store numbers.
+
+**Smaller.** `Prefs` gained a `list` kind (known ids, deduplicated, never
+empty) and copies array defaults so a list pref never aliases the schema.
+`Prefs.reset()` goes through `defaultsOf()` for the same reason. A number field
+inside a `.setting-row` is a small right-hand box rather than the full-width
+form field. `data-numlist="all"` keeps zeros (the growth curve may have one);
+`data-lines` splits a textarea into a list. Twelve panels in the segmented
+control, which already scrolled. The manifest description names all seven.
+
+**Verified** — `test/harness.mjs`, 63 checks, all green: everything from 2.1,
+plus the three modules booting with no errors, the three panels, `5`/`7`
+jumping to TEND/LEARN, the app list re-ordering the track and hiding a tab and
+resetting, a plant saved through the real editor landing overdue on the round,
+ticked, undone, its detail sheet closed by Escape, a round threshold read from
+Config, a topic ticked into `capTracker.v2` under its id, the next-up count and
+a panel date setting, LEARN's no-IndexedDB path, rating names from Config, and
+no library `<script>` present without an import. **Not verified**: nothing has
+been seen in a browser. Specifically unchecked by eye: the eight-tab pill at
+phone width (the whole point of `data-tabs="many"`), TEND's sheets at 78vh with
+the long editor, TRACK's chart at the five radius presets, LEARN's card face at
+the scale extremes, and the three apps under the five light presets. An actual
+`.apkg` import has not been run through the lazy loader.
 
 ### 2.1 — 2026-09-01 — the audit: what 2.0 left dangling
 

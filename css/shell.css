@@ -91,6 +91,18 @@ body{
 .tab-b.on{color:var(--on-y)}
 .tab-b.on::before{transform:scale(1);opacity:1}
 
+/* Seven or more tabs (Prefs sets [data-tabs="many"] on <html> from the app
+   list) do not fit the pill at its phone width: it grows to the viewport, the
+   labels tighten, and the prev/next arrows — which would sit on top of it —
+   step out; swipe, tap and the keyboard still cover the same ground. On a
+   wide window the rail is vertical and none of this applies. */
+@media (max-width:879px){
+  [data-tabs="many"] #nav{width:calc(100vw - 24px);gap:1px;padding:5px 4px}
+  [data-tabs="many"] .tab-b .tb-l{font-size:6.5px;letter-spacing:.06em}
+  [data-tabs="many"] .tab-b svg{width:18px;height:18px}
+  [data-tabs="many"] .nav-arrow{display:none}
+}
+
 /* prev / next, bottom corners, flanking the pill */
 .nav-arrow{
   position:fixed;z-index:59;
@@ -193,7 +205,16 @@ body{
   .ns-do .card:hover,.ns-log .card:hover,.ns-store .card:hover,
   .ns-store .cat-card:hover,.ns-do .tv-list-card:hover,
   .ns-store .hist-card:hover,.ns-plan .proj-tile:hover,
-  .ns-plan .q-item:hover{border-color:var(--mu)}
+  .ns-plan .q-item:hover,
+  .ns-tend .task:hover,.ns-tend .row:hover,.ns-tend .soon:hover,
+  .ns-track .lvlHead:hover .ln,.ns-learn .deck:hover{border-color:var(--mu)}
+  .ns-tend .tab:hover,.ns-tend .sortBtn:hover,.ns-tend .doAll:hover,.ns-tend .logBtn:hover,
+  .ns-tend .btn:hover,.ns-tend .add-btn:hover,.ns-learn .ans:hover,.ns-learn .reveal-btn:hover,
+  .ns-learn .btn-ghost:hover{border-color:var(--mu)}
+  .ns-track .row:hover .t{color:var(--tx)}
+  .ns-track .when:hover{color:var(--y)}
+  .ns-learn .btn:hover{opacity:.9}
+  .ns-learn .hd-back:hover,.ns-learn .hd-action:hover{color:var(--y)}
   .ns-do .item-btn:hover,.ns-do .tv-item:hover,.ns-do .tv-cat-row:hover,
   .ns-log .sc-b:hover,.ns-log .meal-b:hover,.ns-log .wo4-b:hover,
   .ns-log .blk-b:hover,.ns-log .cs-tog-b:hover,.ns-log .caf-b:hover,

@@ -73,7 +73,7 @@ check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3)
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
 check('all themes apply', d.documentElement.dataset.theme === 'noir');
 w.Prefs.set('theme', 'void');
-for (const p of ['look','layout','behave','content','do','log','plan','store','data']) w.SET.panel(p);
+for (const p of ['look','layout','behave','content','do','log','plan','store','tend','track','learn','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 // ── 2. settings routing ─────────────────────────────────────────────────────
@@ -244,6 +244,89 @@ const sel = $('.ns-set select[data-cfg="log.streakRequires"]');
 if (sel) { sel.value = 'evening'; sel.dispatchEvent(new w.Event('change', { bubbles: true })); }
 check('streak rule select commits to Config', w.Config.get('log.streakRequires') === 'evening', sel ? 'got ' + w.Config.get('log.streakRequires') : 'no select rendered');
 w.Config.reset('log.streakRequires');
+
+// ── 15. 2.2 — three more apps in the track ─────────────────────────────────
+check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
+check('eight tabs, settings last', w.Shell.TABS.length === 8 && w.Shell.TABS[7] === 'settings', w.Shell.TABS.join(','));
+check('seven-plus tabs flag the pill as "many"', d.documentElement.dataset.tabs === 'many');
+errors.length = 0;
+for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
+check('the three new settings panels render', errors.length === 0, errors.slice(0, 3).join(' | '));
+w.Shell.go('do');
+key('5'); check('key 5 jumps to TEND', $('.tab-b.on')?.dataset.app === 'tend', $('.tab-b.on')?.dataset.app);
+key('7'); check('key 7 jumps to LEARN', $('.tab-b.on')?.dataset.app === 'learn', $('.tab-b.on')?.dataset.app);
+
+// the app list: order + visibility
+w.Prefs.set('apps', ['track', 'do']);
+check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settings' &&
+  $('#track .view:not(.hidden)')?.id === 'view-track' && d.documentElement.dataset.tabs === 'few',
+  w.Shell.TABS.join(',') + ' | first visible ' + $('#track .view:not(.hidden)')?.id);
+check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
+check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
+w.Prefs.reset('apps');
+check('reset restores all eight in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,settings', w.Shell.TABS.join(','));
+w.Prefs.set('colorfulTabs', true);
+check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
+w.Prefs.set('colorfulTabs', false);
+
+// ── 16. TEND ────────────────────────────────────────────────────────────────
+w.Shell.go('tend');
+w.TEND.openEditor();
+check('editor sheet opens', $('.ns-tend #sheet-edit').classList.contains('on'));
+$('.ns-tend #f-name').value = 'Test fern'; $('.ns-tend #f-water').value = '1'; $('.ns-tend #f-last').value = offset(-3);
+click($('.ns-tend [data-act="save-edit"]'));
+const tendDB = () => JSON.parse(w.localStorage.getItem('tend.v3'));
+const fern = tendDB().plants.find(p => p.name === 'Test fern');
+check('a plant saves into tend.v3 with a water event', !!fern && tendDB().events.some(e => e.plant === fern.id && e.type === 'water'));
+const fernTask = [...d.querySelectorAll('.ns-tend .task')].find(t => t.textContent.includes('Test fern'));
+check('an overdue plant is on the round', !!fernTask && /overdue/.test(fernTask.textContent), fernTask?.textContent);
+click(fernTask);
+check('ticking logs a watering today and offers undo', tendDB().events.some(e => e.plant === fern.id && e.date === today) &&
+  $('.ns-tend #undo').classList.contains('on'));
+click($('.ns-tend #undo button'));
+check('undo removes it again', !tendDB().events.some(e => e.plant === fern.id && e.date === today));
+w.TEND.openDetail(fern.id);
+key('Escape');
+check('Escape closes the TEND detail sheet', !$('.ns-tend #sheet-detail').classList.contains('on'));
+w.Config.set('tend.round', Object.assign(w.Config.get('tend.round'), { soonAt: 0.5 }));
+check('round thresholds come from Config', w.TEND.status(fern, 'water').state === 'due');
+w.Config.reset('tend.round');
+w.Prefs.set('dateFormat', 'iso');
+check('TEND date label follows the date format', $('.ns-tend #date-label').textContent === today);
+w.Prefs.set('dateFormat', 'long');
+
+// nested data-sub: renaming one curate slot must keep the other two
+w.SET.panel('content');
+const cur = $('.ns-set input[data-cfg="log.curate"][data-sub="mix.label"]');
+if (cur) { cur.value = 'mx'; cur.dispatchEvent(new w.Event('input', { bubbles: true })); }
+check('editing one curate label keeps the other slots', cur && w.Config.get('log.curate').mix.label === 'mx' &&
+  !!w.Config.get('log.curate').prod && !!w.Config.get('log.curate').cont, JSON.stringify(w.Config.get('log.curate')));
+w.Config.reset('log.curate');
+
+// ── 17. TRACK ───────────────────────────────────────────────────────────────
+w.Shell.go('track');
+w.localStorage.removeItem('capTracker.v2');
+click($('.ns-track #levels .row[data-id]'));
+const cap = JSON.parse(w.localStorage.getItem('capTracker.v2'));
+check('ticking a topic files it under its id with today', cap.done.t01 === today, JSON.stringify(cap.done));
+check('hero count follows', $('.ns-track #cum').textContent === '1' && $('.ns-track #totalOf').textContent === '/54');
+w.Config.set('track.pace', { window: 2, nextCount: 1 });
+check('next-up count comes from Config', d.querySelectorAll('.ns-track #next .nextRow').length === 1);
+w.Config.reset('track.pace');
+$('.ns-track #setRev').value = '6'; $('.ns-track #setRev').dispatchEvent(new w.Event('change', { bubbles: true }));
+check('a date setting in the panel saves', JSON.parse(w.localStorage.getItem('capTracker.v2')).revisionWeeks === 6);
+w.localStorage.removeItem('capTracker.v2');
+
+// ── 18. LEARN ───────────────────────────────────────────────────────────────
+await tick();
+check('LEARN says so instead of throwing where IndexedDB is missing', /cannot be stored/i.test($('.ns-learn #deck-list').textContent),
+  $('.ns-learn #deck-list').textContent.slice(0, 60));
+check('answer row is built from the rating names', d.querySelectorAll('.ns-learn #answer-row .ans').length === 4 &&
+  $('.ns-learn #answer-row .ans.easy .ans-l').textContent === 'acquired');
+w.Config.set('learn.ratings', ['a', 'b', 'c', 'known']);
+check('rating names follow Config', $('.ns-learn #answer-row .ans.easy .ans-l').textContent === 'known');
+w.Config.reset('learn.ratings');
+check('no library script was loaded without an import', !d.querySelector('script[src*="jszip"]'));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
