@@ -516,9 +516,14 @@ foreground colour at nothing done to green at everything done
 (`color-mix(--gr N%, --tx)`, inline). The foreground rather than white so a
 light theme's white card still shows the bar.
 
+**Done tiles.** The small check box in the tile's corner sat on the text. Gone:
+a finished tile fades its text back into the surface and draws one large tick
+across the whole tile in the label's colour. CSS only; the markup and the
+harness are unchanged.
+
 **Verified** — `test/harness.mjs`, 111 checks, all green, including the
 hide-done toggle both ways and the tinted bar. **Not verified**: the tint on
-a light theme.
+a light theme, and the full-tile tick.
 
 ### 2.6 — 2026-09-02 — DO's home, arranged
 

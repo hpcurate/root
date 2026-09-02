@@ -199,13 +199,15 @@
 .ns-do .bk:active{opacity:.85}
 .ns-do .bk-tag{font:700 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--bk-c)}
 .ns-do .bk-name{font:400 11px/1.4 var(--mono);overflow-wrap:anywhere}
-.ns-do .bk-check{position:absolute;top:8px;right:9px;width:16px;height:16px;border-radius:var(--r1);
-  border:1.5px solid var(--bk-c);display:flex;align-items:center;justify-content:center;color:transparent;transition:all var(--dur-1)}
-.ns-do .bk-check svg{width:9px;height:9px}
-.ns-do .bk.done{background:var(--bk-c);color:#0e0e0e}
-.ns-do .bk.done .bk-tag{color:#0e0e0e;opacity:.7}
-.ns-do .bk.done .bk-name{text-decoration:line-through;text-decoration-color:rgba(0,0,0,.4)}
-.ns-do .bk.done .bk-check{background:#0e0e0e;border-color:#0e0e0e;color:var(--bk-c)}
+/* done: no box in the corner (it sat on the text) — the tick is the whole
+   tile, drawn over text that has faded back into the surface */
+.ns-do .bk-check{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--bk-c);opacity:0;pointer-events:none;transition:opacity var(--dur-2) var(--ease)}
+.ns-do .bk-check svg{width:36px;height:36px}
+.ns-do .bk-tag,.ns-do .bk-name{transition:opacity var(--dur-2) var(--ease)}
+.ns-do .bk.done{background:color-mix(in srgb,var(--bk-c) 5%,var(--s1));border-color:color-mix(in srgb,var(--bk-c) 40%,transparent)}
+.ns-do .bk.done .bk-tag,.ns-do .bk.done .bk-name{opacity:.22}
+.ns-do .bk.done .bk-check{opacity:1}
 @media (min-width:560px){ .ns-do .bk-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))} }
 
 .ns-do .tt-empty{font:400 11px/1.6 var(--mono);color:var(--mu);text-align:center;
