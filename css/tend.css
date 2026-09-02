@@ -124,7 +124,7 @@
 
 /* ── add plant — sticky, parked above the floating pill like PLAN's send ── */
 .ns-tend .add-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:18px;
-  bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
+  bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 16px)}
 .ns-tend .add-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--tx);
   font:400 12px/1 var(--mono);letter-spacing:.1em;text-transform:lowercase;
   padding:calc(14px * var(--dens));border-radius:var(--r1);cursor:pointer;box-shadow:var(--shadow-lift)}
@@ -200,7 +200,7 @@
 
 /* ── undo pill — a sibling of #toast, same spot ── */
 .ns-tend .undo{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);
-  bottom:calc(var(--nav-fh) + var(--nav-gap) + 22px + env(safe-area-inset-bottom));
+  bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 22px);
   background:var(--s2);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
   padding:calc(9px * var(--dens)) calc(9px * var(--dens)) calc(9px * var(--dens)) calc(18px * var(--dens));
   display:flex;align-items:center;gap:calc(12px * var(--dens));

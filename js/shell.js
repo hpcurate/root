@@ -235,7 +235,6 @@ window.Shell = (function () {
       }
     });
     scrolls.forEach(([v, y]) => { if (y && v.scrollTop !== y) v.scrollTop = y; });
-    moveGlider(false);
   }
 
   /* The apps switched off in the bar. Their slides are still in the track,
@@ -321,11 +320,29 @@ window.Shell = (function () {
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
-  function setTransform(px, animate) {
-    track.classList.toggle('dragging', !animate);
-    track.style.transform = px === null
-      ? `translate3d(${-index * 100}%,0,0)`
-      : `translate3d(${px}px,0,0)`;
+  /* The slides are stacked, not side by side, and a tab change is a cross-fade
+     rather than a page slide: the slide for `index` takes .cur (opaque, and the
+     only one that takes a tap), the one it replaces keeps .leaving while it
+     fades out. The incoming slide also gets .morph for a beat, which is what
+     plays its title in — its wordmark on a home, or the header of whichever
+     sub-screen it was left on. With animate off (boot, and whenever TABS
+     changes shape underneath) the classes flip under #track.still, which is
+     dropped again once the change has been flushed. */
+  let curView = null, leaveTimer = null;
+  function show(animate) {
+    const next = viewOf(TABS[index]);
+    if (!next) return;
+    if (!animate) track.classList.add('still');
+    document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving'));
+    const changed = next !== curView;
+    if (curView && changed) { curView.classList.remove('cur'); if (animate) curView.classList.add('leaving'); }
+    next.classList.add('cur');
+    if (animate && changed) { next.classList.remove('morph'); void next.offsetWidth; next.classList.add('morph'); }
+    curView = next;
+    if (!animate) { void track.offsetWidth; track.classList.remove('still'); }
+    clearTimeout(leaveTimer);
+    leaveTimer = setTimeout(() =>
+      document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving')), 420);
   }
 
   /* The tab buttons and arrows follow TABS by name, never by a cached list:
@@ -349,36 +366,6 @@ window.Shell = (function () {
     }
     if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
     updateBack();
-    moveGlider(true);
-  }
-
-  /* ── The glider ─────────────────────────────────────────────────────────────
-     One filled shape behind the active tab, slid into place rather than faded
-     in and out per button — and stretched along the way, then snapped back,
-     which is what makes it read as liquid. Measured from the button, so it
-     follows the rail (vertical) as well as the pill. Its data-app is what the
-     colour-coded tabs key off. */
-  const glider = document.createElement('span');
-  glider.className = 'nav-glider';
-  navEl.prepend(glider);
-  let gliderPlaced = false, glideTimer = null;
-  function moveGlider(animate) {
-    const onT = !!transient && TABS[index] === transient;
-    const app = onT ? 'settings' : TABS[index];
-    const b = btnOf(app);
-    if (!b || b.classList.contains('hidden')) { glider.classList.remove('on'); return; }
-    let vertical = false;
-    try { vertical = getComputedStyle(navEl).flexDirection === 'column'; } catch {}
-    glider.dataset.app = onT ? transient : app;
-    const still = !animate || !gliderPlaced;
-    if (still) glider.style.transition = 'none';
-    if (vertical) { glider.style.width = ''; glider.style.height = b.offsetHeight + 'px'; glider.style.transform = `translateY(${b.offsetTop}px)`; }
-    else { glider.style.height = ''; glider.style.width = b.offsetWidth + 'px'; glider.style.transform = `translateX(${b.offsetLeft}px)`; }
-    glider.classList.add('on');
-    if (still) { void glider.offsetWidth; glider.style.transition = ''; gliderPlaced = true; return; }
-    glider.classList.remove('moving'); void glider.offsetWidth; glider.classList.add('moving');
-    clearTimeout(glideTimer);
-    glideTimer = setTimeout(() => glider.classList.remove('moving'), 460);
   }
 
   /* ── Back, on the left arrow ──────────────────────────────────────────────
@@ -414,21 +401,16 @@ window.Shell = (function () {
     if (wasHome && v) { if (typeof v.scrollTo === 'function') v.scrollTo({ top: 0, behavior: 'smooth' }); else v.scrollTop = 0; }
   }
 
-  /* Park the track on the current index with the transition off and flush
-     it, so the next go() animates from here rather than from wherever the
-     last transform left it. Used at boot and whenever TABS changes shape. */
-  function park() {
-    track.classList.add('dragging');
-    track.style.transform = `translate3d(${-index * 100}%,0,0)`;
-    void track.offsetWidth;
-  }
+  /* Show the slide for the current index with no transition. Used at boot and
+     whenever TABS changes shape under the current slide. */
+  function park() { show(false); }
 
   function go(name, opts = {}) {
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
     checkDay();
     index = i;
-    setTransform(null, true);
+    show(true);
     paintNav();
     // leaving an app opened from settings: take its slide out again once the move has played
     if (transient && TABS[i] !== transient) setTimeout(retire, 340);
@@ -526,10 +508,12 @@ window.Shell = (function () {
   document.querySelectorAll('.view-body').forEach(watchScroll);
 
   // ── Swipe ───────────────────────────────────────────────────────────────────
-  /* Horizontal drag moves the track live; vertical is left to the browser via
-     touch-action:pan-y. A gesture is refused outright when a sheet or modal is
-     up, and when it starts inside something that scrolls sideways itself (the
-     .md preview panes), where a swipe means "read the rest of this line". */
+  /* A horizontal drag picks the next or previous tab once it is far or fast
+     enough; the slide itself does not follow the finger, since a tab change
+     is a cross-fade. Vertical is left to the browser via touch-action:pan-y.
+     A gesture is refused outright when a sheet or modal is up, and when it
+     starts inside something that scrolls sideways itself (the .md preview
+     panes), where a swipe means "read the rest of this line". */
   const FLICK = 0.45;   // px/ms that commits regardless of distance
 
   let sx = 0, sy = 0, st = 0, dx = 0;
@@ -581,34 +565,26 @@ window.Shell = (function () {
       showChrome();
     }
     dx = mx;
-    // rubber-band at the two ends so the track never looks broken
-    if ((index === 0 && dx > 0) || (index === TABS.length - 1 && dx < 0)) dx *= 0.32;
-    setTransform(-index * viewport.clientWidth + dx, false);
   }, { passive: true });
 
+  /* The slide does not follow the finger any more — a tab change is a
+     cross-fade — so the drag only picks the next or previous tab once it is
+     far enough or fast enough, and does nothing at all otherwise. */
   function endDrag() {
     if (!tracking) return;
     tracking = false;
-    if (axis !== 'x') { setTransform(null, true); return; }
+    if (axis !== 'x') return;
     const w = viewport.clientWidth || 1;
     const speed = Math.abs(dx) / Math.max(1, Date.now() - st);
     const far = Math.abs(dx) > w * pref('swipeStrength', 0.22) || speed > FLICK;
     let next = index;
     if (far && dx < 0) next = Math.min(TABS.length - 1, index + 1);
     if (far && dx > 0) next = Math.max(0, index - 1);
-    if (next === index) setTransform(null, true);
-    else { if (window.Prefs) Prefs.tap(); go(next); }
+    if (next !== index) { if (window.Prefs) Prefs.tap(); go(next); }
     dx = 0; axis = null;
   }
   track.addEventListener('touchend', endDrag, { passive: true });
   track.addEventListener('touchcancel', endDrag, { passive: true });
-
-  // A percentage transform re-resolves against the new width on its own; this
-  // only matters if the window is resized mid-drag. The glider is measured in
-  // px, so it is re-measured — and again once fonts and labels have settled.
-  window.addEventListener('resize', () => { if (!tracking) setTransform(null, false); moveGlider(false); });
-  window.addEventListener('load', () => moveGlider(false));
-  if (window.Prefs) Prefs.subscribe(() => requestAnimationFrame(() => moveGlider(false)));
 
   /* #do … #settings select a tab; #settings/<panel> lands on one panel. */
   function hashTarget() {

@@ -97,7 +97,9 @@
 
   /* ── Shell metrics ───────────────────────────────────────────────────── */
   --nav-fh:58px;
-  --nav-gap:6px;      /* the pill sits close to the bottom edge, above the safe area */
+  /* the pill sits right on the safe area; shell.css keeps 6px where there is
+     none (a laptop, an older phone) so it never touches the screen edge */
+  --nav-gap:0px;
   --title-scale:1;    /* the wordmarks (DO. LOG. PLAN.) — Settings → layout → Title size */
   --rail-w:88px;
   --rail-w-wide:186px;
@@ -180,7 +182,7 @@ html{height:100%;zoom:var(--ui-scale)}
 /* Accent glow — a halo on the things that carry the accent. Off by default.
    One token, applied wherever the accent is the surface rather than the ink. */
 [data-glow="on"]{--glow:0 0 22px -6px var(--y), 0 0 0 1px var(--yb)}
-[data-glow="on"] .nav-glider,
+[data-glow="on"] .tab-b.on::before,
 [data-glow="on"] .btn,
 [data-glow="on"] .btn-send,
 [data-glow="on"] .btn-share,
@@ -228,7 +230,7 @@ body::before{
    offsets work out. */
 #toast{
   position:fixed;
-  bottom:calc(var(--nav-fh) + var(--nav-gap) + 22px + env(safe-area-inset-bottom));
+  bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 22px);
   left:50%;
   transform:translateX(-50%) translateY(8px);
   opacity:0;visibility:hidden;

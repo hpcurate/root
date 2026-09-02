@@ -61,17 +61,30 @@
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
 .ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
-.ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
+/* the "n sections" line reads in the tile's own colour, like its outline */
+.ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--proj-color,var(--mu));letter-spacing:.05em;margin-top:auto}
 .ns-plan .proj-meta em{color:var(--proj-color);font-style:normal}
 /* a project with nothing mapped says so here rather than failing at send time */
 .ns-plan .proj-meta .unmapped{color:var(--or)}
 
-/* ── Section chips (inside the sheet) ── */
-.ns-plan .sub-wrap{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens))}
-.ns-plan .sub-btn{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;
-  padding:calc(12px * var(--dens)) calc(14px * var(--dens));cursor:pointer;transition:all .1s;white-space:nowrap}
-.ns-plan .sub-btn:active{background:var(--yd);border-color:var(--sheet-color,var(--y));color:var(--sheet-color,var(--y))}
+/* ── A project open in place (no sheet) ──
+   The tile spans both columns and its name grows to the width — PLAN fits it
+   in px — and under it sits one row per section, two tiles wide and about
+   half a tile tall, in the project's colour. The other tiles are gone while
+   it is open: the FLIP plays them into these rows. */
+.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:112px;justify-content:space-between}
+.ns-plan .proj-tile.open .proj-head{width:100%}
+.ns-plan .proj-tile.open .proj-dot{width:12px;height:12px}
+.ns-plan .proj-tile.open .proj-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;
+  font-size:34px;line-height:1.05;letter-spacing:.02em}
+.ns-plan .proj-sec{grid-column:1 / -1;min-height:46px;
+  display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  background:color-mix(in srgb,var(--proj-color) 8%,var(--s1));
+  border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
+  color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;text-align:left;
+  padding:0 calc(14px * var(--dens));cursor:pointer;user-select:none;transition:background .12s}
+.ns-plan .proj-sec i{font-style:normal;color:var(--proj-color)}
+.ns-plan .proj-sec:active{background:color-mix(in srgb,var(--proj-color) 18%,var(--s1))}
 
 /* ── Options (scale buttons) ── */
 .ns-plan .opts{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
@@ -142,13 +155,12 @@
 .ns-plan .q-pill.hl{color:var(--q-color,var(--y))}
 .ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) 0 calc(2px * var(--dens)) calc(4px * var(--dens))}
 .ns-plan .q-del:active{color:var(--re)}
-.ns-plan .queue-empty{color:var(--mu);font:400 11px/1.7 var(--mono);text-align:center;padding:calc(34px * var(--dens)) calc(20px * var(--dens));
-        background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r2)}
+/* an empty queue has no placeholder block: the title row already says "empty" */
 
 /* ── Send button ──────────────────────────────────────────────────────────────
    Sticky, and parked clear of the floating tab pill rather than under it. */
 .ns-plan .send-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:14px;
-  bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
+  bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 16px)}
 .ns-plan .btn-send{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
           font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
           padding:calc(16px * var(--dens));cursor:pointer;transition:opacity .15s;

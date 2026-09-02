@@ -72,69 +72,119 @@ function renderHome() {
    (curate, home, edu … are labels too, and DO's tiles use the same hue), else
    the colour set in Settings. */
 const labelHue = (...names) => names.map(n => window.Todoist && Todoist.labelColor(n)).find(Boolean) || null;
+
+/* ── A project opens in place ─────────────────────────────────────────────────
+   One project at a time can be open: its tile spans both columns, its name
+   grows to whatever still fits the width, and the other tiles become its
+   section rows — two tiles wide, half a tile tall — which is what the FLIP
+   below plays. The queue below simply slides to wherever the grid now ends.
+   Nothing is persisted: it is a gesture, not state. */
+let openKey = null;
+
 function renderProjects() {
-  $id('proj-list').innerHTML = TASK_TYPES.map(tt => {
+  const grid = $id('proj-list');
+  const open = openKey ? typeOf(openKey) : null;
+  const tile = (tt, big) => {
     const color  = labelHue(tt.label, tt.key) || resolveColor(tt.key);
     const mapped = !!(mappings[tt.key] && mappings[tt.key].projectId);
     const queued = queue.filter(q => q.typeKey === tt.key).length;
     const meta = queued ? `<em>${queued} queued</em>`
                : mapped ? `${tt.subs.length} sections`
                         : `<span class="unmapped">not mapped</span>`;
-    return `<button class="proj-tile${queued ? ' has' : ''}" style="--proj-color:${color}"
-              onclick="PLAN.openProj('${tt.key}')">
+    return `<button class="proj-tile${queued ? ' has' : ''}${big ? ' open' : ''}" style="--proj-color:${color}"
+              data-flip="p:${tt.key}" aria-expanded="${!!big}" onclick="PLAN.openProj('${tt.key}')">
       <span class="proj-head"><span class="proj-dot"></span><span class="proj-name">${tt.label}</span></span>
       <span class="proj-meta">${meta}</span>
     </button>`;
+  };
+  grid.classList.toggle('open', !!open);
+  if (!open) { grid.innerHTML = TASK_TYPES.map(tt => tile(tt, false)).join(''); return; }
+
+  const color  = labelHue(open.label, open.key) || resolveColor(open.key);
+  const others = TASK_TYPES.filter(t => t.key !== open.key);
+  /* Sections are addressed by index, never by interpolating their text into an
+     onclick — several of them contain "|" and spaces. Each row borrows the
+     flip key of the tile it grows out of, so the tiles morph into the rows. */
+  grid.innerHTML = tile(open, true) + open.subs.map((s, i) => {
+    const from = others[i];
+    return `<button class="proj-sec" style="--proj-color:${color}" data-flip="${from ? 'p:' + from.key : 's:' + i}"
+              onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`;
   }).join('');
+  fitTitle(grid.querySelector('.proj-tile.open .proj-name'));
 }
 
-// ── Section sheet ─────────────────────────────────────────────────────────────
-/* Sections are addressed by index, never by interpolating their text into an
-   onclick — several of them contain "|" and spaces. */
+/* The open tile's name at the largest size that still fits on one line. */
+function fitTitle(el) {
+  if (!el || !el.clientWidth) return;
+  let size = 34;
+  el.style.fontSize = size + 'px';
+  while (size > 14 && el.scrollWidth > el.clientWidth) { size -= 1; el.style.fontSize = size + 'px'; }
+}
+
+/* FLIP: note where every flip-keyed element is, re-render, then play each
+   survivor from its old box to its new one — the tiles shrink into the
+   section rows, the open tile grows, and the queue slides to follow the
+   grid's new height. A no-op without layout (jsdom) or Web Animations. */
+function snap() {
+  const m = new Map();
+  $all('[data-flip]').forEach(el => m.set(el.dataset.flip, el.getBoundingClientRect()));
+  return m;
+}
+function flip(before) {
+  if (!before.size) return;
+  $all('[data-flip]').forEach(el => {
+    const a = before.get(el.dataset.flip);
+    if (!a || !el.animate) return;
+    const b = el.getBoundingClientRect();
+    if (!a.width || !a.height || !b.width || !b.height) return;
+    const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
+    if (!dx && !dy && sx === 1 && sy === 1) return;
+    el.animate([{ transformOrigin:'0 0', transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})` },
+                { transformOrigin:'0 0', transform:'none' }],
+               { duration:340, easing:'cubic-bezier(.2,.8,.2,1)' });
+  });
+}
+
 function openProj(key) {
-  const tt = typeOf(key);
-  if (!tt) return;
-  const color = resolveColor(key);
-  const sheet = $id('proj-sheet');
-  sheet.style.setProperty('--sheet-color', color);
-  $id('proj-sheet-name').textContent = tt.label;
-  $id('proj-sheet-subs').innerHTML = tt.subs.map((s, i) =>
-    `<button class="sub-btn" onclick="PLAN.pickSub('${key}',${i})">${esc(s.display)}</button>`).join('');
-  $id('proj-back').classList.add('on');
-  sheet.classList.add('on');
+  if (!typeOf(key)) return;
+  const before = snap();
+  openKey = openKey === key ? null : key;      // tapping the open tile closes it
+  renderProjects();
+  flip(before);
 }
 
 function closeProj() {
-  $id('proj-back').classList.remove('on');
-  $id('proj-sheet').classList.remove('on');
+  if (!openKey) return;
+  const before = snap();
+  openKey = null;
+  renderProjects();
+  flip(before);
 }
 
 function pickSub(key, i) {
   const tt = typeOf(key);
   const s = tt && tt.subs[i];
   if (!s) return;
-  closeProj();
+  openKey = null; renderProjects();            // the home is left folded for the way back
   openForm(key, s.display, s.section);
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
 function renderQueue() {
   const list = $id('queue-list');
-  const empty = $id('queue-empty-msg');
   const sendBtn = $id('btn-send');
   const n = queue.length;
 
+  // an empty queue says so on its own title row — there is no placeholder block
   $id('queue-count').textContent = n ? `${n} task${n!==1?'s':''}` : 'empty';
   $id('queue-clear').classList.toggle('hidden', !n);
 
   if (!n) {
     list.innerHTML = '';
-    empty.classList.remove('hidden');
     sendBtn.disabled = true;
     sendBtn.textContent = 'send to todoist';
     return;
   }
-  empty.classList.add('hidden');
   sendBtn.disabled = false;
   sendBtn.textContent = `send ${n} task${n!==1?'s':''} to todoist`;
 

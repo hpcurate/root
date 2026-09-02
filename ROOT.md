@@ -167,14 +167,16 @@ settings panel and is kept in the address bar as you switch panels.
 
 ### The slide track
 
-`#track` is a flexbox of up to eight slides moved with a transform. Each `.view`
-is a column: the home's `.h-top` as a title band at the top (Shell moves it
-there at boot, before the modules run) and `.view-body`, the scroll container
-holding every screen — so every tab remembers where you left it, and the
-band never scrolls. A module that resets or reads the scroll position uses
-the body (`document.querySelector('#view-x .view-body')`), never the view.
-The active tab's shape in the nav is one `.nav-glider` that Shell measures
-from the button and slides.
+`#track` holds up to eight slides **stacked**, and a tab change is a
+cross-fade: `Shell.show()` sets `.cur` on the incoming slide and `.leaving`
+on the outgoing one, plus `.morph` for a beat to play the incoming title in
+(the wordmark, or the `.hd-title` of whichever sub-screen that slide was left
+on). The track itself never moves. Each `.view` is a column: the home's
+`.h-top` as a title band at the top (Shell moves it there at boot, before the
+modules run) and `.view-body`, the scroll container holding every screen — so
+every tab remembers where you left it, and the band never scrolls. A module
+that resets or reads the scroll position uses the body
+(`document.querySelector('#view-x .view-body')`), never the view.
 **Nothing `position:fixed` may live inside `#track`** — a transformed ancestor
 becomes the containing block for fixed descendants. The toast, the nav, the LOG
 modal, TEND's sheets and undo pill, and all the STORE sheets are siblings of
@@ -507,6 +509,17 @@ both say so, and a new device needs the `.apkg` imported again.
   `env(safe-area-inset-top)` in its own padding (the screen's is zeroed), or
   it scrolls with the content and the status-bar strip shows through. Any
   inline `onclick` or id inside it still works — it stays inside the view.
+- **`position:fixed` inside `#track` is still forbidden**, for a new reason:
+  the track no longer carries a transform, but the title morph animates one
+  on `.h-logo` / `.hd-title` and PLAN's FLIP animates them on its tiles, and
+  any of those becomes the containing block for a fixed descendant while it
+  runs.
+- **PLAN's expanded project is not state.** `openKey` lives in the module and
+  is deliberately not persisted or put in Config; `pickSub()` folds the grid
+  before opening the form so the way back is never a surprise. A section row
+  borrows the `data-flip` key of the tile it replaces — that is what makes
+  the tiles look like they become the rows, and why the keys must stay
+  unique per render.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -552,11 +565,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 164 checks covering boot, every theme and panel, the
+through DOM events: 177 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
-2.3, the Todoist round-trips of 2.4, the block and media tiles, the settings
-menu, the back arrow, the title band and the glider of 2.5–2.10. Run it
-before trusting any change:
+2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
+settings menu, the back arrow, the title band, the cross-fade and PLAN's
+in-place projects of 2.5–2.11. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -572,6 +585,60 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.11 — 2026-09-02 — the cross-fade, the title morph, PLAN opens in place
+
+**The glider is gone.** 2.10's sliding, squashing shape under the active tab
+is reverted: the filled pill is back to a `::before` per button that grows
+into place. `themes.css` and `tokens.css` key off `.tab-b.on::before` again.
+
+**Tabs cross-fade; the title morphs.** The slides are stacked rather than
+laid side by side, and `#track` no longer moves at all. `Shell.show()` gives
+the incoming slide `.cur` (opaque, and the only one that takes a tap) and the
+outgoing one `.leaving` while it fades. The incoming slide also gets `.morph`
+for a beat, which plays its title in from a blur and a slight scale while the
+old one blurs away — its wordmark on a home, or the `.hd-title` of whichever
+sub-screen that slide was left on, so a tab sitting in a sub-menu morphs that
+header instead. `park()` does the same with `#track.still`, which suppresses
+both. The swipe now only picks the next or previous tab once it is far or
+fast enough; it no longer drags the slide under the finger, and the
+rubber-band at the ends went with it.
+
+**The pill sits on the safe area.** `--nav-gap` is 0, and everything that
+parks itself above the pill (`#nav`, the arrows, PLAN's send button, TEND's
+add bar and undo pill, the toast) uses `max(6px, gap + safe-area)`, so on a
+phone it rides the home indicator and on a laptop it keeps 6px off the edge.
+
+**PLAN opens a project in place.** The bottom sheet is gone from the markup.
+Tapping a tile expands it across both columns with its name grown to the
+largest size that still fits one line (`fitTitle`, measured in px), and the
+other tiles become the project's section rows — full width, about half a tile
+tall, in the project's colour. A FLIP does the movement: every `[data-flip]`
+element's box is noted before the re-render and replayed from it after, and
+each section row borrows the flip key of the tile it grows out of, so the
+tiles visibly become the rows and the queue slides up or down to follow the
+grid's new height. Tapping the open tile closes it; tapping another swaps;
+picking a section opens the form and leaves the grid folded for the way back.
+`openKey` is not persisted — it is a gesture, not state.
+
+**Smaller.** The "nothing queued yet" block is gone: an empty queue already
+says "empty" next to the QUEUE title. A tile's "n sections" line is drawn in
+the tile's own colour rather than muted grey.
+
+**Verified** — `test/harness.mjs`, 177 checks, all green: no glider and the
+active tab carrying its own pill; a tab change marking the incoming slide
+`.cur` + `.morph` and the outgoing one `.leaving`, the track's transform
+never set, the leaving class cleared once the fade is over, and a slide left
+on LOG's evening form morphing that header; the sheet gone from the markup;
+no placeholder block with the count reading "empty"; a project expanding to
+one open tile with the right number of section rows, the rows named and
+coloured from the project and keyed to the tiles they grow from; the open
+tile closing on a second tap, another project swapping in, and a section
+opening the form with the grid folded. The section-count colour is read off
+`plan.css` itself, since jsdom loads no stylesheets. **Not verified**: still
+nothing in a browser — the Chrome extension remains unreachable — so the
+cross-fade timing, the title morph, the FLIP into the section rows and the
+pill's new resting place have not been seen.
 
 ### 2.10 — 2026-09-02 — the title band, the glider, blocks → tomorrow, PLAN in label colours
 

@@ -45,19 +45,18 @@ body{
   overscroll-behavior:none}
 
 /* ── Slide track ──────────────────────────────────────────────────────────────
-   Five slides side by side, moved with a transform. Each slide is its own
-   scroll container, so every tab remembers where you left it.
+   The slides are stacked, not side by side: a tab change cross-fades between
+   them (Shell sets .cur on the one coming in, .leaving on the one going out)
+   and the track itself never moves. Each slide is its own scroll container,
+   so every tab remembers where you left it.
    Nothing position:fixed may live inside the track — a transformed ancestor
-   would become its containing block. The toast, the nav, the LOG modal and the
-   sheets are all siblings of #views for exactly that reason. */
+   would become its containing block, and the morph below animates transforms.
+   The toast, the nav, the LOG modal and the sheets are all siblings of #views
+   for exactly that reason. */
 #views{position:absolute;top:0;right:0;bottom:0;left:0;overflow:hidden}
 #track{
-  display:flex;height:100%;width:100%;
-  touch-action:pan-y;            /* vertical scrolling stays native, we take horizontal */
-  transition:transform .3s cubic-bezier(.4,0,.2,1)}
-/* will-change only while a finger is down: promoting five full-screen slides to
-   their own layer for the whole session is a lot of memory to hold on a phone. */
-#track.dragging{transition:none;will-change:transform}
+  position:relative;height:100%;width:100%;
+  touch-action:pan-y}            /* vertical scrolling stays native, we read horizontal */
 /* pan-y on the track hands horizontal gestures to the swipe handler, which is
    wrong inside a text field: there a sideways drag is caret placement and text
    selection, and the browser needs it back to offer the paste callout.
@@ -77,8 +76,28 @@ body{
    the band hides while one is up. The scrollbar is hidden — the slide is the
    page, and a bar along its edge reads as a mistake on a phone. */
 .view{
-  flex:0 0 100%;width:100%;height:100%;
-  display:flex;flex-direction:column;overflow:hidden}
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;overflow:hidden;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s ease}
+.view.cur{opacity:1;pointer-events:auto;z-index:2}
+.view.leaving{z-index:1}
+/* boot and re-parking: no fade, no morph */
+#track.still .view{transition:none}
+#track.still .h-logo,#track.still .hd-title{animation:none!important}
+
+/* The title does not cross-fade with the page: it morphs. The incoming
+   slide's wordmark — or the header of whichever sub-screen that slide was
+   left on — settles in from a blur and a slight scale while the outgoing
+   one blurs away, so one title reads as becoming the other. */
+.view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title{
+  animation:title-in .42s cubic-bezier(.2,.8,.2,1) both}
+.view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{
+  animation:title-out .2s ease both}
+@keyframes title-in{from{opacity:0;transform:translateY(5px) scale(.92);filter:blur(5px)}
+                    to{opacity:1;transform:none;filter:none}}
+@keyframes title-out{to{opacity:0;transform:translateY(-4px) scale(1.06);filter:blur(4px)}}
+
 .view > .h-top{flex:0 0 auto;position:relative;z-index:20;background:var(--bg);display:flow-root}
 .view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
 .view-body{
@@ -102,7 +121,7 @@ body{
    change. */
 #nav{
   position:fixed;z-index:60;
-  left:50%;bottom:calc(var(--nav-gap) + env(safe-area-inset-bottom));
+  left:50%;bottom:max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom)));
   transform:translateX(-50%);
   width:min(322px, calc(100vw - 136px));
   height:var(--nav-fh);
@@ -124,17 +143,14 @@ body{
 .tab-b svg,.tab-b .tb-l{position:relative;z-index:1}
 .tab-b svg{width:19px;height:19px;flex-shrink:0}
 .tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
-/* the filled shape IS the active indicator: one .nav-glider (made by Shell)
-   slid from tab to tab with an overshoot, stretched mid-flight and snapped
-   back — liquid rather than a fade per button */
-.nav-glider{position:absolute;z-index:0;top:5px;bottom:5px;left:0;width:0;
-  border-radius:var(--r-pill);background:var(--y);opacity:0;pointer-events:none;
-  transition:transform .46s cubic-bezier(.2,1.35,.35,1), width .46s cubic-bezier(.2,1.35,.35,1), opacity .18s ease;
-  will-change:transform}
-.nav-glider.on{opacity:1}
-.nav-glider.moving{animation:glide .46s cubic-bezier(.2,1,.35,1)}
-@keyframes glide{0%{scale:1 1}40%{scale:1.18 .84}70%{scale:.96 1.06}100%{scale:1 1}}
+/* the filled pill IS the active indicator, and it grows into place */
+.tab-b::before{
+  content:'';position:absolute;inset:0;z-index:0;
+  border-radius:var(--r-pill);background:var(--y);
+  transform:scale(.55);opacity:0;
+  transition:transform .24s cubic-bezier(.34,1.4,.5,1), opacity .18s ease}
 .tab-b.on{color:var(--on-y)}
+.tab-b.on::before{transform:scale(1);opacity:1}
 /* the open-count badge (Shell.badge): top-right of the icon, in the accent on
    an idle tab and inverted on the active one */
 .tab-b .tb-badge{position:absolute;z-index:2;top:4px;left:calc(50% + 6px);
@@ -154,7 +170,7 @@ body{
 /* prev / next, bottom corners, flanking the pill */
 .nav-arrow{
   position:fixed;z-index:59;
-  bottom:calc(var(--nav-gap) + env(safe-area-inset-bottom) + (var(--nav-fh) - 44px)/2);
+  bottom:calc(max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + (var(--nav-fh) - 44px)/2);
   width:44px;height:44px;border-radius:var(--r-pill);
   display:flex;align-items:center;justify-content:center;
   background:var(--chrome-bg);
@@ -235,8 +251,7 @@ body{
   .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
   .tab-b svg{width:20px;height:20px}
   .tab-b .tb-l{font-size:8px}
-  /* on the rail the glider runs top to bottom, measured by Shell from the button */
-  .nav-glider{top:0;bottom:auto;left:8px;right:8px;width:auto;height:0;border-radius:var(--r3)}
+  .tab-b::before{border-radius:var(--r3)}
   #nav-prev{left:calc(var(--rail-w) + 14px)}
   #toast{bottom:28px;left:calc(50% + var(--rail-w)/2)}
   .sheet,.ns-store .pad{left:var(--rail-w)}
@@ -244,7 +259,6 @@ body{
 @media (min-width:1180px){
   #views{left:var(--rail-w-wide)}
   #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
-  .nav-glider{left:12px;right:12px}
   .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
   .tab-b .tb-badge{position:static;margin-left:auto}
   .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
@@ -279,7 +293,7 @@ body{
   .ns-log .blk-b:hover,.ns-log .cs-tog-b:hover,.ns-log .caf-b:hover,
   .ns-log .cur-b:hover,.ns-log .rep-btn:hover,
   .ns-plan .opt-b:hover,.ns-plan .prio-b:hover,.ns-plan .tg2-b:hover,
-  .ns-plan .sub-btn:hover,.ns-store .item-add:hover,.ns-store .li-item:hover,
+  .ns-plan .proj-sec:hover,.ns-store .item-add:hover,.ns-store .li-item:hover,
   .ns-store .cw-btn:hover,.ns-store .pad-key:hover,.ns-store .cp-opt:hover,
   .ns-do .setting-btn:hover,.ns-store .setting-btn:hover,.ns-set .setting-btn:hover
     {border-color:var(--mu)}
@@ -298,6 +312,8 @@ body{
 :focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
 
 @media (prefers-reduced-motion:reduce){
-  #track,#nav,.nav-arrow,.nav-glider{transition:none;animation:none}
+  .view,#nav,.nav-arrow,.tab-b::before{transition:none}
+  .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title,
+  .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{animation:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }

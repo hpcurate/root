@@ -573,13 +573,13 @@
       <div class="proj-grid" id="proj-list"></div>
     </div>
 
-    <div class="queue">
+    <!-- data-flip: PLAN slides this to wherever the project grid now ends -->
+    <div class="queue" data-flip="queue">
       <div class="row-lbl">
         <span>queue <em id="queue-count">empty</em></span>
         <button class="muted-act hidden" id="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
       </div>
       <div id="queue-list"></div>
-      <div id="queue-empty-msg" class="queue-empty">nothing queued yet<br>pick a project above to start</div>
     </div>
 
     <div class="send-wrap">
@@ -1545,18 +1545,6 @@
   <div class="r-ico">▯</div>
   <div class="r-t">turn it back upright</div>
   <div class="r-s">ROOT is a portrait app · switch this off under settings → behaviour</div>
-</div>
-
-<!-- PLAN — section picker -->
-<div class="ns-plan">
-  <div class="sheet-back" id="proj-back" onclick="PLAN.closeProj()"></div>
-  <div class="sheet" id="proj-sheet">
-    <div class="sheet-head">
-      <span class="sheet-ttl"><span class="sheet-dot"></span><span id="proj-sheet-name">—</span></span>
-      <button class="sheet-close" onclick="PLAN.closeProj()">close</button>
-    </div>
-    <div class="sub-wrap" id="proj-sheet-subs"></div>
-  </div>
 </div>
 
 <!-- LOG — delete-everything modal -->

@@ -695,17 +695,12 @@ await w.DO.deferToday();
 check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMoved.d1 === 'tomorrow' && tmMoved.d2 === 'tomorrow', JSON.stringify(tmMoved));
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
-// ── 24. 2.10 — the title band, the glider, blocks → tomorrow, PLAN in label colours ─
+// ── 24. 2.10 — the title band, blocks → tomorrow, PLAN in label colours ────
 check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','settings'].every(a => {
   const v = $('#view-' + a); return v.children.length === 2 && v.children[0].classList.contains('h-top') && v.children[1].classList.contains('view-body');
 }), [...d.querySelectorAll('#track .view')].map(v => v.id + ':' + [...v.children].map(c => c.className).join('+')).join(' '));
 check("DO's tab strip and date live in the band", !!$('#view-do > .h-top #home-tabs') && !!$('#view-do > .h-top #date-label'));
 check('the home screens sit in the body', !!$('#view-log > .view-body > #s-home') && !!$('#view-settings > .view-body > #s-cat'));
-const glider = $('#nav .nav-glider');
-check('one glider behind the tabs, keyed by app', !!glider && glider.dataset.app === 'do' && glider.classList.contains('on'), glider && glider.outerHTML.slice(0, 120));
-w.Shell.go('log');
-check('… that follows the active tab', glider.dataset.app === 'log');
-w.Shell.go('do');
 w.Prefs.set('titleSize', 'xl');
 check('the title size dial stamps its attribute', d.documentElement.dataset.title === 'xl');
 w.Prefs.reset('titleSize');
@@ -750,6 +745,51 @@ const curateTile = [...d.querySelectorAll('.ns-plan .proj-tile')].find(t => /cur
 check("PLAN's project tiles take their label's Todoist colour", !!curateTile && curateTile.style.getPropertyValue('--proj-color') === '#884dff', curateTile && curateTile.getAttribute('style'));
 const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === 'b1');
 check("… and the block chips theirs", !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
+
+// ── 25. 2.11 — the cross-fade, the title morph, PLAN expanding in place ────
+check('no glider: the active tab is its own filled pill again', !$('#nav .nav-glider') && $('.tab-b.on')?.dataset.app === 'plan');
+w.Shell.go('log');
+check('a tab change cross-fades: the incoming slide is .cur and morphs its title, the outgoing one leaves',
+  $('#view-log').classList.contains('cur') && $('#view-log').classList.contains('morph') &&
+  !$('#view-plan').classList.contains('cur') && $('#view-plan').classList.contains('leaving'),
+  $('#view-log').className + ' | ' + $('#view-plan').className);
+check('the track itself never moves any more', !$('#track').style.transform);
+await tick(450);
+check('… and the slide that left is plain again once the fade is over', !$('#view-plan').classList.contains('leaving'));
+w.LOG.go('evening');
+w.Shell.go('do'); w.Shell.go('log');
+check('a slide left on a sub-screen morphs that screen\'s header, not a wordmark',
+  $('#view-log').classList.contains('morph') && $('.ns-log #s-evening').classList.contains('on'));
+w.LOG.go('home');
+
+w.Shell.go('plan'); await tick();
+check('the section sheet is gone from the markup', !$('#proj-sheet') && !$('#proj-back'));
+check('an empty queue has no placeholder block, just the word on its title row',
+  !$('#queue-empty-msg') && $('.ns-plan #queue-count').textContent === 'empty');
+const projTiles = () => [...d.querySelectorAll('.ns-plan .proj-tile')];
+check('every project is a tile, none open', projTiles().length === w.Config.get('plan.types').length && !$('.ns-plan .proj-tile.open'));
+// jsdom loads no stylesheets, so this one is read off the sheet itself
+check('the "n sections" line is drawn in the tile colour, not a muted grey',
+  /\.ns-plan \.proj-meta\{[^}]*color:var\(--proj-color/.test(fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')) &&
+  !!$('.ns-plan .proj-meta'));
+w.PLAN.openProj('curate');
+const openTile = $('.ns-plan .proj-tile.open');
+const secs = [...d.querySelectorAll('.ns-plan .proj-sec')];
+check('tapping a project expands it in place: one open tile, the others become its section rows',
+  !!openTile && /curate/.test(openTile.textContent) && openTile.getAttribute('aria-expanded') === 'true' &&
+  projTiles().length === 1 && secs.length === w.Config.get('plan.types').find(t => t.key === 'curate').subs.length,
+  (openTile ? 'open ' : 'no open tile ') + projTiles().length + ' tiles ' + secs.length + ' rows');
+check('the rows are the project\'s sections, in its colour', secs.map(s => s.textContent.replace('→', '')).join(',') === 'mixing,production,socials' &&
+  secs[0].style.getPropertyValue('--proj-color') === '#884dff', secs.map(s => s.textContent).join(','));
+check('a row borrows the flip key of the tile it grows out of', secs[0].dataset.flip.startsWith('p:') && $('.ns-plan .queue').dataset.flip === 'queue');
+w.PLAN.openProj('curate');
+check('tapping the open tile closes it again', !$('.ns-plan .proj-tile.open') && !d.querySelectorAll('.ns-plan .proj-sec').length);
+w.PLAN.openProj('alive'); w.PLAN.openProj('curate');
+check('opening another project swaps which one is open', /curate/.test($('.ns-plan .proj-tile.open').textContent) && projTiles().length === 1);
+w.PLAN.pickSub('curate', 0);
+check('picking a section opens the form and leaves the grid folded',
+  $('.ns-plan #s-form').classList.contains('on') && !$('.ns-plan .proj-tile.open') && projTiles().length === w.Config.get('plan.types').length);
+w.PLAN.go('home');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
