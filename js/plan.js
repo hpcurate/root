@@ -41,6 +41,7 @@ function loadState() {
   try { queue = JSON.parse(localStorage.getItem('plan_queue') || '[]'); } catch { queue=[]; }
   try { mappings = JSON.parse(localStorage.getItem('plan_mappings') || '{}'); } catch { mappings={}; }
   try { todoistProjects = JSON.parse(localStorage.getItem('plan_projects') || '[]'); } catch { todoistProjects=[]; }
+  loadHistory();
 }
 
 function saveQueue() { localStorage.setItem('plan_queue', JSON.stringify(queue)); }
@@ -62,6 +63,7 @@ function renderHome() {
   $id('home-date').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
   renderProjects();
   renderQueue();
+  renderSent();
 }
 
 /* One tile per project. The tile carries the two things worth knowing before
@@ -76,13 +78,13 @@ const labelHue = (...names) => names.map(n => window.Todoist && Todoist.labelCol
    Two steps, both inside the tile grid and both a FLIP, so nothing ever leaves
    the home screen:
 
-     tap a project   the tile spans both columns — its name centred and grown
-                     to whatever still fits, the colour dot under it — and the
-                     other tiles become its section rows (full width, about
-                     half a tile tall).
-     tap a section   the rows become the task form: a panel two tiles wide and
-                     four tall, morphing out of the row you tapped, while the
-                     title tile grows again above it.
+     tap a project   the tile spans both columns — its name where an unopened
+                     tile has it, top left with the dot beside it, just
+                     larger — and the section rows open beneath it (full
+                     width, about half a tile tall).
+     tap a section   the rows give way to the task form: a panel two tiles
+                     wide and four tall, while the title tile grows again
+                     above it.
 
    The queue below simply slides to wherever the grid now ends. Neither is
    persisted: they are gestures, not state. */
@@ -174,17 +176,19 @@ function formPanel(tt, s, i, color) {
   </div>`;
 }
 
-/* The open tile's name, as large as still fits the tile — measured against the
-   tile's own inner width, since the name shrink-wraps once it is centred. */
+/* The open tile's name: bigger than a folded tile's, but a heading rather
+   than a banner — it sits top left with the dot beside it, so it only ever
+   shrinks from OPEN_TITLE when a long name would not fit the row. */
+const OPEN_TITLE = 24;
 function fitTitle(el) {
   const box = el && el.closest('.proj-tile');
-  if (!box || !box.clientWidth || !box.clientHeight) return;      // no layout (jsdom): leave the CSS size
+  if (!box || !box.clientWidth) return;          // no layout (jsdom): leave the CSS size
   let pad = 28;
   try { const cs = getComputedStyle(box); pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight); } catch {}
-  const avail = box.clientWidth - pad;
-  let size = Math.max(16, Math.min(92, Math.round(box.clientHeight * 0.52)));
+  const avail = box.clientWidth - pad - 22;      // the dot and its gap
+  let size = OPEN_TITLE;
   el.style.fontSize = size + 'px';
-  while (size > 16 && el.scrollWidth > avail) { size -= 2; el.style.fontSize = size + 'px'; }
+  while (size > 13 && el.scrollWidth > avail) { size -= 1; el.style.fontSize = size + 'px'; }
 }
 
 /* ── The transition ───────────────────────────────────────────────────────────
@@ -584,8 +588,98 @@ function readSent() {
 function recordSent(tasks) {
   if (!tasks.length) return;
   const s = readSent();
-  tasks.forEach(t => s.tasks.push({ name:t.name, typeKey:t.typeKey, block:t.block, time:t.time }));
+  const today = Shell.today(), now = Date.now();
+  tasks.forEach((t, i) => {
+    s.tasks.push({ name:t.name, typeKey:t.typeKey, block:t.block, time:t.time });
+    /* …and into the standing history, newest first. `ts` is nudged by the
+       position in the batch so a send of several tasks into one block keeps
+       the order they were queued in — which is what decides a from b below. */
+    sentLog.unshift({ name:t.name, typeKey:t.typeKey, project:(typeOf(t.typeKey) || {}).label || t.typeKey,
+                      section:t.subType || '', block:t.block || null, date:today, ts:now + i });
+  });
   try { localStorage.setItem(SENT_KEY, JSON.stringify(s)); } catch {}
+  saveHistory();
+  renderSent();
+}
+
+/* ── The sent history ─────────────────────────────────────────────────────────
+   Every task PLAN has ever pushed, newest first. Kept in its own key rather
+   than in plan_sent_v1: that one is today's only, is reset each morning and
+   is read by LOG, so it cannot be allowed to grow a past. The binding is
+   `sentLog`, not `history`, because this file would otherwise shadow
+   window.history for everything inside the module. */
+const HIST_KEY = 'plan_history_v1';
+const HIST_MAX = 200;
+let sentLog = [];
+function loadHistory() {
+  try { sentLog = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { sentLog = []; }
+  if (!Array.isArray(sentLog)) sentLog = [];
+}
+function saveHistory() {
+  sentLog = sentLog.slice(0, HIST_MAX);
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(sentLog)); } catch {}
+}
+
+function renderSent() {
+  const list = $id('sent-list'); if (!list) return;
+  const n = sentLog.length;
+  $id('sent-count').textContent = n ? `${n} task${n !== 1 ? 's' : ''}` : 'empty';
+  $id('sent-clear').classList.toggle('hidden', !n);
+  list.innerHTML = sentLog.map((t, i) => {
+    const pills = [t.project, t.block ? `@${t.block}` : null, Prefs.formatDate(t.date, 'short')].filter(Boolean);
+    return `<div class="q-item" style="--q-color:${resolveColor(t.typeKey)}">
+      <span class="q-dot"></span>
+      <div class="q-item-body">
+        <div class="q-item-name">${esc(t.name)}</div>
+        <div class="q-item-meta">${pills.map(p => `<div class="q-pill">${esc(p)}</div>`).join('')}</div>
+      </div>
+      <button class="sent-cal" onclick="PLAN.copyCal(${i})" aria-label="copy calendar lines for ${esc(t.name)}"
+        >+<svg aria-hidden="true"><use href="#ico-cal"/></svg></button>
+    </div>`;
+  }).join('');
+}
+
+/* ── The calendar lines ───────────────────────────────────────────────────────
+   A block is two halves in the day's template, a and b. One task in a block
+   fills both halves; two tasks split it, in the order they were sent. So a
+   lone task in b1 copies
+
+       b1a : curate > mix the track
+       b1b : curate > mix the track
+
+   and a block with two copies one line each. A task with no block has no
+   half to name, so it copies the bare "project > task" and says so. */
+function calLines(item) {
+  const nameOf = t => `${t.project || t.typeKey} > ${t.name}`;
+  if (!item.block) return nameOf(item);
+  const same = sentLog.filter(t => t.date === item.date && t.block === item.block)
+                      .slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const pair = same.length >= 2 ? same.slice(0, 2) : [item, item];
+  return pair.map((t, i) => `${item.block}${'ab'[i]} : ${nameOf(t)}`).join('\n');
+}
+
+async function copyCal(i) {
+  const item = sentLog[i]; if (!item) return;
+  const text = calLines(item);
+  Prefs.tap();
+  try { await navigator.clipboard.writeText(text); toast('copied · paste it into the chat'); return; }
+  catch {}
+  // no clipboard API (or no permission): the old way still works everywhere
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(ok ? 'copied · paste it into the chat' : 'could not copy');
+  } catch { toast('could not copy'); }
+}
+
+function clearSent() {
+  if (!sentLog.length) return;
+  if (!Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.')) return;
+  sentLog = []; saveHistory(); renderSent(); toast('history cleared');
 }
 /* Queue first, then what was sent today; one entry per name, with the
    project's colour so LOG can draw it in the project's hue. */
@@ -721,6 +815,7 @@ Shell.register('plan', {
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
+         renderSent, copyCal, clearSent, calLines,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

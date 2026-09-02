@@ -104,6 +104,11 @@
   <symbol id="ico-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
   </symbol>
+  <!-- PLAN's sent list: copy this task's block as calendar lines -->
+  <symbol id="ico-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>
+    <line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>
+  </symbol>
   <symbol id="ico-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
     <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
@@ -580,6 +585,16 @@
         <button class="muted-act hidden" id="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
       </div>
       <div id="queue-list"></div>
+    </div>
+
+    <!-- every task PLAN has ever sent, newest first; each row copies the
+         calendar lines for its block — PLAN.renderSent() -->
+    <div class="sent" id="sent" data-flip="sent">
+      <div class="row-lbl">
+        <span>sent <em id="sent-count">empty</em></span>
+        <button class="muted-act hidden" id="sent-clear" onclick="PLAN.clearSent()">clear all</button>
+      </div>
+      <div id="sent-list"></div>
     </div>
 
     <!-- shown only when the queue has something in it, and never over the

@@ -50,13 +50,14 @@
    is 1.35 of it, its section rows a half, the task form four */
 .ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;
   --tile-h:92px;--tile-gap:calc(8px * var(--dens));gap:var(--tile-gap)}
-.ns-plan .proj-tile{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+/* Filled exactly like DO's block tiles: a 10% wash of the label's colour with
+   the colour itself on the border. Queued lifts the wash. */
+.ns-plan .proj-tile{border-radius:var(--r2);
+  background:color-mix(in srgb,var(--proj-color,var(--bd)) 10%,var(--s1));
+  border:var(--bw) solid var(--proj-color,var(--bd));
   padding:calc(15px * var(--dens)) calc(14px * var(--dens)) calc(13px * var(--dens));cursor:pointer;text-align:left;user-select:none;
   display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:var(--tile-h);
   transition:border-color .14s,background .14s}
-/* the tile is drawn like DO's block tiles: a wash of the label's colour, the
-   colour on the border; queued lifts the wash */
-.ns-plan .proj-tile{background:color-mix(in srgb,var(--proj-color,var(--bd)) 10%,var(--s1));border-color:var(--proj-color,var(--bd))}
 .ns-plan .proj-tile:active{background:color-mix(in srgb,var(--proj-color,var(--bd)) 20%,var(--s1))}
 .ns-plan .proj-tile.has{background:color-mix(in srgb,var(--proj-color,var(--bd)) 22%,var(--s1))}
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
@@ -69,27 +70,23 @@
 .ns-plan .proj-meta .unmapped{color:var(--or)}
 
 /* ── A project open in place (no sheet) ──
-   The tile spans both columns with its name centred in the box and the colour
-   dot under it — PLAN sizes the name in px, as large as the box takes — and
-   under the tile sits one row per section, two tiles wide and about half a
-   tile tall. The other tiles are gone while it is open: the FLIP plays them
-   into these rows. */
-.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:calc(var(--tile-h) * 1.35);
-  align-items:center;justify-content:center;text-align:center}
-/* column-reverse puts the name above the dot without reordering the markup */
-.ns-plan .proj-tile.open .proj-head{width:100%;height:100%;flex-direction:column-reverse;
-  align-items:center;justify-content:center;gap:calc(10px * var(--dens))}
+   The tile spans both columns and keeps its name where an unopened tile has
+   it — top left, the colour dot to its left — just larger; PLAN sizes it in
+   px, as large as fits. Under it sits one row per section, two tiles wide
+   and about half a tile tall. */
+.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:var(--tile-h)}
+.ns-plan .proj-tile.open .proj-head{width:100%}
 .ns-plan .proj-tile.open .proj-dot{width:11px;height:11px}
-.ns-plan .proj-tile.open .proj-name{max-width:100%;overflow:hidden;white-space:nowrap;
-  font-size:52px;line-height:1;letter-spacing:.01em}
+.ns-plan .proj-tile.open .proj-name{min-width:0;overflow:hidden;white-space:nowrap;
+  font-size:24px;line-height:1.1;letter-spacing:.03em}
 /* "n sections" is what the rows below now say */
 .ns-plan .proj-tile.open .proj-meta{display:none}
-/* the form open under it: the title grows once more */
-.ns-plan .proj-tile.open.wide{min-height:calc(var(--tile-h) * 1.7)}
+/* the form open under it: the title block grows once more */
+.ns-plan .proj-tile.open.wide{min-height:calc(var(--tile-h) * 1.15)}
 
 .ns-plan .proj-sec{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
   display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
-  background:color-mix(in srgb,var(--proj-color) 8%,var(--s1));
+  background:color-mix(in srgb,var(--proj-color) 10%,var(--s1));
   border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
   color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;text-align:left;
   padding:0 calc(14px * var(--dens));cursor:pointer;user-select:none;transition:background .12s}
@@ -179,6 +176,18 @@
 .ns-plan .q-pill.hl{color:var(--q-color,var(--y))}
 .ns-plan .q-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) 0 calc(2px * var(--dens)) calc(4px * var(--dens))}
 .ns-plan .q-del:active{color:var(--re)}
+
+/* ── The sent history ──
+   Same row as a queued task, with a "+ calendar" button where the queue has
+   its delete: it copies this task's block as the two template lines. */
+.ns-plan .sent{padding:0 calc(18px * var(--dens));margin-top:26px}
+.ns-plan .sent-cal{display:flex;align-items:center;gap:4px;flex:0 0 auto;align-self:center;
+  background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.04em;
+  padding:calc(8px * var(--dens)) calc(9px * var(--dens));cursor:pointer;transition:all var(--dur-1)}
+.ns-plan .sent-cal svg{width:13px;height:13px;display:block}
+.ns-plan .sent-cal:active{border-color:var(--y);color:var(--y)}
+
 /* an empty queue has no placeholder block: the title row already says "empty" */
 
 /* ── Send button ──────────────────────────────────────────────────────────────

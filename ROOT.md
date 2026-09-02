@@ -338,6 +338,7 @@ versions still work off the same data.
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
 | `plan_sent_v1` | PLAN | what was sent today (name, project, block, time) — LOG offers these as blocks; a new day starts it empty |
+| `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
 | `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
 | `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
@@ -551,6 +552,13 @@ both say so, and a new device needs the `.apkg` imported again.
 - **`optPick()` toggles.** Tapping the chip that is already on clears the
   field. The block row has no "none" chip because of it; the time row keeps
   one and works either way.
+- **PLAN's history binding is `sentLog`, not `history`.** A module-level
+  `history` inside the IIFE shadows `window.history` for the whole file,
+  which is the sort of thing that breaks a `replaceState` added months later.
+- **A block is two halves.** `calLines()` fills both with the same task when
+  a block holds only one, and splits them in send order when it holds two —
+  which is why the history stores a `ts` that is nudged per task within a
+  batch rather than one timestamp for the whole send.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -596,11 +604,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 202 checks covering boot, every theme and panel, the
+through DOM events: 213 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects and form of 2.5–2.14. jsdom has no layout and no Web
+in-place projects, form and sent history of 2.5–2.15. jsdom has no layout and no Web
 Animations, so anything measured or animated is invisible to it unless the
 harness stands in for both, as it does for PLAN's transition. Run it before
 trusting any change:
@@ -619,6 +627,49 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.15 — 2026-09-03 — the sent history, and the open tile as a heading
+
+**The open project tile is a heading, not a banner.** Its name sits where an
+unopened tile has it — top left, the colour dot to its left — at 24px rather
+than the up-to-92px centred slab 2.12 gave it, shrinking only if a long name
+would not fit the row. The tile is one tile tall again (1.15 with the form
+open, so the growth is still there to see). Both it and the section rows are
+filled exactly as DO's block tiles are: a 10% wash of the label's colour with
+the colour itself on the border.
+
+**A sent history.** Everything PLAN has ever pushed, newest first, in a new
+section under the queue: the task, its project, its block and the day, with
+"clear all" on the title row. It is its own key (`plan_history_v1`, capped at
+200) rather than an extension of `plan_sent_v1` — that one is today's only,
+is emptied each morning and is read by LOG, so it cannot be allowed to grow
+a past.
+
+**"+ 📅" copies a task's block as calendar lines.** Each row has one, and it
+puts on the clipboard exactly what the day's template wants:
+
+```
+b1a : curate > mix the track
+b1b : curate > master it
+```
+
+A block is two halves, `a` and `b`. Two tasks in a block split it in the
+order they were sent — `ts` is nudged by the position in the batch so a
+single send of several tasks keeps its order. **One** task in a block fills
+both halves with itself, which is the case the format exists for. A task sent
+with no block has no half to name and copies the bare `project > task`.
+`navigator.clipboard` first, with the old hidden-textarea path behind it for
+where that is refused.
+
+**Verified** — `test/harness.mjs`, 213 checks, all green: three tasks sent
+into two blocks landing newest-first with a +cal button each, named for
+project, block and day, counted on the title row; two tasks in b1 copying one
+line each in send order, either row of that block copying the same pair; one
+task in b2 filling both halves; a blockless task copying the bare line; the
+button reaching the clipboard; clear emptying the list and its key while
+leaving today's `plan_sent_v1` alone. **Not verified**: nothing in a browser.
+The 24px heading and the +cal button's size are both worth an eye, and the
+clipboard write has not been exercised against a real permission prompt.
 
 ### 2.14 — 2026-09-03 — PLAN's project morph, done properly
 

@@ -915,6 +915,71 @@ w.PLAN.closeForm(); w.PLAN.clearQueue();
   w.PLAN.closeProj();
 }
 
+// ── 26. the sent history and its calendar lines ────────────────────────────
+// section 6 already pushed two tasks through; clear both the key and the
+// module's copy of it, and note what today's own record already holds
+confirmAnswer = true;
+w.PLAN.clearSent();
+const sentBase = JSON.parse(w.localStorage.getItem('plan_sent_v1') || '{"tasks":[]}').tasks.length;
+w.PLAN.go('home');
+check('the sent list starts empty and says so on its title row',
+  $('.ns-plan #sent-count').textContent === 'empty' && $('.ns-plan #sent-clear').classList.contains('hidden') &&
+  !d.querySelectorAll('.ns-plan #sent-list .q-item').length);
+
+// send three tasks: two into b1, one into b2
+let sent = 0;
+fetchScript = async (url, opts) => {
+  if (opts && opts.method === 'POST') { sent++; return { ok: true, status: 200, json: async () => ({ id: 'n' + sent }), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+const queueOne = (section, name, block) => {
+  w.PLAN.pickSub('curate', section);
+  $('.ns-plan #task-name').value = name;
+  $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+  if (block) w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === block), 'block', block);
+  w.PLAN.addToQueue();
+};
+queueOne(0, 'mix the track', 'b1');
+queueOne(1, 'master it', 'b1');
+queueOne(2, 'post the clip', 'b2');
+w.PLAN.go('sending');
+await tick(700);
+const rows = [...d.querySelectorAll('.ns-plan #sent-list .q-item')];
+check('everything sent lands in the sent list, newest first, with a +cal button each',
+  rows.length === 3 && /post the clip/.test(rows[0].textContent) && /mix the track/.test(rows[2].textContent) &&
+  rows.every(r => !!r.querySelector('.sent-cal use')), rows.map(r => r.querySelector('.q-item-name').textContent).join(' | '));
+check('… each row naming its project, its block and the day',
+  /curate/.test(rows[0].textContent) && /@b2/.test(rows[0].textContent) && /@b1/.test(rows[2].textContent));
+check('the title row counts them and offers to clear',
+  $('.ns-plan #sent-count').textContent === '3 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
+
+/* Two tasks in b1 split the block, in the order they were sent; one task in
+   b2 fills both halves of it. */
+const hist = JSON.parse(w.localStorage.getItem('plan_history_v1'));
+const lineOf = name => w.PLAN.calLines(hist.find(h => h.name === name));
+check('a block with two tasks copies one line each, a then b',
+  lineOf('mix the track') === 'b1a : curate > mix the track\nb1b : curate > master it',
+  JSON.stringify(lineOf('mix the track')));
+check('… and either row of that block copies the same pair', lineOf('master it') === lineOf('mix the track'));
+check('a block with one task fills both halves with it',
+  lineOf('post the clip') === 'b2a : curate > post the clip\nb2b : curate > post the clip',
+  JSON.stringify(lineOf('post the clip')));
+check('a task sent with no block copies the bare project > task',
+  w.PLAN.calLines({ project: 'curate', name: 'no block', block: null, date: today }) === 'curate > no block');
+
+let copied = '';
+w.navigator.clipboard = { writeText: async t => { copied = t; } };
+await w.PLAN.copyCal(2);                       // the oldest row: mix the track
+check('tapping +cal puts those lines on the clipboard', copied === lineOf('mix the track'), JSON.stringify(copied));
+confirmAnswer = true;
+w.PLAN.clearSent();
+check('clear empties the list and the key', !d.querySelectorAll('.ns-plan #sent-list .q-item').length &&
+  JSON.parse(w.localStorage.getItem('plan_history_v1')).length === 0);
+check("clearing the history leaves today's own sent record alone — LOG reads that one",
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 3,
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 3));
+w.PLAN.clearQueue();
+
 // the gap under the title band: the shell's, and the same on every app
 check('the gap under the band is set once, in shell.css', /\.view-body #s-home\{padding-top:18px\}/.test(shellCss) &&
   /\.view-body #s-home > :first-child\{margin-top:0\}/.test(shellCss));
