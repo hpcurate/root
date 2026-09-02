@@ -156,7 +156,10 @@
 /* ── Today's tasks from Todoist ───────────────────────────────────────────────
    A block under the routine grid, not another card: a list you tick, with the
    labels and the priority Todoist gave each task. */
-.ns-do .tt{margin:calc(22px * var(--dens)) calc(18px * var(--dens)) 0}
+/* a section owns its space below as well as above: with the blocks first, the
+   routine grid used to sit flush under the last row of tiles */
+.ns-do .tt{margin:calc(22px * var(--dens)) calc(18px * var(--dens)) calc(26px * var(--dens))}
+.ns-do .tt.hidden + .tt{margin-top:calc(22px * var(--dens))}
 .ns-do .tt-head{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   padding-bottom:calc(8px * var(--dens));margin-bottom:10px;border-bottom:var(--bw) solid var(--bd)}
@@ -187,7 +190,8 @@
 .ns-do .tt-lbl{color:var(--y)!important;border-color:var(--yb)!important}
 .ns-do .tt-late{color:var(--or)!important;border-color:var(--or)!important}
 /* block tasks: a tile per task in its label's Todoist colour; done = filled */
-.ns-do .bk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(6px * var(--dens))}
+/* three across on a phone, wrapping to as many rows as the day has tasks */
+.ns-do .bk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(6px * var(--dens));align-items:stretch}
 .ns-do .bk{position:relative;min-height:64px;text-align:left;cursor:pointer;
   background:color-mix(in srgb,var(--bk-c) 10%,var(--s1));border:var(--bw) solid var(--bk-c);border-radius:var(--r2);
   color:var(--tx);padding:calc(10px * var(--dens)) calc(10px * var(--dens)) calc(9px * var(--dens));

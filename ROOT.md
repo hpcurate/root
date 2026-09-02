@@ -480,7 +480,7 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 108 checks covering boot, every theme and panel, the
+through DOM events: 111 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3 and the Todoist round-trips of 2.4. Run it before trusting any change:
 
@@ -498,6 +498,27 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.7 — 2026-09-02 — DO polish
+
+**Space under the blocks.** A `.tt` section had a top margin and no bottom
+one, fine while it was last; with the blocks first the routine grid sat flush
+under the tiles. Both sections own their space below now, and the tile grid
+wraps to as many rows as the day has tasks (three across on a phone).
+
+**"hide done"** in the blocks header, where "refresh" sits on the today list.
+Finished tiles drop out, the count stays, "all done" is said when nothing is
+left. Persisted in `do_todoist_v1.blocksHideDone`.
+
+**Progress bars tinted by progress.** Every DO bar — routine cards, the
+checklist, the travel card, each travel list, each open list — runs from the
+foreground colour at nothing done to green at everything done
+(`color-mix(--gr N%, --tx)`, inline). The foreground rather than white so a
+light theme's white card still shows the bar.
+
+**Verified** — `test/harness.mjs`, 111 checks, all green, including the
+hide-done toggle both ways and the tinted bar. **Not verified**: the tint on
+a light theme.
 
 ### 2.6 — 2026-09-02 — DO's home, arranged
 

@@ -218,7 +218,7 @@ function renderHome() {
     return `<div class="card${isDone ? ' done' : ''}" onclick="DO.openRoutine('${key}')">
       <div class="card-t">${r.label}</div>
       <div class="card-s">${done} / ${r.items.length} done</div>
-      <div class="card-bar"><div class="card-bar-fill" style="width:${pct}%"></div></div>
+      <div class="card-bar"><div class="card-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>
     </div>`;
   }).join('');
 
@@ -233,7 +233,7 @@ function renderHome() {
     travelCard = `<div class="card${tDone ? ' done' : ''}" onclick="DO.go('travel')">
       <div class="card-t">Travel</div>
       <div class="card-s">${sub}</div>
-      <div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%"></div></div>
+      <div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%;background:${barColor(tStat.pct)}"></div></div>
     </div>`;
   }
 
@@ -314,6 +314,7 @@ function renderChecklist() {
 
   $id('cl-progress').classList.toggle('all-done', allDone);
   $id('cl-bar-fill').style.width = pct + '%';
+  $id('cl-bar-fill').style.background = barColor(pct);
   $id('cl-stats').innerHTML = `<em>${done}</em> / ${items.length}`;
   $id('cl-done-banner').classList.toggle('show', allDone);
   $id('cl-action-btn').textContent = allDone ? 'clear all' : 'mark all';
@@ -381,7 +382,7 @@ function renderTravelList() {
         <button class="tv-list-del" onclick="event.stopPropagation();DO.deleteList('${id}')">✕</button>
       </div>
       <div class="card-s">${s.done} / ${s.total} packed</div>
-      <div class="card-bar"><div class="card-bar-fill" style="width:${s.pct}%"></div></div>
+      <div class="card-bar"><div class="card-bar-fill" style="width:${s.pct}%;background:${barColor(s.pct)}"></div></div>
     </div>`;
   }).join('');
 }
@@ -450,6 +451,7 @@ function renderTravelCl() {
   const allDone = stat.done === stat.total && stat.total > 0;
   $id('tv-progress').classList.toggle('all-done', allDone);
   $id('tv-bar-fill').style.width = stat.pct + '%';
+  $id('tv-bar-fill').style.background = barColor(stat.pct);
   $id('tv-stats').innerHTML = `<em>${stat.done}</em> / ${stat.total}`;
   $id('tv-done-banner').classList.toggle('show', allDone);
 
@@ -618,7 +620,7 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       todayOn:false, todayOverdue:true, todayFilter:'',
                       today:{ date:null, tasks:[], fetched:0, missing:[] },
                       // block tasks: every task due today carrying one of PLAN's block labels
-                      blocksOn:true, blocks:{ date:null, tasks:[], fetched:0 } };
+                      blocksOn:true, blocksHideDone:false, blocks:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -983,8 +985,11 @@ function renderBlocks() {
   box.classList.toggle('hidden', !show);
   if (!show) return;
   const open = b.tasks.filter(x => !x.done).length;
-  box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span></div>
-    <div class="bk-grid">${b.tasks.map(x => `<button class="bk${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleBlockTask('${esc(x.id)}')" aria-pressed="${x.done}">
+  const shown = td.blocksHideDone ? b.tasks.filter(x => !x.done) : b.tasks;
+  box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span>
+      <button class="tt-refresh" onclick="DO.toggleBlocksHideDone()">${td.blocksHideDone ? 'show done' : 'hide done'}</button></div>
+    ${shown.length ? '' : '<div class="tt-empty">all done</div>'}
+    <div class="bk-grid">${shown.map(x => `<button class="bk${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleBlockTask('${esc(x.id)}')" aria-pressed="${x.done}">
       <span class="bk-tag">@${esc(x.block)}${x.tag ? ` · ${esc(x.tag)}` : ''}</span><span class="bk-name">${esc(x.content)}</span>
       <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </button>`).join('')}</div>`;
@@ -1005,6 +1010,13 @@ async function toggleBlockTask(id) {
   }
 }
 function blockTasks() { return td.blocksOn ? tdBlocks().tasks.slice() : []; }
+function toggleBlocksHideDone() { td.blocksHideDone = !td.blocksHideDone; tdPersist(); renderBlocks(); }
+
+/* Progress bars run from the foreground colour at nothing done to green at
+   everything done — a glance says how far along a list is, not just whether
+   it is finished. The foreground rather than literal white so the bar is
+   still visible on a light theme's white card. */
+const barColor = pct => `color-mix(in srgb, var(--gr) ${Math.max(0, Math.min(100, Math.round(pct)))}%, var(--tx))`;
 function toggleBlocks() {
   td.blocksOn = !td.blocksOn; tdPersist(); renderTodoistSettings(); renderBlocks(); renderToday();
   if (td.blocksOn && !tdBlocks().fetched) refreshToday(true);
@@ -1207,5 +1219,5 @@ return { go, renderSettings: renderTodoistSettings,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
-         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, blockTasks, moveSection };
+         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection };
 })();

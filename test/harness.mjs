@@ -524,6 +524,13 @@ check('… and the first tab shows them again', !$('.ns-do #td-blocks').classLis
 check('no Todoist label chips on the today rows', !$('.ns-do #td-today .tt-lbl'));
 w.DO.toggleBlockTask('k1'); await tick(50);
 check('ticking a block closes it in Todoist and fills the tile', bkOpen.get('k1').open === false && !!$('.ns-do #td-blocks .bk.done'));
+w.DO.toggleBlocksHideDone();
+check('"hide done" removes the finished tile and keeps the section', d.querySelectorAll('.ns-do #td-blocks .bk').length === 0 &&
+  !$('.ns-do #td-blocks').classList.contains('hidden') && /show done/.test($('.ns-do #td-blocks .tt-refresh').textContent));
+w.DO.toggleBlocksHideDone();
+check('"show done" brings it back', d.querySelectorAll('.ns-do #td-blocks .bk').length === 1);
+const barFill = $('.ns-do #home-grid .card-bar-fill');
+check('routine bars are tinted by progress, foreground → green', /color-mix\(in srgb, var\(--gr\) \d+%, var\(--tx\)\)/.test(barFill?.getAttribute('style') || ''), barFill?.getAttribute('style'));
 check("it is recorded as a completed block in today's log", JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track'));
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
 const bkChip = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');
