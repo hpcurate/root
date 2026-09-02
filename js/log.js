@@ -355,9 +355,30 @@ function toggleBlock(btn, name) {
   else { const m = maxBlocks();
          if(data.e.blocks.length>=m){toast(`max ${m} blocks`);return;}
          data.e.blocks.push(name); btn.classList.add('on'); }
+  syncBlocks();   // the same name can sit in both strips
 }
+/* Matched on data-name, not the text: a planned chip also carries its project
+   and time block as a caption. */
 function syncBlocks() {
-  $all('.blk-b').forEach(b => b.classList.toggle('on', data.e.blocks.includes(b.textContent.trim())));
+  $all('.blk-b').forEach(b => b.classList.toggle('on', data.e.blocks.includes(b.dataset.name ?? b.textContent.trim())));
+}
+
+/* ── Blocks planned in PLAN ───────────────────────────────────────────────────
+   What PLAN queued or sent today, offered under the block buttons as extra
+   blocks in the project's colour. Ticking one records the task name like any
+   other block, so it lands in the .md block table and in the reports' block
+   counts. Only drawn for the real today: a plan is for the day it was made. */
+function renderPlanned() {
+  const wrap = $id('blk-plan-wrap'), grid = $id('blk-plan');
+  if (!wrap || !grid) return;
+  const planned = (TODAY === REAL_TODAY && window.PLAN && PLAN.plannedToday) ? PLAN.plannedToday() : [];
+  wrap.classList.toggle('hidden', !planned.length);
+  grid.innerHTML = planned.map(p => {
+    const cap = [p.project, p.block, p.time].filter(Boolean).join(' · ');
+    return `<button class="blk-b plan" data-name="${attrEsc(p.name)}" onclick="LOG.toggleBlock(this,'${attr(p.name)}')"
+             style="--blk-c:${esc(p.color)};--blk-bg:${tint(p.color, 14)}">${esc(p.name)}${cap ? `<small>${esc(cap)}</small>` : ''}</button>`;
+  }).join('');
+  syncBlocks();
 }
 
 /* ── Config-driven form furniture ─────────────────────────────────────────────
@@ -376,6 +397,9 @@ function attr(s) {
   return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+/* For a plain attribute value (data-name): esc() leaves quotes alone, which is
+   fine for text and fatal inside data-name="…". */
+function attrEsc(s) { return esc(s ?? '').replace(/"/g, '&quot;'); }
 
 function renderForms() {
   const cfg = {
@@ -419,7 +443,7 @@ function renderForms() {
   // blocks
   const blkG = $id('blk-g');
   if (blkG) blkG.innerHTML = cfg.blocks.map(b =>
-    `<button class="blk-b" onclick="LOG.toggleBlock(this,'${attr(b.name)}')"
+    `<button class="blk-b" data-name="${attrEsc(b.name)}" onclick="LOG.toggleBlock(this,'${attr(b.name)}')"
              style="--blk-c:${esc(b.color)};--blk-bg:${tint(b.color, 14)}">${esc(b.name)}</button>`).join('');
   const hint = $id('blk-max-hint');
   if (hint) hint.textContent = `(max ${maxBlocks()})`;
@@ -482,12 +506,16 @@ function popM() {
   $id('last-weight').textContent = lw ? `last: ${lw} kg` : '';
 }
 
+/* Decimal fields are free text (see the note in index.html); the shell already
+   swaps the comma for a dot as you type, this is the belt to that brace. */
+const num = v => String(v ?? '').trim().replace(/,/g, '.');
+
 function saveMorning() {
   const cs_on = data.m.cs_on;
-  data.m = { wt:$id('m-wt').value, sl:$id('m-sl').value,
+  data.m = { wt:$id('m-wt').value, sl:num($id('m-sl').value),
              nrg:scGet('sc-nrg-m'), mood:scGet('sc-mood-m'), cs_on,
              cs: cs_on ? $id('m-cs').value : '',
-             wkg:$id('m-wkg').value, km:$id('m-km').value,
+             wkg:num($id('m-wkg').value), km:num($id('m-km').value),
              wo:woGet(), tkg:$id('m-tkg').value, tmin:$id('m-tmin').value };
   save(); toast('Morning saved'); go('home');
 }
@@ -497,11 +525,11 @@ function popE() {
   const e = data.e;
   $id('e-kme').value = e.kme || '';
   scSet('sc-nrg-e', e.nrg); scSet('sc-mood-e', e.mood); scSet('sc-stress', e.stress);
-  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); syncBlocks();
+  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks();
 }
 
 function saveEvening() {
-  data.e.kme    = $id('e-kme').value;
+  data.e.kme    = num($id('e-kme').value);
   data.e.nrg    = scGet('sc-nrg-e');
   data.e.mood   = scGet('sc-mood-e');
   data.e.stress = scGet('sc-stress');
@@ -545,6 +573,19 @@ function buildNote() {
   const csVal = m.cs_on===true ? (m.cs||'0') : m.cs_on===false ? '0' : '';
   const isRest = m.wo==='rest';
   const woRows = isRest ? `| workout_focus | rest |` : `| workout_focus | ${m.wo||''} |\n| total_kg      | ${m.tkg||''} |\n| time_min      | ${m.tmin||''} |`;
+  const st = studyOf(TODAY);
+  const studyRows = st ? `
+
+#### study
+
+| data          | ans |
+| ------------- | --: |
+| cap_topics    | ${st.topics.length} |
+| cap_done      | ${st.topics.map(t => t.title).join('; ') || '-'} |
+| cap_progress  | ${st.progress.done}/${st.progress.total} |
+| anki_rated    | ${st.rated} |
+| anki_acquired | ${st.acquired} |
+| anki_decks    | ${Object.entries(st.decks).map(([d, n]) => `${d} ${n}`).join(', ') || '-'} |` : '';
   return (
 `*:LiCalendar: ${TODAY}*
 ## planning
@@ -603,7 +644,21 @@ ${ents}
 | curate_mix    | ${cur.mix} |
 | curate_prod   | ${cur.prod} |
 | curate_cont   | ${cur.cont} |
-| curate_total  | ${cur.mix + cur.prod + cur.cont} |`);
+| curate_total  | ${cur.mix + cur.prod + cur.cont} |${studyRows}`);
+}
+
+/* ── Study, from TRACK and LEARN ──────────────────────────────────────────────
+   The CAP topics ticked on that day and the Anki cards rated on it. Both apps
+   expose a synchronous reader over their own storage; LOG stores nothing, it
+   only reads at note time. Null when the day had neither, so the section only
+   appears on a day that was actually a study day — the parser ignores rows it
+   does not know, so an extra section is additive. */
+function studyOf(iso) {
+  const topics = window.TRACK && TRACK.doneOn ? TRACK.doneOn(iso) : [];
+  const progress = window.TRACK && TRACK.progress ? TRACK.progress() : { done:0, total:0 };
+  const st = window.LEARN && LEARN.dailyStats ? LEARN.dailyStats(iso) : { rated:0, acquired:0, decks:{} };
+  if (!topics.length && !st.rated) return null;
+  return { topics, progress, rated:st.rated, acquired:st.acquired, decks:st.decks };
 }
 
 // ── Output ────────────────────────────────────────────────────────────────────
@@ -614,6 +669,11 @@ function renderOutput() {
   const tag = (label,ok) => { const t=document.createElement('span'); t.className=`out-tag ${ok?'ok':'no'}`; t.textContent=label; tags.appendChild(t); };
   tag('morning', morningLogged(data)); tag('evening', eveningLogged(data));
   const ec=data.entries.length; tag(`${ec} entr${ec===1?'y':'ies'}`, ec>0);
+  const st = studyOf(TODAY);
+  if (st) {
+    if (st.topics.length) tag(`${st.topics.length} topic${st.topics.length===1?'':'s'}`, true);
+    if (st.rated) tag(`${st.rated} card${st.rated===1?'':'s'}`, true);
+  }
 }
 
 async function shareFile() {
@@ -857,6 +917,15 @@ function parseDayContent(date, content) {
   d.e.caf_c  = parseInt((cafStr.match(/(\d+)c/) || [])[1] || 0);
   d.e.caf_ed = parseInt((cafStr.match(/(\d+)ed/) || [])[1] || 0);
 
+  // Study (2.3+): only present on a study day
+  const capT = tableVal('cap_topics', content), ankiR = tableVal('anki_rated', content);
+  if (capT !== '' || ankiR !== '') {
+    const titles = tableVal('cap_done', content);
+    d.s = { topics: parseInt(capT, 10) || 0,
+            titles: titles && titles !== '-' ? titles.split(';').map(s => s.trim()).filter(Boolean) : [],
+            cards: parseInt(ankiR, 10) || 0, acquired: parseInt(tableVal('anki_acquired', content), 10) || 0 };
+  }
+
   // Blocks: whole planning activity row, however many columns it has (older
   // notes carry 3, current ones 6) — take every non-empty cell after "activity"
   const blkRow = content.match(/^[^\S\n]*\|[^\S\n]*activity[^\S\n]*\|(.*)$/im);
@@ -1028,6 +1097,28 @@ function avg(arr) {
   return (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1);
 }
 
+/* Study for one report day: the parsed note's rows when the day came from
+   Obsidian, otherwise TRACK and LEARN directly (they keep their own history). */
+function studyDay(iso, d) {
+  if (d && d.s) return d.s;
+  const st = studyOf(iso);
+  return st ? { topics: st.topics.length, titles: st.topics.map(t => t.title), cards: st.rated, acquired: st.acquired }
+            : { topics: 0, titles: [], cards: 0, acquired: 0 };
+}
+function studyTotals(days, dd) {
+  const per = days.map((iso, i) => studyDay(iso, dd[i]));
+  return { topics: per.reduce((a, s) => a + s.topics, 0), cards: per.reduce((a, s) => a + s.cards, 0),
+           acquired: per.reduce((a, s) => a + s.acquired, 0), titles: per.flatMap(s => s.titles) };
+}
+const studySection = s => `## study
+
+| metric | result |
+| --- | --- |
+| topics finished | ${s.topics} |
+| cards rated | ${s.cards} · ${s.acquired} acquired |
+
+${s.titles.map(t => '- ' + t).join('\n') || '—'}`;
+
 // ── Report builders (accept days array + getDay function) ─────────────────────
 function buildWeeklyReport(days, getDay) {
   const dd = days.map(getDay);
@@ -1071,6 +1162,7 @@ function buildWeeklyReport(days, getDay) {
   const allEntries=[];
   dd.forEach((d,i)=>(d.entries||[]).forEach(en=>allEntries.push({date:days[i],time:en.time,text:en.text})));
   const entryLines=allEntries.map(en=>` > ${en.time} - ${en.text}`).join('\n\n')||'—';
+  const study=studyTotals(days,dd);
 
   return (
 `*weekly review — week ${wk} · ${y}*
@@ -1096,6 +1188,7 @@ ${days.map((d,i)=>dayRow(dd[i],i)).join('\n')}
 | avg sleep | ${avg(sleeps)||'—'} h |
 | total km | ${totalKm} |
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
+| study | ${study.topics} topics · ${study.cards} cards |
 
 ## workouts
 
@@ -1117,6 +1210,8 @@ ${woRows||'| — | — | — | — |'}
 | block | count |
 | --- | --- |
 ${blockRows}
+
+${studySection(study)}
 
 ## journal entries
 
@@ -1162,6 +1257,7 @@ function buildMonthlyReport(days, getDay) {
   const blockCounts={};
   dd.forEach(d=>(d.e?.blocks||[]).forEach(b=>{blockCounts[b]=(blockCounts[b]||0)+1;}));
   const blockRows=Object.entries(blockCounts).map(([b,c])=>`| ${b} | ${c} |`).join('\n')||'| — | — |';
+  const study=studyTotals(days,dd);
 
   const weekRows=Object.entries(weeks).map(([wk,wdays])=>{
     const wdd=wdays.map(x=>x.data);
@@ -1198,6 +1294,7 @@ ${weekRows}
 | avg sleep | ${avg(sleeps)||'—'} h |
 | total km | ${totalKm} |
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
+| study | ${study.topics} topics · ${study.cards} cards |
 
 ## workouts
 
@@ -1218,7 +1315,9 @@ ${woRows}
 
 | block | count |
 | --- | --- |
-${blockRows}`);
+${blockRows}
+
+${studySection(study)}`);
 }
 
 async function shareReport() {
@@ -1374,5 +1473,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
-         openDeleteModal, closeModal, confirmDeleteAll };
+         openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, buildNote };
 })();

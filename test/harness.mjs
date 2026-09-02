@@ -207,6 +207,7 @@ check('a tick after midnight lands in the new day\'s record', w.localStorage.get
 check('Todoist token survived the day sweep', w.localStorage.getItem('do_todoist_v1') !== null);
 check('LOG followed to the new day on its home screen', $('.ns-log #btn-today').classList.contains('hidden'));
 w.Date = RealDate;
+w.Shell.checkDay();                          // and back to the real today for everything that follows
 
 // ── 11. Prefs fixes ─────────────────────────────────────────────────────────
 w.Prefs.preview('paper');
@@ -327,6 +328,154 @@ w.Config.set('learn.ratings', ['a', 'b', 'c', 'known']);
 check('rating names follow Config', $('.ns-learn #answer-row .ans.easy .ans-l').textContent === 'known');
 w.Config.reset('learn.ratings');
 check('no library script was loaded without an import', !d.querySelector('script[src*="jszip"]'));
+
+// ── 19. 2.3 — decimal fields, touch preview, the Todoist block, PLAN→LOG, study ─
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('morning');
+const slIn = $('.ns-log #m-sl');
+slIn.value = '7,5'; slIn.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('a comma typed into a decimal field becomes a dot', slIn.value === '7.5', slIn.value);
+$('.ns-log #m-wkg').value = '75,3';               // no input event — the save must still normalise
+w.LOG.saveMorning();
+const savedM = JSON.parse(w.localStorage.getItem('log_' + today)).m;
+check('decimal fields save as parseable numbers', savedM.sl === '7.5' && savedM.wkg === '75.3', JSON.stringify(savedM));
+
+w.SET.panel('look');
+const themeCard = $('.ns-set [data-theme-pick="ember"]');
+const touchOver = new w.MouseEvent('pointerover', { bubbles: true });
+Object.defineProperty(touchOver, 'pointerType', { value: 'touch' });
+themeCard.dispatchEvent(touchOver);
+check('a finger crossing a theme card does not preview it', d.documentElement.dataset.theme === 'void', d.documentElement.dataset.theme);
+const mouseOver = new w.MouseEvent('pointerover', { bubbles: true });
+Object.defineProperty(mouseOver, 'pointerType', { value: 'mouse' });
+themeCard.dispatchEvent(mouseOver);
+check('a mouse over a theme card still previews it', d.documentElement.dataset.theme === 'ember');
+w.Prefs.revert();
+
+// the Todoist "today" block
+const tdCalls = [], tdClosed = new Set();
+fetchScript = async (url, opts) => {
+  const method = (opts && opts.method) || 'GET';
+  tdCalls.push(method + ' ' + url);
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
+  if (m) { if (m[2] === 'close') tdClosed.add(m[1]); else tdClosed.delete(m[1]); return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
+  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life' }, { id: 'p2', name: 'other' }]);
+  if (url.includes('/sections')) return ok([{ id: 's1', name: 'admin | tasks', project_id: 'p1' }]);
+  if (url.includes('/tasks?')) return ok([
+    { id: 't1', content: 'call the bank', labels: ['calls'], priority: 4, due: { date: today } },
+    { id: 't2', content: 'old thing',     labels: [],        priority: 1, due: { date: offset(-2) } },
+    { id: 't3', content: 'tomorrow',      labels: [],        priority: 2, due: { date: offset(1) } },
+    { id: 't4', content: 'no date',       labels: [],        priority: 2, due: null },
+  ].filter(t => !tdClosed.has(t.id)));
+  return ok([]);
+};
+click($('.ns-tend #tt-show'));                 // keep TEND's plants off the block for these checks
+w.Shell.go('do');
+$('.ns-do #td-today-filter').value = '04 | life > admin | tasks';
+w.DO.saveTodaySettings();
+w.DO.toggleToday();
+await tick(120);
+const ttRows = d.querySelectorAll('.ns-do #td-today .tt-row');
+check('today block shows due + overdue, not future or dateless', ttRows.length === 2 && !$('.ns-do #td-today').classList.contains('hidden'), 'rows ' + ttRows.length);
+check('priority and labels are shown', !!$('.ns-do .tt-row .tt-pri.p1') && $('.ns-do .tt-row .tt-lbl')?.textContent === '@calls');
+check('an overdue task is flagged late', !!$('.ns-do .tt-row.late'));
+tdCalls.length = 0;
+w.DO.toggleTodayTask('t1'); await tick(50);
+check('ticking a task closes it in Todoist', tdCalls.some(c => c.includes('/tasks/t1/close')) && !!$('.ns-do .tt-row.done'));
+await w.DO.refreshToday(true);
+check('a task closed here stays listed, ticked, after a refresh', d.querySelectorAll('.ns-do .tt-row').length === 2 && !!$('.ns-do .tt-row.done'));
+tdCalls.length = 0;
+w.DO.toggleTodayTask('t1'); await tick(50);
+check('unticking reopens it in Todoist', tdCalls.some(c => c.includes('/tasks/t1/reopen')) && !$('.ns-do .tt-row.done'));
+check('the day\'s task list is cached in do_todoist_v1', JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.length === 2);
+w.DO.toggleToday();
+check('switching the block off hides it', $('.ns-do #td-today').classList.contains('hidden'));
+
+// PLAN → LOG: a planned task is offered as a block
+w.Shell.go('plan'); w.PLAN.openProj('edu'); w.PLAN.pickSub('edu', 0);
+$('.ns-plan #task-name').value = 'read NF C 15-100'; w.PLAN.addToQueue();
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
+// the earlier partial-send test left "a" and "c" sent today and "b" queued, so
+// all four are planned; find ours by name
+const planChip = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'read NF C 15-100');
+check('a queued PLAN task is offered under the blocks', !!planChip && !$('.ns-log #blk-plan-wrap').classList.contains('hidden'),
+  [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].map(b => b.dataset.name).join(','));
+click(planChip);
+w.LOG.saveEvening();
+check('ticking it records the task as a block', JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('read NF C 15-100'));
+w.PLAN.clearQueue();
+
+// TRACK + LEARN → the note's study section
+w.TRACK.toggle('t02');
+w.LEARN.recordRating(4, 'Deck A'); w.LEARN.recordRating(2, 'Deck A');
+const noteOut = w.LOG.buildNote();
+check('the note carries a study section', /#### study/.test(noteOut) && /\| cap_topics\s+\| 2 \|/.test(noteOut) &&
+  /\| anki_rated\s+\| 2 \|/.test(noteOut) && /\| anki_acquired\s+\| 1 \|/.test(noteOut) && /Deck A 2/.test(noteOut),
+  (noteOut.match(/#### study[\s\S]*/) || ['no section'])[0].slice(0, 200));
+w.LOG.go('output');
+check('the output screen tags the study day', /2 topics/.test($('.ns-log #out-tags').textContent) && /2 cards/.test($('.ns-log #out-tags').textContent));
+w.TRACK.toggle('t02'); w.TRACK.toggle('t01'); w.localStorage.removeItem('learn_daily_v1');
+check('a day with no study has no study section', !/#### study/.test(w.LOG.buildNote()));
+
+// ── 20. 2.4 — TEND ↔ Todoist, the DO badge, study in the reports ────────────
+const ttOpen = new Map(); let ttNext = 1;
+fetchScript = async (url, opts) => {
+  const method = (opts && opts.method) || 'GET';
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const none = { ok: true, status: 204, json: async () => null, text: async () => '' };
+  const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
+  if (m) { const t = ttOpen.get(m[1]); if (t) t.open = m[2] === 'reopen'; return none; }
+  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life' }]);
+  if (url.includes('/sections')) return ok([{ id: 's7', name: 'home | chores', project_id: 'p1' }]);
+  if (method === 'POST' && /\/tasks$/.test(url)) {
+    const b = JSON.parse(opts.body); const id = 'n' + (ttNext++);
+    ttOpen.set(id, Object.assign({ id, open: true }, b)); return ok(Object.assign({ id }, b));
+  }
+  if (url.includes('/tasks?')) return ok([...ttOpen.values()].filter(t => t.open)
+    .map(t => ({ id: t.id, content: t.content, labels: t.labels, priority: t.priority, due: { date: today } })));
+  return ok([]);
+};
+click($('.ns-tend #tt-show'));                 // plants back on DO's block
+w.Shell.go('tend');
+await tick(300);                               // onShow starts a quiet sync of its own; let it finish first
+const fernItem = w.TEND.todayList().find(x => x.pid === fern.id && x.type === 'water');
+check("the fern is due today on TEND's list", !!fernItem && !fernItem.done && fernItem.content === 'water test fern', JSON.stringify(fernItem));
+await w.TEND.syncTodoist(true);
+const made = [...ttOpen.values()][0] || { id: 'none' };
+check('a due plant is pushed as a Todoist task with the chosen target, label, priority and date',
+  made.content === 'water test fern' && made.project_id === 'p1' && made.section_id === 's7' &&
+  made.labels && made.labels[0] === 'home' && made.priority === 3 && made.due_string === 'today',
+  JSON.stringify(made) + ' | status: ' + $('.ns-tend #tt-status')?.textContent);
+ttOpen.set('none', { open: null });
+check('the task id is recorded under tend_todoist_v1', Object.values(JSON.parse(w.localStorage.getItem('tend_todoist_v1')).pushed)[0]?.id === made?.id);
+w.Shell.go('do');
+const plantRow = [...d.querySelectorAll('.ns-do #td-today .tt-row')].find(r => r.textContent.includes('water test fern'));
+check("the due plant is on DO's today block with its label and priority", !!plantRow && !$('.ns-do #td-today').classList.contains('hidden') &&
+  plantRow.querySelector('.tt-lbl')?.textContent === '@home' && !!plantRow.querySelector('.tt-pri.p2'), plantRow?.textContent);
+check('the DO tab and date line carry the open count', $('.tab-b[data-app="do"] .tb-badge')?.textContent === '1' && /1 to do/.test($('.ns-do #today-count').textContent),
+  ($('.tab-b[data-app="do"] .tb-badge')?.textContent || 'no badge') + ' | ' + $('.ns-do #today-count').textContent);
+w.DO.toggleTodayTask(fernItem.id); await tick(50);
+check('ticking it on DO logs the watering and closes the task', tendDB().events.some(e => e.plant === fern.id && e.type === 'water' && e.date === today) && ttOpen.get(made.id).open === false);
+check('the badge clears', !$('.tab-b[data-app="do"] .tb-badge'));
+w.DO.toggleTodayTask(fernItem.id); await tick(50);
+check('unticking removes the watering and reopens the task', !tendDB().events.some(e => e.plant === fern.id && e.type === 'water' && e.date === today) && ttOpen.get(made.id).open === true);
+ttOpen.get(made.id).open = false;                  // completed in Todoist
+await w.TEND.syncTodoist(true);
+check('a task completed in Todoist is logged in TEND on sync', tendDB().events.some(e => e.plant === fern.id && e.type === 'water' && e.date === today));
+w.Shell.go('do');
+check('… and shows ticked on DO', !![...d.querySelectorAll('.ns-do .tt-row')].find(r => r.textContent.includes('water test fern'))?.classList.contains('done'));
+
+w.TRACK.toggle('t03'); w.LEARN.recordRating(4, 'Deck B');
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('reports'); w.LOG.loadReportLocal('weekly');
+const wr = $('.ns-log #rep-pre').textContent;
+check('the weekly report has a study row, a study section and the topic title', /\| study \| 1 topics · 1 cards \|/.test(wr) && /## study/.test(wr) && /Les grandeurs électriques/.test(wr),
+  (wr.match(/\| study \|[^\n]*/) || ['no row'])[0]);
+w.LOG.loadReportLocal('monthly');
+check('the monthly report too', /\| study \| 1 topics · 1 cards \|/.test($('.ns-log #rep-pre').textContent));
+$('.ns-log #rep-paste').value = `*:LiCalendar: ${today}*\n| cap_topics    | 3 |\n| cap_done      | A; B; C |\n| anki_rated    | 12 |\n| anki_acquired | 4 |\n| scale | 1-5 |\n`;
+w.LOG.parseNotes(); click($('.ns-log #rep-week-btns .rep-btn'));
+check('parsed notes feed the study rows', /\| study \| 3 topics · 12 cards \|/.test($('.ns-log #rep-pre').textContent) && /- B/.test($('.ns-log #rep-pre').textContent));
+w.TRACK.toggle('t03'); w.localStorage.removeItem('learn_daily_v1');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

@@ -47,7 +47,7 @@ const GROUPS = [
   { name:'LOG',   color:'#5cdb7d', match:k => k.startsWith('log_') || k === 'log-scale-v2' },
   { name:'PLAN',  color:'#5e8cff', match:k => k.startsWith('plan_') },
   { name:'STORE', color:'#e8a33d', match:k => k === 'store_state_v1' || k === 'eat_state_v1' },
-  { name:'TEND',  color:'#3fc9b0', match:k => k.startsWith('tend.') },
+  { name:'TEND',  color:'#3fc9b0', match:k => k.startsWith('tend.') || k.startsWith('tend_') },
   { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
   { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
@@ -1305,15 +1305,23 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'import-look') importLook();
 });
 
-/* Preview the theme under the pointer, and put the saved one back on leaving. */
+/* Preview the theme under the pointer, and put the saved one back on leaving.
+   Mouse only: a finger scrolling the gallery fires pointerover on whatever card
+   it crosses, and :hover then sticks to the last one it lifted from, so the
+   preview was applied and never reverted — the look changed to a theme that
+   was neither chosen nor shown as selected. Touch gets no preview; a tap picks. */
+const isMouse = e => !e.pointerType || e.pointerType === 'mouse';
 view.addEventListener('pointerover', e => {
+  if (!isMouse(e)) return;
   const c = e.target.closest && e.target.closest('[data-theme-pick]');
   if (c) Prefs.preview(c.dataset.themePick);
 });
 view.addEventListener('pointerout', e => {
+  if (!isMouse(e)) return;
   const c = e.target.closest && e.target.closest('[data-theme-pick]');
   if (c && !view.querySelector('[data-theme-pick]:hover')) Prefs.revert();
 });
+view.addEventListener('pointercancel', () => Prefs.revert());
 
 function readoutFor(key, v) {
   const s = Prefs.SCHEMA[key];

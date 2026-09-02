@@ -69,6 +69,65 @@ window.Creds = (function () {
 })();
 
 
+/* ── Shared Todoist client ────────────────────────────────────────────────────
+   The unified v1 API, direct. DO keeps its own copy because it also offers the
+   worker proxy as an endpoint; TEND (and anything added later) uses this one.
+   getAll follows the {results,next_cursor} pagination v1 uses on some
+   collections and accepts the bare arrays it returns on others. */
+window.Todoist = (function () {
+  'use strict';
+  const BASE = 'https://api.todoist.com/api/v1';
+  async function call(path, opts = {}) {
+    const tok = Creds.token();
+    if (!tok) throw new Error('no Todoist key saved — add one under settings → data');
+    let res;
+    try {
+      res = await fetch(BASE + path, {
+        ...opts,
+        headers: { 'Authorization': 'Bearer ' + tok,
+                   ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) },
+      });
+    } catch {
+      throw new Error(location.protocol === 'file:'
+        ? 'blocked by the browser — serve over http(s), not as a local file'
+        : 'network error');
+    }
+    if (res.status === 401 || res.status === 403) throw new Error('token rejected by Todoist');
+    if (res.status === 429) throw new Error('rate limited by Todoist — wait a minute');
+    if (!res.ok) throw new Error('Todoist error ' + res.status);
+    const text = await res.text();          // /close and /reopen answer 204 with no body
+    return text ? JSON.parse(text) : null;
+  }
+  async function getAll(path, params = {}) {
+    const out = [];
+    let cursor = null;
+    do {
+      const q = new URLSearchParams({ ...params, limit: '200' });
+      if (cursor) q.set('cursor', cursor);
+      const page = await call(`${path}?${q}`);
+      if (Array.isArray(page)) { out.push(...page); cursor = null; }
+      else { out.push(...((page && page.results) || [])); cursor = (page && page.next_cursor) || null; }
+    } while (cursor);
+    return out;
+  }
+  /* "04 | life" and "04|life" are the same project. */
+  const name = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+                      .replace(/[^a-z0-9]+/g, ' ').trim();
+  async function resolve(project, section) {
+    const projects = await getAll('/projects');
+    const proj = projects.find(p => name(p.name) === name(project));
+    if (!proj) throw new Error(`project "${project}" not found (${projects.length} visible)`);
+    if (!section) return { projectId: proj.id, projectName: proj.name, sectionId: null, sectionName: '' };
+    const sections = await getAll('/sections', { project_id: proj.id });
+    const sec = sections.find(s => name(s.name) === name(section));
+    if (!sec) throw new Error(`section "${section}" not found in ${proj.name} — has: ${sections.map(s => s.name).join(', ') || 'none'}`);
+    return { projectId: proj.id, projectName: proj.name, sectionId: sec.id, sectionName: sec.name };
+  }
+  const due = task => { const d = task && task.due && task.due.date; return d ? String(d).slice(0, 10) : null; };
+  return { call, getAll, name, resolve, due };
+})();
+
+
 window.Shell = (function () {
   'use strict';
 
@@ -250,6 +309,17 @@ window.Shell = (function () {
 
   function register(name, api) { apps[name] = api || {}; }
 
+  /* A count on an app's tab button — DO uses it for what is still open today.
+     Zero removes it. The span is created on first use so the markup does not
+     have to know which apps count things. */
+  function badge(name, n) {
+    const b = btnOf(name); if (!b) return;
+    let el = b.querySelector('.tb-badge');
+    if (!n) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('span'); el.className = 'tb-badge'; b.appendChild(el); }
+    el.textContent = n > 99 ? '99+' : String(n);
+  }
+
   // bound by name, not position: the order is the user's to change
   Array.from(navEl.querySelectorAll('.tab-b')).forEach(b =>
     b.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); go(b.dataset.app); }));
@@ -370,6 +440,21 @@ window.Shell = (function () {
     else if (e.key === '/') { settings(); e.preventDefault(); }
   });
 
+  /* ── Decimal fields ────────────────────────────────────────────────────────
+     A French keyboard's decimal keypad offers "," and iOS refuses a comma in a
+     type=number field outright, so weight, sleep and km could not be typed on
+     the phone at all. Those fields are type=text + inputmode=decimal now, and
+     this one rule turns the comma into a dot as it is typed, keeping the caret
+     where it was. Any module reading them gets a parseFloat-able string. */
+  document.addEventListener('input', e => {
+    const el = e.target;
+    if (!el || el.tagName !== 'INPUT' || el.type !== 'text' || el.getAttribute('inputmode') !== 'decimal') return;
+    if (!el.value.includes(',')) return;
+    const pos = el.selectionStart;
+    el.value = el.value.replace(/,/g, '.');
+    try { if (pos !== null) el.setSelectionRange(pos, pos); } catch {}
+  }, true);
+
   // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
   (function boot() {
     rebuild();
@@ -402,6 +487,6 @@ window.Shell = (function () {
     }
   });
 
-  return { toast, go, settings, register, showChrome, TABS, APPS,
+  return { toast, go, settings, register, badge, showChrome, TABS, APPS,
            today, checkDay, confirm: confirmAction, hashTarget };
 })();

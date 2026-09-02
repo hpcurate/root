@@ -453,6 +453,7 @@ async function startStudy(mode) {
   session.counts = { 1:0, 2:0, 3:0, 4:0 }; session.needsWork = [];
 
   const d = await get1('decks', currentDeckId);
+  session.deckName = d ? d.name : 'deck';
   $id('study-deck-title').textContent = (d ? d.name : 'STUDY').toUpperCase();
   await loadMediaForDeck(currentDeckId);
   renderAnswerRow();
@@ -504,10 +505,37 @@ async function answer(rating) {
   c.rating = rating; c.ratedAt = Date.now();
   session.counts[rating] = (session.counts[rating] || 0) + 1;
   if (rating < 4) session.needsWork.push({ label:cardLabel(c), rating });
+  recordRating(rating, session.deckName);
   try { await put('cards', c); } catch {}
   session.idx++;
   Prefs.tap();
   nextCard();
+}
+
+/* ── Daily tally, for LOG's note ──────────────────────────────────────────────
+   The cards are in IndexedDB and LOG builds its note synchronously, so each
+   rating also bumps a small per-day record in localStorage: how many cards were
+   rated, how many reached the top rating, and which decks. Sixty days are
+   kept. */
+const DAILY_KEY = 'learn_daily_v1';
+function readDaily() {
+  try { const d = JSON.parse(localStorage.getItem(DAILY_KEY) || '{}'); return d && typeof d === 'object' ? d : {}; }
+  catch { return {}; }
+}
+function recordRating(rating, deckName) {
+  const all = readDaily(), today = Shell.today();
+  const day = all[today] || { rated:0, acquired:0, decks:{} };
+  day.rated++;
+  if (rating === 4) day.acquired++;
+  const dn = String(deckName || 'deck');
+  day.decks[dn] = (day.decks[dn] || 0) + 1;
+  all[today] = day;
+  Object.keys(all).sort().slice(0, -60).forEach(k => delete all[k]);
+  try { localStorage.setItem(DAILY_KEY, JSON.stringify(all)); } catch {}
+}
+function dailyStats(iso) {
+  const d = readDaily()[iso];
+  return d ? { rated:d.rated || 0, acquired:d.acquired || 0, decks:d.decks || {} } : { rated:0, acquired:0, decks:{} };
 }
 function skipCard() {
   if (session.idx >= session.queue.length) return;
@@ -642,5 +670,5 @@ Shell.register('learn', { onShow: () => { if ($id('s-home').classList.contains('
 
 return { go, goDeck, backToDeck, startStudy, reveal, answer, skipCard, exitStudy,
          resetDeckProgress, renameDeck, deleteCurrentDeck, resetAllProgress, wipeAll,
-         renderSettings, toggleShuffle, deckStats, handleFile };
+         renderSettings, toggleShuffle, deckStats, handleFile, dailyStats, recordRating };
 })();

@@ -208,7 +208,7 @@
   <!-- ── HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
-      <div class="h-label" id="date-label">—</div>
+      <div class="h-label"><span id="date-label">—</span><span class="h-count" id="today-count"></span></div>
       <div class="h-logo-row">
         <div class="h-logo">DO<em>.</em></div>
         <!-- filled by DO.renderTabs() from Config → do.tabs -->
@@ -219,6 +219,9 @@
       </div>
     </div>
     <div class="grid" id="home-grid"></div>
+    <!-- today's tasks from the Todoist projects chosen under settings → do;
+         drawn by DO.renderToday(), hidden until switched on -->
+    <div class="tt hidden" id="td-today"></div>
   </div>
 
   <!-- ── CHECKLIST ── -->
@@ -356,7 +359,9 @@
          types and counter labels are filled in from Config on each render. -->
     <div class="cnt">
       <div class="f" data-field="wakeTime"><label class="lbl">Wakeup time</label><input type="time" id="m-wt" oninput="LOG.markDirty()"></div>
-      <div class="f" data-field="sleepHours"><label class="lbl">Sleep hours</label><input type="number" inputmode="decimal" id="m-sl" placeholder="7.5" step="0.5" oninput="LOG.markDirty()"></div>
+      <!-- decimal fields are type=text: iOS rejects a comma in type=number and the
+           French keypad offers nothing else. The shell turns "," into "." as you type. -->
+      <div class="f" data-field="sleepHours"><label class="lbl">Sleep hours</label><input type="text" inputmode="decimal" autocomplete="off" id="m-sl" placeholder="7.5" oninput="LOG.markDirty()"></div>
       <div class="f" data-field="energyM"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-m">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">1</button>
@@ -387,9 +392,9 @@
       </div>
       <div class="f" data-field="weight">
         <label class="lbl">Weight (kg) <span class="lbl-hint" id="last-weight"></span></label>
-        <input type="number" inputmode="decimal" id="m-wkg" placeholder="75.0" step="0.1" oninput="LOG.markDirty()">
+        <input type="text" inputmode="decimal" autocomplete="off" id="m-wkg" placeholder="75.0" oninput="LOG.markDirty()">
       </div>
-      <div class="f" data-field="kmMorning"><label class="lbl">km walked (morning)</label><input type="number" inputmode="decimal" id="m-km" placeholder="2.0" step="0.1" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="kmMorning"><label class="lbl">km walked (morning)</label><input type="text" inputmode="decimal" autocomplete="off" id="m-km" placeholder="2.0" oninput="LOG.markDirty()"></div>
       <hr>
       <div class="f" data-field="workout">
         <label class="lbl">Workout</label>
@@ -407,7 +412,7 @@
   <div id="s-evening" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Evening</span></div>
     <div class="cnt">
-      <div class="f" data-field="kmEvening"><label class="lbl">km walked (evening)</label><input type="number" inputmode="decimal" id="e-kme" placeholder="3.5" step="0.1" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="kmEvening"><label class="lbl">km walked (evening)</label><input type="text" inputmode="decimal" autocomplete="off" id="e-kme" placeholder="3.5" oninput="LOG.markDirty()"></div>
       <div class="f" data-field="energyE"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-e">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">1</button>
@@ -452,6 +457,11 @@
       <div class="f" data-field="blocks">
         <label class="lbl">Blocks completed <span class="lbl-hint" id="blk-max-hint"></span></label>
         <div class="blk-g" id="blk-g"></div>
+        <!-- what PLAN queued or sent today, offered as extra blocks — LOG.renderPlanned() -->
+        <div id="blk-plan-wrap" class="hidden">
+          <label class="lbl blk-plan-lbl">planned in PLAN</label>
+          <div class="blk-g" id="blk-plan"></div>
+        </div>
       </div>
       <div class="f" data-field="curate">
         <label class="lbl">Curate output</label>
@@ -765,6 +775,9 @@
     <div class="h-top">
       <div class="h-label" id="date-label">—</div>
       <div class="h-logo">TEND<em>.</em></div>
+      <div class="h-acts">
+        <button class="h-act sync" data-act="tt-sync" data-td-btn="⇅ todoist" data-td-busy="⋯">⇅ todoist</button>
+      </div>
     </div>
     <div class="cnt">
       <div class="season card" id="season"></div>
@@ -1091,6 +1104,32 @@
         done — its list is ticked off here, and it is never closed a second time.
         Sync only ever completes; it never un-ticks a list or reopens a task.
       </div>
+
+      <div class="sec">Today's tasks</div>
+      <div class="data-warn">
+        A block under the routine cards listing what is due today in the
+        Todoist projects you name here — one per line, with an optional
+        section after a <strong>&gt;</strong>. Ticking a task closes it in
+        Todoist; unticking reopens it. Labels and priority are shown.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show today's tasks on DO</span>
+        <button class="setting-btn" id="td-today-on" onclick="DO.toggleToday()">off</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Include overdue<small>tasks due before today, still open</small></span>
+        <button class="setting-btn" id="td-today-overdue" onclick="DO.toggleTodayOverdue()">on</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Projects and sections <em>one per line · project &gt; section</em></label>
+        <textarea id="td-today-filter" rows="4" spellcheck="false" autocapitalize="off"
+                  placeholder="04 | life&#10;04 | life > admin | tasks"></textarea>
+      </div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="DO.saveTodaySettings()">save</button>
+        <button class="setting-btn" data-td-btn="fetch now" onclick="DO.refreshToday()">fetch now</button>
+      </div>
+      <div class="td-status" id="td-today-status">off</div>
     </div>
 
     <!-- ── LOG ── -->
@@ -1138,7 +1177,7 @@
       <div class="sec"><span>Budget</span></div>
       <div class="f">
         <label class="lbl">Budget (€) — 0 to disable</label>
-        <input type="number" inputmode="decimal" id="budget-input" placeholder="100" step="1">
+        <input type="text" inputmode="decimal" autocomplete="off" id="budget-input" placeholder="100">
       </div>
       <button class="btn" onclick="STORE.saveBudget()">save budget</button>
 
@@ -1240,6 +1279,44 @@
         <div><label class="lbl">repot every (months)</label><input type="number" min="0" max="60" data-cfg="tend.newPlant" data-sub="repot" aria-label="default repot interval"></div>
         <div><label class="lbl">glyph</label><input type="text" maxlength="2" data-cfg="tend.newPlant" data-sub="glyph" aria-label="default glyph"></div>
       </div>
+
+      <div class="sec"><span>Todoist</span></div>
+      <div class="data-warn">
+        Each plant due today becomes one task — "water basil" — in the project
+        and section below, with this label and priority, due today. Ticking it
+        here, on DO's today block or in Todoist closes it everywhere; unticking
+        reopens it. Sync only ever adds and closes, never deletes.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Push due plants to Todoist</span>
+        <button class="setting-btn" id="tt-push" data-act="tt-push">on</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show due plants on DO<small>in its today block, pushed or not</small></span>
+        <button class="setting-btn" id="tt-show" data-act="tt-show">on</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Project</label>
+        <input type="text" id="tt-project" placeholder="04 | life" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Section</label>
+        <input type="text" id="tt-section" placeholder="home | chores" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="ed-pair">
+        <div><label class="lbl">label</label><input type="text" id="tt-label" placeholder="home" autocapitalize="off" spellcheck="false"></div>
+        <div><label class="lbl">priority</label>
+          <select id="tt-priority" aria-label="priority">
+            <option value="4">p1 · urgent</option><option value="3">p2</option><option value="2">p3</option><option value="1">p4 · none</option>
+          </select></div>
+      </div>
+      <div class="td-status" id="tt-status">not synced yet</div>
+      <div class="td-acts">
+        <button class="setting-btn" data-act="tt-save">save target</button>
+        <button class="setting-btn" data-act="tt-test" data-td-btn="test connection">test connection</button>
+      </div>
+      <button class="btn" data-act="tt-sync" data-td-btn="sync now">sync now</button>
+      <div class="td-last" id="tt-last">never synced</div>
 
       <div class="sec"><span>Backup</span></div>
       <div class="data-warn">TEND's own format — the plants and their full care history, readable by the standalone app too. The ROOT backup under <strong>data</strong> carries it as well.</div>

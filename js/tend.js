@@ -201,6 +201,7 @@ function logCare(pid, type, date, note) {
 function doTasks(items, label) {
   const ids = items.map(it => logCare(it.p.id, it.t.key, todayISO()));
   save(); render(); offerUndo(label, ids);
+  items.forEach(it => ttClose(it.p.id, it.t.key));
   Prefs.tap();
 }
 function offerUndo(label, ids) {
@@ -215,8 +216,10 @@ function offerUndo(label, ids) {
 function undoLast() {
   if (!lastBatch) return;
   const s = new Set(lastBatch);
+  const gone = DB.events.filter(e => s.has(e.id));
   DB.events = DB.events.filter(e => !s.has(e.id));
   lastBatch = null; save(); render();
+  gone.forEach(e => { if (e.date === todayISO()) ttReopen(e.plant, e.type); });
   if (detailId) renderDetail();
   const bar = $id('undo'); if (bar) bar.classList.remove('on');
   toast('undone');
@@ -511,6 +514,7 @@ function renderSettings() {
   $all('[data-cfg="tend.round"]').forEach(i => { if (document.activeElement !== i) i.value = ROUND[i.dataset.sub]; });
   $all('[data-cfg="tend.newPlant"]').forEach(i => { if (document.activeElement !== i && i.id !== 'np-group') i.value = NEWP[i.dataset.sub]; });
   const box = $id('import-box'); if (box && document.activeElement !== box) box.value = '';
+  renderTtSettings();
 }
 function renderSeason() {
   const s = DB.settings.seasonSensitivity, m = new Date().getMonth();
@@ -546,6 +550,199 @@ function download() {
 async function copy() {
   try { await navigator.clipboard.writeText(exportText()); toast('copied'); }
   catch { toast('could not copy'); }
+}
+
+/* ── Todoist ────────────────────────────────────────────────────────────────
+   Each plant due today is one task — "water basil" — in a project and section
+   of your choosing, with a label, a priority and today's due date. The pushed
+   task ids live in tend_todoist_v1 (NOT inside tend.v3: both apps' normalise()
+   rebuilds that record from its known keys and would drop them). A tick in
+   TEND, on DO's today block or in Todoist closes the task everywhere:
+     · here → Todoist: doTasks / setDone / the detail sheet call ttClose;
+       undo, a deleted entry or an untick call ttReopen
+     · Todoist → here: on sync, a task pushed today that is no longer open and
+       that we did not close ourselves was completed over there, so the care
+       event is logged
+   Sync only ever adds and closes; it never deletes a task. */
+const TT_KEY = 'tend_todoist_v1';
+const TT_DEF = { project:'04 | life', section:'home | chores', label:'home', priority:3,
+                 push:true, showOnDo:true, projectId:null, sectionId:null, pushed:{}, lastSync:0 };
+const TT_STALE = 10 * 60 * 1000;
+let tt = { ...TT_DEF };
+let ttBusy = false;
+
+function ttLoad() {
+  try { tt = Object.assign({ ...TT_DEF }, JSON.parse(localStorage.getItem(TT_KEY) || '{}') || {}); } catch { tt = { ...TT_DEF }; }
+  if (!tt.pushed || typeof tt.pushed !== 'object') tt.pushed = {};
+  ttPrune();
+}
+function ttPersist() { try { localStorage.setItem(TT_KEY, JSON.stringify(tt)); } catch {} }
+// yesterday's pushed tasks are yesterday's: forget them, they are not ours to touch any more
+function ttPrune() { const today = todayISO(); Object.keys(tt.pushed).forEach(k => { if (!tt.pushed[k] || tt.pushed[k].date !== today) delete tt.pushed[k]; }); }
+const ttKey = (pid, type) => pid + ':' + type + ':' + todayISO();
+const taskContent = (p, t) => t.label + ' ' + p.name.toLowerCase();
+const loggedToday = (pid, type) => DB.events.some(e => e.plant === pid && e.type === type && e.date === todayISO());
+const addDaysISO = (s, n) => { const d = D(s); d.setDate(d.getDate() + n); return isoOf(d); };
+
+/* What DO's today block draws: everything due today (not yet done) and
+   everything done today (so it can be unticked), in DO's row shape. */
+function todayList() {
+  const today = todayISO(), out = [];
+  DB.plants.forEach(p => TASKS.forEach(t => {
+    const st = status(p, t.key);
+    const done = loggedToday(p.id, t.key);
+    if (!done && !(st.tracked && !st.suspended && st.state === 'due')) return;
+    const late = !done && st.over > 0;
+    out.push({ id:'tend:' + p.id + ':' + t.key, pid:p.id, type:t.key, content:taskContent(p, t),
+               glyph:p.glyph, room:roomName(p.room), done, late,
+               due: late ? addDaysISO(today, -st.over) : today,
+               labels: tt.label ? [tt.label] : [], priority: +tt.priority || 1,
+               pushedId: (tt.pushed[ttKey(p.id, t.key)] || {}).id || null });
+  }));
+  out.sort((a, b) => (a.done - b.done) || (b.late - a.late) || a.content.localeCompare(b.content));
+  return out;
+}
+function pushedIds() { ttPrune(); return new Set(Object.values(tt.pushed).map(r => String(r.id))); }
+const showOnDo = () => !!tt.showOnDo;
+function notifyDo() { if (window.DO && DO.renderToday) DO.renderToday(); }
+
+async function ttClose(pid, type) {
+  const rec = tt.pushed[ttKey(pid, type)];
+  if (!rec || rec.closed || !Creds.token()) { notifyDo(); return; }
+  try { await Todoist.call(`/tasks/${rec.id}/close`, { method:'POST' }); rec.closed = true; ttPersist(); }
+  catch (e) { toast('todoist: ' + e.message); }
+  notifyDo();
+}
+async function ttReopen(pid, type) {
+  const rec = tt.pushed[ttKey(pid, type)];
+  if (!rec || !rec.closed || !Creds.token()) { notifyDo(); return; }
+  try { await Todoist.call(`/tasks/${rec.id}/reopen`, { method:'POST' }); rec.closed = false; ttPersist(); }
+  catch (e) { toast('todoist: ' + e.message); }
+  notifyDo();
+}
+
+/* DO's today block lands here. Done = log today's care event (once) and close
+   the task; undone = drop today's event(s) of that kind and reopen it. */
+function setDone(pid, type, done) {
+  const p = DB.plants.find(x => x.id === pid), t = taskOf(type);
+  if (!p || !t) return;
+  if (done) {
+    if (!loggedToday(pid, type)) {
+      const id = logCare(pid, type, todayISO());
+      save(); render(); offerUndo(t.verb + ' ' + p.name.toLowerCase(), [id]);
+    }
+    ttClose(pid, type);
+  } else {
+    DB.events = DB.events.filter(e => !(e.plant === pid && e.type === type && e.date === todayISO()));
+    save(); render(); ttReopen(pid, type);
+  }
+  if (detailId) renderDetail();
+  notifyDo();
+}
+
+async function ttResolve(force) {
+  if (!force && tt.projectId && tt.sectionId) return;
+  const r = await Todoist.resolve(tt.project, tt.section);
+  tt.projectId = r.projectId; tt.sectionId = r.sectionId; ttPersist();
+}
+
+async function syncTodoist(quiet) {
+  if (ttBusy) return;
+  if (!Creds.token()) { if (!quiet) { toast('add a Todoist key in settings'); Shell.settings('data'); } return; }
+  ttBusy = true; renderTtButtons(); ttStatus('syncing…', 'busy');
+  const today = todayISO();
+  try {
+    await ttResolve();
+    ttPrune();
+    const open = await Todoist.getAll('/tasks', { project_id: tt.projectId, section_id: tt.sectionId });
+    const openIds = new Set(open.map(t => String(t.id)));
+    let pulled = 0, pushed = 0, closed = 0;
+
+    // ── Todoist → TEND: pushed today, no longer open, not closed by us
+    for (const key of Object.keys(tt.pushed)) {
+      const rec = tt.pushed[key];
+      if (rec.closed || openIds.has(String(rec.id))) continue;
+      const [pid, type] = key.split(':');
+      if (DB.plants.some(p => p.id === pid) && TASK_KEYS.includes(type) && !loggedToday(pid, type)) {
+        logCare(pid, type, today); pulled++;
+      }
+      rec.closed = true;
+    }
+    if (pulled) { save(); render(); if (detailId) renderDetail(); }
+
+    // ── TEND → Todoist: add what is due and not there yet, close what is done here
+    if (tt.push) {
+      for (const it of todayList()) {
+        const key = ttKey(it.pid, it.type), rec = tt.pushed[key];
+        if (it.done) {
+          if (rec && !rec.closed) { await Todoist.call(`/tasks/${rec.id}/close`, { method:'POST' }); rec.closed = true; closed++; }
+          continue;
+        }
+        if (rec) continue;
+        const body = { content: it.content, project_id: tt.projectId, section_id: tt.sectionId,
+                       due_string:'today', priority: +tt.priority || 1 };
+        if (tt.label) body.labels = [tt.label];
+        const made = await Todoist.call('/tasks', { method:'POST', body: JSON.stringify(body) });
+        tt.pushed[key] = { id: String(made && made.id), date: today, closed:false };
+        pushed++;
+      }
+    }
+    tt.lastSync = Date.now(); ttPersist();
+    notifyDo(); renderTtSettings();
+    const parts = [];
+    if (pushed) parts.push(`↑ ${pushed} added`);
+    if (pulled) parts.push(`↓ ${pulled} logged here`);
+    if (closed) parts.push(`✓ ${closed} closed`);
+    const msg = parts.length ? parts.join(' · ') : 'already in sync';
+    if (!quiet) toast(msg);
+    ttStatus(msg, 'good');
+  } catch (e) {
+    if (!quiet) toast('todoist: ' + e.message);
+    ttStatus(e.message, 'bad');
+  } finally { ttBusy = false; renderTtButtons(); }
+}
+async function testTodoist() {
+  if (ttBusy) return;
+  if (!Creds.token()) { ttStatus('add your Todoist key under settings → data first', 'bad'); return; }
+  ttBusy = true; renderTtButtons(); ttStatus('checking…', 'busy');
+  try {
+    await ttResolve(true);
+    const open = await Todoist.getAll('/tasks', { project_id: tt.projectId, section_id: tt.sectionId });
+    ttStatus(`connected — ${tt.project} › ${tt.section}, ${open.length} open task${open.length === 1 ? '' : 's'} there`, 'good');
+  } catch (e) { ttStatus(e.message, 'bad'); }
+  finally { ttBusy = false; renderTtButtons(); }
+}
+function maybeSync() {
+  if (!tt.push || !Creds.token() || ttBusy) return;
+  if (Date.now() - (tt.lastSync || 0) < TT_STALE) return;
+  syncTodoist(true);
+}
+function saveTtSettings() {
+  const v = id => { const el = $id(id); return el ? el.value.trim() : ''; };
+  const project = v('tt-project') || TT_DEF.project, section = v('tt-section') || TT_DEF.section;
+  if (project !== tt.project || section !== tt.section) { tt.projectId = null; tt.sectionId = null; }
+  tt.project = project; tt.section = section;
+  tt.label = v('tt-label').replace(/^@/, '');
+  tt.priority = Math.max(1, Math.min(4, parseInt(v('tt-priority'), 10) || 1));
+  ttPersist(); renderTtSettings(); notifyDo();
+  toast('TEND target saved');
+}
+function ttStatus(msg, kind) {
+  const el = $id('tt-status'); if (!el) return;
+  el.textContent = msg; el.className = 'td-status' + (kind ? ' ' + kind : '');
+}
+function renderTtButtons() {
+  $all('[data-td-btn]').forEach(b => { b.disabled = ttBusy; b.textContent = ttBusy ? (b.dataset.tdBusy || 'syncing…') : b.dataset.tdBtn; });
+}
+function renderTtSettings() {
+  if (!$id('tt-project')) return;
+  const fill = (id, val) => { const el = $id(id); if (el && document.activeElement !== el) el.value = val; };
+  fill('tt-project', tt.project); fill('tt-section', tt.section); fill('tt-label', tt.label); fill('tt-priority', String(tt.priority));
+  $id('tt-push').textContent = tt.push ? 'on' : 'off';
+  $id('tt-show').textContent = tt.showOnDo ? 'on' : 'off';
+  $id('tt-last').textContent = tt.lastSync
+    ? 'last sync ' + new Date(tt.lastSync).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+    : 'never synced';
 }
 
 /* ── One delegated listener ─────────────────────────────────────────────────
@@ -584,13 +781,22 @@ document.addEventListener('click', ev => {
     const d = $id('log-date').value || todayISO();
     const task = taskOf(t.dataset.t);
     if (p && task) { const id = logCare(p.id, task.key, d); save(); render(); renderDetail();
-                     offerUndo(task.verb + ' ' + p.name.toLowerCase(), [id]); }
+                     offerUndo(task.verb + ' ' + p.name.toLowerCase(), [id]);
+                     if (d === todayISO()) ttClose(p.id, task.key); }
     return;
   }
   if (act === 'del-event') {
+    const ev = DB.events.find(e => e.id === t.dataset.e);
     DB.events = DB.events.filter(e => e.id !== t.dataset.e);
-    save(); render(); renderDetail(); toast('entry removed'); return;
+    save(); render(); renderDetail(); toast('entry removed');
+    if (ev && ev.date === todayISO()) ttReopen(ev.plant, ev.type);
+    return;
   }
+  if (act === 'tt-sync') { syncTodoist(); return; }
+  if (act === 'tt-test') { testTodoist(); return; }
+  if (act === 'tt-save') { saveTtSettings(); return; }
+  if (act === 'tt-push') { tt.push = !tt.push; ttPersist(); renderTtSettings(); if (tt.push) syncTodoist(true); return; }
+  if (act === 'tt-show') { tt.showOnDo = !tt.showOnDo; ttPersist(); renderTtSettings(); notifyDo(); return; }
   if (act === 'accept-suggest') {
     const p = DB.plants.find(x => x.id === detailId);
     if (p) { p.every.water = parseInt(t.dataset.v) || p.every.water; save(); render(); renderDetail(); toast('baseline updated'); }
@@ -642,7 +848,10 @@ document.addEventListener('input', ev => {
 
 /* ── Boot ──────────────────────────────────────────────────────────────────── */
 load();
+ttLoad();
 render();
+// DO booted first and drew its today block before TEND existed; tell it now
+setTimeout(() => { notifyDo(); maybeSync(); }, 0);
 
 /* Edited vocabulary redraws the round, the open sheet and the settings curve.
    Plants keep their group key; one whose type was deleted falls back to the
@@ -656,8 +865,12 @@ Config.subscribe(path => {
 });
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') render(); });
 
-Shell.register('tend', { onShow: render, onDayChange: render });
+Shell.register('tend', {
+  onShow: () => { render(); maybeSync(); },
+  onDayChange: () => { ttPrune(); ttPersist(); render(); notifyDo(); },
+});
 
 return { render, renderSettings, openDetail, openEditor, closeSheet, undoLast,
-         exportText, applyImport, status };
+         exportText, applyImport, status,
+         todayList, setDone, pushedIds, showOnDo, syncTodoist, testTodoist };
 })();

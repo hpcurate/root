@@ -147,6 +147,54 @@
 .ns-do .btn:active{opacity:.82}
 .ns-do .setting-btn:disabled,.ns-do .btn:disabled,.ns-do .h-act:disabled{opacity:.45;cursor:default}
 
+/* what is still open today, on the date line */
+.ns-do .h-count{color:var(--y);margin-left:10px}
+.ns-do .h-count:empty{display:none}
+.ns-do .tt-glyph{flex:0 0 auto;font-size:15px;line-height:1;margin-top:1px}
+.ns-do .tt-src{color:var(--tx-2)!important}
+
+/* ── Today's tasks from Todoist ───────────────────────────────────────────────
+   A block under the routine grid, not another card: a list you tick, with the
+   labels and the priority Todoist gave each task. */
+.ns-do .tt{margin:calc(22px * var(--dens)) calc(18px * var(--dens)) 0}
+.ns-do .tt-head{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  padding-bottom:calc(8px * var(--dens));margin-bottom:10px;border-bottom:var(--bw) solid var(--bd)}
+.ns-do .tt-head em{color:var(--mu);font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:none;margin-left:8px}
+.ns-do .tt-refresh{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.08em;
+  text-transform:uppercase;cursor:pointer;padding:calc(2px * var(--dens)) 0}
+.ns-do .tt-refresh:active{color:var(--y)}
+.ns-do .tt-row{display:flex;align-items:flex-start;gap:calc(11px * var(--dens));width:100%;text-align:left;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(11px * var(--dens)) calc(12px * var(--dens));margin-bottom:6px;cursor:pointer;
+  transition:border-color var(--dur-1),background var(--dur-1);color:var(--tx)}
+.ns-do .tt-row:active{background:var(--s2)}
+.ns-do .tt-row.late{border-color:color-mix(in srgb,var(--or) 45%,transparent)}
+.ns-do .tt-row.done{opacity:.55}
+.ns-do .tt-check{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border:1.5px solid var(--mu);border-radius:var(--r1);
+  display:flex;align-items:center;justify-content:center;color:transparent;transition:all var(--dur-1)}
+.ns-do .tt-check svg{width:10px;height:10px}
+.ns-do .tt-row.done .tt-check{background:var(--y);border-color:var(--y);color:var(--on-y)}
+.ns-do .tt-body{flex:1;min-width:0}
+.ns-do .tt-name{display:block;font:400 12.5px/1.4 var(--mono);color:var(--tx);overflow-wrap:anywhere}
+.ns-do .tt-row.done .tt-name{text-decoration:line-through;text-decoration-color:var(--mu);color:var(--tx-2)}
+.ns-do .tt-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.ns-do .tt-meta span{font:400 8px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 6px;border-radius:var(--r1);border:1px solid var(--bd);color:var(--mu)}
+.ns-do .tt-pri.p1{color:var(--re);border-color:var(--re)}
+.ns-do .tt-pri.p2{color:var(--or);border-color:var(--or)}
+.ns-do .tt-pri.p3{color:#5e8cff;border-color:#5e8cff}
+.ns-do .tt-lbl{color:var(--y)!important;border-color:var(--yb)!important}
+.ns-do .tt-late{color:var(--or)!important;border-color:var(--or)!important}
+.ns-do .tt-empty{font:400 11px/1.6 var(--mono);color:var(--mu);text-align:center;
+  padding:calc(18px * var(--dens));background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r1)}
+.ns-do .tt-status{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em;margin-top:6px}
+.ns-do textarea{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 12px/1.6 var(--mono);padding:calc(11px * var(--dens)) calc(12px * var(--dens));outline:none;
+  -webkit-appearance:none;resize:vertical;min-height:72px}
+.ns-do textarea:focus{border-color:var(--y)}
+.ns-do .lbl em{font-style:normal;color:var(--tx-2);text-transform:none;letter-spacing:.04em}
+
 /* ── Travel ── */
 .ns-do .tv-sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
         margin:22px 0 10px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd);

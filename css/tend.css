@@ -24,6 +24,12 @@
 .ns-tend .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:18px}
 .ns-tend .h-logo em{color:var(--y);font-style:normal}
 
+.ns-tend .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;display:flex;gap:14px}
+.ns-tend .h-act{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
+  cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color var(--dur-1)}
+.ns-tend .h-act.sync{color:var(--y)}
+.ns-tend .h-act:disabled,.ns-tend .setting-btn:disabled,.ns-tend .btn:disabled{opacity:.45;cursor:default}
+
 .ns-tend .cnt{padding:0 calc(18px * var(--dens))}
 
 .ns-tend .season{display:flex;align-items:center;gap:calc(9px * var(--dens));

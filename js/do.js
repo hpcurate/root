@@ -86,6 +86,7 @@ function rollDay(day) {
   TODAY = day;
   SK = 'do_' + TODAY;
   loadState();
+  loadTodoist();          // drops yesterday's closedOn and today-task cache
   renderHome();
   if ($one('#s-checklist.on')) renderChecklist();
 }
@@ -176,7 +177,7 @@ function renderTabs() {
 }
 
 function renderHome() {
-  $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();
+  $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();   // #date-label is a span inside .h-label
 
   const routineCards = routinesOfTab(currentTab).map(key => {
     const r = ROUTINES[key];
@@ -206,6 +207,7 @@ function renderHome() {
   }
 
   $id('home-grid').innerHTML = routineCards + travelCard;
+  renderToday();
 }
 
 function setTab(tab) {
@@ -578,7 +580,10 @@ const TD_DIRECT = 'https://api.todoist.com/api/v1';
 const TD_PROXY  = 'https://todoist-proxy.hp-qrate.workers.dev/api/v1';
 const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       projectId:null, sectionId:null, lastSync:null,
-                      endpoint:'direct', autoPush:true, closedOn:{} };
+                      endpoint:'direct', autoPush:true, closedOn:{},
+                      // today's-tasks block: off until a project is chosen
+                      todayOn:false, todayOverdue:true, todayFilter:'',
+                      today:{ date:null, tasks:[], fetched:0, missing:[] } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -590,6 +595,8 @@ function loadTodoist() {
   if (!td.closedOn || typeof td.closedOn !== 'object') td.closedOn = {};
   const today = tdLocalDate();
   Object.keys(td.closedOn).forEach(k => { if (td.closedOn[k] !== today) delete td.closedOn[k]; });
+  // yesterday's task list is not today's
+  if (!td.today || td.today.date !== today) td.today = { date:today, tasks:[], fetched:0, missing:[] };
 }
 /* The key itself lives in Creds now. It is still written back into this app's
    own record on every save so the standalone complete/ app keeps working. */
@@ -844,6 +851,191 @@ function renderTodoistSettings() {
         { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
     : 'never synced';
   $id('td-file-warn').classList.toggle('hidden', location.protocol !== 'file:');
+  // today's tasks
+  const on = $id('td-today-on'); if (on) on.textContent = td.todayOn ? 'on' : 'off';
+  const ov = $id('td-today-overdue'); if (ov) ov.textContent = td.todayOverdue ? 'on' : 'off';
+  const f = $id('td-today-filter');
+  if (f && document.activeElement !== f && f.value === '') f.value = td.todayFilter || '';
+  ttStatus();
+}
+
+// ── Today's tasks from Todoist ────────────────────────────────────────────────
+/* A block under the routine cards listing what is due today in the projects
+   and sections chosen in settings. Ticking one closes it in Todoist; unticking
+   reopens it. The API never returns a completed task, so the day's list is
+   cached in do_todoist_v1 with a done flag per task: a task closed here stays
+   on the list, ticked, until midnight — which is what makes unticking possible
+   at all. A task that comes back from the API is open over there, whatever we
+   last did to it here, so the API's word wins on every refresh. */
+const TT_STALE = 10 * 60 * 1000;
+const TT_PRI = { 4:'p1', 3:'p2', 2:'p3' };     // Todoist: 4 is the most urgent
+
+/* "project > section", one per line; the section is optional. ">" rather than
+   "|" because the project names themselves carry a pipe ("04 | life"). */
+function ttRules() {
+  return String(td.todayFilter || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf('>');
+    return i < 0 ? { project:l, section:'' }
+                 : { project:l.slice(0, i).trim(), section:l.slice(i + 1).trim() };
+  });
+}
+function ttToday() {
+  const today = tdLocalDate();
+  if (!td.today || td.today.date !== today) td.today = { date:today, tasks:[], fetched:0, missing:[] };
+  return td.today;
+}
+function ttStatus(msg) {
+  const el = $id('td-today-status'); if (!el) return;
+  if (msg) { el.textContent = msg; return; }
+  if (!td.todayOn) { el.textContent = 'off'; return; }
+  const t = ttToday();
+  el.textContent = !ttRules().length ? 'no project chosen yet'
+    : t.fetched ? `${t.tasks.length} task${t.tasks.length === 1 ? '' : 's'} today · fetched ` +
+                  new Date(t.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) +
+                  (t.missing && t.missing.length ? ' · not found: ' + t.missing.join(', ') : '')
+    : 'not fetched yet';
+}
+
+async function refreshToday(quiet) {
+  if (!td.todayOn || tdBusy) return;
+  if (!Creds.token()) { if (!quiet) { toast('add a Todoist key in settings'); Shell.settings('data'); } return; }
+  const rules = ttRules();
+  if (!rules.length) { if (!quiet) { toast('choose a project under settings → do'); Shell.settings('do'); } return; }
+  tdBusy = true; renderTdButtons();
+  const today = tdLocalDate();
+  try {
+    const projects = await tdGetAll('/projects');
+    const got = [], missing = [];
+    for (const r of rules) {
+      const proj = projects.find(p => tdName(p.name) === tdName(r.project));
+      if (!proj) { missing.push(r.project); continue; }
+      const params = { project_id: proj.id };
+      let secName = '';
+      if (r.section) {
+        const secs = await tdGetAll('/sections', { project_id: proj.id });
+        const sec = secs.find(s => tdName(s.name) === tdName(r.section));
+        if (!sec) { missing.push(r.project + ' > ' + r.section); continue; }
+        params.section_id = sec.id; secName = sec.name;
+      }
+      const tasks = await tdGetAll('/tasks', params);
+      tasks.forEach(t => {
+        const due = tdDueDate(t);
+        if (!due || due > today) return;
+        if (due < today && !td.todayOverdue) return;
+        got.push({ id:String(t.id), content:String(t.content || ''), labels:Array.isArray(t.labels) ? t.labels.map(String) : [],
+                   priority:+t.priority || 1, due, project:proj.name, section:secName, done:false });
+      });
+    }
+    const prev = ttToday();
+    const seen = new Set();
+    const next = [];
+    got.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); next.push(t); } });
+    // closed here today and no longer returned: keep it, ticked, so it can be unticked
+    prev.tasks.forEach(t => { if (t.done && !seen.has(t.id)) next.push(t); });
+    next.sort((a, b) => (a.done - b.done) || (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) ||
+                        (b.priority - a.priority) || a.content.localeCompare(b.content));
+    td.today = { date:today, tasks:next, fetched:Date.now(), missing };
+    tdPersist();
+    renderToday(); ttStatus();
+    const open = next.filter(t => !t.done).length;
+    if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
+  } catch (e) {
+    if (!quiet) toast('todoist: ' + e.message);
+    ttStatus(e.message);
+    const box = $id('td-today');
+    const s = box && box.querySelector('.tt-status'); if (s) s.textContent = e.message;
+  } finally { tdBusy = false; renderTdButtons(); }
+}
+
+/* The rows are two sources in one list: the plants TEND says are due today
+   (drawn from TEND directly, so they show whether or not they were pushed to
+   Todoist) and the tasks fetched from the chosen projects. A task TEND pushed
+   is dropped from the fetched set by id so it is never listed twice. */
+function plantRows() {
+  return (window.TEND && TEND.showOnDo && TEND.showOnDo()) ? TEND.todayList().map(x => ({
+    id:x.id, content:x.content, labels:x.labels, priority:x.priority, due:x.due, section:'',
+    done:x.done, glyph:x.glyph, src:'tend' })) : [];
+}
+function todayRows() {
+  const pushed = window.TEND && TEND.pushedIds ? TEND.pushedIds() : new Set();
+  const api = td.todayOn ? ttToday().tasks.filter(x => !pushed.has(String(x.id))) : [];
+  return plantRows().concat(api);
+}
+function openCount() { return todayRows().filter(x => !x.done).length; }
+
+function renderToday() {
+  const box = $id('td-today'); if (!box) return;
+  const rowsData = todayRows();
+  const open = rowsData.filter(x => !x.done).length;
+  // the tab badge and the date line count whatever is still open, wherever it came from
+  if (window.Shell && Shell.badge) Shell.badge('do', open);
+  const cnt = $id('today-count'); if (cnt) cnt.textContent = open ? `· ${open} to do` : '';
+  const show = td.todayOn || rowsData.length > 0;
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  const today = tdLocalDate();
+  const t = ttToday();
+  const rows = rowsData.map(x => {
+    const pri = TT_PRI[x.priority];
+    return `<button class="tt-row${x.done ? ' done' : ''}${x.due < today && !x.done ? ' late' : ''}" onclick="DO.toggleTodayTask('${esc(x.id)}')">
+      <span class="tt-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      ${x.glyph ? `<span class="tt-glyph">${esc(x.glyph)}</span>` : ''}
+      <span class="tt-body"><span class="tt-name">${esc(x.content)}</span>
+        <span class="tt-meta">${pri ? `<span class="tt-pri ${pri}">${pri}</span>` : ''}${
+          x.labels.map(l => `<span class="tt-lbl">@${esc(l)}</span>`).join('')}${
+          x.due < today ? `<span class="tt-late">${esc(x.due)}</span>` : ''}${
+          x.section ? `<span class="tt-sec">${esc(x.section)}</span>` : ''}${
+          x.src === 'tend' ? '<span class="tt-src">tend</span>' : ''}</span>
+      </span></button>`;
+  }).join('');
+  const when = t.fetched ? new Date(t.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
+  box.innerHTML = `<div class="tt-head"><span>today<em>${open} open</em></span>
+      ${td.todayOn ? '<button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button>' : ''}</div>
+    ${rows || `<div class="tt-empty">${when ? 'nothing due today' : 'tap refresh to fetch today\'s tasks'}</div>`}
+    <div class="tt-status">${t.missing && t.missing.length ? 'not found: ' + esc(t.missing.join(', ')) : when ? 'todoist fetched ' + when : ''}</div>`;
+}
+
+/* Optimistic: the row flips at once, the request follows, a failure flips it
+   back. Close and reopen are the two v1 endpoints; a recurring task that is
+   closed rolls its due date on in Todoist and simply stops being returned. */
+async function toggleTodayTask(id) {
+  // a plant row belongs to TEND: it logs the care event and talks to Todoist itself
+  if (String(id).startsWith('tend:')) {
+    const it = window.TEND && TEND.todayList().find(x => x.id === id);
+    if (it) TEND.setDone(it.pid, it.type, !it.done);
+    return;
+  }
+  const t = ttToday();
+  const task = t.tasks.find(x => x.id === id); if (!task) return;
+  const was = task.done;
+  task.done = !was; tdPersist(); renderToday(); Prefs.tap();
+  try {
+    await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
+    toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
+  } catch (e) {
+    task.done = was; tdPersist(); renderToday();
+    toast('todoist: ' + e.message);
+  }
+}
+/* Silently refetch when the tab comes back and the list is older than ten
+   minutes — a task added on the desktop should not need a manual refresh. */
+function maybeRefreshToday() {
+  if (!td.todayOn || !Creds.token() || !ttRules().length) return;
+  if (Date.now() - (ttToday().fetched || 0) < TT_STALE) return;
+  refreshToday(true);
+}
+function toggleToday() {
+  td.todayOn = !td.todayOn; tdPersist(); renderTodoistSettings(); renderToday();
+  if (td.todayOn && !ttToday().fetched) refreshToday(true);
+}
+function toggleTodayOverdue() { td.todayOverdue = !td.todayOverdue; tdPersist(); renderTodoistSettings(); }
+function saveTodaySettings() {
+  const f = $id('td-today-filter');
+  td.todayFilter = f ? f.value.trim() : '';
+  td.today = { date:tdLocalDate(), tasks:[], fetched:0, missing:[] };   // a new filter is a new list
+  tdPersist(); renderTodoistSettings(); renderToday();
+  toast('today filter saved');
+  if (td.todayOn) refreshToday(true);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -866,11 +1058,12 @@ Config.subscribe(path => {
 });
 
 Shell.register('do', {
-  onShow: () => { renderTabs(); positionGlider(); },
+  onShow: () => { renderTabs(); positionGlider(); renderToday(); maybeRefreshToday(); },
   onDayChange: rollDay,
 });
 // the date label follows Settings → behaviour → dates without a reload
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
+maybeRefreshToday();
 
 return { go, renderSettings: renderTodoistSettings,
          toggle, toggleAll, openRoutine, setTab, resetDay,
@@ -878,5 +1071,7 @@ return { go, renderSettings: renderTodoistSettings,
          bumpCount, decCount, removeItem, openTravelEdit, addEditItem,
          deleteEditItem, saveTravelEdit, resetTravel, exportTravelMd,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
-         toggleEndpoint };
+         toggleEndpoint,
+         refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
+         renderToday };
 })();

@@ -295,13 +295,16 @@ versions still work off the same data.
 | Key | Owner | Holds |
 | --- | --- | --- |
 | `do_<YYYY-MM-DD>` | DO | one day's routine ticks (older days are swept on the first load of a new day) |
-| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token |
+| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, and since 2.3 the today-tasks block's filter and its cached list for the day |
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
 | `log_<YYYY-MM-DD>` | LOG | one logged day |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
+| `plan_sent_v1` | PLAN | what was sent today (name, project, block, time) — LOG offers these as blocks; a new day starts it empty |
+| `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
 | `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
+| `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
@@ -403,6 +406,44 @@ both say so, and a new device needs the `.apkg` imported again.
 - **The app list can hide the app you are on.** `Shell.rebuild()` is followed
   by `go()` to the same app if it is still shown, else to the first one, so no
   transform ever points at a hidden slide.
+- **A decimal field is `type=text inputmode=decimal`, never `type=number`.**
+  The French keypad offers a comma and iOS rejects it in a number field, so
+  weight, sleep and km could not be typed on the phone. The shell turns the
+  comma into a dot as you type (one capturing `input` listener), and LOG's
+  save normalises again. A new decimal field gets both for free only if it is
+  `type=text` with `inputmode="decimal"`.
+- **Theme preview is mouse-only.** `pointerover` fires under a scrolling
+  finger and `:hover` sticks after it lifts, so the touch preview applied a
+  theme that was never chosen and never reverted. `pointerType` gates it.
+- **DO's today block caches the day's tasks.** Todoist never returns a
+  completed task, so a task closed here is kept in `do_todoist_v1` with
+  `done:true` until midnight — that is the only way "untick → reopen" can
+  exist. On every refresh the API's word wins: anything it returns is open,
+  whatever we last did to it here.
+- **LOG block chips match on `data-name`, not text.** A planned chip carries a
+  caption, and the attribute has to be attribute-escaped (`attrEsc`): LOG's
+  `esc()` leaves quotes alone, which is fine as text and fatal inside
+  `data-name="…"`.
+- **The `#### study` section of the note is conditional.** It appears only on
+  a day with a ticked topic or a rated card. The parser looks rows up by key,
+  so an extra section is additive and older notes are unaffected.
+- **Every Todoist sync is single-flight and silently skipped while one runs.**
+  DO and TEND both start a quiet sync from `onShow` when theirs is older than
+  ten minutes, so a `syncTodoist()` called right after `Shell.go('tend')` may
+  return at once as "busy". The harness waits it out; a user tapping "sync
+  now" during an auto-sync gets the auto-sync's result a moment later.
+- **DO's today block is two sources, deduplicated by task id.** TEND's rows
+  come from `TEND.todayList()` directly (so they show even with push off) and
+  carry `tend:` ids that route the tick back to `TEND.setDone()`; a fetched
+  Todoist task whose id is in `TEND.pushedIds()` is dropped, or a pushed plant
+  would appear twice. The block is visible when DO's fetch is on *or* a plant
+  is due.
+- **`Shell.badge(app, n)` is the only writer of `.tb-badge`.** DO calls it from
+  `renderToday()` with the open count; TEND reaches it through `DO.renderToday()`
+  (`notifyDo`). A new counting app should do the same, not touch the nav.
+- **TEND boots after DO.** DO draws its block before `window.TEND` exists, so
+  TEND's boot schedules `notifyDo()` on the next tick and DO's `onShow` redraws
+  it — otherwise the plants only appeared after the first interaction.
 
 ---
 
@@ -434,9 +475,9 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 63 checks covering boot, every theme and panel, the
-behaviour fixed in 2.1 and the three apps added in 2.2. Run it before trusting
-any change:
+through DOM events: 93 checks covering boot, every theme and panel, the
+behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
+2.3 and the Todoist round-trips of 2.4. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -452,6 +493,106 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.4 — 2026-09-02 — TEND on Todoist and on DO, the open count, study in the reports
+
+**TEND pushes today's round to Todoist.** Each plant due today becomes one
+task — "water basil" — in a project and section set under Settings → tend
+(default `04 | life` › `home | chores`), with a label (`home`), a priority (p2)
+and today's due date. A tick anywhere closes it everywhere: TEND's round, the
+detail sheet, DO's today block and Todoist itself. Undo, deleting today's
+entry or unticking on DO reopens it. Todoist → TEND works on sync: a task
+pushed today that is no longer open and that TEND did not close itself was
+completed over there, so the care event is logged. The pushed ids live in
+`tend_todoist_v1`, outside `tend.v3`, because `normalise()` would drop them.
+Sync only ever adds and closes. It runs quietly from `onShow` when older than
+ten minutes, and from the ⇅ button on TEND's home or "sync now" in its panel.
+`Todoist` in `shell.js` is the shared client (call, getAll, resolve by name,
+due date); DO keeps its own because of the proxy option.
+
+**The plants are on DO's today block.** Drawn from TEND directly, with the
+glyph, the label and priority as chips and a "tend" tag, pushed or not
+(Settings → tend → "show due plants on DO"). A fetched task TEND pushed is
+dropped by id, so nothing is listed twice. The block now shows when either
+source has something.
+
+**An open count on the DO tab.** `Shell.badge('do', n)` puts what is still
+open today — Todoist tasks plus plants — on the tab button, and DO's date
+line says "· n to do". Zero removes both. On the wide rail the badge sits at
+the row's end.
+
+**Study in the weekly and monthly reports.** A `| study | n topics · n cards |`
+row under habits and a `## study` section (topics finished, cards rated and
+acquired, the topic titles as a list). A day parsed from Obsidian uses its
+note's `cap_*` / `anki_*` rows; a local day asks TRACK and LEARN directly.
+
+**Verified** — `test/harness.mjs`, 93 checks, all green, including: the fern
+due on TEND's list; one sync creates a task with the right project, section,
+label, priority and due string against a scripted Todoist and records its id;
+the plant on DO's block with `@home` and `p2`; the badge and date line at 1;
+ticking on DO logs the watering and closes the task, the badge clears;
+unticking removes it and reopens the task; a task completed in Todoist is
+logged on the next sync and shows ticked on DO; the weekly and monthly reports
+with the study row, section and a topic title from local data, and from a
+pasted note. **Not verified**: nothing in a browser and nothing against real
+Todoist. The badge and the plant rows have not been seen.
+
+### 2.3 — 2026-09-02 — two phone bugs and three links between the apps
+
+**Decimal fields could not be typed on the phone.** Weight, sleep hours and
+the two km fields were `type=number inputmode=decimal`; the French keypad's
+decimal key is a comma, and iOS refuses a comma in a number field, so the
+value silently stayed empty. They are `type=text inputmode=decimal` now (STORE's
+budget too), the shell swaps the comma for a dot as it is typed, and LOG's
+save normalises again on the way to storage. The stored strings are unchanged
+in shape, so the `.md` and the reports are untouched.
+
+**Scrolling the theme gallery applied a theme.** A finger scrolling the look
+panel fires `pointerover` on every card it crosses, which previewed each one,
+and `:hover` sticks to the last card after the finger lifts, so the preview
+was never reverted: the app changed to a theme that was neither saved nor
+marked selected. Preview is mouse-only now (`pointerType`), `pointercancel`
+reverts, and a tap still picks.
+
+**Today's tasks from Todoist, on DO.** A block under the routine cards, not a
+card: the open tasks due today (and overdue, switchable) in the projects and
+sections listed under Settings → do, one per line as `project > section`.
+Each row shows the priority (`p1`–`p3`), the labels and the section; overdue
+rows are flagged. Ticking closes the task in Todoist, unticking reopens it,
+both optimistic with a rollback on failure. The day's list is cached in
+`do_todoist_v1` so a closed task stays visible, ticked, until midnight — the
+API does not return completed tasks, and without the cache there would be
+nothing to untick. It refetches silently when the tab comes back after ten
+minutes, and drops the cache on the day rollover.
+
+**PLAN's plans on LOG's evening form.** Whatever PLAN queued or sent today is
+offered under the block buttons as extra blocks, in the project's colour, with
+the project / time block / estimate as a caption. Ticking one records the task
+name like any other block, so it lands in the `.md` block table and in the
+reports' block counts. PLAN records what it sent under `plan_sent_v1` for the
+current day; the queue counts as planned too. Only drawn for the real today.
+
+**TRACK and LEARN in the daily note.** A `#### study` table at the end of the
+`## data` section: `cap_topics` (how many ticked that day), `cap_done` (their
+titles), `cap_progress` (n/54), `anki_rated`, `anki_acquired`, `anki_decks`.
+It appears only on a day that had either. TRACK reads it straight from its
+ticks, for any date; LEARN keeps a per-day tally in `learn_daily_v1` because
+its cards are in IndexedDB and the note is built synchronously. The Output
+screen tags the day with "n topics" / "n cards" as well.
+
+**Verified** — `test/harness.mjs`, 80 checks, all green, including: a comma
+typed into the sleep field becomes a dot and a comma pasted without an input
+event is still saved as a dot; a touch `pointerover` on a theme card leaves the
+theme alone while a mouse one previews it; the today block against a scripted
+Todoist (due + overdue shown, future and dateless not; priority and label
+rendered; close → reopen calls; a closed task kept ticked across a refresh;
+the cache in `do_todoist_v1`; off hides it); a queued PLAN task offered and
+recorded as a block; the study section with two topics and two ratings, its
+tags, and its absence on a day with neither. The harness now rolls the clock
+back to the real day after the midnight test. **Not verified**: none of it in a
+browser; the today block has not been run against real Todoist; the comma fix
+has not been typed on an actual iPhone keyboard, which is the only place it
+matters.
 
 ### 2.2 — 2026-09-02 — TEND, TRACK and LEARN join the track
 

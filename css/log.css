@@ -104,6 +104,12 @@
 /* one colour per block; mixing/production/content deliberately reuse the
    three curate-output purples, since they are the same three streams */
 .ns-log .blk-b.on{background:var(--blk-bg);border-color:var(--blk-c);color:var(--blk-c)}
+/* PLAN's queued/sent tasks, offered as extra blocks: the task name, then the
+   project and time block it was planned under */
+.ns-log .blk-plan-lbl{margin-top:calc(10px * var(--dens))}
+.ns-log .blk-b.plan{display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;
+  white-space:normal;overflow-wrap:anywhere;min-height:0}
+.ns-log .blk-b.plan small{font:400 8px/1.2 var(--mono);letter-spacing:.06em;opacity:.7;text-transform:none}
 .ns-log .cs-tog{display:grid;grid-template-columns:1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-log .cs-tog-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--mu);
           font:400 11px/1 var(--mono);letter-spacing:.08em;padding:calc(12px * var(--dens)) calc(8px * var(--dens));cursor:pointer;text-align:center;transition:all .1s}

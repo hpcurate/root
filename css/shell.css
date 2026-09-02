@@ -90,6 +90,13 @@ body{
   transition:transform .24s cubic-bezier(.34,1.4,.5,1), opacity .18s ease}
 .tab-b.on{color:var(--on-y)}
 .tab-b.on::before{transform:scale(1);opacity:1}
+/* the open-count badge (Shell.badge): top-right of the icon, in the accent on
+   an idle tab and inverted on the active one */
+.tab-b .tb-badge{position:absolute;z-index:2;top:4px;left:calc(50% + 6px);
+  min-width:15px;height:15px;padding:0 4px;border-radius:var(--r-pill);
+  background:var(--y);color:var(--on-y);font:700 8px/15px var(--mono);text-align:center;
+  box-shadow:0 0 0 2px var(--bg)}
+.tab-b.on .tb-badge{background:var(--on-y);color:var(--y);box-shadow:none}
 
 /* Seven or more tabs (Prefs sets [data-tabs="many"] on <html> from the app
    list) do not fit the pill at its phone width: it grows to the viewport, the
@@ -189,6 +196,7 @@ body{
   #views{left:var(--rail-w-wide)}
   #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
   .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
+  .tab-b .tb-badge{position:static;margin-left:auto}
   .tab-b .tb-l{font-size:10px}
   #nav-prev{left:calc(var(--rail-w-wide) + 14px)}
   #toast{left:calc(50% + var(--rail-w-wide)/2)}

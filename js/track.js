@@ -415,5 +415,13 @@ Config.subscribe(path => {
 
 Shell.register('track', { onShow: render, onDayChange: render });
 
-return { render, renderSettings, toggle, exportData, pickImport, importData, resetAll, project };
+/* For LOG's daily note: the topics finished on a given day, and where the plan
+   stands. Read straight from state so it works for any past day too. */
+function doneOn(iso) {
+  return C.filter(c => S.done[c.id] === iso).map(c => ({ id:c.id, title:c.t, level:c.lv, bench:c.ex }));
+}
+function progress() { return { done:doneCount(), total:TOTAL, pse:!!S.pse }; }
+
+return { render, renderSettings, toggle, exportData, pickImport, importData, resetAll, project,
+         doneOn, progress };
 })();

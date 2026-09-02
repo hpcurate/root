@@ -342,7 +342,39 @@ async function startSending() {
   log.scrollTop = log.scrollHeight;
   title.textContent = failed ? 'done with errors' : 'done';
   backBtn.disabled = false; doneBtn.classList.remove('hidden');
+  recordSent(queue.filter(t => !remaining.includes(t)));
   queue = remaining; saveQueue();
+}
+
+// ── What was planned today, for LOG ───────────────────────────────────────────
+/* Everything sent is due "today", so a task that went through is a plan for
+   today — LOG offers it as an extra block on the evening form. Sent tasks are
+   kept under plan_sent_v1 for the current day only; the queue counts as
+   planned too, since it is what you are about to send. */
+const SENT_KEY = 'plan_sent_v1';
+function readSent() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SENT_KEY) || 'null'); } catch {}
+  const today = Shell.today();
+  return s && s.date === today && Array.isArray(s.tasks) ? s : { date: today, tasks: [] };
+}
+function recordSent(tasks) {
+  if (!tasks.length) return;
+  const s = readSent();
+  tasks.forEach(t => s.tasks.push({ name:t.name, typeKey:t.typeKey, block:t.block, time:t.time }));
+  try { localStorage.setItem(SENT_KEY, JSON.stringify(s)); } catch {}
+}
+/* Queue first, then what was sent today; one entry per name, with the
+   project's colour so LOG can draw it in the project's hue. */
+function plannedToday() {
+  const out = [], seen = new Set();
+  readSent().tasks.concat(queue).forEach(t => {
+    const key = String(t.name || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ name:t.name, project:t.typeKey, block:t.block || null, time:t.time || null, color:resolveColor(t.typeKey) });
+  });
+  return out;
 }
 
 function logLine(container, text, cls) {
@@ -458,5 +490,5 @@ Shell.register('plan', {});
 
 return { go, renderSettings, openProj, closeProj, pickSub,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
-         deleteSubtask, addToQueue, connectTodoist, saveMappings };
+         deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();
