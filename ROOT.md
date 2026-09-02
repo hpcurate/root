@@ -527,10 +527,20 @@ both say so, and a new device needs the `.apkg` imported again.
   any of those becomes the containing block for a fixed descendant while it
   runs.
 - **PLAN's expanded project is not state.** `openKey` and `openSub` live in
-  the module and are deliberately not persisted or put in Config. A section
-  row borrows the `data-flip` key of the tile it replaces and the form panel
-  borrows the row's — that is what makes each look like it becomes the next,
-  and why the keys must stay unique per render.
+  the module and are deliberately not persisted or put in Config.
+- **A `data-flip` key is an identity, and sharing one across two different
+  elements is a bug.** The section rows once borrowed the keys of the tiles
+  they replaced, to make the tiles look like they became the rows; what it
+  actually did was fly each row in from that tile's position while squashing
+  it to a tile's width, and the further the tile the worse it looked. Every
+  element owns its key now (`p:` tiles, `sec:` rows, `form:` the panel,
+  `queue`), so only genuinely persisting elements move and everything else is
+  revealed. A harness check fails if a row carries a `p:` key again.
+- **A box that changes shape must not show its text while it does.**
+  `flip()` scales the box and holds its children at `opacity:0` until the
+  scale has nearly resolved. Counter-scaling the children instead does not
+  work here — the tile goes from a third of the width to full width, and the
+  content would overflow the box it is supposedly inside for most of the way.
 - **PLAN's form has no screen of its own.** It is drawn into the tile grid by
   `formPanel()` with the ids it has always had, so every handler is
   unchanged — but each row is optional (`plan.formFields`), so nothing may
@@ -586,11 +596,14 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 197 checks covering boot, every theme and panel, the
+through DOM events: 202 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects and form of 2.5–2.13. Run it before trusting any change:
+in-place projects and form of 2.5–2.14. jsdom has no layout and no Web
+Animations, so anything measured or animated is invisible to it unless the
+harness stands in for both, as it does for PLAN's transition. Run it before
+trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -606,6 +619,50 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.14 — 2026-09-03 — PLAN's project morph, done properly
+
+**Opening a project looked wrong, and the reason was the flip keys.** Each
+section row borrowed the key of the project tile it replaced, so the rows did
+not appear — they *flew in from wherever those tiles happened to sit*, being
+squashed from a tile's width to the full width on the way. Row 1 came from
+the tile beside the one you tapped and looked almost right; rows 2 and 3 came
+from the middle of the grid and travelled diagonally while stretching, which
+is exactly what read as rubbery. Opening a section's *form* looked clean only
+by accident: its key matched nothing, so nothing animated at all.
+
+`flip()` is now three explicit cases:
+
+| the element | what happens |
+| --- | --- |
+| was there, same shape | translate only — the queue sliding to follow the grid's new height, with no scaling of a box that did not change shape |
+| was there, changed shape | translate and scale the box, and hold its **contents** at `opacity:0` until 45% through, so text is never seen mid-scale |
+| is new | fade up 7px into place, staggered 45ms down the list |
+
+Rows own their keys (`sec:<i>`) and the form panel owns its own (`form:<i>`),
+so neither pretends to be something else: the only thing that moves when a
+project opens is the one thing that genuinely persists, its tile, growing.
+The rows then open beneath it in sequence. Holding the contents back is what
+makes the tile's growth clean — it goes from a third of the width to full
+width, and no counter-scaling trick survives that; not drawing the text until
+the box has nearly arrived does.
+
+**The transition now has tests.** jsdom has neither layout nor Web
+Animations, so `flip()` had been a complete no-op in every run to date and
+none of its branches was ever reached. The harness stands in for both — a
+scripted before/after layout and a recording `Element.animate` — and reads
+back what was asked for.
+
+**Verified** — `test/harness.mjs`, 202 checks, all green, including the five
+new ones: the tile scaling from `(0.456, 0.742)` and no other element
+scaling; its children held to `opacity:0` past the 45% mark; all three rows
+revealed with a translate and no scale; their delays strictly increasing; the
+queue translating by exactly its 40px displacement with no scale in the
+keyframes. Plus the guard that a section row may never carry a `p:` key
+again. **Not verified**: nothing in a browser. The one rough edge left is
+that the tiles being replaced still vanish with the `innerHTML` swap rather
+than fading — the staggered reveal covers it, but it is the thing to look at
+first if the open still feels abrupt.
 
 ### 2.13 — 2026-09-02 — the title slides, the gap is the shell's, send when there is something to send
 

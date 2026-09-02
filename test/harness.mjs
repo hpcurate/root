@@ -793,14 +793,20 @@ check('tapping a project expands it in place: one open tile, the others become i
   (openTile ? 'open ' : 'no open tile ') + projTiles().length + ' tiles ' + secs.length + ' rows');
 check('the rows are the project\'s sections, in its colour', secs.map(s => s.textContent.replace('→', '')).join(',') === 'mixing,production,socials' &&
   secs[0].style.getPropertyValue('--proj-color') === '#884dff', secs.map(s => s.textContent).join(','));
-check('a row borrows the flip key of the tile it grows out of', secs[0].dataset.flip.startsWith('p:') && $('.ns-plan .queue').dataset.flip === 'queue');
+/* The rows own their keys. Borrowing the tiles' made each row fly in from
+   wherever that tile happened to sit, squashed to its width — the second and
+   third rows worst of all — so a row must never carry a p: key again. */
+const secKeys = secs.map(s => s.dataset.flip);
+check('the section rows own their flip keys, and borrow no tile\'s',
+  secKeys.join(',') === 'sec:0,sec:1,sec:2' && new Set(secKeys).size === secKeys.length &&
+  $('.ns-plan .queue').dataset.flip === 'queue', secKeys.join(','));
 w.PLAN.openProj('curate');
 check('tapping the open tile closes it again', !$('.ns-plan .proj-tile.open') && !d.querySelectorAll('.ns-plan .proj-sec').length);
 w.PLAN.openProj('alive'); w.PLAN.openProj('curate');
 check('opening another project swaps which one is open', /curate/.test($('.ns-plan .proj-tile.open').textContent) && projTiles().length === 1);
 w.PLAN.pickSub('curate', 0);
-check('picking a section opens the task form in the grid, morphing from that row',
-  !!$('.ns-plan .proj-form') && $('.ns-plan .proj-form').dataset.flip === 's:0' &&
+check('picking a section opens the task form in the grid, under its own flip key',
+  !!$('.ns-plan .proj-form') && $('.ns-plan .proj-form').dataset.flip === 'form:0' &&
   !d.querySelectorAll('.ns-plan .proj-sec').length && !!$('.ns-plan #task-name'),
   $('.ns-plan .proj-form') ? $('.ns-plan .proj-form').dataset.flip : 'no panel');
 check('… and the title tile grows again above it', $('.ns-plan .proj-tile.open.wide') &&
@@ -854,6 +860,60 @@ check('picking a block selects it', !!$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.optPick($('.ns-plan #opts-block .opt-b.on'), 'block', 'b1');
 check('… and tapping it again clears the row, since there is no none chip', !$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.closeForm(); w.PLAN.clearQueue();
+
+/* ── PLAN's transition, driven by a scripted layout ──
+   jsdom has neither layout nor Web Animations, so flip() is otherwise a
+   complete no-op and none of its three branches is ever reached. Stand both
+   in for the length of one open, and read back what it asked for. */
+{
+  w.PLAN.closeProj();                       // start folded, so openProj opens
+  const anims = [];
+  const realAnimate = w.Element.prototype.animate;
+  const realRect = w.Element.prototype.getBoundingClientRect;
+  w.Element.prototype.animate = function (frames, opts) {
+    anims.push({ key: this.dataset?.flip || (this.parentElement?.dataset?.flip || '') + ' > child',
+                 css: JSON.stringify(frames), opts: opts || {} });
+    return { cancel() {}, finish() {} };
+  };
+  // before = the folded grid, after = curate open with three section rows
+  const box = {
+    before: { 'p:curate': [0, 0, 155, 92], queue: [0, 300, 340, 120] },
+    after:  { 'p:curate': [0, 0, 340, 124], 'sec:0': [0, 132, 340, 46],
+              'sec:1': [0, 186, 340, 46], 'sec:2': [0, 240, 340, 46], queue: [0, 340, 340, 120] },
+  };
+  w.Element.prototype.getBoundingClientRect = function () {
+    const open = !!d.querySelector('.ns-plan .proj-tile.open');
+    const r = (box[open ? 'after' : 'before'][this.dataset?.flip]) || [0, 0, 0, 0];
+    return { left: r[0], top: r[1], width: r[2], height: r[3],
+             right: r[0] + r[2], bottom: r[1] + r[3], x: r[0], y: r[1] };
+  };
+
+  w.PLAN.openProj('curate');
+  const of = k => anims.find(a => a.key === k);
+
+  const tile = of('p:curate');
+  check('opening a project moves and scales only the tile that persists',
+    !!tile && /scale\(0\.45\d*,\s*0\.74\d*\)/.test(tile.css), tile ? tile.css.slice(0, 110) : 'not animated');
+  check('… and holds its contents back until the scale has nearly resolved, so no text is stretched',
+    anims.some(a => a.key === 'p:curate > child' && /"opacity":0/.test(a.css) && /0\.45/.test(a.css)));
+
+  const rows = ['sec:0', 'sec:1', 'sec:2'].map(of);
+  check('the section rows are revealed, not flown in from the tiles they replaced',
+    rows.every(r => r && /translateY\(-7px\)/.test(r.css) && /"opacity":0/.test(r.css)) &&
+    !rows.some(r => /scale\(/.test(r.css)),
+    rows.map(r => r ? r.css.slice(0, 50) : 'missing').join(' | '));
+  check('… one after another, so they read as a list opening',
+    rows[0].opts.delay < rows[1].opts.delay && rows[1].opts.delay < rows[2].opts.delay,
+    rows.map(r => r.opts.delay).join(','));
+
+  const q = of('queue');
+  check('the queue below just slides down to the new height — no scaling of a box that did not change shape',
+    !!q && /translate\(0px,-40px\)/.test(q.css) && !/scale\(/.test(q.css), q ? q.css : 'not animated');
+
+  w.Element.prototype.animate = realAnimate;
+  w.Element.prototype.getBoundingClientRect = realRect;
+  w.PLAN.closeProj();
+}
 
 // the gap under the title band: the shell's, and the same on every app
 check('the gap under the band is set once, in shell.css', /\.view-body #s-home\{padding-top:18px\}/.test(shellCss) &&

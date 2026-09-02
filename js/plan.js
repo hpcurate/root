@@ -113,21 +113,19 @@ function renderProjects() {
     return;
   }
 
-  const color  = labelHue(open.label, open.key) || resolveColor(open.key);
-  const others = TASK_TYPES.filter(t => t.key !== open.key);
+  const color = labelHue(open.label, open.key) || resolveColor(open.key);
   /* Sections are addressed by index, never by interpolating their text into an
-     onclick — several of them contain "|" and spaces. Each row borrows the
-     flip key of the tile it grows out of, so the tiles morph into the rows;
-     the form panel borrows the row's, so it grows out of what you tapped. */
+     onclick — several of them contain "|" and spaces. Each row owns its flip
+     key: they are new every time the project opens, so they arrive with the
+     reveal in flip() rather than pretending to be the project tiles they
+     replaced. */
   // the section list can change under an open form (a Config edit): fall back
   // to the rows rather than drawing a panel for a section that is gone
   if (openSub !== null && !open.subs[openSub]) openSub = null;
   const body = openSub === null
-    ? open.subs.map((s, i) => {
-        const from = others[i];
-        return `<button class="proj-sec" style="--proj-color:${color}" data-flip="${from ? 'p:' + from.key : 's:' + i}"
-                  onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`;
-      }).join('')
+    ? open.subs.map((s, i) =>
+        `<button class="proj-sec" style="--proj-color:${color}" data-flip="sec:${i}"
+                  onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`).join('')
     : formPanel(open, open.subs[openSub], openSub, color);
 
   grid.innerHTML = tile(open, true) + body;
@@ -159,7 +157,7 @@ function formPanel(tt, s, i, color) {
           <div class="st-list" id="st-list"></div>
         </div>
       </div>` : '';
-  return `<div class="proj-form" style="--proj-color:${color}" data-flip="s:${i}">
+  return `<div class="proj-form" style="--proj-color:${color}" data-flip="form:${i}">
     <div class="pf-head">
       <span class="pf-sec">${esc(s.display)}</span>
       <button class="pf-close" onclick="PLAN.closeForm()">cancel</button>
@@ -189,27 +187,69 @@ function fitTitle(el) {
   while (size > 16 && el.scrollWidth > avail) { size -= 2; el.style.fontSize = size + 'px'; }
 }
 
-/* FLIP: note where every flip-keyed element is, re-render, then play each
-   survivor from its old box to its new one — the tiles shrink into the
-   section rows, the open tile grows, and the queue slides to follow the
-   grid's new height. A no-op without layout (jsdom) or Web Animations. */
+/* ── The transition ───────────────────────────────────────────────────────────
+   Note where every flip-keyed element is, re-render, then move each one from
+   where it was. Three cases, and between them they cover opening a project,
+   opening a section's form, and folding either back up:
+
+     it was there and is the same shape   translate only — the queue sliding
+       up or down to follow the grid's new height.
+     it was there and changed shape       translate and scale the box, and
+       hold its contents back until the box is nearly settled. Text is never
+       shown mid-scale, which is the only way a box that goes from a third of
+       the width to full width can look like anything but rubber.
+     it is new                            fade up into place, staggered down
+       the list.
+
+   What it deliberately no longer does is pretend one element becomes another.
+   The section rows used to borrow the flip keys of the tiles they replaced,
+   so row 2 flew in from the middle of the grid while being squashed to a
+   fifth of its width — the further the tile, the stranger the path, which is
+   why the second and third rows looked worst. Rows own their keys now, and
+   the only thing that moves is the one thing that genuinely persists: the
+   project's own tile, growing. A no-op without layout (jsdom) or Web
+   Animations. */
+const FLIP_EASE = 'cubic-bezier(.2,.8,.2,1)';
 function snap() {
   const m = new Map();
   $all('[data-flip]').forEach(el => m.set(el.dataset.flip, el.getBoundingClientRect()));
   return m;
 }
 function flip(before) {
-  if (!before.size) return;
+  const ms = flipMs();
+  if (!before.size || !ms) return;
+  let fresh = 0;
   $all('[data-flip]').forEach(el => {
-    const a = before.get(el.dataset.flip);
-    if (!a || !el.animate) return;
+    if (!el.animate) return;
     const b = el.getBoundingClientRect();
-    if (!a.width || !a.height || !b.width || !b.height) return;
-    const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
-    if (!dx && !dy && sx === 1 && sy === 1) return;
+    if (!b.width || !b.height) return;
+    const a = before.get(el.dataset.flip);
+
+    if (!a || !a.width || !a.height) {                       // new: reveal it
+      el.animate([{ opacity:0, transform:'translateY(-7px)' }, { opacity:1, transform:'none' }],
+        { duration:Math.round(ms * .6), delay:Math.round(ms * .3) + (fresh++ * 45),
+          easing:FLIP_EASE, fill:'backwards' });
+      return;
+    }
+
+    const dx = a.left - b.left, dy = a.top - b.top;
+    const sx = a.width / b.width, sy = a.height / b.height;
+    const moved = Math.abs(dx) > .5 || Math.abs(dy) > .5;
+    const resized = Math.abs(sx - 1) > .01 || Math.abs(sy - 1) > .01;
+    if (!moved && !resized) return;
+
+    if (!resized) {                                          // same box, new place
+      el.animate([{ transform:`translate(${dx}px,${dy}px)` }, { transform:'none' }],
+        { duration:ms, easing:FLIP_EASE });
+      return;
+    }
     el.animate([{ transformOrigin:'0 0', transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})` },
-                { transformOrigin:'0 0', transform:'none' }],
-               { duration:flipMs(), easing:'cubic-bezier(.2,.8,.2,1)' });
+                { transformOrigin:'0 0', transform:'none' }], { duration:ms, easing:FLIP_EASE });
+    // the contents would be stretched by that scale; keep them out of sight
+    // until it has nearly resolved, then fade them in at their true size
+    Array.from(el.children).forEach(c => { if (c.animate) c.animate(
+      [{ opacity:0 }, { opacity:0, offset:.45 }, { opacity:1 }],
+      { duration:ms, easing:'ease-out' }); });
   });
 }
 /* The shell's own motion duration, so the FLIP keeps step with the tab
