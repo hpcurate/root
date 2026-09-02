@@ -15,20 +15,20 @@
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-plan .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;flex:1}
+.ns-plan .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
 .ns-plan .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-plan .hd-action:active{color:var(--y)}
 
 /* ── Home header ── */
 .ns-plan .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);margin-bottom:10px}
 .ns-plan .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:22px}
 .ns-plan .h-logo em{color:var(--y);font-style:normal}
 
 /* ── Content ── */
 .ns-plan .cnt{padding:calc(18px * var(--dens))}
 .ns-plan .f{margin-bottom:17px}
-.ns-plan .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
+.ns-plan .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu);margin-bottom:7px}
 .ns-plan input[type=text],.ns-plan input[type=password],.ns-plan textarea{
   width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx);font:400 15px/1 var(--mono);padding:calc(12px * var(--dens)) calc(13px * var(--dens));outline:none;
@@ -38,10 +38,10 @@
 
 /* ── Row label used on the home screen ── */
 .ns-plan .row-lbl{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
-  font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+  font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   padding-bottom:calc(8px * var(--dens));margin:0 0 12px;border-bottom:var(--bw) solid var(--bd)}
 .ns-plan .row-lbl .muted-act{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
-  letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:uppercase}
+  letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:var(--caps)}
 .ns-plan .row-lbl .muted-act:active{color:var(--re)}
 .ns-plan .row-lbl em{color:var(--mu);font-style:normal;font:400 10px/1 var(--mono);
   letter-spacing:.06em;text-transform:none}
@@ -57,7 +57,7 @@
 .ns-plan .proj-tile.has{border-color:var(--proj-color)}
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
-.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
 .ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
 .ns-plan .proj-meta em{color:var(--proj-color);font-style:normal}
 /* a project with nothing mapped says so here rather than failing at send time */
@@ -86,7 +86,7 @@
 .ns-plan .prio-b.on.p1{background:rgba(224,96,96,.12);border-color:var(--re);color:var(--re)}
 .ns-plan .prio-b.on.p2{background:rgba(255,154,20,.12);border-color:#ff9a14;color:#ff9a14}
 .ns-plan .prio-b.on.p3{background:rgba(92,219,125,.12);border-color:var(--gr);color:var(--gr)}
-.ns-plan .prio-label{font:400 7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-top:4px;opacity:.7}
+.ns-plan .prio-label{font:400 7px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);margin-top:4px;opacity:.7}
 
 /* ── Toggle (subtasks) ── */
 .ns-plan .tg2{display:grid;grid-template-columns:1fr 1fr;gap:calc(5px * var(--dens))}
@@ -116,7 +116,7 @@
 
 /* ── Buttons ── */
 .ns-plan .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
      padding:calc(15px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-plan .btn:active{opacity:.82}
 .ns-plan .btn-ghost{background:var(--s2);border:var(--bw) solid var(--bd);color:var(--tx);
@@ -144,7 +144,7 @@
 .ns-plan .send-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:14px;
   bottom:calc(var(--nav-fh) + var(--nav-gap) + 16px + env(safe-area-inset-bottom))}
 .ns-plan .btn-send{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-          font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+          font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
           padding:calc(16px * var(--dens));cursor:pointer;transition:opacity .15s;
           box-shadow:var(--shadow-lift)}
 .ns-plan .btn-send:active{opacity:.82}
@@ -159,7 +159,7 @@
        color:var(--tx);font:400 13px/1 var(--mono);padding:calc(11px * var(--dens)) calc(12px * var(--dens));outline:none;
        -webkit-appearance:none;cursor:pointer}
 .ns-plan select:focus{border-color:var(--y)}
-.ns-plan .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+.ns-plan .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
      margin:20px 0 12px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
 .ns-plan .sec:first-child{margin-top:0}
 .ns-plan hr{border:none;border-top:var(--bw) solid var(--bd);margin:6px 0 18px}

@@ -10,7 +10,26 @@
    The nav's three shapes — floating pill, bottom bar, hidden — are chosen by
    [data-nav] in themes.css; what is here is the pill, which is the default. */
 
-html{height:100%}
+/* text-size-adjust: without it iOS Safari "helpfully" inflates some text when
+   the phone turns to landscape and keeps the inflated sizes on the way back —
+   the fonts grew on rotation and never came down. 100% pins them. */
+html{height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* ── Portrait lock ────────────────────────────────────────────────────────────
+   A web page cannot lock the orientation on iOS (screen.orientation.lock is
+   Android-only, and only when installed), so the lock is a curtain: on a
+   phone-sized touch screen in landscape, everything is covered until it is
+   turned back. Settings → behaviour → "stay in portrait" switches it off, and
+   the height cap keeps a landscape laptop window unaffected. */
+#rotate{display:none}
+@media (orientation:landscape) and (pointer:coarse) and (max-height:520px){
+  [data-portrait="lock"] #rotate{
+    display:flex;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:var(--bg);color:var(--tx);text-align:center;padding:24px}
+  [data-portrait="lock"] #rotate .r-ico{font-size:34px;line-height:1;transform:rotate(90deg);color:var(--y)}
+  [data-portrait="lock"] #rotate .r-t{font:700 12px/1 var(--head);letter-spacing:.14em;text-transform:var(--caps)}
+  [data-portrait="lock"] #rotate .r-s{font:400 10px/1.6 var(--mono);color:var(--mu);letter-spacing:.04em}
+}
 /* position:fixed rather than height:100dvh: on iOS the dynamic viewport unit
    re-resolves as the URL bar collapses, which makes a full-height flex layout
    jump. Pinning to the visual viewport and scrolling inside each slide is the
@@ -81,7 +100,7 @@ body{
   transition:color .18s ease}
 .tab-b svg,.tab-b .tb-l{position:relative;z-index:1}
 .tab-b svg{width:19px;height:19px;flex-shrink:0}
-.tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:uppercase}
+.tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
 /* the filled pill IS the active indicator, and it grows into place */
 .tab-b::before{
   content:'';position:absolute;inset:0;z-index:0;
@@ -96,7 +115,9 @@ body{
   min-width:15px;height:15px;padding:0 4px;border-radius:var(--r-pill);
   background:var(--y);color:var(--on-y);font:700 8px/15px var(--mono);text-align:center;
   box-shadow:0 0 0 2px var(--bg)}
-.tab-b.on .tb-badge{background:var(--on-y);color:var(--y);box-shadow:none}
+/* on the active tab the pill itself is the accent, so the badge steps onto the
+   ground colour instead of inverting — inverted it read as a hole in the pill */
+.tab-b.on .tb-badge{background:var(--bg);color:var(--tx);box-shadow:0 0 0 2px var(--y)}
 
 /* Seven or more tabs (Prefs sets [data-tabs="many"] on <html> from the app
    list) do not fit the pill at its phone width: it grows to the viewport, the
@@ -142,7 +163,7 @@ body{
        max-width:520px;margin:0 auto;max-height:78vh;overflow-y:auto}
 .sheet.on{transform:translateY(0)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.sheet-ttl{font:700 12px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;color:var(--tx);
+.sheet-ttl{font:700 12px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);color:var(--tx);
            display:flex;align-items:center;gap:9px}
 .sheet-dot{width:8px;height:8px;border-radius:50%;background:var(--sheet-color,var(--y));flex-shrink:0}
 .sheet-close{background:none;border:none;color:var(--y);font:400 11px/1 var(--mono);

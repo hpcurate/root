@@ -14,14 +14,14 @@
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-store .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-store .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;flex:1}
+.ns-store .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
 .ns-store .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .hd-action:active{color:var(--y)}
 .ns-store .hd-action.danger:active{color:var(--re)}
 
 /* ── Home top ── */
 .ns-store .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);margin-bottom:10px;padding-right:calc(80px * var(--dens))}
+.ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);margin-bottom:10px;padding-right:calc(80px * var(--dens))}
 .ns-store .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:24px}
 .ns-store .h-logo em{color:var(--y);font-style:normal}
 .ns-store .h-settings-btn{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
@@ -32,7 +32,7 @@
 /* ── Content ── */
 .ns-store .cnt{padding:calc(18px * var(--dens))}
 .ns-store .f{margin-bottom:17px}
-.ns-store .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
+.ns-store .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu);margin-bottom:7px}
 .ns-store input[type=text],.ns-store input[type=number],.ns-store input[type=password]{
   width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx);font:400 15px/1 var(--mono);padding:calc(12px * var(--dens)) calc(13px * var(--dens));outline:none;
@@ -65,11 +65,11 @@
 .ns-store .cw-btn.minus:active{border-color:var(--re);background:rgba(224,96,96,.1)}
 .ns-store .cw-foot{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-store .cw-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
-          color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+          color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
           padding:calc(10px * var(--dens));cursor:pointer;transition:all .12s}
 .ns-store .cw-reset:active{color:var(--re);border-color:var(--re)}
 .ns-store .cw-pad-btn{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
-            color:var(--y);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+            color:var(--y);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
             padding:calc(10px * var(--dens));cursor:pointer;transition:all .12s}
 .ns-store .cw-pad-btn:active{border-color:var(--y);background:var(--yd)}
 
@@ -83,7 +83,7 @@
      transform:translateY(105%);transition:transform .22s ease;max-width:520px;margin:0 auto}
 .ns-store .pad.on{transform:translateY(0)}
 .ns-store .pad-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.ns-store .pad-ttl{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu)}
+.ns-store .pad-ttl{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
 .ns-store .pad-close{background:none;border:none;color:var(--y);font:400 11px/1 var(--mono);
            letter-spacing:.06em;cursor:pointer;padding:calc(4px * var(--dens)) 0}
 .ns-store .pad-disp{background:var(--bg);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -95,7 +95,7 @@
 .ns-store .pad-calc em{color:var(--y);font-style:normal}
 .ns-store .pad-count{display:flex;align-items:center;gap:calc(8px * var(--dens));background:var(--s2);border:var(--bw) solid var(--bd);
            border-radius:var(--r1);padding:calc(7px * var(--dens)) calc(10px * var(--dens));margin-bottom:10px}
-.ns-store .pad-count .pc-lbl{font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);flex:1}
+.ns-store .pad-count .pc-lbl{font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu);flex:1}
 .ns-store .pad-count .pc-btn{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
                    font:700 15px/1 var(--mono);width:38px;padding:calc(9px * var(--dens)) 0;cursor:pointer;transition:all .1s}
 .ns-store .pad-count .pc-btn:active{border-color:var(--y);color:var(--y)}
@@ -111,7 +111,7 @@
 .ns-store .clog-sum{display:flex;justify-content:space-between;align-items:baseline;
           background:var(--bg);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           padding:calc(11px * var(--dens)) calc(13px * var(--dens));margin-bottom:10px}
-.ns-store .clog-sum .cs-k{font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.ns-store .clog-sum .cs-k{font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);color:var(--mu)}
 .ns-store .clog-sum .cs-v{font:800 20px/1 var(--head);letter-spacing:-.01em;color:var(--tx)}
 .ns-store .clog-list{max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .ns-store .clog-row{display:flex;align-items:center;gap:calc(10px * var(--dens));padding:calc(9px * var(--dens)) calc(3px * var(--dens));
@@ -125,7 +125,7 @@
 .ns-store .clog-t{font:400 9px/1 var(--mono);color:var(--mu);opacity:.6}
 .ns-store .clog-empty{font:400 11px/1.7 var(--mono);color:var(--mu);text-align:center;padding:calc(30px * var(--dens)) calc(10px * var(--dens))}
 
-.ns-store .cp-name{font:700 13px/1 var(--head);letter-spacing:.06em;text-transform:uppercase;
+.ns-store .cp-name{font:700 13px/1 var(--head);letter-spacing:.06em;text-transform:var(--caps);
          color:var(--tx);margin-bottom:10px}
 .ns-store .cp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-store .cp-opt{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);cursor:pointer;
@@ -139,7 +139,7 @@
 
 .ns-store .pad-ops{display:grid;grid-template-columns:1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-store .pad-op{border:var(--bw) solid var(--bd);border-radius:var(--r1);background:var(--s2);
-        font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+        font:700 12px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
         padding:calc(15px * var(--dens)) 0;cursor:pointer;transition:all .1s}
 .ns-store .pad-op.add{color:var(--gr)}
 .ns-store .pad-op.add:active{border-color:var(--gr);background:rgba(92,219,125,.1)}
@@ -147,14 +147,14 @@
 .ns-store .pad-op.sub:active{border-color:var(--re);background:rgba(224,96,96,.1)}
 
 /* ── Section header ── */
-.ns-store .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+.ns-store .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
      margin:22px 0 12px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd);
      display:flex;align-items:center;justify-content:space-between;gap:calc(8px * var(--dens))}
 .ns-store .sec:first-child{margin-top:0}
 .ns-store .sec em{color:var(--mu);font-style:normal;font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:none}
 .ns-store .sec-acts{display:flex;gap:calc(10px * var(--dens))}
 .ns-store .sec-act{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
-         letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:uppercase}
+         letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:var(--caps)}
 .ns-store .sec-act:active{color:var(--y)}
 .ns-store .sec-act.danger:active{color:var(--re)}
 
@@ -197,7 +197,7 @@
       padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(16px * var(--dens));cursor:pointer;position:relative;
       transition:border-color .12s;user-select:none;text-align:left}
 .ns-store .card:active{background:var(--s2)}
-.ns-store .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;
+.ns-store .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:6px;
         display:flex;align-items:center;gap:calc(8px * var(--dens))}
 .ns-store .card-s{font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-store .card-t .ico{width:14px;height:14px;color:var(--y)}
@@ -213,7 +213,7 @@
 .ns-store .cat-card:active{background:var(--s2)}
 .ns-store .cat-card.has{border-color:var(--cat-color)}
 .ns-store .cat-ico{width:24px;height:24px;color:var(--cat-color)}
-.ns-store .cat-name{font:700 12px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;color:var(--tx)}
+.ns-store .cat-name{font:700 12px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
 .ns-store .cat-meta{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
 .ns-store .cat-meta em{color:var(--cat-color);font-style:normal}
 
@@ -234,7 +234,7 @@
 .ns-store .meal-card.open{border-color:var(--y)}
 .ns-store .meal-header{display:flex;align-items:center;gap:calc(12px * var(--dens));padding:calc(15px * var(--dens));cursor:pointer;user-select:none}
 .ns-store .meal-header:active{background:var(--s2)}
-.ns-store .meal-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;flex:1;color:var(--tx)}
+.ns-store .meal-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);flex:1;color:var(--tx)}
 .ns-store .meal-count{font:400 10px/1 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-store .meal-arrow{font:400 11px/1 var(--mono);color:var(--mu);transition:transform .15s}
 .ns-store .meal-card.open .meal-arrow{transform:rotate(90deg);color:var(--y)}
@@ -245,16 +245,16 @@
           font:400 12px/1 var(--mono);color:var(--tx);border-bottom:var(--bw) solid var(--bd)}
 .ns-store .meal-row:last-of-type{border-bottom:none}
 .ns-store .meal-row .dot{width:7px;height:7px;border-radius:50%;background:var(--cat-color)}
-.ns-store .meal-row .ml-cat{margin-left:auto;font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.05em;text-transform:uppercase}
+.ns-store .meal-row .ml-cat{margin-left:auto;font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.05em;text-transform:var(--caps)}
 .ns-store .meal-add{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-          font:700 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+          font:700 11px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
           padding:calc(12px * var(--dens));cursor:pointer;margin-top:12px;transition:opacity .15s}
 .ns-store .meal-add:active{opacity:.82}
 
 /* ── History ── */
 .ns-store .hist-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(14px * var(--dens));margin-bottom:9px}
 .ns-store .hist-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:calc(10px * var(--dens))}
-.ns-store .hist-date{font:700 11px/1 var(--head);letter-spacing:.1em;color:var(--y);text-transform:uppercase}
+.ns-store .hist-date{font:700 11px/1 var(--head);letter-spacing:.1em;color:var(--y);text-transform:var(--caps)}
 .ns-store .hist-amt{font:700 13px/1 var(--mono);color:var(--tx);letter-spacing:.02em}
 .ns-store .hist-amt .bud{color:var(--mu);font-weight:400;font-size:11px}
 .ns-store .hist-amt.over{color:var(--re)}
@@ -300,7 +300,7 @@
 .ns-store .td-last{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.08em;
          text-align:center;padding:calc(10px * var(--dens)) 0 calc(2px * var(--dens))}
 .ns-store .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
      padding:calc(15px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-store .btn:active{opacity:.82}
 

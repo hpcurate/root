@@ -120,15 +120,12 @@ html{height:100%;zoom:var(--ui-scale)}
 /* ── Global consequences of the dials ─────────────────────────────────────────
    Each of these is the single rule that makes one control real. */
 
-/* Caps: every micro-label in the app is `text-transform:uppercase` in its own
-   sheet; they were rewritten to var(--caps) is not possible without touching
-   200 declarations, so the switch is expressed as an override instead. */
-[data-caps="off"] .h-label,[data-caps="off"] .sec,[data-caps="off"] .lbl,
-[data-caps="off"] .tb-l,[data-caps="off"] .seg-b,[data-caps="off"] .btn,
-[data-caps="off"] .sheet-ttl,[data-caps="off"] .data-stat-k,
-[data-caps="off"] .row-lbl,[data-caps="off"] .theme-name,
-[data-caps="off"] .btn-send,[data-caps="off"] .btn-share,[data-caps="off"] .pad-ttl,
-[data-caps="off"] .modal-title{text-transform:none}
+/* Caps: every label in every sheet says `text-transform:var(--caps)` (113
+   declarations, rewritten mechanically in 2.5 — the 2.0 override list below
+   covered fourteen classes and missed the rest, which is why the switch did
+   nothing on most of the app). A new label must use the token, never the
+   literal `uppercase`. */
+[data-caps="off"]{--caps:none}
 
 /* Icon weight. CSS beats the stroke-width presentation attribute on the sprite
    symbols, so one rule retunes every icon in the app.

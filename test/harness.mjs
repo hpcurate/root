@@ -377,7 +377,7 @@ w.DO.toggleToday();
 await tick(120);
 const ttRows = d.querySelectorAll('.ns-do #td-today .tt-row');
 check('today block shows due + overdue, not future or dateless', ttRows.length === 2 && !$('.ns-do #td-today').classList.contains('hidden'), 'rows ' + ttRows.length);
-check('priority and labels are shown', !!$('.ns-do .tt-row .tt-pri.p1') && $('.ns-do .tt-row .tt-lbl')?.textContent === '@calls');
+check('priority is shown, label chips are not', !!$('.ns-do .tt-row .tt-pri.p1') && !$('.ns-do .tt-row .tt-lbl'));
 check('an overdue task is flagged late', !!$('.ns-do .tt-row.late'));
 tdCalls.length = 0;
 w.DO.toggleTodayTask('t1'); await tick(50);
@@ -450,8 +450,8 @@ ttOpen.set('none', { open: null });
 check('the task id is recorded under tend_todoist_v1', Object.values(JSON.parse(w.localStorage.getItem('tend_todoist_v1')).pushed)[0]?.id === made?.id);
 w.Shell.go('do');
 const plantRow = [...d.querySelectorAll('.ns-do #td-today .tt-row')].find(r => r.textContent.includes('water test fern'));
-check("the due plant is on DO's today block with its label and priority", !!plantRow && !$('.ns-do #td-today').classList.contains('hidden') &&
-  plantRow.querySelector('.tt-lbl')?.textContent === '@home' && !!plantRow.querySelector('.tt-pri.p2'), plantRow?.textContent);
+check("the due plant is on DO's today block with its priority and tend tag", !!plantRow && !$('.ns-do #td-today').classList.contains('hidden') &&
+  !!plantRow.querySelector('.tt-pri.p2') && !!plantRow.querySelector('.tt-src'), plantRow?.textContent);
 check('the DO tab and date line carry the open count', $('.tab-b[data-app="do"] .tb-badge')?.textContent === '1' && /1 to do/.test($('.ns-do #today-count').textContent),
   ($('.tab-b[data-app="do"] .tb-badge')?.textContent || 'no badge') + ' | ' + $('.ns-do #today-count').textContent);
 w.DO.toggleTodayTask(fernItem.id); await tick(50);
@@ -476,6 +476,51 @@ $('.ns-log #rep-paste').value = `*:LiCalendar: ${today}*\n| cap_topics    | 3 |\
 w.LOG.parseNotes(); click($('.ns-log #rep-week-btns .rep-btn'));
 check('parsed notes feed the study rows', /\| study \| 3 topics · 12 cards \|/.test($('.ns-log #rep-pre').textContent) && /- B/.test($('.ns-log #rep-pre').textContent));
 w.TRACK.toggle('t03'); w.localStorage.removeItem('learn_daily_v1');
+
+// ── 21. 2.5 — block tasks from Todoist, label chips gone, portrait lock ─────
+check('the portrait lock stamps its attribute', d.documentElement.dataset.portrait === 'lock');
+w.Prefs.set('lockPortrait', false);
+check('… and lifts it', d.documentElement.dataset.portrait === 'free');
+w.Prefs.set('lockPortrait', true);
+w.Prefs.set('caps', 'off');
+check('caps off stamps the attribute the token reads', d.documentElement.dataset.caps === 'off');
+w.Prefs.set('caps', 'on');
+
+const bkOpen = new Map([
+  ['k1', { id: 'k1', content: 'mix the track', labels: ['b1'], priority: 2, due: today, open: true }],
+  ['k2', { id: 'k2', content: 'later',         labels: ['b2'], priority: 1, due: offset(1), open: true }],
+]);
+fetchScript = async (url, opts) => {
+  const method = (opts && opts.method) || 'GET';
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
+  if (m) { const t = bkOpen.get(m[1]); if (t) t.open = m[2] === 'reopen'; return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
+  if (url.includes('/labels')) return ok([{ id: 'l1', name: 'b1', color: 'violet' }, { id: 'l2', name: 'b2', color: 'teal' }]);
+  if (url.includes('/tasks?')) {
+    const lab = new URL(url).searchParams.get('label');
+    return ok([...bkOpen.values()].filter(t => t.open && (!lab || t.labels.includes(lab)))
+      .map(t => ({ id: t.id, content: t.content, labels: t.labels, priority: t.priority, due: { date: t.due } })));
+  }
+  return ok([]);
+};
+await w.DO.refreshToday(true);          // before go('do'): its onShow would start one of its own
+w.Shell.go('do');
+const tiles = d.querySelectorAll('.ns-do #td-blocks .bk');
+check('block tasks due today are tiles in the label\'s Todoist colour', tiles.length === 1 &&
+  tiles[0].style.getPropertyValue('--bk-c') === '#af38eb' && /mix the track/.test(tiles[0].textContent) && /@b1/.test(tiles[0].textContent),
+  tiles.length + ' tile(s) ' + (tiles[0] ? tiles[0].getAttribute('style') : ''));
+check('no Todoist label chips on the today rows', !$('.ns-do #td-today .tt-lbl'));
+w.DO.toggleBlockTask('k1'); await tick(50);
+check('ticking a block closes it in Todoist and fills the tile', bkOpen.get('k1').open === false && !!$('.ns-do #td-blocks .bk.done'));
+check("it is recorded as a completed block in today's log", JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track'));
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
+const bkChip = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');
+check('the evening form shows it selected, in the label colour', !!bkChip && bkChip.classList.contains('on') && /af38eb/.test(bkChip.getAttribute('style')),
+  bkChip ? bkChip.outerHTML.slice(0, 120) : 'no chip');
+w.DO.toggleBlockTask('k1'); await tick(50);
+const bkChip2 = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');   // re-rendered
+check('unticking reopens it and deselects the block', bkOpen.get('k1').open === true &&
+  !JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track') && !!bkChip2 && !bkChip2.classList.contains('on'));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

@@ -371,7 +371,18 @@ function syncBlocks() {
 function renderPlanned() {
   const wrap = $id('blk-plan-wrap'), grid = $id('blk-plan');
   if (!wrap || !grid) return;
-  const planned = (TODAY === REAL_TODAY && window.PLAN && PLAN.plannedToday) ? PLAN.plannedToday() : [];
+  const isToday = TODAY === REAL_TODAY;
+  // PLAN's queue and what it sent, then the block-labelled tasks DO fetched
+  // from Todoist (already ticked ones arrive selected, see setBlock)
+  const fromPlan = (isToday && window.PLAN && PLAN.plannedToday) ? PLAN.plannedToday() : [];
+  const fromDo = (isToday && window.DO && DO.blockTasks) ? DO.blockTasks().map(t =>
+    ({ name:t.content, project:'todoist', block:t.block, time:null, color:t.color })) : [];
+  const seen = new Set(), planned = [];
+  fromDo.concat(fromPlan).forEach(p => {
+    const k = String(p.name).trim().toLowerCase();
+    if (!k || seen.has(k)) return;
+    seen.add(k); planned.push(p);
+  });
   wrap.classList.toggle('hidden', !planned.length);
   grid.innerHTML = planned.map(p => {
     const cap = [p.project, p.block, p.time].filter(Boolean).join(' · ');
@@ -379,6 +390,31 @@ function renderPlanned() {
              style="--blk-c:${esc(p.color)};--blk-bg:${tint(p.color, 14)}">${esc(p.name)}${cap ? `<small>${esc(cap)}</small>` : ''}</button>`;
   }).join('');
   syncBlocks();
+}
+
+/* A block task ticked on DO's today view lands here as a completed block for
+   the real today — written straight to the day record, so it is in the note
+   whether or not the evening form is ever opened; unticking takes it out. The
+   cap still applies on the way in. */
+function setBlock(name, on) {
+  name = String(name || '').trim();
+  if (!name) return;
+  const isToday = TODAY === REAL_TODAY;
+  // today's record: the live one if that is the selected day, else straight from storage
+  const rec = isToday ? data : (readDay(REAL_TODAY) || Object.assign(fresh(), { date: REAL_TODAY }));
+  if (!Array.isArray(rec.e.blocks)) rec.e.blocks = [];
+  const i = rec.e.blocks.indexOf(name);
+  if (on && i < 0) {
+    if (rec.e.blocks.length >= maxBlocks()) { toast(`max ${maxBlocks()} blocks`); return; }
+    rec.e.blocks.push(name);
+  } else if (!on && i >= 0) rec.e.blocks.splice(i, 1);
+  else return;
+  localStorage.setItem('log_' + REAL_TODAY, JSON.stringify(rec));
+  if (!isToday) return;
+  const open = $all('.scr.on')[0];
+  const id = open ? open.id.replace('s-', '') : 'home';
+  if (id === 'evening') { renderPlanned(); syncBlocks(); }
+  if (id === 'home') refreshHome();
 }
 
 /* ── Config-driven form furniture ─────────────────────────────────────────────
@@ -1473,5 +1509,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
-         openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, buildNote };
+         openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote };
 })();

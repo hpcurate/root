@@ -11,10 +11,10 @@
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-log .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-log .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase}
+.ns-log .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps)}
 
 /* ── Home ── */
-.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--mu);
+.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);
         padding:calc(30px * var(--dens)) calc(18px * var(--dens)) calc(6px * var(--dens));display:flex;align-items:center;gap:calc(8px * var(--dens))}
 .ns-log .h-date-txt{flex:1}
 .ns-log .h-arr{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s}
@@ -35,7 +35,7 @@
 .ns-log .card:active{background:var(--s2)}
 .ns-log .card.done{border-color:var(--y)}
 .ns-log .card.done::after{content:'✓';position:absolute;top:11px;right:13px;font:11px/1 var(--mono);color:var(--y)}
-.ns-log .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.ns-log .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:5px}
 .ns-log .card-s{font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-log .full{grid-column:1/-1}
 .ns-log .muted{border-color:transparent!important;padding:calc(10px * var(--dens)) calc(15px * var(--dens))}
@@ -44,7 +44,7 @@
 /* ── Content ── */
 .ns-log .cnt{padding:calc(18px * var(--dens))}
 .ns-log .f{margin-bottom:17px}
-.ns-log .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
+.ns-log .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu);margin-bottom:7px}
 .ns-log .lbl-hint{font:400 9px/1 var(--mono);color:var(--mu);opacity:.55;letter-spacing:.04em}
 .ns-log input[type=text],.ns-log input[type=number],.ns-log input[type=time],.ns-log textarea{
   width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -83,7 +83,7 @@
        padding:calc(12px * var(--dens)) calc(6px * var(--dens)) calc(10px * var(--dens));cursor:pointer;text-align:center;transition:all .1s;
        display:flex;flex-direction:column;align-items:center;gap:calc(5px * var(--dens))}
 .ns-log .med-name{font:400 11px/1 var(--mono);letter-spacing:.05em}
-.ns-log .med-state{font:400 8px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.6}
+.ns-log .med-state{font:400 8px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);opacity:.6}
 .ns-log .med-b.on.lam{background:rgba(110,197,224,.12);border-color:#6ec5e0;color:#6ec5e0}
 .ns-log .med-b.on.rit{background:rgba(224,160,96,.12);border-color:#e0a060;color:#e0a060}
 
@@ -125,10 +125,10 @@
 .ns-log .caf-b .cnt-n{font-size:16px}
 .ns-log .cnt-n{font:700 24px/1 var(--mono);color:var(--mu);transition:color .1s}
 .ns-log .caf-b.on .cnt-n{color:var(--y)}
-.ns-log .cnt-l{font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+.ns-log .cnt-l{font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
 .ns-log .caf-b.on .cnt-l{color:rgba(167,139,250,.6)}
 .ns-log .caf-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
-           color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+           color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(9px * var(--dens));cursor:pointer;transition:background .12s}
 .ns-log .caf-reset:active{background:var(--s2)}
 /* ── Curate output: three counters, one purple shade each ── */
@@ -140,16 +140,16 @@
 .ns-log .cur-b.on .cnt-n{color:var(--cur-c)}
 .ns-log .cur-b.on .cnt-l{color:var(--cur-c);opacity:.7}
 .ns-log .cur-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
-           color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+           color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(9px * var(--dens));cursor:pointer;transition:background .12s}
 .ns-log .cur-reset:active{background:var(--s2)}
 
 /* ── Misc layout ── */
-.ns-log .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:uppercase;color:var(--y);
+.ns-log .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
      margin:24px 0 14px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
 .ns-log hr{border:none;border-top:var(--bw) solid var(--bd);margin:6px 0 18px}
 .ns-log .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+     font:700 14px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
      padding:calc(15px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-log .btn:active{opacity:.82}
 .ns-log .btn-danger{background:var(--re);color:#fff}
@@ -179,7 +179,7 @@
          touch-action:pan-x pan-y;
          max-height:280px;overflow-y:auto;margin-bottom:14px}
 .ns-log .btn-share{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
-           font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+           font:700 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(16px * var(--dens));cursor:pointer;margin-bottom:8px;transition:opacity .15s}
 .ns-log .btn-share:active{opacity:.82}
 .ns-log .btn-copy{width:100%;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -190,12 +190,12 @@
 
 /* ── History ── */
 .ns-log .hist-day{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(14px * var(--dens));margin-bottom:9px}
-.ns-log .hist-date{font:700 11px/1 var(--head);letter-spacing:.1em;color:var(--y);margin-bottom:12px;text-transform:uppercase}
+.ns-log .hist-date{font:700 11px/1 var(--head);letter-spacing:.1em;color:var(--y);margin-bottom:12px;text-transform:var(--caps)}
 .ns-log .hist-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(6px * var(--dens));margin-bottom:10px}
 .ns-log .hist-cell{background:var(--s2);border-radius:var(--r1);padding:calc(8px * var(--dens)) calc(5px * var(--dens)) calc(7px * var(--dens));text-align:center}
 .ns-log .hist-cell-top{display:flex;align-items:center;justify-content:center;gap:calc(4px * var(--dens));margin-bottom:4px}
 .ns-log .hist-val{font:700 15px/1 var(--mono);color:var(--tx)}
-.ns-log .hist-key{font:400 7px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.ns-log .hist-key{font:400 7px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);color:var(--mu)}
 .ns-log .hist-row{display:flex;gap:calc(5px * var(--dens));flex-wrap:wrap}
 .ns-log .hist-pill{font:400 9px/1 var(--mono);background:var(--s2);border-radius:var(--r1);padding:calc(4px * var(--dens)) calc(7px * var(--dens));color:var(--mu)}
 .ns-log .hist-pill.y{color:var(--y)}
@@ -204,7 +204,7 @@
 /* ── km trend chart ── */
 .ns-log .kmc{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(13px * var(--dens));margin-bottom:14px}
 .ns-log .kmc-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.ns-log .kmc-title{font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;color:var(--y)}
+.ns-log .kmc-title{font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);color:var(--y)}
 .ns-log .kmc-sub{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-log .kmc-total{font:700 23px/1 var(--mono);color:var(--tx);margin-bottom:3px}
 .ns-log .kmc-total em{font:400 11px/1 var(--mono);color:var(--mu);font-style:normal;letter-spacing:.04em}
@@ -220,7 +220,7 @@
          border:var(--bw) solid var(--yb);min-height:2px}
 .ns-log .kmc-bar.hit{background:rgba(92,219,125,.18);border-color:rgba(92,219,125,.5)}
 .ns-log .kmc-days{display:flex;gap:calc(6px * var(--dens));margin-top:7px}
-.ns-log .kmc-day{flex:1;text-align:center;font:400 8px/1 var(--mono);letter-spacing:.06em;color:var(--mu);text-transform:uppercase}
+.ns-log .kmc-day{flex:1;text-align:center;font:400 8px/1 var(--mono);letter-spacing:.06em;color:var(--mu);text-transform:var(--caps)}
 .ns-log .kmc-day.now{color:var(--y)}
 
 /* ── Trend indicators (Apple Fitness style) ── */
@@ -251,7 +251,7 @@
 /* ── Data/settings ── */
 .ns-log .data-stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
            padding:calc(14px * var(--dens));margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-.ns-log .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+.ns-log .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);color:var(--mu)}
 .ns-log .data-stat-v{font:700 13px/1 var(--mono);color:var(--tx)}
 .ns-log .data-warn{font:400 10px/1.6 var(--mono);color:var(--mu);margin-bottom:16px;padding:calc(12px * var(--dens)) calc(14px * var(--dens));
            background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
@@ -262,7 +262,7 @@
 .ns-log .modal-box{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
            padding:calc(24px * var(--dens));width:100%;max-width:320px}
 .ns-log .modal-icon{font-size:28px;text-align:center;margin-bottom:14px}
-.ns-log .modal-title{font:700 16px/1 var(--head);letter-spacing:.06em;text-align:center;margin-bottom:10px;text-transform:uppercase}
+.ns-log .modal-title{font:700 16px/1 var(--head);letter-spacing:.06em;text-align:center;margin-bottom:10px;text-transform:var(--caps)}
 .ns-log .modal-body{font:400 12px/1.65 var(--mono);color:var(--mu);text-align:center;margin-bottom:14px}
 .ns-log .modal-count{font:700 11px/1 var(--mono);color:var(--re);text-align:center;margin-bottom:20px;letter-spacing:.06em}
 .ns-log .modal-cancel{width:100%;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -270,7 +270,7 @@
               cursor:pointer;margin-bottom:8px;transition:background .12s}
 .ns-log .modal-cancel:active{background:var(--bd)}
 .ns-log .modal-delete{width:100%;background:var(--re);border:none;border-radius:var(--r1);
-              color:#fff;font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:uppercase;
+              color:#fff;font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
               padding:calc(13px * var(--dens));cursor:pointer;transition:opacity .15s}
 .ns-log .modal-delete:active{opacity:.82}
 

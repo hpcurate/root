@@ -208,6 +208,7 @@ function renderHome() {
 
   $id('home-grid').innerHTML = routineCards + travelCard;
   renderToday();
+  renderBlocks();
 }
 
 function setTab(tab) {
@@ -583,7 +584,9 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       endpoint:'direct', autoPush:true, closedOn:{},
                       // today's-tasks block: off until a project is chosen
                       todayOn:false, todayOverdue:true, todayFilter:'',
-                      today:{ date:null, tasks:[], fetched:0, missing:[] } };
+                      today:{ date:null, tasks:[], fetched:0, missing:[] },
+                      // block tasks: every task due today carrying one of PLAN's block labels
+                      blocksOn:true, blocks:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -597,6 +600,7 @@ function loadTodoist() {
   Object.keys(td.closedOn).forEach(k => { if (td.closedOn[k] !== today) delete td.closedOn[k]; });
   // yesterday's task list is not today's
   if (!td.today || td.today.date !== today) td.today = { date:today, tasks:[], fetched:0, missing:[] };
+  if (!td.blocks || td.blocks.date !== today) td.blocks = { date:today, tasks:[], fetched:0 };
 }
 /* The key itself lives in Creds now. It is still written back into this app's
    own record on every save so the standalone complete/ app keeps working. */
@@ -854,6 +858,7 @@ function renderTodoistSettings() {
   // today's tasks
   const on = $id('td-today-on'); if (on) on.textContent = td.todayOn ? 'on' : 'off';
   const ov = $id('td-today-overdue'); if (ov) ov.textContent = td.todayOverdue ? 'on' : 'off';
+  const bo = $id('td-blocks-on'); if (bo) bo.textContent = td.blocksOn ? 'on' : 'off';
   const f = $id('td-today-filter');
   if (f && document.activeElement !== f && f.value === '') f.value = td.todayFilter || '';
   ttStatus();
@@ -896,14 +901,107 @@ function ttStatus(msg) {
     : 'not fetched yet';
 }
 
+/* ── Block tasks ──────────────────────────────────────────────────────────────
+   Every open task due today that carries one of PLAN's block labels (@b1 @b2
+   @b3 — Config plan.blocks), drawn as tiles in the label's own Todoist colour.
+   Ticking closes the task and hands the name to LOG as a completed block for
+   the day; unticking reopens it and takes it back. Same cache-per-day rule as
+   the today list: a closed task stays, filled, until midnight. */
+const TD_COLORS = { berry_red:'#b8256f', red:'#db4035', orange:'#ff9933', yellow:'#fad000', olive_green:'#afb83b',
+  lime_green:'#7ecc49', green:'#299438', mint_green:'#6accbc', teal:'#158fad', sky_blue:'#14aaf5', light_blue:'#96c3eb',
+  blue:'#4073ff', grape:'#884dff', violet:'#af38eb', lavender:'#eb96eb', magenta:'#e05194', salmon:'#ff8d85',
+  charcoal:'#808080', grey:'#b8b8b8', taupe:'#ccac93' };
+const blockLabels = () => (Config.get('plan.blocks') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
+function tdBlocks() {
+  const today = tdLocalDate();
+  if (!td.blocks || td.blocks.date !== today) td.blocks = { date:today, tasks:[], fetched:0 };
+  return td.blocks;
+}
+async function fetchBlocks(today) {
+  const labels = await tdGetAll('/labels');
+  const colorOf = name => {
+    const l = labels.find(x => tdName(x.name) === tdName(name));
+    return (l && TD_COLORS[l.color]) || '#A78BFA';
+  };
+  const prev = tdBlocks(), got = [];
+  for (const name of blockLabels()) {
+    const tasks = await tdGetAll('/tasks', { label: name });
+    tasks.forEach(t => {
+      if (tdDueDate(t) !== today) return;
+      got.push({ id:String(t.id), content:String(t.content || ''), block:name, color:colorOf(name),
+                 priority:+t.priority || 1, done:false });
+    });
+  }
+  const seen = new Set(), next = [];
+  got.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); next.push(t); } });
+  prev.tasks.forEach(t => { if (t.done && !seen.has(t.id)) next.push(t); });   // closed here: keep, filled
+  next.sort((a, b) => a.block.localeCompare(b.block) || a.content.localeCompare(b.content));
+  td.blocks = { date:today, tasks:next, fetched:Date.now() };
+}
+function renderBlocks() {
+  const box = $id('td-blocks'); if (!box) return;
+  const b = tdBlocks();
+  const show = td.blocksOn && b.tasks.length > 0;
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  const open = b.tasks.filter(x => !x.done).length;
+  box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span></div>
+    <div class="bk-grid">${b.tasks.map(x => `<button class="bk${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleBlockTask('${esc(x.id)}')" aria-pressed="${x.done}">
+      <span class="bk-tag">@${esc(x.block)}</span><span class="bk-name">${esc(x.content)}</span>
+      <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </button>`).join('')}</div>`;
+}
+async function toggleBlockTask(id) {
+  const b = tdBlocks();
+  const task = b.tasks.find(x => x.id === id); if (!task) return;
+  const was = task.done;
+  task.done = !was; tdPersist(); renderBlocks(); renderToday(); Prefs.tap();
+  if (window.LOG && LOG.setBlock) LOG.setBlock(task.content, task.done);
+  try {
+    await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
+    toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
+  } catch (e) {
+    task.done = was; tdPersist(); renderBlocks(); renderToday();
+    if (window.LOG && LOG.setBlock) LOG.setBlock(task.content, task.done);
+    toast('todoist: ' + e.message);
+  }
+}
+function blockTasks() { return td.blocksOn ? tdBlocks().tasks.slice() : []; }
+function toggleBlocks() {
+  td.blocksOn = !td.blocksOn; tdPersist(); renderTodoistSettings(); renderBlocks(); renderToday();
+  if (td.blocksOn && !tdBlocks().fetched) refreshToday(true);
+}
+
 async function refreshToday(quiet) {
-  if (!td.todayOn || tdBusy) return;
+  if (tdBusy) return;
+  const wantToday = td.todayOn && ttRules().length > 0;
+  const wantBlocks = td.blocksOn && blockLabels().length > 0;
+  if (!wantToday && !wantBlocks) {
+    if (!quiet && td.todayOn) { toast('choose a project under settings → do'); Shell.settings('do'); }
+    return;
+  }
   if (!Creds.token()) { if (!quiet) { toast('add a Todoist key in settings'); Shell.settings('data'); } return; }
-  const rules = ttRules();
-  if (!rules.length) { if (!quiet) { toast('choose a project under settings → do'); Shell.settings('do'); } return; }
   tdBusy = true; renderTdButtons();
   const today = tdLocalDate();
   try {
+    if (wantToday) await fetchTodayTasks(today);
+    if (wantBlocks) await fetchBlocks(today);
+    tdPersist();
+    renderToday(); renderBlocks(); ttStatus();
+    if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
+    const open = todayRows().filter(t => !t.done).length + (wantBlocks ? tdBlocks().tasks.filter(t => !t.done).length : 0);
+    if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
+  } catch (e) {
+    if (!quiet) toast('todoist: ' + e.message);
+    ttStatus(e.message);
+    const box = $id('td-today');
+    const s = box && box.querySelector('.tt-status'); if (s) s.textContent = e.message;
+  } finally { tdBusy = false; renderTdButtons(); }
+}
+
+async function fetchTodayTasks(today) {
+  const rules = ttRules();
+  {
     const projects = await tdGetAll('/projects');
     const got = [], missing = [];
     for (const r of rules) {
@@ -935,16 +1033,7 @@ async function refreshToday(quiet) {
     next.sort((a, b) => (a.done - b.done) || (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) ||
                         (b.priority - a.priority) || a.content.localeCompare(b.content));
     td.today = { date:today, tasks:next, fetched:Date.now(), missing };
-    tdPersist();
-    renderToday(); ttStatus();
-    const open = next.filter(t => !t.done).length;
-    if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
-  } catch (e) {
-    if (!quiet) toast('todoist: ' + e.message);
-    ttStatus(e.message);
-    const box = $id('td-today');
-    const s = box && box.querySelector('.tt-status'); if (s) s.textContent = e.message;
-  } finally { tdBusy = false; renderTdButtons(); }
+  }
 }
 
 /* The rows are two sources in one list: the plants TEND says are due today
@@ -968,8 +1057,9 @@ function renderToday() {
   const rowsData = todayRows();
   const open = rowsData.filter(x => !x.done).length;
   // the tab badge and the date line count whatever is still open, wherever it came from
-  if (window.Shell && Shell.badge) Shell.badge('do', open);
-  const cnt = $id('today-count'); if (cnt) cnt.textContent = open ? `· ${open} to do` : '';
+  const total = open + (td.blocksOn ? tdBlocks().tasks.filter(x => !x.done).length : 0);
+  if (window.Shell && Shell.badge) Shell.badge('do', total);
+  const cnt = $id('today-count'); if (cnt) cnt.textContent = total ? `· ${total} to do` : '';
   const show = td.todayOn || rowsData.length > 0;
   box.classList.toggle('hidden', !show);
   if (!show) return;
@@ -982,7 +1072,6 @@ function renderToday() {
       ${x.glyph ? `<span class="tt-glyph">${esc(x.glyph)}</span>` : ''}
       <span class="tt-body"><span class="tt-name">${esc(x.content)}</span>
         <span class="tt-meta">${pri ? `<span class="tt-pri ${pri}">${pri}</span>` : ''}${
-          x.labels.map(l => `<span class="tt-lbl">@${esc(l)}</span>`).join('')}${
           x.due < today ? `<span class="tt-late">${esc(x.due)}</span>` : ''}${
           x.section ? `<span class="tt-sec">${esc(x.section)}</span>` : ''}${
           x.src === 'tend' ? '<span class="tt-src">tend</span>' : ''}</span>
@@ -1020,8 +1109,11 @@ async function toggleTodayTask(id) {
 /* Silently refetch when the tab comes back and the list is older than ten
    minutes — a task added on the desktop should not need a manual refresh. */
 function maybeRefreshToday() {
-  if (!td.todayOn || !Creds.token() || !ttRules().length) return;
-  if (Date.now() - (ttToday().fetched || 0) < TT_STALE) return;
+  const wantToday = td.todayOn && ttRules().length > 0;
+  const wantBlocks = td.blocksOn && blockLabels().length > 0;
+  if ((!wantToday && !wantBlocks) || !Creds.token()) return;
+  const last = Math.min(wantToday ? (ttToday().fetched || 0) : Infinity, wantBlocks ? (tdBlocks().fetched || 0) : Infinity);
+  if (Date.now() - last < TT_STALE) return;
   refreshToday(true);
 }
 function toggleToday() {
@@ -1073,5 +1165,5 @@ return { go, renderSettings: renderTodoistSettings,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
-         renderToday };
+         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, blockTasks };
 })();

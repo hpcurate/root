@@ -441,6 +441,11 @@ both say so, and a new device needs the `.apkg` imported again.
 - **`Shell.badge(app, n)` is the only writer of `.tb-badge`.** DO calls it from
   `renderToday()` with the open count; TEND reaches it through `DO.renderToday()`
   (`notifyDo`). A new counting app should do the same, not touch the nav.
+- **A new label says `text-transform:var(--caps)`, never `uppercase`.** The
+  literal is invisible to the caps switch; 2.5 rewrote 113 of them.
+- **`LOG.setBlock()` writes today's record even when another day is selected.**
+  It edits the live record only if the selected day is the real today, and the
+  stored one otherwise, so a tick on DO never changes which day LOG is showing.
 - **TEND boots after DO.** DO draws its block before `window.TEND` exists, so
   TEND's boot schedules `notifyDo()` on the next tick and DO's `onShow` redraws
   it — otherwise the plants only appeared after the first interaction.
@@ -475,7 +480,7 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 93 checks covering boot, every theme and panel, the
+through DOM events: 102 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3 and the Todoist round-trips of 2.4. Run it before trusting any change:
 
@@ -493,6 +498,50 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.5 — 2026-09-02 — the phone pass: what the first look on a real phone turned up
+
+Four fixes from the phone, one removal, one addition.
+
+**The caps switch did nothing.** 2.0 expressed "uppercase labels off" as an
+override list of fourteen classes; the app sheets carry 113 `uppercase`
+declarations. Every one now reads `text-transform:var(--caps)` (rewritten
+mechanically, `tokens.css` sets `--caps:none` under `[data-caps="off"]`), and
+the override list is gone. A new label must use the token.
+
+**Fonts grew on rotation and stayed grown.** iOS Safari's text-size-adjust
+inflates some text in landscape and keeps it on the way back.
+`-webkit-text-size-adjust:100%` on `<html>` pins it. And since the app is not
+meant to rotate at all: Settings → behaviour → "stay in portrait" (on by
+default) draws a curtain over a phone-sized touch screen in landscape until
+it is turned back, and calls `screen.orientation.lock` where a platform
+honours it (Android, installed). iOS cannot be locked from a page; the
+curtain is the lock there.
+
+**The badge inverted badly on the active tab.** It sits on the ground colour
+with an accent ring there now, instead of flipping to on-accent.
+
+**Todoist label chips removed** from the today rows; priority, overdue date,
+section and the tend tag stay.
+
+**Block tasks on DO.** Under the today list, every open task due today that
+carries one of PLAN's block labels (`plan.blocks`: @b1 @b2 @b3) is a tile in
+the label's own Todoist colour (`/labels` gives the colour name; a table maps
+Todoist's twenty names to hex). Ticking fills the tile with a check, closes the
+task in Todoist and writes the task name into today's LOG record as a completed
+block — straight to storage, so it is in the note whether or not the evening
+form is opened — and LOG's evening form shows it selected, in the same colour,
+among the planned chips. Unticking reopens the task and takes the block back.
+Cached per day in `do_todoist_v1.blocks`, same rule as the today list; counted
+in the badge; switchable under Settings → do.
+
+**Verified** — `test/harness.mjs`, 102 checks, all green: the portrait and
+caps attributes; a block task due today drawn as one tile in `#af38eb` with
+its @b1 tag while a tomorrow one is not; no label chips; the tick closes the
+task, fills the tile and lands in today's log; the evening form shows it
+selected in the label colour; the untick reopens and deselects. **Not
+verified**: the curtain, the badge on the active tab and the tiles have not
+been seen; the caps switch has not been looked at on every screen.
 
 ### 2.4 — 2026-09-02 — TEND on Todoist and on DO, the open count, study in the reports
 

@@ -217,7 +217,7 @@ function renderLook() {
     <div class="set-note">Body copy, the .md previews and every number stay in the
       mono face — the exports are whitespace-significant and come apart in a
       proportional one.</div>
-    ${toggle('caps', 'Uppercase labels', 'off gives sentence case throughout')}
+    ${toggle('caps', 'Uppercase labels', 'off shows every label as it was written')}
     ${toggle('monoNumbers', 'Tabular figures', 'counters stop shuffling width as they change')}
   `;
 }
@@ -333,6 +333,7 @@ function renderBehave() {
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
     ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to open settings')}
+    ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
 
     ${sectionHead('Safety')}
@@ -1294,7 +1295,7 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-behaviour') {
     if (!confirmed('Reset every behaviour setting?')) return;
     ['startTab','swipe','swipeStrength','autoHideChrome','haptics','confirmDestructive',
-     'toastMs','keyboardNav','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
+     'toastMs','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
     render(); Shell.toast('behaviour reset');
   }
   if (t.dataset.act === 'reset-content') {

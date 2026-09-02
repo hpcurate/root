@@ -440,6 +440,21 @@ window.Shell = (function () {
     else if (e.key === '/') { settings(); e.preventDefault(); }
   });
 
+  /* Where the platform allows it (Android, installed), actually lock the
+     orientation; everywhere else the CSS curtain does the job. */
+  function lockPortrait() {
+    try {
+      if (!pref('lockPortrait', true) || !screen.orientation || !screen.orientation.lock) return;
+      screen.orientation.lock('portrait').catch(() => {});
+    } catch {}
+  }
+  lockPortrait();
+  if (window.Prefs) Prefs.subscribe(k => {
+    if (k !== 'lockPortrait' && k !== '*') return;
+    if (pref('lockPortrait', true)) lockPortrait();
+    else { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} }
+  });
+
   /* ── Decimal fields ────────────────────────────────────────────────────────
      A French keyboard's decimal keypad offers "," and iOS refuses a comma in a
      type=number field outright, so weight, sleep and km could not be typed on

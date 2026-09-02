@@ -222,6 +222,8 @@
     <!-- today's tasks from the Todoist projects chosen under settings → do;
          drawn by DO.renderToday(), hidden until switched on -->
     <div class="tt hidden" id="td-today"></div>
+    <!-- the @b1 / @b2 / @b3 tasks due today, as colour-coded blocks — DO.renderBlocks() -->
+    <div class="tt hidden" id="td-blocks"></div>
   </div>
 
   <!-- ── CHECKLIST ── -->
@@ -1120,6 +1122,10 @@
         <span class="setting-lbl">Include overdue<small>tasks due before today, still open</small></span>
         <button class="setting-btn" id="td-today-overdue" onclick="DO.toggleTodayOverdue()">on</button>
       </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show block tasks<small>every task due today carrying a block label (PLAN's chips: @b1 @b2 @b3), in the label's Todoist colour</small></span>
+        <button class="setting-btn" id="td-blocks-on" onclick="DO.toggleBlocks()">on</button>
+      </div>
       <div class="f">
         <label class="lbl">Projects and sections <em>one per line · project &gt; section</em></label>
         <textarea id="td-today-filter" rows="4" spellcheck="false" autocapitalize="off"
@@ -1497,6 +1503,14 @@
      app's namespace class, so the scoped CSS and $id lookups still find it. -->
 
 <div id="toast"></div>
+
+<!-- the portrait curtain: shown by shell.css in landscape on a phone while
+     Settings → behaviour → "stay in portrait" is on -->
+<div id="rotate" aria-hidden="true">
+  <div class="r-ico">▯</div>
+  <div class="r-t">turn it back upright</div>
+  <div class="r-s">ROOT is a portrait app · switch this off under settings → behaviour</div>
+</div>
 
 <!-- PLAN — section picker -->
 <div class="ns-plan">

@@ -196,6 +196,7 @@ const SCHEMA = {
   confirmDestructive:{ kind:'bool', def:true },
   toastMs:      { kind:'range',  def:1800, min:800, max:5000, step:100 },
   keyboardNav:  { kind:'bool',   def:true },
+  lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
 
   // formatting
   dateFormat:   { kind:'enum',   def:'long', values:['long','short','iso'] },
@@ -390,6 +391,7 @@ function apply() {
      pill at its phone width; shell.css widens it, shrinks the labels and drops
      the arrows under [data-tabs="many"] */
   root.setAttribute('data-tabs', prefs.apps.length + 1 >= 7 ? 'many' : 'few');
+  root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.style.colorScheme = info.mode;
 
   // continuous → inline custom properties (null means "leave it to the theme")
