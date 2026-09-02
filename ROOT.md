@@ -23,10 +23,11 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **Settings** | Twelve panels: the whole appearance engine, behaviour, editors for every app's content, and one panel per app. |
+| **Settings** | A home menu (the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 
 Which of the seven get a tab, and in what order, is itself a setting
-(layout → apps in the bar). Settings is always last.
+(appearance → layout → apps in the bar). Settings is always last. An app
+switched off keeps its slide and opens from the settings home.
 
 ### The vision (2.0)
 
@@ -177,9 +178,13 @@ buttons inside `#nav` to match (each is addressed by `id="view-x"` /
 `data-app="x"`, never by position), hides the ones switched off, and appends
 settings. `Shell.TABS` is mutated in place so the reference stays live. A hidden
 view is `display:none`, so the percentage transform still counts only visible
-slides. With seven or more tabs Prefs sets `data-tabs="many"` on `<html>` and
-`shell.css` widens the pill, tightens the labels and hides the arrows. Keyboard
-`1`–`9` jump by position in the current order.
+slides. The pill never grows past its phone width and the arrows are always
+there; the settings home lists the apps that are out of the bar, and
+`Shell.open(name)` puts one's slide back into the track just before settings
+(no tab button) until you leave it, when `retire()` hides it again and re-parks
+the track. Keyboard `1`–`9` jump by position in the current order. `rebuild()`
+re-appends the `.view` nodes, which resets their scroll position, so it saves
+and restores each slide's `scrollTop` around the move.
 
 ### Prefs — the appearance engine
 
@@ -228,18 +233,30 @@ Config.subscribe(path => {
 });
 ```
 
-### Settings — two conventions, no per-control wiring
+### Settings — a menu, three categories, two conventions
+
+The settings view is two screens: `#s-home` (the menu: the apps out of the bar
+as tappable tiles, then **apps** / **appearance** / **data**) and `#s-cat` (a
+sticky back header, the pill bar of that category's panels, the panels).
+`SET.CATS` says which panel sits where; `SET.panel(name)` opens the right
+category with that pill lit, `SET.home()` goes back to the menu. `data` is a
+single panel, so its pill bar is hidden. `#settings` is the menu,
+`#settings/<panel>` a panel.
 
 1. **Appearance and behaviour controls** carry `data-pref="<key>"` and are handled
    by one delegated listener. Adding a control is markup, not wiring.
 2. **Content editors** live inside a `[data-group="<config path>"]` and are read
    back out of the DOM *wholesale* by that group's `read()`. No per-field state is
-   tracked, so an editor cannot drift out of step with what is saved.
+   tracked, so an editor cannot drift out of step with what is saved. There is
+   no content panel: each app's editors are rendered into the
+   `[data-content-for="<app>"]` box at the end of that app's own panel, chosen
+   by the first segment of the editor's path.
 
 To add a knob: one line in `Prefs.SCHEMA`, one builder call in the panel, and
 whatever CSS reads the attribute or variable.
 To add a content editor: one entry in `EDITORS` with `render()` / `read()` /
-optionally `add()` / `del()`, and its path in `EDITOR_ORDER`.
+optionally `add()` / `del()`, and its path in `EDITOR_ORDER` — it lands in the
+panel of the app its path starts with.
 
 ---
 
@@ -295,9 +312,9 @@ versions still work off the same data.
 | Key | Owner | Holds |
 | --- | --- | --- |
 | `do_<YYYY-MM-DD>` | DO | one day's routine ticks (older days are swept on the first load of a new day) |
-| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, and since 2.3 the today-tasks block's filter and its cached list for the day |
+| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list |
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
-| `log_<YYYY-MM-DD>` | LOG | one logged day |
+| `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
 | `plan_sent_v1` | PLAN | what was sent today (name, project, block, time) — LOG offers these as blocks; a new day starts it empty |
@@ -449,6 +466,24 @@ both say so, and a new device needs the `.apkg` imported again.
 - **TEND boots after DO.** DO draws its block before `window.TEND` exists, so
   TEND's boot schedules `notifyDo()` on the next tick and DO's `onShow` redraws
   it — otherwise the plants only appeared after the first interaction.
+- **Re-appending a `.view` resets its scroll.** `Shell.rebuild()` moves the
+  slides to re-order them, and it runs from the app list on the layout panel,
+  which is well down the page: every switch used to land you at the top. It
+  saves and restores each slide's `scrollTop`; settings' own re-render is
+  wrapped in `keepScroll()` for the same reason. jsdom cannot prove either
+  (its `scrollTop` is always 0), so this one is browser-only.
+- **`do.tabs` may predate the media tab.** An override written by the routines
+  editor before 2.8 has no `media` entry; DO's `readConfig()` splices one in
+  at index 1 in memory rather than rewriting the override. Its id is fixed —
+  `renderHome()` draws the grid on it instead of routine cards.
+- **The media list is a backlog, not a day's list.** `td.media` keeps every
+  open task whatever its date; a new day only drops the ones closed the day
+  before (their untick window is over) rather than emptying the cache.
+- **A hidden app opened from settings is a transient slide.** `Shell.open()`
+  splices it into `TABS` before settings and re-parks the track before
+  animating, because settings' index moves by one; `retire()` does the same
+  in reverse 340 ms after you leave it. `paintNav()` reads `TABS` by name for
+  the same reason — a cached button list would be one off.
 
 ---
 
@@ -471,18 +506,20 @@ an `EDITORS` entry plus its path in `EDITOR_ORDER`.
 **Add an app tab** — a `<section class="view ns-x" id="view-x">` in
 `index.html`, a `css/x.css` scoped to `.ns-x`, a module that calls
 `Shell.register('x', …)`, a `.tab-b` with `data-app="x"` in the nav (plus a
-sprite symbol), `'x'` in `Prefs.APPS`, a `data-panel="x"` settings panel and
-its `seg-b`, `'x'` in `SET.PANELS` and `RENDERERS`, and a `GROUPS` row for its
-storage keys. `startTab`, the app list and the shell's TABS all follow
+`tab-x` sprite symbol — the settings home reuses it), `'x'` in `Prefs.APPS`, a
+`data-panel="x"` settings panel ending in a `[data-content-for="x"]` box, `'x'`
+in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
+`GROUPS` row for its storage keys. `startTab`, the app list and the shell's TABS all follow
 `Prefs.APPS`. Use the `card` class on the app's raised surfaces so the depth
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 111 checks covering boot, every theme and panel, the
+through DOM events: 136 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
-2.3 and the Todoist round-trips of 2.4. Run it before trusting any change:
+2.3, the Todoist round-trips of 2.4, the block and media tiles and the
+settings menu of 2.5–2.8. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -498,6 +535,72 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.8 — 2026-09-02 — the media tab, the settings menu, apps out of the bar
+
+**A media tab on DO**, between daily and other (`do.tabs` gains a fixed
+`media` id; an older override gets it spliced in on read). It fetches every
+open Todoist task carrying one of `do.mediaLabels` (@movie @show @podcast
+@music, editable under settings → apps → do → content), whatever its date,
+and draws them as the block tiles — three across — grouped under the label,
+the group head and the tiles in the label's own Todoist colour. A task's
+second label (@album / @set / @track under @music) is a small chip on the
+tile. Ticking fills the tile with the large tick, closes the task in Todoist
+and writes the title into today's LOG record; unticking reopens it and takes
+it back. A closed task stays, ticked, until midnight; the rest of the list
+carries over. "hide done" and "refresh" sit in the section head; the switch
+is under settings → apps → do. Not counted in the DO badge — it is a
+backlog, not today's work.
+
+**Media in LOG.** A new `e.media` list in the day record (`{ name, kind,
+sub }`), a conditional `#### media` section in the daily note (`media_count`,
+then one `media_<kind>` row per label, titles joined by `;`, the second label
+in brackets), a `| media | n finished |` row under habits and a `## media`
+section (count per type, then the titles) in the weekly and monthly reports,
+and the parser reads the rows back so pasted notes feed them. The evening
+form shows the day's media as chips under the blocks — DO's list for the real
+today, ticked ones selected in the label colour, tapping goes through DO so
+Todoist follows. Deliberately **not** a block: a title is not a focus block
+and would eat the six-block cap.
+
+**The settings page scrolled to the top on every app switch.** Two causes.
+`Shell.rebuild()` re-appends every `.view` to re-order the track, and moving a
+scroll container out of the document resets its scroll; the app list sits
+well down the layout panel, so every toggle landed at the top. It saves and
+restores each slide's `scrollTop` now, and the settings handler wraps its own
+re-render in `keepScroll()`.
+
+**The pill no longer takes the whole bottom.** `data-tabs="many"` is gone
+from Prefs and `shell.css`; the pill stays at its phone width and the arrows
+are always there. The apps that do not fit are switched off under appearance
+→ layout and appear on the settings home as tiles (their tab icon, name and
+hint); tapping one opens its slide — `Shell.open()` puts it into the track
+just before settings with no tab button, and `retire()` takes it out again
+once you have moved on. `#tend` in the address bar opens a hidden app the
+same way.
+
+**Settings is a menu now.** The home screen: the apps out of the bar, then
+three categories. **apps** is the pill bar do / log / plan / store / tend /
+track / learn, each panel ending with that app's content editors (the content
+panel is gone — `do.routines` under do, `log.blocks` under log, and so on).
+**appearance** is look / layout / behaviour. **data** is the one panel, no
+pill bar. A category is a sub-screen with the same sticky back header the
+apps use; `#settings/<panel>` still deep-links.
+
+**Verified** — `test/harness.mjs`, 136 checks, all green: the media tab in
+the right place, hidden on daily; three groups in red / blue / green with the
+album chip on the music tile; tick → closed in Todoist, filled, in the log
+with kind and sub-label, in the note as `media_music | Blonde (album)`, on
+the evening form selected in green with its caption; untick reverses all of
+it; the weekly and monthly rows and sections, parsed notes fed back, no
+section on an empty day; the settings home with three categories; two apps
+kept, five listed; opening TEND from the home puts it before settings with
+no tab, leaving it retires the slide; the apps category with seven pills and
+DO's editors in DO's panel; data without a pill bar; look under appearance;
+back to the home. **Not verified**: nothing in a browser — the Chrome
+extension was not reachable. The scroll fix in particular is browser-only
+(jsdom's `scrollTop` is always 0), and the eight-app pill at 240px with the
+arrows back deserves a look before deciding which apps to leave in it.
 
 ### 2.7 — 2026-09-02 — DO polish
 

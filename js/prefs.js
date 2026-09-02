@@ -387,10 +387,6 @@ function apply() {
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
-  /* seven or more tabs (the app list plus settings) no longer fit the floating
-     pill at its phone width; shell.css widens it, shrinks the labels and drops
-     the arrows under [data-tabs="many"] */
-  root.setAttribute('data-tabs', prefs.apps.length + 1 >= 7 ? 'many' : 'few');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.style.colorScheme = info.mode;
 

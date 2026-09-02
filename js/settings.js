@@ -1,15 +1,16 @@
 /* ── Settings ─────────────────────────────────────────────────────────────────
    Split out of shell.js, which used to be the frame AND the settings screen.
 
-   Twelve panels behind one segmented control:
+   A home menu, then three categories, each a segmented control of panels:
 
-     look      theme gallery, accent, fonts, live preview
-     layout    shape, density, depth, texture, nav + the app list, contrast
-     behave    start tab, gestures, haptics, confirmations, formats
-     content   the editors for everything Config holds
-     do/log/plan/store/tend/track/learn   each app's own settings, rendered by
-               the app module into markup that carries its namespace
-     data      Todoist key, backup, storage, resets
+     home        the apps kept out of the bar (tap to open one), the categories
+     apps        do/log/plan/store/tend/track/learn — each app's own settings,
+                 rendered by the app module into markup that carries its
+                 namespace, followed by that app's content editors
+     appearance  look (theme gallery, accent, fonts, live preview)
+                 layout (shape, density, depth, texture, nav + the app list)
+                 behave (start tab, gestures, haptics, confirmations, formats)
+     data        Todoist key, backup, storage, resets
 
    Two conventions hold the whole file together:
 
@@ -31,8 +32,20 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','content','do','log','plan','store','tend','track','learn','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','data'];
+/* Which category a panel sits in, and what its pill says. `data` is a single
+   panel, so its category shows no pill bar. */
+const CATS = {
+  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn'] },
+  appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
+  data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
+};
+const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
+                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn' };
+const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
+let currentCat = null;          // null = the home menu
+const lastPanel = {};           // per category: the pill you were on
 
 /* Display names for the app list and the start-tab chips. */
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN' };
@@ -281,9 +294,9 @@ function renderLayout() {
 
     ${sectionHead('Apps in the bar')}
     <div class="set-note">Which apps get a tab, and in what order. An app switched
-      off keeps its data and its settings panel — it just has no slide. Settings
-      is always last. With seven or more tabs the pill widens and the arrows step
-      aside; the swipe and the number keys still reach everything.</div>
+      off keeps its data and its settings panel, and opens from the settings
+      home — it just has no tab. Settings is always last. The pill never grows
+      past its phone width, so the arrows stay where they are.</div>
     ${appsList()}
 
     ${sectionHead('Motion & contrast')}
@@ -419,6 +432,19 @@ const EDITORS = {
       Config.set('do.tabs', Config.get('do.tabs').map(t =>
         Object.assign({}, t, { routines: t.routines.filter(x => x !== key) })));
     },
+  },
+
+  /* ── DO · media labels ─────────────────────────────────────────────────── */
+  'do.mediaLabels': {
+    title: 'Media labels',
+    note: 'The Todoist labels the media tab fetches, in the order its groups are drawn. Each group takes the label\'s own Todoist colour; any second label on a task shows on its tile.',
+    render() {
+      return `<div class="f">
+        <label class="lbl">Labels <em>comma separated, without the @</em></label>
+        <input type="text" data-cfg="do.mediaLabels" data-list="1" value="${esc(Config.get('do.mediaLabels').join(', '))}">
+      </div>`;
+    },
+    read() {},
   },
 
   /* ── DO · packing categories ───────────────────────────────────────────── */
@@ -874,30 +900,39 @@ const EDITORS = {
   },
 };
 
-const EDITOR_ORDER = ['do.routines','do.travelCategories','log.blocks','log.labels','log.fields',
+const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
                       'plan.types','plan.chips','store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings'];
 
-function renderContent() {
-  $id('panel-content').innerHTML = `
-    <div class="set-note">Everything the apps used to have baked into their
-      code. Edits save as you type and take effect immediately — the screen
-      behind this one re-renders itself. Each section can be put back to what
-      ROOT ships with, independently.</div>
-    ` + EDITOR_ORDER.map(path => {
-      const ed = EDITORS[path];
-      const paths = ed.paths || [path];
-      const custom = paths.some(p => Config.isCustom(p)) ||
-                     (path === 'do.routines' && Config.isCustom('do.tabs')) ||
-                     (path === 'do.travelCategories' && Config.isCustom('do.categoryOrder')) ||
-                     (path === 'log.blocks' && Config.isCustom('log.maxBlocks'));
-      return `
-        <div class="sec"><span>${esc(ed.title)}</span>
-          <button class="sec-reset${custom ? '' : ' hidden'}" data-cfg-reset="${path}">reset to default</button>
-        </div>
-        ${ed.note ? `<div class="set-note">${ed.note}</div>` : ''}
-        <div data-group="${path}">${ed.render()}</div>`;
-    }).join('');
+function editorHTML(path) {
+  const ed = EDITORS[path];
+  const paths = ed.paths || [path];
+  const custom = paths.some(p => Config.isCustom(p)) ||
+                 (path === 'do.routines' && Config.isCustom('do.tabs')) ||
+                 (path === 'do.travelCategories' && Config.isCustom('do.categoryOrder')) ||
+                 (path === 'log.blocks' && Config.isCustom('log.maxBlocks'));
+  return `
+    <div class="sec"><span>${esc(ed.title)}</span>
+      <button class="sec-reset${custom ? '' : ' hidden'}" data-cfg-reset="${path}">reset to default</button>
+    </div>
+    ${ed.note ? `<div class="set-note">${ed.note}</div>` : ''}
+    <div data-group="${path}">${ed.render()}</div>`;
+}
+
+/* Each app's content editors sit at the end of that app's own panel, in its
+   [data-content-for] box — there is no separate content panel any more. With
+   no argument every box is refilled (after an add, a delete or a reset). */
+function renderContent(app) {
+  $all('[data-content-for]').forEach(box => {
+    const a = box.dataset.contentFor;
+    if (app && a !== app) return;
+    const paths = EDITOR_ORDER.filter(p => p.split('.')[0] === a);
+    box.innerHTML = !paths.length ? '' : `
+      <div class="sec"><span>Content</span></div>
+      <div class="set-note">What ${esc(APP_NAMES[a] || a)} used to have baked into its
+        code. Edits save as you type and take effect at once. Each section can be
+        put back to what ROOT ships with on its own.</div>` + paths.map(editorHTML).join('');
+  });
 }
 
 /* Paths a group's "reset to default" has to clear — a collection and the index
@@ -1089,36 +1124,85 @@ async function importLook() {
 /* ══ Panels ═══════════════════════════════════════════════════════════════════ */
 
 const RENDERERS = {
-  look: renderLook, layout: renderLayout, behave: renderBehave,
-  content: renderContent, data: renderData,
-  do:   () => window.DO   && DO.renderSettings(),
-  log:  () => window.LOG  && LOG.renderDataScreen(),
-  plan: () => window.PLAN && PLAN.renderSettings(),
-  store:() => window.STORE&& STORE.renderSettings(),
-  tend: () => window.TEND && TEND.renderSettings(),
-  track:() => window.TRACK&& TRACK.renderSettings(),
-  learn:() => window.LEARN&& LEARN.renderSettings(),
+  look: renderLook, layout: renderLayout, behave: renderBehave, data: renderData,
+  do:   () => { window.DO   && DO.renderSettings();    renderContent('do'); },
+  log:  () => { window.LOG  && LOG.renderDataScreen(); renderContent('log'); },
+  plan: () => { window.PLAN && PLAN.renderSettings();  renderContent('plan'); },
+  store:() => { window.STORE&& STORE.renderSettings(); renderContent('store'); },
+  tend: () => { window.TEND && TEND.renderSettings();  renderContent('tend'); },
+  track:() => { window.TRACK&& TRACK.renderSettings(); renderContent('track'); },
+  learn:() => { window.LEARN&& LEARN.renderSettings(); renderContent('learn'); },
 };
 
+/* Two screens: the home menu and a category. Switching screens starts at the
+   top; moving between pills inside a category does too. */
+function showScreen(id) {
+  $all('.scr').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
+  const v = document.getElementById('view-settings');
+  if (v) v.scrollTop = 0;
+  Shell.showChrome();
+}
+
+/* ── Home: the apps out of the bar, then the three categories ── */
+function renderHome() {
+  const box = $id('set-home'); if (!box) return;
+  const off = window.Shell && Shell.hidden ? Shell.hidden() : [];
+  box.innerHTML = (off.length ? `
+    <div class="sec"><span>Not in the bar</span></div>
+    <div class="set-note">Switched off under appearance → layout. Their data and
+      settings are untouched; tap one to open it.</div>
+    <div class="set-apps">${off.map(a => `
+      <button class="set-app-b" data-open="${a}" aria-label="open ${esc(APP_NAMES[a] || a)}">
+        <svg aria-hidden="true"><use href="#tab-${a}"/></svg>
+        <span>${esc(APP_NAMES[a] || a)}<small>${esc(APP_HINTS[a] || '')}</small></span>
+      </button>`).join('')}</div>` : '') + `
+    <div class="sec"><span>Settings</span></div>
+    <div class="set-cats">${Object.keys(CATS).map(c => `
+      <button class="set-cat-b" data-cat="${c}">
+        <span class="set-cat-n">${esc(CATS[c].title)}</span>
+        <small>${esc(CATS[c].hint)}</small><i>→</i>
+      </button>`).join('')}</div>`;
+}
+function home() {
+  currentCat = null;
+  showScreen('home');
+  renderHome();
+  try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings'); } catch {}
+}
+
+/* ── A category: its pill bar, then one of its panels ── */
+function cat(name) {
+  const c = CATS[name]; if (!c) return;
+  panel(c.panels.includes(lastPanel[name]) ? lastPanel[name] : c.panels[0]);
+}
+function renderSeg() {
+  const seg = $id('set-seg'); if (!seg) return;
+  const c = CATS[currentCat];
+  seg.classList.toggle('hidden', !c || c.panels.length < 2);
+  seg.innerHTML = !c ? '' : c.panels.map(p =>
+    `<button class="seg-b${p === currentPanel ? ' on' : ''}" data-seg="${p}">${esc(SEG_NAMES[p] || p)}</button>`).join('');
+  // seven app pills overflow a phone; keep the active one on screen
+  const on = seg.querySelector('.seg-b.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ block:'nearest', inline:'nearest' });
+}
 function panel(name) {
   if (!PANELS.includes(name)) return;
   currentPanel = name;
+  currentCat = catOf(name);
+  lastPanel[currentCat] = name;
+  const t = $id('set-cat-title'); if (t) t.textContent = CATS[currentCat].title;
+  renderSeg();
   $all('.set-panel').forEach(p => p.classList.toggle('on', p.dataset.panel === name));
-  $all('.seg-b').forEach(b => {
-    const on = b.dataset.seg === name;
-    b.classList.toggle('on', on);
-    // nine chips overflow a phone; keep the active one on screen
-    if (on && b.scrollIntoView) b.scrollIntoView({ block:'nearest', inline:'nearest' });
-  });
-  const view = document.getElementById('view-settings');
-  if (view) view.scrollTop = 0;
-  Shell.showChrome();
+  showScreen('cat');
   // #settings/<panel> is linkable; the shell leaves this segment alone
   try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings/' + name); } catch {}
   RENDERERS[name] && RENDERERS[name]();
 }
 
-function render() { RENDERERS[currentPanel] && RENDERERS[currentPanel](); }
+function render() {
+  if (currentCat === null) renderHome();
+  else RENDERERS[currentPanel] && RENDERERS[currentPanel]();
+}
 
 
 /* ══ One delegated listener for every generated control ═══════════════════════
@@ -1127,6 +1211,11 @@ function render() { RENDERERS[currentPanel] && RENDERERS[currentPanel](); }
    reads the intent off the element and hands it to Prefs or Config. */
 
 const view = document.getElementById('view-settings');
+
+/* A control that re-renders its own panel must not move the page: the app
+   list sits well down the layout panel, and every switch there used to land
+   the reader back at the top. */
+function keepScroll(fn) { const y = view.scrollTop; fn(); if (view.scrollTop !== y) view.scrollTop = y; }
 
 function groupOf(el) { return el.closest('[data-group]'); }
 
@@ -1224,23 +1313,29 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
   if (!t) return;
 
-  // the app list: switch an app's tab on or off, or move it
+  // the home menu and the pill bar
+  if (t.dataset.open) { Prefs.tap(); Shell.open(t.dataset.open); return; }
+  if (t.dataset.cat)  { Prefs.tap(); cat(t.dataset.cat); return; }
+  if (t.dataset.seg)  { panel(t.dataset.seg); return; }
+
+  // the app list: switch an app's tab on or off, or move it — without the
+  // page jumping back to the top (the shell keeps the slide's scroll too)
   if (t.dataset.appToggle) {
     const a = t.dataset.appToggle, on = Prefs.get('apps');
     const next = on.includes(a) ? on.filter(x => x !== a)
                : Prefs.APPS.filter(x => on.includes(x) || x === a);   // re-enable in shipped order
     if (!next.length) { Shell.toast('keep at least one app'); return; }
-    Prefs.set('apps', next); Prefs.tap(); renderLayout(); return;
+    keepScroll(() => { Prefs.set('apps', next); Prefs.tap(); renderLayout(); }); return;
   }
   if (t.dataset.appMove) {
     const [a, dir] = t.dataset.appMove.split(':');
     const on = Prefs.get('apps'), i = on.indexOf(a), j = i + (+dir);
     if (i < 0 || j < 0 || j >= on.length) return;
     [on[i], on[j]] = [on[j], on[i]];
-    Prefs.set('apps', on); renderLayout(); return;
+    keepScroll(() => { Prefs.set('apps', on); renderLayout(); }); return;
   }
 
   // theme card
@@ -1337,26 +1432,24 @@ function readoutFor(key, v) {
    it, so turning it off is a real change rather than a decoration. */
 function confirmed(msg) { return !Prefs.get('confirmDestructive') || confirm(msg); }
 
-$all('.seg-b').forEach(b => b.addEventListener('click', () => panel(b.dataset.seg)));
-
-/* A content edit changes what the four apps draw; each module re-renders itself
-   on its own Config.subscribe. This only keeps the settings screen honest about
+/* A content edit changes what the apps draw; each module re-renders itself on
+   its own Config.subscribe. This only keeps the settings screen honest about
    which sections now count as customised. */
 Config.subscribe(() => {
-  if (currentPanel === 'content') {
-    $all('[data-cfg-reset]').forEach(b => {
-      const paths = RESET_BUNDLE[b.dataset.cfgReset] || [b.dataset.cfgReset];
-      b.classList.toggle('hidden', !paths.some(p => Config.isCustom(p)));
-    });
-  }
+  $all('[data-cfg-reset]').forEach(b => {
+    const paths = RESET_BUNDLE[b.dataset.cfgReset] || [b.dataset.cfgReset];
+    b.classList.toggle('hidden', !paths.some(p => Config.isCustom(p)));
+  });
 });
+// the home menu lists the apps out of the bar: keep it current
+Prefs.subscribe(k => { if ((k === 'apps' || k === '*') && currentCat === null) renderHome(); });
 
 Shell.register('settings', { onShow: render });
-// a deep link (#settings/data) opens on that panel; anything else on `look`
+// a deep link (#settings/data) opens on that panel; anything else on the home menu
 const linked = Shell.hashTarget();
-panel(linked.name === 'settings' && PANELS.includes(linked.sub) ? linked.sub : 'look');
+if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub); else home();
 
-return { panel, render, saveToken, testToken, renderStorage, renderData,
+return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
          reload: () => location.reload() };
 })();

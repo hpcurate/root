@@ -51,8 +51,16 @@ const DEFAULTS = {
        Add a tab here and the home screen grows one. */
     tabs: [
       { id: 'daily', label: 'daily', routines: ['routinep1','routinep2','routinep3','routinep4','cooldown','cleanup'] },
+      /* `media` is a fixed id: DO draws the Todoist media grid on it rather
+         than routine cards, and puts it back at this spot if an older override
+         of the list is missing it. */
+      { id: 'media', label: 'media', routines: [] },
       { id: 'other', label: 'other', routines: ['deepclean'] },
     ],
+    /* The Todoist labels the media tab fetches, in the order its groups are
+       drawn. Each group takes the label's own Todoist colour; any second label
+       on a task (@album, @set, @track under @music) is shown on the tile. */
+    mediaLabels: ['movie', 'show', 'podcast', 'music'],
     /* Master packing categories. A new travel checklist is built by picking
        which of these to include; every item starts as a counter at 1. */
     travelCategories: {

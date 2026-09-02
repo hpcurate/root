@@ -121,17 +121,9 @@ body{
 .tab-b.on .tb-badge{position:static;min-width:0;height:19px;padding:0;background:none;box-shadow:none;
   color:var(--on-y);font:800 15px/19px var(--head);letter-spacing:-.02em}
 
-/* Seven or more tabs (Prefs sets [data-tabs="many"] on <html> from the app
-   list) do not fit the pill at its phone width: it grows to the viewport, the
-   labels tighten, and the prev/next arrows — which would sit on top of it —
-   step out; swipe, tap and the keyboard still cover the same ground. On a
-   wide window the rail is vertical and none of this applies. */
-@media (max-width:879px){
-  [data-tabs="many"] #nav{width:calc(100vw - 24px);gap:1px;padding:5px 4px}
-  [data-tabs="many"] .tab-b .tb-l{font-size:6.5px;letter-spacing:.06em}
-  [data-tabs="many"] .tab-b svg{width:18px;height:18px}
-  [data-tabs="many"] .nav-arrow{display:none}
-}
+/* The pill never grows past its phone width, however many apps are in it:
+   the arrows are always there. Apps that do not fit are switched off under
+   appearance → layout and opened from the settings home instead. */
 
 /* prev / next, bottom corners, flanking the pill */
 .nav-arrow{

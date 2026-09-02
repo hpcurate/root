@@ -146,7 +146,7 @@ window.Shell = (function () {
   const prevBtn  = document.getElementById('nav-prev');
   const nextBtn  = document.getElementById('nav-next');
   const toastEl  = document.getElementById('toast');
-  let navBtns    = [];                 // in TABS order, rebuilt with it
+  let transient  = null;               // an app kept out of the bar, opened from settings — see open()
 
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
 
@@ -163,6 +163,12 @@ window.Shell = (function () {
     const want = (pref('apps', APPS) || APPS).filter(a => APPS.includes(a));
     TABS.length = 0;
     TABS.push(...want, 'settings');
+    transient = null;
+    /* Moving a node out of the document and back resets its scroll position,
+       and this runs while the settings slide is scrolled down to the app list
+       — every switch there used to throw the page back to the top. Remember
+       where each slide was and put it back. */
+    const scrolls = APPS.concat('settings').map(viewOf).filter(Boolean).map(v => [v, v.scrollTop]);
     TABS.forEach(n => {
       const v = viewOf(n), b = btnOf(n);
       if (v) track.appendChild(v);
@@ -179,7 +185,14 @@ window.Shell = (function () {
         if (!on) { b.classList.remove('on'); b.setAttribute('aria-selected', 'false'); }
       }
     });
-    navBtns = TABS.map(btnOf).filter(Boolean);
+    scrolls.forEach(([v, y]) => { if (y && v.scrollTop !== y) v.scrollTop = y; });
+  }
+
+  /* The apps switched off in the bar. Their slides are still in the track,
+     hidden; the settings home lists them and open() shows one on demand. */
+  function hidden() {
+    const want = (pref('apps', APPS) || APPS);
+    return APPS.filter(a => !want.includes(a));
   }
 
   // ── Dates ───────────────────────────────────────────────────────────────────
@@ -265,18 +278,36 @@ window.Shell = (function () {
       : `translate3d(${px}px,0,0)`;
   }
 
+  /* The tab buttons and arrows follow TABS by name, never by a cached list:
+     open() and retire() change TABS under them. */
+  function paintNav() {
+    TABS.forEach((n, i) => {
+      const b = btnOf(n); if (!b) return;
+      b.classList.toggle('on', i === index);
+      b.setAttribute('aria-selected', i === index ? 'true' : 'false');
+    });
+    if (prevBtn) prevBtn.disabled = index === 0;
+    if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
+  }
+
+  /* Park the track on the current index with the transition off and flush
+     it, so the next go() animates from here rather than from wherever the
+     last transform left it. Used at boot and whenever TABS changes shape. */
+  function park() {
+    track.classList.add('dragging');
+    track.style.transform = `translate3d(${-index * 100}%,0,0)`;
+    void track.offsetWidth;
+  }
+
   function go(name, opts = {}) {
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
     checkDay();
     index = i;
     setTransform(null, true);
-    navBtns.forEach((b, n) => {
-      b.classList.toggle('on', n === i);
-      b.setAttribute('aria-selected', n === i ? 'true' : 'false');
-    });
-    if (prevBtn) prevBtn.disabled = i === 0;
-    if (nextBtn) nextBtn.disabled = i === TABS.length - 1;
+    paintNav();
+    // leaving an app opened from settings: take its slide out again once the move has played
+    if (transient && TABS[i] !== transient) setTimeout(retire, 340);
     showChrome();
     clearTimeout(chromeTimer);
     try { localStorage.setItem(TAB_KEY, TABS[i]); } catch {}
@@ -290,6 +321,39 @@ window.Shell = (function () {
     }
     const app = apps[TABS[i]];
     if (app && app.onShow) app.onShow();
+  }
+
+  /* An app switched off in the bar keeps its slide, hidden. The settings home
+     lists those apps, and opening one puts its slide back into the track just
+     before settings — no tab button — for as long as you stay on it. Leaving
+     it retires the slide once the move has played out, so the bar and the
+     track stay exactly what the app list says. */
+  function open(name) {
+    if (!APPS.includes(name)) return;
+    if (TABS.includes(name)) { go(name); return; }
+    if (transient) retire(true);
+    const v = viewOf(name); if (!v) return;
+    const cur = TABS[index];
+    transient = name;
+    TABS.splice(TABS.length - 1, 0, name);
+    track.insertBefore(v, viewOf('settings'));
+    v.classList.remove('hidden');
+    // settings moved one slide to the right: re-park on it before animating away
+    index = TABS.indexOf(cur);
+    park();
+    go(name);
+  }
+  function retire(force) {
+    if (!transient) return;
+    if (!force && TABS[index] === transient) return;   // came back to it before the timer fired
+    const name = transient, cur = TABS[index];
+    transient = null;
+    const v = viewOf(name);
+    TABS.splice(TABS.indexOf(name), 1);
+    if (v) v.classList.add('hidden');
+    index = Math.max(0, TABS.indexOf(cur === name ? 'settings' : cur));
+    park();
+    paintNav();
   }
 
   /* Every app's "settings" entry point routes here. */
@@ -417,7 +481,7 @@ window.Shell = (function () {
   }
   window.addEventListener('hashchange', () => {
     const { name, sub } = hashTarget();
-    if (!name) return;
+    if (!name) { const raw = location.hash.replace('#', '').split('/')[0]; if (hidden().includes(raw)) open(raw); return; }
     if (TABS[index] !== name) go(name, { silent: true });
     if (name === 'settings' && sub && window.SET) SET.panel(sub);
   });
@@ -484,10 +548,11 @@ window.Shell = (function () {
     // with the transition off and flush it, so go()'s identical transform is a
     // no-op rather than something to animate towards.
     index = TABS.indexOf(start);
-    track.classList.add('dragging');
-    track.style.transform = `translate3d(${-index * 100}%,0,0)`;
-    void track.offsetWidth;
+    park();
     go(start);
+    // a link to an app that is out of the bar (#tend) still opens it
+    const raw = location.hash.replace('#', '').split('/')[0];
+    if (!fromHash && hidden().includes(raw)) open(raw);
   })();
 
   /* Turning auto-hide off should bring the chrome back immediately, not at the
@@ -503,6 +568,6 @@ window.Shell = (function () {
     }
   });
 
-  return { toast, go, settings, register, badge, showChrome, TABS, APPS,
+  return { toast, go, open, hidden, settings, register, badge, showChrome, TABS, APPS,
            today, checkDay, confirm: confirmAction, hashTarget };
 })();

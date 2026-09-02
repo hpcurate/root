@@ -26,7 +26,8 @@ const toast = msg => Shell.toast(msg);
    whenever an edit lands. They stay module-level bindings rather than a call at
    every use site, because the rest of the file reads them dozens of times per
    render. */
-let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS, SECTIONS;
+let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS, SECTIONS, MEDIA_LABELS;
+const MEDIA_TAB = 'media';
 const SECTION_KEYS = ['blocks', 'routines', 'today'];
 const SECTION_NAMES = { blocks:'Block tasks', routines:'Routine cards', today:'Today list' };
 
@@ -37,6 +38,12 @@ function readConfig() {
   // any category added in the editor but missing from the order still shows
   Object.keys(TRAVEL_CATEGORIES).forEach(c => { if (!CATEGORY_ORDER.includes(c)) CATEGORY_ORDER.push(c); });
   TABS = Config.get('do.tabs');
+  /* The media tab is drawn from Todoist, not from routines, and an override of
+     do.tabs written before it existed will not carry it: put it back, second
+     from the left, so the grid always has somewhere to live. Switching it off
+     is a DO setting (td.mediaOn), not a tab edit. */
+  if (!TABS.some(t => t.id === MEDIA_TAB)) TABS.splice(Math.min(1, TABS.length), 0, { id: MEDIA_TAB, label: 'media', routines: [] });
+  MEDIA_LABELS = (Config.get('do.mediaLabels') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
   const want = (Config.get('do.sections') || []).filter(k => SECTION_KEYS.includes(k));
   SECTIONS = want.concat(SECTION_KEYS.filter(k => !want.includes(k)));   // anything missing goes last
 }
@@ -51,8 +58,11 @@ const SECTION_EL = { blocks:'td-blocks', routines:'home-grid', today:'td-today' 
 function applySectionOrder() {
   const home = $id('s-home'); if (!home) return;
   SECTIONS.forEach(k => { const el = $id(SECTION_EL[k]); if (el) home.appendChild(el); });
+  // the media grid is not one of the ordered sections: it belongs to its own tab and always sits last
+  const media = $id('td-media'); if (media) home.appendChild(media);
 }
 const onFirstTab = () => currentTab === (TABS[0] || {}).id;
+const onMediaTab = () => currentTab === MEDIA_TAB;
 function moveSection(key, dir) {
   const i = SECTIONS.indexOf(key), j = i + dir;
   if (i < 0 || j < 0 || j >= SECTIONS.length) return;
@@ -199,11 +209,14 @@ function renderTabs() {
   const bar = $id('home-tabs');
   if (!bar) return;
   if (!TABS.some(t => t.id === currentTab)) currentTab = (TABS[0] || {}).id;
-  bar.innerHTML = `<div class="tab-glider" id="tab-glider"></div>` + TABS.map(t =>
+  // the media tab is switched off under Settings → do: no chip, and its grid stays hidden
+  const shown = TABS.filter(t => t.id !== MEDIA_TAB || td.mediaOn);
+  if (!shown.some(t => t.id === currentTab)) currentTab = (shown[0] || {}).id;
+  bar.innerHTML = `<div class="tab-glider" id="tab-glider"></div>` + shown.map(t =>
     `<button class="tab${t.id === currentTab ? ' active' : ''}" data-tab="${t.id}"
              onclick="DO.setTab('${t.id}')">${t.label}</button>`).join('');
   // a single tab is not a choice; hide the strip rather than show a lone chip
-  bar.classList.toggle('hidden', TABS.length < 2);
+  bar.classList.toggle('hidden', shown.length < 2);
   positionGlider();
 }
 
@@ -241,6 +254,7 @@ function renderHome() {
   applySectionOrder();
   renderToday();
   renderBlocks();
+  renderMedia();
 }
 
 function setTab(tab) {
@@ -620,7 +634,9 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       todayOn:false, todayOverdue:true, todayFilter:'',
                       today:{ date:null, tasks:[], fetched:0, missing:[] },
                       // block tasks: every task due today carrying one of PLAN's block labels
-                      blocksOn:true, blocksHideDone:false, blocks:{ date:null, tasks:[], fetched:0 } };
+                      blocksOn:true, blocksHideDone:false, blocks:{ date:null, tasks:[], fetched:0 },
+                      // the media tab: every open task carrying one of do.mediaLabels, any date
+                      mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -635,6 +651,11 @@ function loadTodoist() {
   // yesterday's task list is not today's
   if (!td.today || td.today.date !== today) td.today = { date:today, tasks:[], fetched:0, missing:[] };
   if (!td.blocks || td.blocks.date !== today) td.blocks = { date:today, tasks:[], fetched:0 };
+  /* the media list is a backlog, not a day's list: a new day keeps what is
+     still open and only drops the tasks closed yesterday (their untick window
+     is over) */
+  if (!td.media || !Array.isArray(td.media.tasks)) td.media = { date:today, tasks:[], fetched:0 };
+  else if (td.media.date !== today) td.media = { date:today, tasks:td.media.tasks.filter(t => !t.done), fetched:td.media.fetched || 0 };
 }
 /* The key itself lives in Creds now. It is still written back into this app's
    own record on every save so the standalone complete/ app keeps working. */
@@ -893,6 +914,8 @@ function renderTodoistSettings() {
   const on = $id('td-today-on'); if (on) on.textContent = td.todayOn ? 'on' : 'off';
   const ov = $id('td-today-overdue'); if (ov) ov.textContent = td.todayOverdue ? 'on' : 'off';
   const bo = $id('td-blocks-on'); if (bo) bo.textContent = td.blocksOn ? 'on' : 'off';
+  const mo = $id('td-media-on'); if (mo) mo.textContent = td.mediaOn ? 'on' : 'off';
+  const ml = $id('td-media-labels'); if (ml) ml.textContent = MEDIA_LABELS.map(l => '@' + l).join(' ') || 'none';
   renderSectionOrder();
   const f = $id('td-today-filter');
   if (f && document.activeElement !== f && f.value === '') f.value = td.todayFilter || '';
@@ -1012,6 +1035,90 @@ async function toggleBlockTask(id) {
 function blockTasks() { return td.blocksOn ? tdBlocks().tasks.slice() : []; }
 function toggleBlocksHideDone() { td.blocksHideDone = !td.blocksHideDone; tdPersist(); renderBlocks(); }
 
+/* ── Media ────────────────────────────────────────────────────────────────────
+   The media tab: every open task carrying one of do.mediaLabels (@movie @show
+   @podcast @music), whatever its date — a watchlist, not a day's list — drawn
+   as tiles three across, grouped under the label in the label's own Todoist
+   colour. A task's other label (@album / @set / @track under @music) is a small
+   chip on the tile. Ticking closes the task and writes the title into today's
+   LOG record as media; unticking reopens it and takes it back. A closed task
+   stays, ticked, until midnight, same as the block tiles. */
+function tdMedia() {
+  const today = tdLocalDate();
+  if (!td.media || !Array.isArray(td.media.tasks)) td.media = { date:today, tasks:[], fetched:0 };
+  else if (td.media.date !== today) td.media = { date:today, tasks:td.media.tasks.filter(t => !t.done), fetched:td.media.fetched || 0 };
+  return td.media;
+}
+async function fetchMedia() {
+  const labels = await tdGetAll('/labels');
+  const colorOf = name => {
+    const l = labels.find(x => tdName(x.name) === tdName(name));
+    return (l && TD_COLORS[l.color]) || '#A78BFA';
+  };
+  const prev = tdMedia(), got = [];
+  const mediaSet = new Set(MEDIA_LABELS.map(tdName));
+  for (const name of MEDIA_LABELS) {
+    const tasks = await tdGetAll('/tasks', { label: name });
+    tasks.forEach(t => {
+      const tl = Array.isArray(t.labels) ? t.labels.map(String) : [];
+      // the sub-label is whatever else the task carries — @album, @set, @track — the first one
+      const sub = tl.find(l => !mediaSet.has(tdName(l))) || '';
+      got.push({ id:String(t.id), content:String(t.content || ''), kind:name, sub, color:colorOf(name),
+                 priority:+t.priority || 1, done:false });
+    });
+  }
+  const seen = new Set(), next = [];
+  got.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); next.push(t); } });
+  prev.tasks.forEach(t => { if (t.done && !seen.has(t.id)) next.push(t); });   // closed here today: keep, ticked
+  const order = k => { const i = MEDIA_LABELS.indexOf(k); return i < 0 ? 99 : i; };
+  next.sort((a, b) => order(a.kind) - order(b.kind) || a.content.localeCompare(b.content));
+  td.media = { date:tdLocalDate(), tasks:next, fetched:Date.now() };
+}
+function renderMedia() {
+  const box = $id('td-media'); if (!box) return;
+  const show = td.mediaOn && onMediaTab();
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  const m = tdMedia();
+  const open = m.tasks.filter(x => !x.done).length;
+  const shown = td.mediaHideDone ? m.tasks.filter(x => !x.done) : m.tasks;
+  const when = m.fetched ? new Date(m.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
+  const groups = MEDIA_LABELS.map(kind => ({ kind, tasks: shown.filter(x => x.kind === kind) })).filter(g => g.tasks.length);
+  const tile = x => `<button class="bk md${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleMediaTask('${esc(x.id)}')" aria-pressed="${x.done}">
+      ${x.sub ? `<span class="bk-sub">${esc(x.sub)}</span>` : ''}<span class="bk-name">${esc(x.content)}</span>
+      <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </button>`;
+  box.innerHTML = `<div class="tt-head"><span>media<em>${open} open</em></span>
+      <span class="tt-acts"><button class="tt-refresh" onclick="DO.toggleMediaHideDone()">${td.mediaHideDone ? 'show done' : 'hide done'}</button>
+      <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button></span></div>
+    ${groups.length ? groups.map(g => `<div class="md-group" style="--bk-c:${esc(g.tasks[0].color)}">
+      <div class="md-lbl"><span>@${esc(g.kind)}</span><em>${g.tasks.filter(x => !x.done).length}</em></div>
+      <div class="bk-grid">${g.tasks.map(tile).join('')}</div></div>`).join('')
+      : `<div class="tt-empty">${!MEDIA_LABELS.length ? 'no media labels set — see settings → do' : when ? (m.tasks.length ? 'all done' : 'nothing labelled in todoist') : 'tap refresh to fetch the list'}</div>`}
+    <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>`;
+}
+async function toggleMediaTask(id) {
+  const m = tdMedia();
+  const task = m.tasks.find(x => x.id === id); if (!task) return;
+  const was = task.done;
+  task.done = !was; tdPersist(); renderMedia(); Prefs.tap();
+  if (window.LOG && LOG.setMedia) LOG.setMedia(task, task.done);
+  try {
+    await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
+    toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
+  } catch (e) {
+    task.done = was; tdPersist(); renderMedia();
+    if (window.LOG && LOG.setMedia) LOG.setMedia(task, task.done);
+    toast('todoist: ' + e.message);
+  }
+}
+function mediaTasks() { return td.mediaOn ? tdMedia().tasks.slice() : []; }
+function toggleMediaHideDone() { td.mediaHideDone = !td.mediaHideDone; tdPersist(); renderMedia(); }
+function toggleMedia() {
+  td.mediaOn = !td.mediaOn; tdPersist(); renderTodoistSettings(); renderTabs(); renderHome();
+  if (td.mediaOn && !tdMedia().fetched) refreshToday(true);
+}
+
 /* Progress bars run from the foreground colour at nothing done to green at
    everything done — a glance says how far along a list is, not just whether
    it is finished. The foreground rather than literal white so the bar is
@@ -1026,7 +1133,8 @@ async function refreshToday(quiet) {
   if (tdBusy) return;
   const wantToday = td.todayOn && ttRules().length > 0;
   const wantBlocks = td.blocksOn && blockLabels().length > 0;
-  if (!wantToday && !wantBlocks) {
+  const wantMedia = td.mediaOn && MEDIA_LABELS.length > 0;
+  if (!wantToday && !wantBlocks && !wantMedia) {
     if (!quiet && td.todayOn) { toast('choose a project under settings → do'); Shell.settings('do'); }
     return;
   }
@@ -1036,9 +1144,11 @@ async function refreshToday(quiet) {
   try {
     if (wantToday) await fetchTodayTasks(today);
     if (wantBlocks) await fetchBlocks(today);
+    if (wantMedia) await fetchMedia();
     tdPersist();
-    renderToday(); renderBlocks(); ttStatus();
+    renderToday(); renderBlocks(); renderMedia(); ttStatus();
     if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
+    if (window.LOG && LOG.renderMedia) LOG.renderMedia();
     const open = todayRows().filter(t => !t.done).length + (wantBlocks ? tdBlocks().tasks.filter(t => !t.done).length : 0);
     if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
   } catch (e) {
@@ -1164,8 +1274,10 @@ async function toggleTodayTask(id) {
 function maybeRefreshToday() {
   const wantToday = td.todayOn && ttRules().length > 0;
   const wantBlocks = td.blocksOn && blockLabels().length > 0;
-  if ((!wantToday && !wantBlocks) || !Creds.token()) return;
-  const last = Math.min(wantToday ? (ttToday().fetched || 0) : Infinity, wantBlocks ? (tdBlocks().fetched || 0) : Infinity);
+  const wantMedia = td.mediaOn && MEDIA_LABELS.length > 0;
+  if ((!wantToday && !wantBlocks && !wantMedia) || !Creds.token()) return;
+  const last = Math.min(wantToday ? (ttToday().fetched || 0) : Infinity, wantBlocks ? (tdBlocks().fetched || 0) : Infinity,
+                        wantMedia ? (tdMedia().fetched || 0) : Infinity);
   if (Date.now() - last < TT_STALE) return;
   refreshToday(true);
 }
@@ -1219,5 +1331,6 @@ return { go, renderSettings: renderTodoistSettings,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
-         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection };
+         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection,
+         renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks };
 })();

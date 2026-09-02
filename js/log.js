@@ -82,10 +82,14 @@ function fresh() {
     scale: 5,          // ratings are 1–5; older days are stamped by migrateScales()
     m: { wt:'', sl:'', nrg:'', mood:'', cs_on:null, cs:'', wkg:'', km:'', wo:'', tkg:'', tmin:'' },
     e: { kme:'', nrg:'', mood:'', stress:'', meds_lam:false, meds_rit:false, meals:[],
-         caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[] },
+         caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[],
+         /* what was finished on DO's media tab: { name, kind, sub } — a title,
+            its label (movie / show / podcast / music) and the second label if any */
+         media:[] },
     entries: []
   };
 }
+const mediaOf = (e = {}) => Array.isArray(e.media) ? e.media : [];
 
 /* Readers that understand both the old and new shapes, so days logged before
    this change still render, export and report correctly.
@@ -154,6 +158,7 @@ function initData() {
     if (!raw) { data = fresh(); return; }
     data = JSON.parse(raw);
     if (!Array.isArray(data.e.blocks))       data.e.blocks = [];
+    if (!Array.isArray(data.e.media))        data.e.media  = [];
     if (!Array.isArray(data.e.meals))        data.e.meals  = [];
     if (typeof data.e.caf_c  !== 'number')   data.e.caf_c  = 0;
     if (typeof data.e.caf_ed !== 'number')   data.e.caf_ed = 0;
@@ -417,6 +422,56 @@ function setBlock(name, on) {
   if (id === 'home') refreshHome();
 }
 
+/* ── Media, from DO's media tab ───────────────────────────────────────────────
+   A media task ticked on DO lands in the real today's record as a finished
+   title — straight to storage, like a block — and comes out again on untick.
+   Matched on title + label, since the Todoist id is not kept in the record. */
+const mediaKey = m => `${String(m.kind || '').toLowerCase()}::${String(m.name || m.content || '').trim().toLowerCase()}`;
+function setMedia(task, on) {
+  const item = { name: String(task.content ?? task.name ?? '').trim(), kind: String(task.kind || '').trim(), sub: String(task.sub || '').trim() };
+  if (!item.name) return;
+  const isToday = TODAY === REAL_TODAY;
+  const rec = isToday ? data : (readDay(REAL_TODAY) || Object.assign(fresh(), { date: REAL_TODAY }));
+  if (!Array.isArray(rec.e.media)) rec.e.media = [];
+  const i = rec.e.media.findIndex(m => mediaKey(m) === mediaKey(item));
+  if (on && i < 0) rec.e.media.push(item);
+  else if (!on && i >= 0) rec.e.media.splice(i, 1);
+  else return;
+  localStorage.setItem('log_' + REAL_TODAY, JSON.stringify(rec));
+  if (!isToday) return;
+  const open = $all('.scr.on')[0];
+  const id = open ? open.id.replace('s-', '') : 'home';
+  if (id === 'evening') renderMedia();
+}
+/* The evening form's media row: DO's fetched list for the real today (ticked
+   ones selected, in the label's colour), plus anything already in the record
+   that DO no longer lists. A DO-backed chip toggles through DO so Todoist
+   follows; a record-only chip just toggles the record. */
+function renderMedia() {
+  const wrap = $id('media-wrap'), grid = $id('media-g');
+  if (!wrap || !grid) return;
+  const isToday = TODAY === REAL_TODAY;
+  const fromDo = (isToday && window.DO && DO.mediaTasks) ? DO.mediaTasks() : [];
+  const rec = mediaOf(data.e);
+  const seen = new Set(fromDo.map(mediaKey));
+  const extra = rec.filter(m => !seen.has(mediaKey(m)));
+  const chips = fromDo.map(t => ({ name: t.content, kind: t.kind, sub: t.sub, color: t.color, id: t.id, on: t.done }))
+    .concat(extra.map(m => ({ name: m.name, kind: m.kind, sub: m.sub, color: '', id: '', on: true })));
+  wrap.classList.toggle('hidden', !chips.length);
+  grid.innerHTML = chips.map(c => {
+    const cap = [c.kind, c.sub].filter(Boolean).join(' · ');
+    const act = c.id ? `DO.toggleMediaTask('${attr(c.id)}')` : `LOG.toggleMediaLocal('${attr(c.kind)}','${attr(c.name)}')`;
+    const col = c.color || 'var(--y)';
+    return `<button class="blk-b plan${c.on ? ' on' : ''}" data-name="${attrEsc(c.name)}" onclick="${act}"
+             style="--blk-c:${esc(col)};--blk-bg:${tint(col, 14)}">${esc(c.name)}${cap ? `<small>${esc(cap)}</small>` : ''}</button>`;
+  }).join('');
+}
+function toggleMediaLocal(kind, name) {
+  const i = mediaOf(data.e).findIndex(m => mediaKey(m) === mediaKey({ kind, name }));
+  if (i < 0) return;
+  data.e.media.splice(i, 1); save(); renderMedia();
+}
+
 /* ── Config-driven form furniture ─────────────────────────────────────────────
    The evening and morning forms used to be nine hardcoded block buttons, two
    named medications, four meals and three curate counters written straight into
@@ -561,7 +616,7 @@ function popE() {
   const e = data.e;
   $id('e-kme').value = e.kme || '';
   scSet('sc-nrg-e', e.nrg); scSet('sc-mood-e', e.mood); scSet('sc-stress', e.stress);
-  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks();
+  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks(); renderMedia();
 }
 
 function saveEvening() {
@@ -622,6 +677,7 @@ function buildNote() {
 | anki_rated    | ${st.rated} |
 | anki_acquired | ${st.acquired} |
 | anki_decks    | ${Object.entries(st.decks).map(([d, n]) => `${d} ${n}`).join(', ') || '-'} |` : '';
+  const mediaRows = mediaNoteRows(mediaOf(e));
   return (
 `*:LiCalendar: ${TODAY}*
 ## planning
@@ -680,7 +736,41 @@ ${ents}
 | curate_mix    | ${cur.mix} |
 | curate_prod   | ${cur.prod} |
 | curate_cont   | ${cur.cont} |
-| curate_total  | ${cur.mix + cur.prod + cur.cont} |${studyRows}`);
+| curate_total  | ${cur.mix + cur.prod + cur.cont} |${studyRows}${mediaRows}`);
+}
+
+/* ── Media in the note ────────────────────────────────────────────────────────
+   Only on a day something was finished, so older notes are untouched and the
+   parser (which looks rows up by key) reads it as additive. One row per label
+   present — media_movie, media_music … — titles joined by "; ", the second
+   label in brackets: `Blonde (album)`. */
+function mediaNoteRows(list) {
+  if (!list.length) return '';
+  const byKind = {};
+  list.forEach(m => { const k = String(m.kind || 'other').toLowerCase(); (byKind[k] = byKind[k] || []).push(m); });
+  const cell = m => m.name.replace(/;/g, ',') + (m.sub ? ` (${m.sub})` : '');
+  return `
+
+#### media
+
+| data          | ans |
+| ------------- | --: |
+| media_count   | ${list.length} |
+${Object.keys(byKind).map(k => `| media_${k.replace(/[^a-z0-9_]/g, '_')} | ${byKind[k].map(cell).join('; ')} |`).join('\n')}`;
+}
+/* The inverse, for the report parser: every media_<kind> row back into items. */
+function parseMediaRows(content) {
+  const out = [];
+  const re = /^[^\S\n]*\|[^\S\n]*media_([a-z0-9_]+)[^\S\n]*\|(.*)\|[^\S\n]*$/gim;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    if (m[1] === 'count') continue;
+    m[2].split(';').map(s => s.trim()).filter(Boolean).forEach(s => {
+      const sub = (s.match(/\(([^()]*)\)\s*$/) || [])[1] || '';
+      out.push({ name: s.replace(/\s*\([^()]*\)\s*$/, '').trim(), kind: m[1], sub: sub.trim() });
+    });
+  }
+  return out;
 }
 
 /* ── Study, from TRACK and LEARN ──────────────────────────────────────────────
@@ -710,6 +800,8 @@ function renderOutput() {
     if (st.topics.length) tag(`${st.topics.length} topic${st.topics.length===1?'':'s'}`, true);
     if (st.rated) tag(`${st.rated} card${st.rated===1?'':'s'}`, true);
   }
+  const md = mediaOf(data.e).length;
+  if (md) tag(`${md} media`, true);
 }
 
 async function shareFile() {
@@ -962,6 +1054,9 @@ function parseDayContent(date, content) {
             cards: parseInt(ankiR, 10) || 0, acquired: parseInt(tableVal('anki_acquired', content), 10) || 0 };
   }
 
+  // Media (2.8+): only present on a day something was finished on DO's media tab
+  d.e.media = parseMediaRows(content);
+
   // Blocks: whole planning activity row, however many columns it has (older
   // notes carry 3, current ones 6) — take every non-empty cell after "activity"
   const blkRow = content.match(/^[^\S\n]*\|[^\S\n]*activity[^\S\n]*\|(.*)$/im);
@@ -1146,6 +1241,21 @@ function studyTotals(days, dd) {
   return { topics: per.reduce((a, s) => a + s.topics, 0), cards: per.reduce((a, s) => a + s.cards, 0),
            acquired: per.reduce((a, s) => a + s.acquired, 0), titles: per.flatMap(s => s.titles) };
 }
+/* Media over a report's days: how many titles per label, and the titles. */
+function mediaTotals(dd) {
+  const items = dd.flatMap(d => mediaOf(d.e));
+  const byKind = {};
+  items.forEach(m => { const k = m.kind || 'other'; byKind[k] = (byKind[k] || 0) + 1; });
+  return { count: items.length, byKind, items };
+}
+const mediaSection = m => `## media
+
+| type | finished |
+| --- | --- |
+${Object.entries(m.byKind).map(([k, n]) => `| ${k} | ${n} |`).join('\n') || '| — | — |'}
+
+${m.items.map(x => `- ${x.kind}${x.sub ? ' · ' + x.sub : ''} · ${x.name}`).join('\n') || '—'}`;
+
 const studySection = s => `## study
 
 | metric | result |
@@ -1199,6 +1309,7 @@ function buildWeeklyReport(days, getDay) {
   dd.forEach((d,i)=>(d.entries||[]).forEach(en=>allEntries.push({date:days[i],time:en.time,text:en.text})));
   const entryLines=allEntries.map(en=>` > ${en.time} - ${en.text}`).join('\n\n')||'—';
   const study=studyTotals(days,dd);
+  const media=mediaTotals(dd);
 
   return (
 `*weekly review — week ${wk} · ${y}*
@@ -1225,6 +1336,7 @@ ${days.map((d,i)=>dayRow(dd[i],i)).join('\n')}
 | total km | ${totalKm} |
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
+| media | ${media.count} finished |
 
 ## workouts
 
@@ -1248,6 +1360,8 @@ ${woRows||'| — | — | — | — |'}
 ${blockRows}
 
 ${studySection(study)}
+
+${mediaSection(media)}
 
 ## journal entries
 
@@ -1294,6 +1408,7 @@ function buildMonthlyReport(days, getDay) {
   dd.forEach(d=>(d.e?.blocks||[]).forEach(b=>{blockCounts[b]=(blockCounts[b]||0)+1;}));
   const blockRows=Object.entries(blockCounts).map(([b,c])=>`| ${b} | ${c} |`).join('\n')||'| — | — |';
   const study=studyTotals(days,dd);
+  const media=mediaTotals(dd);
 
   const weekRows=Object.entries(weeks).map(([wk,wdays])=>{
     const wdd=wdays.map(x=>x.data);
@@ -1331,6 +1446,7 @@ ${weekRows}
 | total km | ${totalKm} |
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
+| media | ${media.count} finished |
 
 ## workouts
 
@@ -1353,7 +1469,9 @@ ${woRows}
 | --- | --- |
 ${blockRows}
 
-${studySection(study)}`);
+${studySection(study)}
+
+${mediaSection(media)}`);
 }
 
 async function shareReport() {
@@ -1509,5 +1627,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
-         openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote };
+         openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
+         setMedia, renderMedia, toggleMediaLocal };
 })();

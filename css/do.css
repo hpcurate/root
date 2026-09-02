@@ -209,6 +209,21 @@
 .ns-do .bk.done .bk-tag,.ns-do .bk.done .bk-name{opacity:.22}
 .ns-do .bk.done .bk-check{opacity:1}
 @media (min-width:560px){ .ns-do .bk-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))} }
+/* the media tab: the same tiles, grouped under the label — the group head is
+   the label in its Todoist colour, so the tile itself only carries the title
+   and, when the task has a second label (@album / @set / @track), that as a
+   small chip in the corner */
+.ns-do .tt-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
+.ns-do .md-group{margin-bottom:calc(16px * var(--dens))}
+.ns-do .md-group:last-of-type{margin-bottom:0}
+.ns-do .md-lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:calc(7px * var(--dens));
+  font:700 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);color:var(--bk-c)}
+.ns-do .md-lbl em{font:400 9px/1 var(--mono);letter-spacing:.06em;color:var(--mu);text-transform:none}
+.ns-do .bk.md{gap:5px}
+.ns-do .bk-sub{align-self:flex-start;font:700 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
+  color:var(--bk-c);border:1px solid color-mix(in srgb,var(--bk-c) 55%,transparent);border-radius:var(--r-pill);
+  padding:3px 6px;transition:opacity var(--dur-2) var(--ease)}
+.ns-do .bk.done .bk-sub{opacity:.22}
 
 .ns-do .tt-empty{font:400 11px/1.6 var(--mono);color:var(--mu);text-align:center;
   padding:calc(18px * var(--dens));background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r1)}

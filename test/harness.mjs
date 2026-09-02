@@ -73,7 +73,7 @@ check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3)
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
 check('all themes apply', d.documentElement.dataset.theme === 'noir');
 w.Prefs.set('theme', 'void');
-for (const p of ['look','layout','behave','content','do','log','plan','store','tend','track','learn','data']) w.SET.panel(p);
+for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 // ── 2. settings routing ─────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ check('#settings/<panel> opens that panel', $('.tab-b.on').getAttribute('aria-la
   $('.ns-set .set-panel.on')?.dataset.panel === 'data');
 
 // ── 14. content editor: select with data-cfg commits on change ──────────────
-w.SET.panel('content');
+w.SET.panel('log');                     // LOG's content editors sit at the end of its own panel
 const sel = $('.ns-set select[data-cfg="log.streakRequires"]');
 if (sel) { sel.value = 'evening'; sel.dispatchEvent(new w.Event('change', { bubbles: true })); }
 check('streak rule select commits to Config', w.Config.get('log.streakRequires') === 'evening', sel ? 'got ' + w.Config.get('log.streakRequires') : 'no select rendered');
@@ -249,7 +249,7 @@ w.Config.reset('log.streakRequires');
 // ── 15. 2.2 — three more apps in the track ─────────────────────────────────
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
 check('eight tabs, settings last', w.Shell.TABS.length === 8 && w.Shell.TABS[7] === 'settings', w.Shell.TABS.join(','));
-check('seven-plus tabs flag the pill as "many"', d.documentElement.dataset.tabs === 'many');
+check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
 check('the three new settings panels render', errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -260,7 +260,7 @@ key('7'); check('key 7 jumps to LEARN', $('.tab-b.on')?.dataset.app === 'learn',
 // the app list: order + visibility
 w.Prefs.set('apps', ['track', 'do']);
 check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settings' &&
-  $('#track .view:not(.hidden)')?.id === 'view-track' && d.documentElement.dataset.tabs === 'few',
+  $('#track .view:not(.hidden)')?.id === 'view-track',
   w.Shell.TABS.join(',') + ' | first visible ' + $('#track .view:not(.hidden)')?.id);
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
@@ -297,7 +297,7 @@ check('TEND date label follows the date format', $('.ns-tend #date-label').textC
 w.Prefs.set('dateFormat', 'long');
 
 // nested data-sub: renaming one curate slot must keep the other two
-w.SET.panel('content');
+w.SET.panel('log');
 const cur = $('.ns-set input[data-cfg="log.curate"][data-sub="mix.label"]');
 if (cur) { cur.value = 'mx'; cur.dispatchEvent(new w.Event('input', { bubbles: true })); }
 check('editing one curate label keeps the other slots', cur && w.Config.get('log.curate').mix.label === 'mx' &&
@@ -540,6 +540,104 @@ w.DO.toggleBlockTask('k1'); await tick(50);
 const bkChip2 = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');   // re-rendered
 check('unticking reopens it and deselects the block', bkOpen.get('k1').open === true &&
   !JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track') && !!bkChip2 && !bkChip2.classList.contains('on'));
+
+// ── 22. 2.8 — the media tab, the settings menu, apps out of the bar ─────────
+const mdOpen = new Map([
+  ['m1', { id: 'm1', content: 'Dune',      labels: ['movie'],          open: true }],
+  ['m2', { id: 'm2', content: 'Blonde',    labels: ['music', 'album'], open: true }],
+  ['m3', { id: 'm3', content: 'Severance', labels: ['show'],           open: true }],
+]);
+fetchScript = async (url, opts) => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
+  if (m) { const t = mdOpen.get(m[1]); if (t) t.open = m[2] === 'reopen'; return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
+  if (url.includes('/labels')) return ok([
+    { id: 'l1', name: 'movie', color: 'red' }, { id: 'l2', name: 'show', color: 'blue' }, { id: 'l3', name: 'podcast', color: 'orange' },
+    { id: 'l4', name: 'music', color: 'green' }, { id: 'l5', name: 'album', color: 'grey' }, { id: 'l6', name: 'b1', color: 'violet' }]);
+  if (url.includes('/tasks?')) {
+    const lab = new URL(url).searchParams.get('label');
+    return ok([...mdOpen.values()].filter(t => t.open && lab && t.labels.includes(lab))
+      .map(t => ({ id: t.id, content: t.content, labels: t.labels, priority: 1, due: null })));
+  }
+  return ok([]);
+};
+await w.DO.refreshToday(true);
+w.Shell.go('do');
+check('DO has a media tab between daily and other', [...d.querySelectorAll('.ns-do #home-tabs .tab')].map(b => b.dataset.tab).join(',') === 'daily,media,other',
+  [...d.querySelectorAll('.ns-do #home-tabs .tab')].map(b => b.dataset.tab).join(','));
+check('the media grid is off the daily tab', $('.ns-do #td-media').classList.contains('hidden'));
+w.DO.setTab('media');
+const mdBox = $('.ns-do #td-media');
+const mdGroups = [...mdBox.querySelectorAll('.md-group')];
+check("the media tab draws the tasks grouped under their label, in the label's Todoist colour", !mdBox.classList.contains('hidden') && mdGroups.length === 3 &&
+  mdGroups[0].style.getPropertyValue('--bk-c') === '#db4035' && /@movie/.test(mdGroups[0].querySelector('.md-lbl').textContent) &&
+  mdGroups[2].style.getPropertyValue('--bk-c') === '#299438' && /@music/.test(mdGroups[2].querySelector('.md-lbl').textContent),
+  mdGroups.length + ' groups ' + mdGroups.map(g => g.getAttribute('style') + ' ' + g.querySelector('.md-lbl')?.textContent).join(' | '));
+const blonde = [...mdBox.querySelectorAll('.bk')].find(b => /Blonde/.test(b.textContent));
+check('a @music task shows its second label as a chip on the tile', !!blonde && blonde.querySelector('.bk-sub')?.textContent === 'album' && blonde.querySelector('.bk-check svg'));
+check('the today list and the block tiles stay off the media tab', $('.ns-do #td-today').classList.contains('hidden') && $('.ns-do #td-blocks').classList.contains('hidden'));
+w.DO.toggleMediaTask('m2'); await tick(50);
+check('ticking closes it in Todoist and fills the tile', mdOpen.get('m2').open === false && !![...mdBox.querySelectorAll('.bk.done')].find(b => /Blonde/.test(b.textContent)));
+const mdRec = () => JSON.parse(w.localStorage.getItem('log_' + today)).e.media || [];
+check("it lands in today's log as media with its label and second label", mdRec().some(x => x.name === 'Blonde' && x.kind === 'music' && x.sub === 'album'), JSON.stringify(mdRec()));
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('output');
+const noteMd = $('.ns-log #out-pre').textContent;
+check('the daily note carries a #### media section with the title', /#### media/.test(noteMd) && /\| media_music\s*\| Blonde \(album\) \|/.test(noteMd) && /\| media_count\s*\| 1 \|/.test(noteMd),
+  (noteMd.match(/#### media[\s\S]*$/) || ['no section'])[0].slice(0, 200));
+w.LOG.go('evening');
+const mdChip = [...d.querySelectorAll('.ns-log #media-g .blk-b')].find(b => b.dataset.name === 'Blonde');
+check("the evening form shows it selected, in the label's colour, with its labels as a caption", !!mdChip && mdChip.classList.contains('on') && /299438/.test(mdChip.getAttribute('style')) &&
+  /music · album/.test(mdChip.textContent) && !$('.ns-log #media-wrap').classList.contains('hidden'), mdChip ? mdChip.outerHTML.slice(0, 160) : 'no chip');
+w.DO.toggleMediaTask('m2'); await tick(50);
+check('unticking reopens it and takes it out of the log', mdOpen.get('m2').open === true && !mdRec().length &&
+  ![...d.querySelectorAll('.ns-log #media-g .blk-b')].find(b => b.dataset.name === 'Blonde')?.classList.contains('on'));
+w.DO.toggleMediaTask('m1'); await tick(50);
+w.LOG.go('reports'); w.LOG.loadReportLocal('weekly');
+const wr2 = $('.ns-log #rep-pre').textContent;
+check('the weekly report has a media row, a media section and the title', /\| media \| 1 finished \|/.test(wr2) && /## media/.test(wr2) && /- movie · Dune/.test(wr2),
+  (wr2.match(/## media[\s\S]{0,120}/) || ['no section'])[0]);
+w.LOG.loadReportLocal('monthly');
+check('the monthly report too', /\| media \| 1 finished \|/.test($('.ns-log #rep-pre').textContent) && /- movie · Dune/.test($('.ns-log #rep-pre').textContent));
+$('.ns-log #rep-paste').value = `*:LiCalendar: ${today}*\n| media_count | 2 |\n| media_movie | Heat |\n| media_music | Blonde (album) |\n| scale | 1-5 |\n`;
+w.LOG.parseNotes(); click($('.ns-log #rep-week-btns .rep-btn'));
+check('parsed notes feed the media rows back', /\| media \| 2 finished \|/.test($('.ns-log #rep-pre').textContent) && /- music · album · Blonde/.test($('.ns-log #rep-pre').textContent),
+  ($('.ns-log #rep-pre').textContent.match(/## media[\s\S]{0,160}/) || ['no section'])[0]);
+w.DO.toggleMediaTask('m1'); await tick(50);
+const noteNoMedia = w.LOG.buildNote();
+check('a day with nothing finished has no media section', !/#### media/.test(noteNoMedia));
+w.DO.setTab('daily');
+
+// settings: a home menu, three categories, the apps out of the bar
+w.Shell.go('settings'); w.SET.home();
+check('settings opens on a home menu with three categories', $('.ns-set #s-home').classList.contains('on') &&
+  [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,data');
+check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
+w.Prefs.set('apps', ['do', 'log']);
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn',
+  [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
+click($('.ns-set [data-open="tend"]')); await tick();
+check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
+  !$('#view-tend').classList.contains('hidden') && $('.tab-b[data-app="tend"]').classList.contains('hidden') &&
+  $('#view-tend').nextElementSibling?.id === 'view-settings', w.Shell.TABS.join(','));
+w.Shell.go('settings'); await tick(400);
+check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,settings' && $('#view-tend').classList.contains('hidden') &&
+  $('.tab-b.on')?.dataset.app === 'settings', w.Shell.TABS.join(','));
+w.Prefs.reset('apps');
+w.SET.panel('do');
+check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn' &&
+  $('.ns-set .set-panel.on')?.dataset.panel === 'do');
+check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
+  !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
+click($('.ns-set #set-seg .seg-b[data-seg="store"]'));
+check('a pill switches panels inside the category', $('.ns-set .set-panel.on')?.dataset.panel === 'store' && !!$('.ns-set [data-content-for="store"] [data-group="store.meals"]'));
+w.SET.panel('data');
+check('data is a single panel: no pill bar', $('.ns-set #set-cat-title').textContent === 'data' && $('.ns-set #set-seg').classList.contains('hidden'));
+w.SET.panel('look');
+check('look sits under appearance', $('.ns-set #set-cat-title').textContent === 'appearance' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'look,layout,behave');
+click($('.ns-set .hd-back'));
+check('back returns to the home menu', $('.ns-set #s-home').classList.contains('on') && !$('.ns-set #s-cat').classList.contains('on'));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

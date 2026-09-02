@@ -14,8 +14,36 @@
 .ns-set .h-logo{font:800 44px/1 var(--head);letter-spacing:-.02em;margin-bottom:18px}
 .ns-set .h-logo em{color:var(--y);font-style:normal}
 
+/* ── Home menu ────────────────────────────────────────────────────────────────
+   The apps kept out of the bar, as tappable tiles with their tab icon, then
+   the three categories as rows. A category is a sub-screen with the same
+   sticky back header the apps use for theirs. */
+.ns-set .set-home{padding:0 18px}
+.ns-set .set-apps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.ns-set .set-app-b{display:flex;align-items:center;gap:11px;text-align:left;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:13px 14px;cursor:pointer;color:var(--tx);box-shadow:var(--shadow);transition:border-color var(--dur-1)}
+.ns-set .set-app-b svg{width:20px;height:20px;flex:0 0 auto;color:var(--y)}
+.ns-set .set-app-b span{font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);min-width:0}
+.ns-set .set-app-b small{display:block;font:400 9px/1.3 var(--mono);letter-spacing:.04em;color:var(--mu);
+  margin-top:4px;text-transform:none}
+.ns-set .set-cats{display:flex;flex-direction:column;gap:8px}
+.ns-set .set-cat-b{display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:center;text-align:left;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:16px;cursor:pointer;color:var(--tx);box-shadow:var(--shadow);transition:border-color var(--dur-1)}
+.ns-set .set-cat-n{font:800 14px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps)}
+.ns-set .set-cat-b small{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em;margin-top:5px}
+.ns-set .set-cat-b i{grid-column:2;grid-row:1 / span 2;font:400 14px/1 var(--mono);color:var(--y);font-style:normal}
+
+.ns-set .hd{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
+  padding:calc(14px + env(safe-area-inset-top)) 18px 14px;display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.ns-set .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
+.ns-set .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
+/* the live preview sticks below the category header rather than under it */
+.ns-set .preview{top:calc(52px + env(safe-area-inset-top))}
+
 /* ── Segmented control ────────────────────────────────────────────────────────
-   Nine panels now, so it scrolls sideways and the active chip is scrolled into
+   Seven app pills, so it scrolls sideways and the active chip is scrolled into
    view by SET.panel() rather than left off the edge.
 
    touch-action:pan-x is not optional here. #track claims pan-y for the app
@@ -246,4 +274,6 @@ input[type=range].sl::-moz-range-thumb{
   .acc-b:hover{transform:scale(1.08)}
   .ns-set .setting-btn:hover{border-color:var(--mu)}
   .ns-set .btn:hover{opacity:.9}
+  .ns-set .set-app-b:hover,.ns-set .set-cat-b:hover{border-color:var(--mu)}
+  .ns-set .hd-back:hover{color:var(--y)}
 }
