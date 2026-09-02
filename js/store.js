@@ -10,7 +10,7 @@ window.STORE = (function () {
 'use strict';
 
 const SCOPE = '.ns-store ';
-const view  = document.getElementById('view-store');
+const view  = document.querySelector('#view-store .view-body');   // the scroll container (Shell wraps it)
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);

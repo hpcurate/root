@@ -8,7 +8,7 @@ window.LOG = (function () {
 'use strict';
 
 const SCOPE = '.ns-log ';
-const view  = document.getElementById('view-log');
+const view  = document.querySelector('#view-log .view-body');   // the scroll container (Shell wraps it)
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);

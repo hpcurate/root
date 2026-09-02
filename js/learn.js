@@ -22,7 +22,7 @@ window.LEARN = (function () {
 'use strict';
 
 const SCOPE = '.ns-learn ';
-const view  = document.getElementById('view-learn');
+const view  = document.querySelector('#view-learn .view-body');   // the scroll container (Shell wraps it)
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);

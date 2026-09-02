@@ -13,7 +13,7 @@ window.PLAN = (function () {
 'use strict';
 
 const SCOPE = '.ns-plan ';
-const view  = document.getElementById('view-plan');
+const view  = document.querySelector('#view-plan .view-body');   // the scroll container (Shell wraps it)
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
@@ -68,9 +68,13 @@ function renderHome() {
 /* One tile per project. The tile carries the two things worth knowing before
    you tap: how much of the queue is already going there, and whether it is
    mapped at all — an unmapped project used to fail silently at send time. */
+/* A project's colour is its Todoist label's when the shared cache knows one
+   (curate, home, edu … are labels too, and DO's tiles use the same hue), else
+   the colour set in Settings. */
+const labelHue = (...names) => names.map(n => window.Todoist && Todoist.labelColor(n)).find(Boolean) || null;
 function renderProjects() {
   $id('proj-list').innerHTML = TASK_TYPES.map(tt => {
-    const color  = resolveColor(tt.key);
+    const color  = labelHue(tt.label, tt.key) || resolveColor(tt.key);
     const mapped = !!(mappings[tt.key] && mappings[tt.key].projectId);
     const queued = queue.filter(q => q.typeKey === tt.key).length;
     const meta = queued ? `<em>${queued} queued</em>`
@@ -208,9 +212,12 @@ function renderFormChips() {
   const prios  = Config.get('plan.priorities');
   const none   = field => `<button class="opt-b none-opt on" onclick="PLAN.optPick(this,'${field}',null)">none</button>`;
 
+  // a block chip wears its Todoist label's colour, like DO's block tiles
   const ob = $id('opts-block');
-  if (ob) ob.innerHTML = blocks.map(b =>
-    `<button class="opt-b" onclick="PLAN.optPick(this,'block','${attr(b)}')">${esc(b)}</button>`).join('') + none('block');
+  if (ob) ob.innerHTML = blocks.map(b => {
+    const c = labelHue(b);
+    return `<button class="opt-b${c ? ' lbl' : ''}"${c ? ` style="--c:${esc(c)}"` : ''} onclick="PLAN.optPick(this,'block','${attr(b)}')">${esc(b)}</button>`;
+  }).join('') + none('block');
 
   const ot = $id('opts-time');
   if (ot) ot.innerHTML = times.map(t =>
@@ -486,7 +493,14 @@ Config.subscribe(path => {
 // the date label follows Settings → behaviour → dates without a reload
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
-Shell.register('plan', { home: () => go('home') });   // the PLAN tab tapped while on PLAN
+Shell.register('plan', {
+  home: () => go('home'),   // the PLAN tab tapped while on PLAN
+  // the label colours: cached for an hour, refreshed here; only the home
+  // screen is redrawn (the form's chips would lose their selection)
+  onShow: () => { if (window.Todoist) Todoist.labels().then(() => {
+    if ($id('s-home').classList.contains('on')) { renderProjects(); renderFormChips(); }
+  }); },
+});
 
 return { go, renderSettings, openProj, closeProj, pickSub,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,

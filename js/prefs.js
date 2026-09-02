@@ -167,6 +167,7 @@ const SCHEMA = {
   navStyle:     { kind:'enum',   def:'pill',   values:['pill','bar','minimal'],        attr:'data-nav' },
   cardStyle:    { kind:'enum',   def:'outline',values:['outline','fill','ghost','line'],attr:'data-cards' },
   accentUse:    { kind:'enum',   def:'normal', values:['subtle','normal','loud'],      attr:'data-accent-use' },
+  titleSize:    { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-title' },
 
   // appearance — continuous, written as inline custom properties
   radius:       { kind:'range',  def:null, min:0,   max:24,  step:1,    unit:'px',  cssVar:'--r-base' },
@@ -383,6 +384,7 @@ function apply() {
   root.setAttribute('data-nav',     prefs.navStyle);
   root.setAttribute('data-cards',   prefs.cardStyle);
   root.setAttribute('data-accent-use', prefs.accentUse);
+  root.setAttribute('data-title',      prefs.titleSize);
   root.setAttribute('data-tab-labels', prefs.showTabLabels ? 'on' : 'off');
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');

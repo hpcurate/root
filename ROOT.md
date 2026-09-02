@@ -168,7 +168,13 @@ settings panel and is kept in the address bar as you switch panels.
 ### The slide track
 
 `#track` is a flexbox of up to eight slides moved with a transform. Each `.view`
-is its own scroll container, so every tab remembers where you left it.
+is a column: the home's `.h-top` as a title band at the top (Shell moves it
+there at boot, before the modules run) and `.view-body`, the scroll container
+holding every screen — so every tab remembers where you left it, and the
+band never scrolls. A module that resets or reads the scroll position uses
+the body (`document.querySelector('#view-x .view-body')`), never the view.
+The active tab's shape in the nav is one `.nav-glider` that Shell measures
+from the button and slides.
 **Nothing `position:fixed` may live inside `#track`** — a transformed ancestor
 becomes the containing block for fixed descendants. The toast, the nav, the LOG
 modal, TEND's sheets and undo pill, and all the STORE sheets are siblings of
@@ -306,6 +312,7 @@ Other anchors, and the single rule that makes each dial real:
 | `--tex-mult` | Texture strength | `body::before`, a `pointer-events:none` fixed overlay |
 | `--chrome-alpha` | Chrome opacity | `--chrome-bg` mixes it with `--chrome-rgb` |
 | `--readable` | Max content width | the `min-width:560px` cap |
+| `--title-scale` | Title size | `.view > .h-top .h-logo` in `shell.css`, times each app's `--title-base` |
 
 Colour: a preset states only `--y` (accent) and `--on-y` (what reads on top of
 it). `--yd` / `--yb` / `--y-fade` are `color-mix`ed from `--y`, so a custom accent
@@ -335,6 +342,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
+| `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
 | `root_theme` | shell | legacy; kept in step with the active theme for the standalone apps |
 | **`root_prefs_v1`** | Prefs | every appearance and behaviour setting |
@@ -493,10 +501,15 @@ both say so, and a new device needs the `.apkg` imported again.
   left arrow becomes "back" by finding `.scr.on:not(#s-home) .hd-back` in the
   current slide. A new sub-screen that names its home something other than
   `s-home`, or hides its back button, gets a dead left arrow.
-- **Every home header is `.h-top`, and it is sticky.** `shell.css` makes
-  `.view .h-top` sticky on the ground with the fade under it. A new app's
-  header must be a `.h-top` with `env(safe-area-inset-top)` in its own
-  padding, or the status bar strip shows through once it is stuck.
+- **Every home header is `.h-top`, and Shell lifts it out of the scroller.**
+  At boot each view becomes band + `.view-body`; `#s-home > .h-top` is the
+  band. A new app's header must be a `.h-top` directly under `#s-home`, with
+  `env(safe-area-inset-top)` in its own padding (the screen's is zeroed), or
+  it scrolls with the content and the status-bar strip shows through. Any
+  inline `onclick` or id inside it still works — it stays inside the view.
+- **A hidden box must be emptied.** `renderBlocks()` used to return early
+  when the section was hidden, leaving the old tiles in it; anything counting
+  `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
 - **`html` carries the ground colour too.** The fixed body does not paint the
   strip under the home indicator; the root does, and with `color-scheme:dark`
   and no background it paints black.
@@ -525,7 +538,9 @@ relevant panel, and add the rule that makes it real.
 an `EDITORS` entry plus its path in `EDITOR_ORDER`.
 
 **Add an app tab** — a `<section class="view ns-x" id="view-x">` in
-`index.html`, a `css/x.css` scoped to `.ns-x`, a module that calls
+`index.html` whose `#s-home` starts with a `.h-top` (the title band Shell
+lifts out; give the app a `--title-base` if 54px is wrong for its
+wordmark), a `css/x.css` scoped to `.ns-x`, a module that calls
 `Shell.register('x', …)`, a `.tab-b` with `data-app="x"` in the nav (plus a
 `tab-x` sprite symbol — the settings home reuses it), `'x'` in `Prefs.APPS`, a
 `data-panel="x"` settings panel ending in a `[data-content-for="x"]` box, `'x'`
@@ -537,10 +552,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 149 checks covering boot, every theme and panel, the
+through DOM events: 164 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, the block and media tiles, the settings
-menu and the back arrow of 2.5–2.9. Run it before trusting any change:
+menu, the back arrow, the title band and the glider of 2.5–2.10. Run it
+before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -556,6 +572,66 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.10 — 2026-09-02 — the title band, the glider, blocks → tomorrow, PLAN in label colours
+
+**The title is a fixed band, not a sticky element.** The fade under 2.9's
+sticky header is gone, and so is the sticky. `Shell` now splits every slide
+at boot into the home's `.h-top` — a band at the top, below the status bar,
+outside the scroller — and `.view-body`, the scroll container holding every
+screen. Content starts exactly under the band, nothing rides the rubber
+band, and the scrollbar is hidden (`scrollbar-width:none` + the webkit
+pseudo, which iOS honours). A sub-screen hides the band (`:has`) and brings
+its own sticky `.hd`. The modules' `view` handles now point at the body, as
+do the shell's scroll save/restore, the chrome watcher and tap-for-top. The
+home screens' own `env(safe-area-inset-top)` padding is zeroed; the band
+carries it. That is also what fixes the "other" tab (and the rest): the gap
+under the title is the header's own bottom margin now, the same everywhere.
+
+**The nav glider.** The active tab's filled shape is one `.nav-glider`
+(made by Shell, `data-app` set to the active app) slid from tab to tab with
+an overshoot curve and a squash-and-stretch keyframe mid-flight, instead of a
+`::before` fading in and out per button. Measured from the button, so it
+turns vertical on the desktop rail. Colour-coded tabs and the accent glow
+key off the glider now; reduced motion stills it.
+
+**Title size.** Settings → appearance → layout → "Title size": xs / s / m /
+l / xl (`titleSize`, `data-title`, `--title-scale` 0.72–1.34) on the
+wordmarks. Each app declares its base (`--title-base`: 54px, DO 48, settings
+44) and `shell.css` multiplies.
+
+**Blocks → tomorrow.** "→ tomorrow" on the blocks head (next to hide done)
+switches the tiles from tick to select: a row of the block labels — b1 b2 b3,
+each in its own Todoist colour — appears under the head, you tap the tiles
+to move, then the slot. Each is rescheduled to tomorrow with that block label
+replacing its current one (its other labels kept) in Todoist, and leaves the
+list. "cancel" or an empty list ends the mode; the selection is a gesture,
+not state. The cached block task keeps its full `labels` for this.
+
+**PLAN in label colours.** `Todoist` (shell.js) gained a shared label-colour
+cache, `root_labels_v1` — DO fills it as a side effect of its `/labels`
+calls, `Todoist.labels()` refreshes it when older than an hour, single-flight
+— and `Todoist.COLORS` is the one name → hex table. PLAN's project tiles
+take their label's colour when the cache knows one (curate, home, edu … are
+labels too, so a tile matches DO's block tiles) and the Settings colour
+otherwise, drawn as the block tiles are: a wash of the colour, the colour on
+the border, deeper when something is queued. The form's b1 / b2 / b3 chips
+wear their label colour the same way. PLAN's `onShow` refreshes the cache
+and redraws the home only, so an open form keeps its picks.
+
+**Verified** — `test/harness.mjs`, 164 checks, all green: every slide a
+band plus a body, DO's strip and date in the band, the screens in the body;
+the glider keyed by app and following `go()`; the title dial's attribute and
+default; a block task with "→ tomorrow" on its head, the slot row in violet /
+teal / orange disabled until a tile is picked, a tap selecting rather than
+closing, the slot posting `due_string: tomorrow` with `["curate","b2"]`, the
+tile gone and the row folded; the colour cache filled; PLAN's curate tile in
+grape and its b1 chip in violet. Two older checks moved from the home's
+second child to its first, since the band left the screen. **Not verified**:
+nothing in a browser — the extension is still unreachable — and this entry
+is the most visual yet: the band's height, the `:has()` hide on sub-screens,
+the glider's overshoot and squash, the hidden scrollbar on iOS and the PLAN
+washes are all unseen.
 
 ### 2.9 — 2026-09-02 — the left arrow as back, sticky titles, → tomorrow
 

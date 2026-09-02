@@ -69,21 +69,31 @@ body{
    itself. Four do: DO's home tab strip, the settings segmented control and LOG's
    two .md preview panes. */
 #track input,#track textarea,#track [contenteditable]{touch-action:auto}
+/* ── A slide is a column: the title band, then the scroll body ───────────────
+   Shell moves each home's .h-top (the date line, the logo, DO's tab strip)
+   out of the scroller to be a fixed band at the top of the slide, below the
+   status bar; everything else scrolls in .view-body under it, starting
+   exactly where the band ends. A sub-screen brings its own sticky .hd, so
+   the band hides while one is up. The scrollbar is hidden — the slide is the
+   page, and a bar along its edge reads as a mistake on a phone. */
 .view{
   flex:0 0 100%;width:100%;height:100%;
+  display:flex;flex-direction:column;overflow:hidden}
+.view > .h-top{flex:0 0 auto;position:relative;z-index:20;background:var(--bg);display:flow-root}
+.view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
+.view-body{
+  flex:1 1 auto;min-height:0;
   overflow-y:auto;overflow-x:hidden;
   overscroll-behavior-y:contain;
-  -webkit-overflow-scrolling:touch}
-
-/* ── Sticky titles ────────────────────────────────────────────────────────────
-   Each home's header block (the date line, the logo, DO's tab strip) stays at
-   the top as the slide scrolls, on the page ground, and what scrolls under it
-   fades out against a short gradient below. It also covers the status-bar
-   strip, which content used to scroll straight under. flow-root keeps a
-   child's bottom margin inside the box so the ground reaches all of it. */
-.view .h-top{position:sticky;top:0;z-index:20;background:var(--bg);display:flow-root}
-.view .h-top::after{content:'';position:absolute;left:0;right:0;top:100%;height:26px;pointer-events:none;
-  background:linear-gradient(var(--bg),transparent)}
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none}
+.view-body::-webkit-scrollbar{display:none}
+/* the home screens carried the status-bar inset themselves; the band does now */
+.view-body #s-home{padding-top:0}
+/* the wordmark, by app base size × the Title size dial (tokens.css) */
+.view > .h-top .h-logo{font-size:calc(var(--title-base,54px) * var(--title-scale,1))}
+.ns-do{--title-base:48px}
+.ns-set{--title-base:44px}
 
 /* ── Floating chrome ──────────────────────────────────────────────────────────
    The bar no longer owns a strip of the screen; it hovers over the content and
@@ -114,14 +124,17 @@ body{
 .tab-b svg,.tab-b .tb-l{position:relative;z-index:1}
 .tab-b svg{width:19px;height:19px;flex-shrink:0}
 .tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
-/* the filled pill IS the active indicator, and it grows into place */
-.tab-b::before{
-  content:'';position:absolute;inset:0;z-index:0;
-  border-radius:var(--r-pill);background:var(--y);
-  transform:scale(.55);opacity:0;
-  transition:transform .24s cubic-bezier(.34,1.4,.5,1), opacity .18s ease}
+/* the filled shape IS the active indicator: one .nav-glider (made by Shell)
+   slid from tab to tab with an overshoot, stretched mid-flight and snapped
+   back — liquid rather than a fade per button */
+.nav-glider{position:absolute;z-index:0;top:5px;bottom:5px;left:0;width:0;
+  border-radius:var(--r-pill);background:var(--y);opacity:0;pointer-events:none;
+  transition:transform .46s cubic-bezier(.2,1.35,.35,1), width .46s cubic-bezier(.2,1.35,.35,1), opacity .18s ease;
+  will-change:transform}
+.nav-glider.on{opacity:1}
+.nav-glider.moving{animation:glide .46s cubic-bezier(.2,1,.35,1)}
+@keyframes glide{0%{scale:1 1}40%{scale:1.18 .84}70%{scale:.96 1.06}100%{scale:1 1}}
 .tab-b.on{color:var(--on-y)}
-.tab-b.on::before{transform:scale(1);opacity:1}
 /* the open-count badge (Shell.badge): top-right of the icon, in the accent on
    an idle tab and inverted on the active one */
 .tab-b .tb-badge{position:absolute;z-index:2;top:4px;left:calc(50% + 6px);
@@ -187,7 +200,8 @@ body{
 
 /* ── Content width: cap the line length once the window has room ──────────── */
 @media (min-width:560px){
-  .view .scr{max-width:var(--readable);margin-left:auto;margin-right:auto}
+  .view .scr,.view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
+  .view > .h-top{width:100%}
 }
 
 /* ── Fluid grids ──────────────────────────────────────────────────────────────
@@ -221,7 +235,8 @@ body{
   .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
   .tab-b svg{width:20px;height:20px}
   .tab-b .tb-l{font-size:8px}
-  .tab-b::before{border-radius:var(--r3)}
+  /* on the rail the glider runs top to bottom, measured by Shell from the button */
+  .nav-glider{top:0;bottom:auto;left:8px;right:8px;width:auto;height:0;border-radius:var(--r3)}
   #nav-prev{left:calc(var(--rail-w) + 14px)}
   #toast{bottom:28px;left:calc(50% + var(--rail-w)/2)}
   .sheet,.ns-store .pad{left:var(--rail-w)}
@@ -229,6 +244,7 @@ body{
 @media (min-width:1180px){
   #views{left:var(--rail-w-wide)}
   #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
+  .nav-glider{left:12px;right:12px}
   .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
   .tab-b .tb-badge{position:static;margin-left:auto}
   .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
@@ -282,6 +298,6 @@ body{
 :focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
 
 @media (prefers-reduced-motion:reduce){
-  #track,#nav,.nav-arrow,.tab-b::before{transition:none}
+  #track,#nav,.nav-arrow,.nav-glider{transition:none;animation:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }

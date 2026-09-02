@@ -512,9 +512,10 @@ const tiles = d.querySelectorAll('.ns-do #td-blocks .bk');
 check("block tasks due today are tiles in the OTHER label's Todoist colour", tiles.length === 1 &&
   tiles[0].style.getPropertyValue('--bk-c') === '#884dff' && /mix the track/.test(tiles[0].textContent) && /@b1 · curate/.test(tiles[0].textContent),
   tiles.length + ' tile(s) ' + (tiles[0] ? tiles[0].getAttribute('style') + ' ' + tiles[0].textContent : ''));
-check('blocks come first on the home screen by default', $('.ns-do #s-home').children[1]?.id === 'td-blocks', $('.ns-do #s-home').children[1]?.id);
+// the header band is out of the screen now (Shell moves it up), so the first child is the first section
+check('blocks come first on the home screen by default', $('.ns-do #s-home').children[0]?.id === 'td-blocks', $('.ns-do #s-home').children[0]?.id);
 w.DO.moveSection('blocks', 1);
-check('a section can be moved down', $('.ns-do #s-home').children[1]?.id === 'home-grid' && w.Config.get('do.sections')[0] === 'routines');
+check('a section can be moved down', $('.ns-do #s-home').children[0]?.id === 'home-grid' && w.Config.get('do.sections')[0] === 'routines');
 w.Config.reset('do.sections');
 check('the active tab shows the count in place of the icon', $('.tab-b[data-app="do"]').classList.contains('has-badge') && $('.tab-b[data-app="do"] .tb-badge')?.textContent === '1');
 w.DO.setTab('other');
@@ -693,6 +694,62 @@ check('the "→ tomorrow" button shows from 20:00 only', !!$('.ns-do .tt-defer')
 await w.DO.deferToday();
 check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMoved.d1 === 'tomorrow' && tmMoved.d2 === 'tomorrow', JSON.stringify(tmMoved));
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
+
+// ── 24. 2.10 — the title band, the glider, blocks → tomorrow, PLAN in label colours ─
+check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','settings'].every(a => {
+  const v = $('#view-' + a); return v.children.length === 2 && v.children[0].classList.contains('h-top') && v.children[1].classList.contains('view-body');
+}), [...d.querySelectorAll('#track .view')].map(v => v.id + ':' + [...v.children].map(c => c.className).join('+')).join(' '));
+check("DO's tab strip and date live in the band", !!$('#view-do > .h-top #home-tabs') && !!$('#view-do > .h-top #date-label'));
+check('the home screens sit in the body', !!$('#view-log > .view-body > #s-home') && !!$('#view-settings > .view-body > #s-cat'));
+const glider = $('#nav .nav-glider');
+check('one glider behind the tabs, keyed by app', !!glider && glider.dataset.app === 'do' && glider.classList.contains('on'), glider && glider.outerHTML.slice(0, 120));
+w.Shell.go('log');
+check('… that follows the active tab', glider.dataset.app === 'log');
+w.Shell.go('do');
+w.Prefs.set('titleSize', 'xl');
+check('the title size dial stamps its attribute', d.documentElement.dataset.title === 'xl');
+w.Prefs.reset('titleSize');
+check('… and defaults to m', d.documentElement.dataset.title === 'm');
+
+const mvOpen = new Map([['k9', { id: 'k9', content: 'daw session', labels: ['b1', 'curate'], due: today, open: true }]]);
+const mvUpdates = {};
+fetchScript = async (url, opts) => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const up = url.match(/\/tasks\/(\w+)$/);
+  if (up && opts && opts.method === 'POST') { mvUpdates[up[1]] = JSON.parse(opts.body); return ok({ id: up[1] }); }
+  if (url.includes('/labels')) return ok([{ id: 'l1', name: 'b1', color: 'violet' }, { id: 'l2', name: 'b2', color: 'teal' },
+    { id: 'l3', name: 'b3', color: 'orange' }, { id: 'l4', name: 'curate', color: 'grape' }]);
+  if (url.includes('/tasks?')) {
+    const lab = new URL(url).searchParams.get('label');
+    return ok([...mvOpen.values()].filter(t => t.open && lab && t.labels.includes(lab))
+      .map(t => ({ id: t.id, content: t.content, labels: t.labels, priority: 1, due: { date: t.due } })));
+  }
+  return ok([]);
+};
+$('.ns-do #td-today-filter').value = ''; w.DO.saveTodaySettings(); await tick(100);
+await w.DO.refreshToday(true);
+w.DO.setTab('daily');
+check('a block task is back as a tile with a "→ tomorrow" action on the head', d.querySelectorAll('.ns-do #td-blocks .bk').length === 1 &&
+  /→ tomorrow/.test($('.ns-do #td-blocks .tt-head').textContent) && !$('.ns-do .bk-move'));
+w.DO.toggleBlockMove();
+const slots = [...d.querySelectorAll('.ns-do .bk-move-b')];
+check("the slot row appears: b1 b2 b3 in the labels' Todoist colours, disabled until a tile is picked", slots.map(b => b.textContent).join(',') === 'b1,b2,b3' &&
+  slots[0].style.getPropertyValue('--bk-c') === '#af38eb' && slots[1].style.getPropertyValue('--bk-c') === '#158fad' && slots.every(b => b.disabled),
+  slots.map(b => b.textContent + ' ' + b.getAttribute('style') + (b.disabled ? ' off' : ' on')).join(' | '));
+w.DO.selectBlock('k9');
+check('tapping a tile selects it instead of ticking it', !!$('.ns-do #td-blocks .bk.sel') && mvOpen.get('k9').open === true &&
+  [...d.querySelectorAll('.ns-do .bk-move-b')].every(b => !b.disabled));
+await w.DO.moveBlocks('b2');
+check('the slot reschedules it to tomorrow under that block, other labels kept', mvUpdates.k9 && mvUpdates.k9.due_string === 'tomorrow' &&
+  JSON.stringify(mvUpdates.k9.labels) === JSON.stringify(['curate', 'b2']), JSON.stringify(mvUpdates));
+check('… and it leaves the list, the row folds away', d.querySelectorAll('.ns-do #td-blocks .bk').length === 0 && !$('.ns-do .bk-move'));
+
+check('the label colours are cached for every app', w.Todoist.labelColor('curate') === '#884dff' && !!w.localStorage.getItem('root_labels_v1'));
+w.Shell.go('plan'); await tick(50);
+const curateTile = [...d.querySelectorAll('.ns-plan .proj-tile')].find(t => /curate/.test(t.textContent));
+check("PLAN's project tiles take their label's Todoist colour", !!curateTile && curateTile.style.getPropertyValue('--proj-color') === '#884dff', curateTile && curateTile.getAttribute('style'));
+const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === 'b1');
+check("… and the block chips theirs", !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

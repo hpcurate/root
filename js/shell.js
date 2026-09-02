@@ -124,7 +124,37 @@ window.Todoist = (function () {
     return { projectId: proj.id, projectName: proj.name, sectionId: sec.id, sectionName: sec.name };
   }
   const due = task => { const d = task && task.due && task.due.date; return d ? String(d).slice(0, 10) : null; };
-  return { call, getAll, name, resolve, due };
+
+  /* Todoist's twenty colour names, as hex. */
+  const COLORS = { berry_red:'#b8256f', red:'#db4035', orange:'#ff9933', yellow:'#fad000', olive_green:'#afb83b',
+    lime_green:'#7ecc49', green:'#299438', mint_green:'#6accbc', teal:'#158fad', sky_blue:'#14aaf5', light_blue:'#96c3eb',
+    blue:'#4073ff', grape:'#884dff', violet:'#af38eb', lavender:'#eb96eb', magenta:'#e05194', salmon:'#ff8d85',
+    charcoal:'#808080', grey:'#b8b8b8', taupe:'#ccac93' };
+
+  /* ── Label colours, shared ──
+     Every app that draws a Todoist label in its colour reads this one cache
+     (root_labels_v1: { fetched, colors:{ <folded name>: hex } }). DO fills it
+     as a side effect of its own /labels calls; PLAN asks labels() on show,
+     which refreshes it when it is older than an hour, single-flight. */
+  const LKEY = 'root_labels_v1';
+  let labelsBusy = null;
+  const readLabels = () => { try { return JSON.parse(localStorage.getItem(LKEY) || 'null') || null; } catch { return null; } };
+  function cacheLabels(list) {
+    const colors = {};
+    (list || []).forEach(l => { const hex = COLORS[l && l.color]; if (hex && l.name) colors[name(l.name)] = hex; });
+    try { localStorage.setItem(LKEY, JSON.stringify({ fetched: Date.now(), colors })); } catch {}
+    return colors;
+  }
+  function labelColors() { const r = readLabels(); return (r && r.colors) || {}; }
+  function labelColor(n) { return labelColors()[name(n)] || null; }
+  async function labels(maxAge = 60 * 60 * 1000) {
+    const rec = readLabels();
+    if (rec && Date.now() - (rec.fetched || 0) < maxAge) return rec.colors || {};
+    if (!Creds.token()) return (rec && rec.colors) || {};
+    if (!labelsBusy) labelsBusy = getAll('/labels').then(cacheLabels).catch(() => (rec && rec.colors) || {}).finally(() => { labelsBusy = null; });
+    return labelsBusy;
+  }
+  return { call, getAll, name, resolve, due, COLORS, cacheLabels, labelColors, labelColor, labels };
 })();
 
 
@@ -151,10 +181,29 @@ window.Shell = (function () {
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
 
   let index = 0;
-  const apps = {};                     // name → { onShow, onDayChange }
+  const apps = {};                     // name → { onShow, onDayChange, home }
 
   const viewOf = n => document.getElementById('view-' + n);
   const btnOf  = n => navEl.querySelector('.tab-b[data-app="' + n + '"]');
+
+  /* ── The title band ─────────────────────────────────────────────────────────
+     Each slide is a column: the home's .h-top as a fixed band at the top
+     (its own status-bar padding), then .view-body — the scroll container —
+     holding every screen. The band is not sticky inside the scroller, it is
+     outside it, so it never moves with the rubber-band and content starts
+     exactly under it. Done here, before the modules boot, so their scoped
+     lookups still find the header inside the view and their scrollTop writes
+     go to the body. A sub-screen hides the band (shell.css, :has) and brings
+     its own .hd. */
+  document.querySelectorAll('#track .view').forEach(v => {
+    const body = document.createElement('div');
+    body.className = 'view-body';
+    while (v.firstChild) body.appendChild(v.firstChild);
+    v.appendChild(body);
+    const head = body.querySelector('#s-home > .h-top');
+    if (head) v.insertBefore(head, body);
+  });
+  const bodyOf = n => { const v = viewOf(n); return v ? (v.querySelector('.view-body') || v) : null; };
 
   /* Order the slides and the tab buttons to match the preference, and hide the
      apps that are switched off. A hidden .view is display:none, so the flex
@@ -168,7 +217,7 @@ window.Shell = (function () {
        and this runs while the settings slide is scrolled down to the app list
        — every switch there used to throw the page back to the top. Remember
        where each slide was and put it back. */
-    const scrolls = APPS.concat('settings').map(viewOf).filter(Boolean).map(v => [v, v.scrollTop]);
+    const scrolls = APPS.concat('settings').map(bodyOf).filter(Boolean).map(v => [v, v.scrollTop]);
     TABS.forEach(n => {
       const v = viewOf(n), b = btnOf(n);
       if (v) track.appendChild(v);
@@ -186,6 +235,7 @@ window.Shell = (function () {
       }
     });
     scrolls.forEach(([v, y]) => { if (y && v.scrollTop !== y) v.scrollTop = y; });
+    moveGlider(false);
   }
 
   /* The apps switched off in the bar. Their slides are still in the track,
@@ -299,6 +349,36 @@ window.Shell = (function () {
     }
     if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
     updateBack();
+    moveGlider(true);
+  }
+
+  /* ── The glider ─────────────────────────────────────────────────────────────
+     One filled shape behind the active tab, slid into place rather than faded
+     in and out per button — and stretched along the way, then snapped back,
+     which is what makes it read as liquid. Measured from the button, so it
+     follows the rail (vertical) as well as the pill. Its data-app is what the
+     colour-coded tabs key off. */
+  const glider = document.createElement('span');
+  glider.className = 'nav-glider';
+  navEl.prepend(glider);
+  let gliderPlaced = false, glideTimer = null;
+  function moveGlider(animate) {
+    const onT = !!transient && TABS[index] === transient;
+    const app = onT ? 'settings' : TABS[index];
+    const b = btnOf(app);
+    if (!b || b.classList.contains('hidden')) { glider.classList.remove('on'); return; }
+    let vertical = false;
+    try { vertical = getComputedStyle(navEl).flexDirection === 'column'; } catch {}
+    glider.dataset.app = onT ? transient : app;
+    const still = !animate || !gliderPlaced;
+    if (still) glider.style.transition = 'none';
+    if (vertical) { glider.style.width = ''; glider.style.height = b.offsetHeight + 'px'; glider.style.transform = `translateY(${b.offsetTop}px)`; }
+    else { glider.style.height = ''; glider.style.width = b.offsetWidth + 'px'; glider.style.transform = `translateX(${b.offsetLeft}px)`; }
+    glider.classList.add('on');
+    if (still) { void glider.offsetWidth; glider.style.transition = ''; gliderPlaced = true; return; }
+    glider.classList.remove('moving'); void glider.offsetWidth; glider.classList.add('moving');
+    clearTimeout(glideTimer);
+    glideTimer = setTimeout(() => glider.classList.remove('moving'), 460);
   }
 
   /* ── Back, on the left arrow ──────────────────────────────────────────────
@@ -326,7 +406,7 @@ window.Shell = (function () {
      it registered one, else its sub-screen's back button pressed until there
      is none — and, already home, back to the top of the slide. */
   function homeOf(name) {
-    const v = viewOf(name);
+    const v = bodyOf(name);
     const wasHome = !backTarget();
     const app = apps[name];
     if (app && app.home) app.home();
@@ -443,7 +523,7 @@ window.Shell = (function () {
     if (b) { if (window.Prefs) Prefs.tap(); b.click(); } else go(index - 1);
   });
   if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
-  document.querySelectorAll('.view').forEach(watchScroll);
+  document.querySelectorAll('.view-body').forEach(watchScroll);
 
   // ── Swipe ───────────────────────────────────────────────────────────────────
   /* Horizontal drag moves the track live; vertical is left to the browser via
@@ -524,8 +604,11 @@ window.Shell = (function () {
   track.addEventListener('touchcancel', endDrag, { passive: true });
 
   // A percentage transform re-resolves against the new width on its own; this
-  // only matters if the window is resized mid-drag.
-  window.addEventListener('resize', () => { if (!tracking) setTransform(null, false); });
+  // only matters if the window is resized mid-drag. The glider is measured in
+  // px, so it is re-measured — and again once fonts and labels have settled.
+  window.addEventListener('resize', () => { if (!tracking) setTransform(null, false); moveGlider(false); });
+  window.addEventListener('load', () => moveGlider(false));
+  if (window.Prefs) Prefs.subscribe(() => requestAnimationFrame(() => moveGlider(false)));
 
   /* #do … #settings select a tab; #settings/<panel> lands on one panel. */
   function hashTarget() {

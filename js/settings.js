@@ -273,6 +273,9 @@ function renderLayout() {
     ${sectionHead('Density')}
     ${slider('density', 'Spacing', v => pct(v))}
     ${slider('uiScale', 'Interface scale', v => pct(v))}
+    ${chips('titleSize', [
+      { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
+    ], 'Title size', 'the DO. LOG. PLAN. wordmarks')}
     ${slider('contentWidth', 'Max content width', v => Math.round(v) + 'px')}
     ${slider('iconStroke', 'Icon weight', v => v.toFixed(1))}
 
@@ -1138,7 +1141,7 @@ const RENDERERS = {
    top; moving between pills inside a category does too. */
 function showScreen(id) {
   $all('.scr').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
-  const v = document.getElementById('view-settings');
+  const v = document.querySelector('#view-settings .view-body');
   if (v) v.scrollTop = 0;
   Shell.showChrome();
 }
@@ -1210,12 +1213,13 @@ function render() {
    and editor buttons. Nothing here knows what any individual control means — it
    reads the intent off the element and hands it to Prefs or Config. */
 
-const view = document.getElementById('view-settings');
+const view = document.getElementById('view-settings');           // events are delegated from here
+const body = view.querySelector('.view-body') || view;             // … and this is what scrolls
 
 /* A control that re-renders its own panel must not move the page: the app
    list sits well down the layout panel, and every switch there used to land
    the reader back at the top. */
-function keepScroll(fn) { const y = view.scrollTop; fn(); if (view.scrollTop !== y) view.scrollTop = y; }
+function keepScroll(fn) { const y = body.scrollTop; fn(); if (body.scrollTop !== y) body.scrollTop = y; }
 
 function groupOf(el) { return el.closest('[data-group]'); }
 
@@ -1383,7 +1387,7 @@ view.addEventListener('click', e => {
     if (!confirmed('Reset every appearance setting?')) return;
     ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
      'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
-     'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount',
+     'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
      'showTabLabels','accentGlow','monoNumbers','colorfulTabs','apps'].forEach(k => Prefs.reset(k));
     render(); Shell.toast('appearance reset');
   }

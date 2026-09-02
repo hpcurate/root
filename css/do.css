@@ -215,6 +215,14 @@
    small chip in the corner */
 .ns-do .tt-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
 .ns-do .tt-defer{color:var(--y)}
+/* blocks → tomorrow: the slot row under the head, and a selected tile */
+.ns-do .bk-move{display:flex;align-items:center;flex-wrap:wrap;gap:calc(6px * var(--dens));margin-bottom:calc(8px * var(--dens))}
+.ns-do .bk-move-b{font:700 10px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--bk-c);
+  background:color-mix(in srgb,var(--bk-c) 12%,var(--s1));border:var(--bw) solid var(--bk-c);border-radius:var(--r2);
+  padding:calc(9px * var(--dens)) calc(14px * var(--dens));cursor:pointer;transition:opacity var(--dur-1)}
+.ns-do .bk-move-b:disabled{opacity:.35;cursor:default}
+.ns-do .bk-move-hint{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em;margin-left:auto}
+.ns-do .bk.sel{background:color-mix(in srgb,var(--bk-c) 32%,var(--s1));box-shadow:0 0 0 2px var(--bk-c)}
 .ns-do .md-group{margin-bottom:calc(16px * var(--dens))}
 .ns-do .md-group:last-of-type{margin-bottom:0}
 .ns-do .md-lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:calc(7px * var(--dens));

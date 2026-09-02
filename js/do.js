@@ -13,7 +13,7 @@ window.DO = (function () {
 'use strict';
 
 const SCOPE = '.ns-do ';
-const view  = document.getElementById('view-do');
+const view  = document.querySelector('#view-do .view-body');   // the scroll container (Shell wraps it)
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $one  = sel => document.querySelector(SCOPE + sel);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
@@ -965,10 +965,7 @@ function ttStatus(msg) {
    Ticking closes the task and hands the name to LOG as a completed block for
    the day; unticking reopens it and takes it back. Same cache-per-day rule as
    the today list: a closed task stays, filled, until midnight. */
-const TD_COLORS = { berry_red:'#b8256f', red:'#db4035', orange:'#ff9933', yellow:'#fad000', olive_green:'#afb83b',
-  lime_green:'#7ecc49', green:'#299438', mint_green:'#6accbc', teal:'#158fad', sky_blue:'#14aaf5', light_blue:'#96c3eb',
-  blue:'#4073ff', grape:'#884dff', violet:'#af38eb', lavender:'#eb96eb', magenta:'#e05194', salmon:'#ff8d85',
-  charcoal:'#808080', grey:'#b8b8b8', taupe:'#ccac93' };
+const TD_COLORS = Todoist.COLORS;   // the shared name → hex table (shell.js)
 const blockLabels = () => (Config.get('plan.blocks') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
 function tdBlocks() {
   const today = tdLocalDate();
@@ -977,21 +974,24 @@ function tdBlocks() {
 }
 async function fetchBlocks(today) {
   const labels = await tdGetAll('/labels');
+  Todoist.cacheLabels(labels);              // PLAN and the media tab read the same colours
   const colorOf = name => {
     const l = labels.find(x => tdName(x.name) === tdName(name));
     return (l && TD_COLORS[l.color]) || '#A78BFA';
   };
   const prev = tdBlocks(), got = [];
   const blockSet = new Set(blockLabels().map(tdName));
+  const colors = {};                        // the block labels' own colours, for the "→ tomorrow" row
   for (const name of blockLabels()) {
+    colors[name] = colorOf(name);
     const tasks = await tdGetAll('/tasks', { label: name });
     tasks.forEach(t => {
       if (tdDueDate(t) !== today) return;
       // the colour is the task's OTHER label — @curate, @home — the block label
       // only says which slot; a task with no other label takes the block's own
-      const labels = Array.isArray(t.labels) ? t.labels.map(String) : [];
-      const tag = labels.find(l => !blockSet.has(tdName(l))) || '';
-      got.push({ id:String(t.id), content:String(t.content || ''), block:name, tag, color:colorOf(tag || name),
+      const tl = Array.isArray(t.labels) ? t.labels.map(String) : [];
+      const tag = tl.find(l => !blockSet.has(tdName(l))) || '';
+      got.push({ id:String(t.id), content:String(t.content || ''), block:name, tag, labels:tl, color:colorOf(tag || name),
                  priority:+t.priority || 1, done:false });
     });
   }
@@ -999,20 +999,67 @@ async function fetchBlocks(today) {
   got.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); next.push(t); } });
   prev.tasks.forEach(t => { if (t.done && !seen.has(t.id)) next.push(t); });   // closed here: keep, filled
   next.sort((a, b) => a.block.localeCompare(b.block) || a.content.localeCompare(b.content));
-  td.blocks = { date:today, tasks:next, fetched:Date.now() };
+  td.blocks = { date:today, tasks:next, fetched:Date.now(), colors };
+}
+
+/* ── Blocks → tomorrow ────────────────────────────────────────────────────────
+   "→ tomorrow" on the blocks head switches the tiles from tick to select: a
+   row of the block labels (b1 b2 b3, each in its Todoist colour) appears under
+   the head, you tap the tiles to move, then the slot they go into. Each one
+   is rescheduled to tomorrow with that block label in place of its current
+   one (its other labels kept), in Todoist, and leaves the list. Selection is
+   not persisted — it is a gesture, not state. */
+let bkMove = false;
+const bkSel = new Set();
+function toggleBlockMove() { bkMove = !bkMove; bkSel.clear(); renderBlocks(); }
+function selectBlock(id) {
+  const t = tdBlocks().tasks.find(x => x.id === id);
+  if (!t || t.done) return;
+  if (bkSel.has(id)) bkSel.delete(id); else bkSel.add(id);
+  Prefs.tap(); renderBlocks();
+}
+async function moveBlocks(block) {
+  if (tdBusy || !bkSel.size) return;
+  const b = tdBlocks();
+  const picked = b.tasks.filter(t => bkSel.has(t.id) && !t.done);
+  if (!picked.length) return;
+  const blockSet = new Set(blockLabels().map(tdName));
+  tdBusy = true; renderTdButtons();
+  let moved = 0, failed = 0;
+  try {
+    for (const t of picked) {
+      const have = Array.isArray(t.labels) ? t.labels : [t.block, t.tag].filter(Boolean);
+      const labels = have.filter(l => !blockSet.has(tdName(l))).concat(block);
+      try { await tdFetch(`/tasks/${t.id}`, { method:'POST', body: JSON.stringify({ due_string:'tomorrow', labels }) }); t.moved = true; moved++; }
+      catch { failed++; }
+    }
+    b.tasks = b.tasks.filter(t => !t.moved);
+    bkSel.clear();
+    if (!b.tasks.some(t => !t.done)) bkMove = false;   // nothing left to move: back to ticking
+    tdPersist(); renderBlocks(); renderToday();
+    if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
+    toast(failed ? `${moved} moved · ${failed} failed` : `${moved} → tomorrow @${block}`);
+  } finally { tdBusy = false; renderTdButtons(); }
 }
 function renderBlocks() {
   const box = $id('td-blocks'); if (!box) return;
   const b = tdBlocks();
   const show = td.blocksOn && b.tasks.length > 0 && onFirstTab();
   box.classList.toggle('hidden', !show);
-  if (!show) return;
+  // hidden is also emptied: a stale tile in a hidden box is still a tile to anything that counts them
+  if (!show) { box.innerHTML = ''; bkMove = false; bkSel.clear(); return; }
   const open = b.tasks.filter(x => !x.done).length;
   const shown = td.blocksHideDone ? b.tasks.filter(x => !x.done) : b.tasks;
-  box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span>
-      <button class="tt-refresh" onclick="DO.toggleBlocksHideDone()">${td.blocksHideDone ? 'show done' : 'hide done'}</button></div>
+  if (!open) { bkMove = false; bkSel.clear(); }
+  const colors = b.colors || {};
+  box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span><span class="tt-acts">
+      ${open ? `<button class="tt-refresh${bkMove ? ' tt-defer' : ''}" onclick="DO.toggleBlockMove()">${bkMove ? 'cancel' : '→ tomorrow'}</button>` : ''}
+      <button class="tt-refresh" onclick="DO.toggleBlocksHideDone()">${td.blocksHideDone ? 'show done' : 'hide done'}</button></span></div>
+    ${bkMove ? `<div class="bk-move">${blockLabels().map(l =>
+        `<button class="bk-move-b" style="--bk-c:${esc(colors[l] || Todoist.labelColor(l) || '#A78BFA')}" onclick="DO.moveBlocks('${esc(l)}')"${bkSel.size ? '' : ' disabled'}>${esc(l)}</button>`).join('')}
+      <span class="bk-move-hint">${bkSel.size ? `${bkSel.size} → tomorrow as` : 'tap a block, then its slot'}</span></div>` : ''}
     ${shown.length ? '' : '<div class="tt-empty">all done</div>'}
-    <div class="bk-grid">${shown.map(x => `<button class="bk${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleBlockTask('${esc(x.id)}')" aria-pressed="${x.done}">
+    <div class="bk-grid">${shown.map(x => `<button class="bk${x.done ? ' done' : ''}${bkMove && bkSel.has(x.id) ? ' sel' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.${bkMove ? 'selectBlock' : 'toggleBlockTask'}('${esc(x.id)}')" aria-pressed="${bkMove ? bkSel.has(x.id) : x.done}">
       <span class="bk-tag">@${esc(x.block)}${x.tag ? ` · ${esc(x.tag)}` : ''}</span><span class="bk-name">${esc(x.content)}</span>
       <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </button>`).join('')}</div>`;
@@ -1051,6 +1098,7 @@ function tdMedia() {
 }
 async function fetchMedia() {
   const labels = await tdGetAll('/labels');
+  Todoist.cacheLabels(labels);
   const colorOf = name => {
     const l = labels.find(x => tdName(x.name) === tdName(name));
     return (l && TD_COLORS[l.color]) || '#A78BFA';
@@ -1362,5 +1410,6 @@ return { go, renderSettings: renderTodoistSettings,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
          renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection,
-         renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday };
+         renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday,
+         toggleBlockMove, selectBlock, moveBlocks };
 })();

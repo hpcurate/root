@@ -53,8 +53,11 @@
   padding:calc(15px * var(--dens)) calc(14px * var(--dens)) calc(13px * var(--dens));cursor:pointer;text-align:left;user-select:none;
   display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:92px;
   transition:border-color .14s,background .14s}
-.ns-plan .proj-tile:active{background:var(--s2)}
-.ns-plan .proj-tile.has{border-color:var(--proj-color)}
+/* the tile is drawn like DO's block tiles: a wash of the label's colour, the
+   colour on the border; queued lifts the wash */
+.ns-plan .proj-tile{background:color-mix(in srgb,var(--proj-color,var(--bd)) 10%,var(--s1));border-color:var(--proj-color,var(--bd))}
+.ns-plan .proj-tile:active{background:color-mix(in srgb,var(--proj-color,var(--bd)) 20%,var(--s1))}
+.ns-plan .proj-tile.has{background:color-mix(in srgb,var(--proj-color,var(--bd)) 22%,var(--s1))}
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
 .ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
@@ -76,6 +79,9 @@
        color:var(--mu);font:400 12px/1 var(--mono);letter-spacing:.05em;
        padding:calc(11px * var(--dens)) calc(12px * var(--dens));cursor:pointer;transition:all .1s;flex:1;text-align:center;min-width:0;white-space:nowrap}
 .ns-plan .opt-b.on{background:var(--yd);border-color:var(--y);color:var(--y)}
+/* a block chip in its Todoist label's colour (--c set by PLAN when known) */
+.ns-plan .opt-b.lbl{background:color-mix(in srgb,var(--c) 10%,var(--s1));border-color:var(--c);color:var(--c)}
+.ns-plan .opt-b.lbl.on{background:color-mix(in srgb,var(--c) 30%,var(--s1));box-shadow:0 0 0 1px var(--c)}
 .ns-plan .opt-b.none-opt{flex:0 0 auto}
 
 /* ── Priority buttons ── */

@@ -214,7 +214,7 @@
     padding:5px 8px calc(5px + env(safe-area-inset-bottom));
     height:calc(var(--nav-fh) + env(safe-area-inset-bottom))}
   [data-nav="bar"] #nav.chrome-off{transform:translateY(100%)}
-  [data-nav="bar"] .tab-b::before{border-radius:var(--r3)}
+  [data-nav="bar"] .nav-glider{border-radius:var(--r3)}
   [data-nav="bar"] .nav-arrow{display:none}
   [data-nav="minimal"] #nav{display:none}
 }
@@ -224,14 +224,14 @@
 /* Colour-coded tabs: each app keeps its own hue on the active pill instead of
    everything sharing the accent. Keyed on the app, not the position — the
    order is the user's to change. */
-[data-color-tabs="on"] #nav .tab-b[data-app="do"]::before{background:#A78BFA}
-[data-color-tabs="on"] #nav .tab-b[data-app="log"]::before{background:#5cdb7d}
-[data-color-tabs="on"] #nav .tab-b[data-app="plan"]::before{background:#5e8cff}
-[data-color-tabs="on"] #nav .tab-b[data-app="store"]::before{background:#e8a33d}
-[data-color-tabs="on"] #nav .tab-b[data-app="tend"]::before{background:#3fc9b0}
-[data-color-tabs="on"] #nav .tab-b[data-app="track"]::before{background:#f0709a}
-[data-color-tabs="on"] #nav .tab-b[data-app="learn"]::before{background:#5ad4e6}
-[data-color-tabs="on"] #nav .tab-b[data-app="settings"]::before{background:var(--mu)}
+[data-color-tabs="on"] #nav .nav-glider[data-app="do"]{background:#A78BFA}
+[data-color-tabs="on"] #nav .nav-glider[data-app="log"]{background:#5cdb7d}
+[data-color-tabs="on"] #nav .nav-glider[data-app="plan"]{background:#5e8cff}
+[data-color-tabs="on"] #nav .nav-glider[data-app="store"]{background:#e8a33d}
+[data-color-tabs="on"] #nav .nav-glider[data-app="tend"]{background:#3fc9b0}
+[data-color-tabs="on"] #nav .nav-glider[data-app="track"]{background:#f0709a}
+[data-color-tabs="on"] #nav .nav-glider[data-app="learn"]{background:#5ad4e6}
+[data-color-tabs="on"] #nav .nav-glider[data-app="settings"]{background:var(--mu)}
 [data-color-tabs="on"] #nav .tab-b.on{color:#0e0e0e}
 
 
