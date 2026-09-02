@@ -77,6 +77,9 @@
   <symbol id="ico-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="9 5 16 12 9 19"/>
   </symbol>
+  <symbol id="ico-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="20" y1="12" x2="5" y2="12"/><polyline points="11 5 4 12 11 19"/>
+  </symbol>
 
   <!-- LOG -->
   <symbol id="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -314,13 +317,16 @@
 
   <!-- ── HOME ── -->
   <div id="s-home" class="scr on">
-    <div class="h-meta">
-      <button class="h-arr" onclick="LOG.shiftDate(-1)">←</button>
-      <span class="h-date-txt" id="home-date">—</span>
-      <button class="h-arr" onclick="LOG.shiftDate(1)">→</button>
-      <button class="h-today hidden" id="btn-today" onclick="LOG.resetDate()">today</button>
+    <!-- .h-top is the sticky title block every app shares (shell.css) -->
+    <div class="h-top">
+      <div class="h-meta">
+        <button class="h-arr" onclick="LOG.shiftDate(-1)">←</button>
+        <span class="h-date-txt" id="home-date">—</span>
+        <button class="h-arr" onclick="LOG.shiftDate(1)">→</button>
+        <button class="h-today hidden" id="btn-today" onclick="LOG.resetDate()">today</button>
+      </div>
+      <div class="h-logo">LOG<em>.</em></div>
     </div>
-    <div class="h-logo">LOG<em>.</em></div>
     <div class="h-streak" id="h-streak"></div>
     <div class="grid">
       <div class="card" id="card-m" onclick="LOG.go('morning')">
@@ -467,11 +473,6 @@
           <label class="lbl blk-plan-lbl">planned in PLAN</label>
           <div class="blk-g" id="blk-plan"></div>
         </div>
-      </div>
-      <!-- what DO's media tab lists for today, ticked ones selected — LOG.renderMedia() -->
-      <div class="f hidden" id="media-wrap">
-        <label class="lbl">Media finished <span class="lbl-hint">from DO · media</span></label>
-        <div class="blk-g" id="media-g"></div>
       </div>
       <div class="f" data-field="curate">
         <label class="lbl">Curate output</label>
@@ -1490,8 +1491,11 @@
 
 
 <!-- ═══ FLOATING CHROME ══════════════════════════════════════════════════════ -->
+<!-- the left arrow doubles as the back button of whatever sub-screen is open
+     (Shell sets .is-back); the second icon is the one shown then -->
 <button class="nav-arrow" id="nav-prev" aria-label="Previous tab">
-  <svg aria-hidden="true"><use href="#ico-chev-l"/></svg>
+  <svg class="a-chev" aria-hidden="true"><use href="#ico-chev-l"/></svg>
+  <svg class="a-back" aria-hidden="true"><use href="#ico-back"/></svg>
 </button>
 <button class="nav-arrow" id="nav-next" aria-label="Next tab">
   <svg aria-hidden="true"><use href="#ico-chev-r"/></svg>

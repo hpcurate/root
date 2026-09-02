@@ -150,10 +150,12 @@ Shell.toast(msg)                       // the one toast
 Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
 Shell.confirm(msg)                     // window.confirm, unless "confirm before clearing" is off
 Shell.settings(panel)                  // jump to a settings panel ('general' still maps to 'data')
-Shell.register(name, { onShow, onDayChange })
+Shell.register(name, { onShow, onDayChange, home })
 ```
 
-`onShow` fires on every visit to the tab. `onDayChange(iso)` fires when the
+`onShow` fires on every visit to the tab. `home` fires when the app's own tab
+is tapped while it is already showing (go to the home screen; LOG checks for
+unsaved input first). `onDayChange(iso)` fires when the
 calendar day changes while the app is open — the shell checks on
 `visibilitychange`, on window focus, on every tab change and once a minute.
 DO moves to the new day's record; LOG moves its selected day only if it was
@@ -182,9 +184,17 @@ slides. The pill never grows past its phone width and the arrows are always
 there; the settings home lists the apps that are out of the bar, and
 `Shell.open(name)` puts one's slide back into the track just before settings
 (no tab button) until you leave it, when `retire()` hides it again and re-parks
-the track. Keyboard `1`–`9` jump by position in the current order. `rebuild()`
-re-appends the `.view` nodes, which resets their scroll position, so it saves
-and restores each slide's `scrollTop` around the move.
+the track; while you are on it the settings button wears its icon. Keyboard
+`1`–`9` jump by position in the current order. `rebuild()` re-appends the
+`.view` nodes, which resets their scroll position, so it saves and restores
+each slide's `scrollTop` around the move.
+
+The left arrow is context-sensitive: on an app's home it is "previous tab";
+inside a sub-screen (`.scr.on` other than `#s-home` carrying an `.hd-back`)
+it becomes that back button. Tapping the tab you are already on calls the
+module's `home` hook (`Shell.register(name, { home })`), else presses the
+sub-screen's back button until there is none, and scrolls to the top once
+home.
 
 ### Prefs — the appearance engine
 
@@ -479,6 +489,17 @@ both say so, and a new device needs the `.apkg` imported again.
 - **The media list is a backlog, not a day's list.** `td.media` keeps every
   open task whatever its date; a new day only drops the ones closed the day
   before (their untick window is over) rather than emptying the cache.
+- **A sub-screen is `.scr` + `.hd-back`, and the shell relies on it.** The
+  left arrow becomes "back" by finding `.scr.on:not(#s-home) .hd-back` in the
+  current slide. A new sub-screen that names its home something other than
+  `s-home`, or hides its back button, gets a dead left arrow.
+- **Every home header is `.h-top`, and it is sticky.** `shell.css` makes
+  `.view .h-top` sticky on the ground with the fade under it. A new app's
+  header must be a `.h-top` with `env(safe-area-inset-top)` in its own
+  padding, or the status bar strip shows through once it is stuck.
+- **`html` carries the ground colour too.** The fixed body does not paint the
+  strip under the home indicator; the root does, and with `color-scheme:dark`
+  and no background it paints black.
 - **A hidden app opened from settings is a transient slide.** `Shell.open()`
   splices it into `TABS` before settings and re-parks the track before
   animating, because settings' index moves by one; `retire()` does the same
@@ -516,10 +537,10 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 136 checks covering boot, every theme and panel, the
+through DOM events: 149 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
-2.3, the Todoist round-trips of 2.4, the block and media tiles and the
-settings menu of 2.5–2.8. Run it before trusting any change:
+2.3, the Todoist round-trips of 2.4, the block and media tiles, the settings
+menu and the back arrow of 2.5–2.9. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -535,6 +556,68 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.9 — 2026-09-02 — the left arrow as back, sticky titles, → tomorrow
+
+Six points from the first look at 2.8 on the phone.
+
+**Media stays out of the forms.** The evening form's "media finished" row is
+gone: a tick on the media tab closes the task in Todoist and lands in the
+day's note, the weekly and monthly reports, and now LOG's history rows (a
+`media: …` pill on a past day) — nothing else. `LOG.setMedia()` still writes
+the record; `renderMedia` / `toggleMediaLocal` are removed.
+
+**The left arrow is the back button.** Inside any sub-screen — a DO
+checklist, LOG's evening form, a STORE category, a settings category — the
+top-left "← back" is the far corner of a phone. The shell now watches the
+track for `.scr` class changes (one `MutationObserver`, no per-app wiring):
+whenever the current slide shows a `.scr.on` other than `#s-home` that has an
+`.hd-back`, the left arrow turns into it (`.is-back`: the accent, an arrow
+with a tail) and pressing it presses that button. Back home, it is the
+previous-tab arrow again. **Tapping the tab you are on goes to that app's
+home** — each module registered a `home` hook (`DO`/`PLAN`/`STORE` → `go('home')`,
+LOG → `goBack()` with its unsaved check, LEARN leaves a study session
+properly, settings → the menu); an app without one gets its back button
+pressed until there is none. Already home, the tap scrolls to the top.
+
+**Sticky titles.** Every home's `.h-top` (the date line, the logo, DO's tab
+strip) is `position:sticky` on the page ground with a short gradient under
+it, so what scrolls up fades behind the title and nothing runs under the
+status bar any more. LOG's header gained the `.h-top` wrapper the others
+already had, with its own safe-area padding. Sub-screen `.hd` headers were
+already sticky.
+
+**The strip under the home indicator.** It painted black under a near-black
+theme: `<html>` had no background and `color-scheme:dark` makes the root
+canvas black. `html{background:var(--bg)}`. The pill also sits lower —
+`--nav-gap` 12px → 6px above the safe area; the arrows and the toast follow.
+
+**The settings button wears the open app's icon.** On an app opened from the
+settings home (out of the bar), the settings tab shows that app's sprite
+icon and name and lights up; tapping it goes to the settings home and
+retires the slide. `paintNav()` swaps the `<use>` href back on any other tab.
+
+**"→ tomorrow" on the today list.** From 20:00, when the list has open
+fetched tasks, a button on its head reschedules every one of them to
+tomorrow in Todoist (`POST /tasks/{id}` with `due_string: "tomorrow"`) after a
+confirm, and they drop off the list. Plants are not touched — TEND owns
+those. The hour gates only the button; `DO.deferToday()` works whenever it is
+called.
+
+**Verified** — `test/harness.mjs`, 149 checks, all green: no media row on
+the evening form, a past day's media pill in history; the arrow plain on a
+home, `.is-back` and enabled inside a checklist, going back when pressed; the
+DO tab tapped on a checklist landing home; a settings category counting as a
+sub-screen and the settings tab returning to the menu; TEND opened from the
+home putting `#tab-tend` and "tend" on the settings button, that button
+going home and retiring the slide with `#tab-set` back; two tasks due today
+moved to tomorrow with the right due string and gone from the list, the
+button present exactly when the hour is 20 or later. **Not verified**:
+nothing in a browser again (the extension is still unreachable). The sticky
+titles and the gradient, the pill 6px lower, the root background under the
+home indicator and the arrow's back icon are all visual and unseen; the
+sticky DO header is ~120px tall with the tab strip in it, which is what was
+asked for but worth a look.
 
 ### 2.8 — 2026-09-02 — the media tab, the settings menu, apps out of the bar
 

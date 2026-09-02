@@ -1021,7 +1021,7 @@ Config.subscribe(path => {
 // the date format; one redraw covers them all
 Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === '*') renderHome(); });
 
-Shell.register('store', {});
+Shell.register('store', { home: () => go('home') });   // the STORE tab tapped while on STORE
 
 return { go, addCart, resetCart, openPad, closePad, padKey, padBack, padClear,
          padCount, padApply, openCartLog, closeCartLog,

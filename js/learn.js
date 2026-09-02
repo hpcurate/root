@@ -666,7 +666,11 @@ Config.subscribe(path => {
   if ($id('s-home').classList.contains('on')) renderHome();
 });
 
-Shell.register('learn', { onShow: () => { if ($id('s-home').classList.contains('on')) renderHome(); } });
+Shell.register('learn', {
+  onShow: () => { if ($id('s-home').classList.contains('on')) renderHome(); },
+  // the LEARN tab tapped while on LEARN: a study session is left properly
+  home: () => { if ($id('s-study').classList.contains('on')) exitStudy(); else go('home'); },
+});
 
 return { go, goDeck, backToDeck, startStudy, reveal, answer, skipCard, exitStudy,
          resetDeckProgress, renameDeck, deleteCurrentDeck, resetAllProgress, wipeAll,

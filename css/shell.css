@@ -13,7 +13,10 @@
 /* text-size-adjust: without it iOS Safari "helpfully" inflates some text when
    the phone turns to landscape and keeps the inflated sizes on the way back —
    the fonts grew on rotation and never came down. 100% pins them. */
-html{height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* background on <html> too: the strip under the home indicator (and any
+   overscroll) is painted from the root, and with color-scheme:dark and no
+   background it came out pure black under a near-black theme */
+html{height:100%;background:var(--bg);-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* ── Portrait lock ────────────────────────────────────────────────────────────
    A web page cannot lock the orientation on iOS (screen.orientation.lock is
@@ -71,6 +74,16 @@ body{
   overflow-y:auto;overflow-x:hidden;
   overscroll-behavior-y:contain;
   -webkit-overflow-scrolling:touch}
+
+/* ── Sticky titles ────────────────────────────────────────────────────────────
+   Each home's header block (the date line, the logo, DO's tab strip) stays at
+   the top as the slide scrolls, on the page ground, and what scrolls under it
+   fades out against a short gradient below. It also covers the status-bar
+   strip, which content used to scroll straight under. flow-root keeps a
+   child's bottom margin inside the box so the ground reaches all of it. */
+.view .h-top{position:sticky;top:0;z-index:20;background:var(--bg);display:flow-root}
+.view .h-top::after{content:'';position:absolute;left:0;right:0;top:100%;height:26px;pointer-events:none;
+  background:linear-gradient(var(--bg),transparent)}
 
 /* ── Floating chrome ──────────────────────────────────────────────────────────
    The bar no longer owns a strip of the screen; it hovers over the content and
@@ -137,7 +150,13 @@ body{
   cursor:pointer;
   box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease, color .15s ease, border-color .15s ease}
-.nav-arrow svg{width:17px;height:17px}
+.nav-arrow svg{width:17px;height:17px;display:block}
+/* inside a sub-screen the left arrow is that screen's back button (Shell
+   sets .is-back): the accent, and an arrow with a tail instead of a chevron */
+.nav-arrow .a-back{display:none}
+.nav-arrow.is-back .a-chev{display:none}
+.nav-arrow.is-back .a-back{display:block}
+.nav-arrow.is-back{color:var(--y);border-color:var(--y)}
 #nav-prev{left:calc(14px + env(safe-area-inset-left))}
 #nav-next{right:calc(14px + env(safe-area-inset-right))}
 .nav-arrow:active{color:var(--y);border-color:var(--y)}

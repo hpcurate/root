@@ -281,13 +281,57 @@ window.Shell = (function () {
   /* The tab buttons and arrows follow TABS by name, never by a cached list:
      open() and retire() change TABS under them. */
   function paintNav() {
+    // on an app opened from settings, the settings button wears that app's
+    // icon and lights up — tapping it still goes to the settings home
+    const onT = !!transient && TABS[index] === transient;
     TABS.forEach((n, i) => {
       const b = btnOf(n); if (!b) return;
-      b.classList.toggle('on', i === index);
-      b.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      const on = i === index || (n === 'settings' && onT);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    if (prevBtn) prevBtn.disabled = index === 0;
+    const sb = btnOf('settings');
+    if (sb) {
+      const use = sb.querySelector('use'), lbl = sb.querySelector('.tb-l');
+      if (use) use.setAttribute('href', onT ? '#tab-' + transient : '#tab-set');
+      if (lbl) lbl.textContent = onT ? transient : 'set';
+      sb.setAttribute('aria-label', onT ? transient.toUpperCase() + ' · settings' : 'Settings');
+    }
     if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
+    updateBack();
+  }
+
+  /* ── Back, on the left arrow ──────────────────────────────────────────────
+     Inside an app's sub-screen — a checklist, the evening form, a settings
+     category — the "← back" button sits top-left, the far corner of a phone.
+     Whenever the current slide is showing a sub-screen that has one, the left
+     arrow becomes that back button. A class change on any .scr is the signal,
+     and one observer on the track sees every app's without per-app wiring. */
+  function backTarget() {
+    const v = viewOf(TABS[index]); if (!v) return null;
+    const scr = v.querySelector('.scr.on');
+    if (!scr || scr.id === 's-home') return null;
+    return scr.querySelector('.hd-back');
+  }
+  function updateBack() {
+    if (!prevBtn) return;
+    const b = backTarget();
+    prevBtn.classList.toggle('is-back', !!b);
+    prevBtn.setAttribute('aria-label', b ? 'Back' : 'Previous tab');
+    prevBtn.disabled = b ? false : index === 0;
+  }
+  new MutationObserver(updateBack).observe(track, { attributes: true, subtree: true, attributeFilter: ['class'] });
+
+  /* Tapping the tab you are on goes to that app's home — its own hook where
+     it registered one, else its sub-screen's back button pressed until there
+     is none — and, already home, back to the top of the slide. */
+  function homeOf(name) {
+    const v = viewOf(name);
+    const wasHome = !backTarget();
+    const app = apps[name];
+    if (app && app.home) app.home();
+    else for (let i = 0; i < 6 && backTarget(); i++) backTarget().click();
+    if (wasHome && v) { if (typeof v.scrollTo === 'function') v.scrollTo({ top: 0, behavior: 'smooth' }); else v.scrollTop = 0; }
   }
 
   /* Park the track on the current index with the transition off and flush
@@ -387,8 +431,17 @@ window.Shell = (function () {
 
   // bound by name, not position: the order is the user's to change
   Array.from(navEl.querySelectorAll('.tab-b')).forEach(b =>
-    b.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); go(b.dataset.app); }));
-  if (prevBtn) prevBtn.addEventListener('click', () => go(index - 1));
+    b.addEventListener('click', () => {
+      if (window.Prefs) Prefs.tap();
+      const name = b.dataset.app, cur = TABS[index];
+      // the settings button wearing a hidden app's icon: back to the settings home
+      if (name === 'settings' && transient && cur === transient) { if (window.SET) SET.home(); go('settings'); return; }
+      if (name === cur) homeOf(name); else go(name);
+    }));
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    const b = backTarget();
+    if (b) { if (window.Prefs) Prefs.tap(); b.click(); } else go(index - 1);
+  });
   if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
   document.querySelectorAll('.view').forEach(watchScroll);
 

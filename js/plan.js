@@ -486,7 +486,7 @@ Config.subscribe(path => {
 // the date label follows Settings → behaviour → dates without a reload
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
-Shell.register('plan', {});
+Shell.register('plan', { home: () => go('home') });   // the PLAN tab tapped while on PLAN
 
 return { go, renderSettings, openProj, closeProj, pickSub,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,

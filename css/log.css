@@ -14,6 +14,9 @@
 .ns-log .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps)}
 
 /* ── Home ── */
+/* the sticky title block: its own safe-area padding, so the status-bar strip
+   is covered once it is stuck at the top of the slide */
+.ns-log .h-top{padding-top:env(safe-area-inset-top)}
 .ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);
         padding:calc(30px * var(--dens)) calc(18px * var(--dens)) calc(6px * var(--dens));display:flex;align-items:center;gap:calc(8px * var(--dens))}
 .ns-log .h-date-txt{flex:1}

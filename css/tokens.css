@@ -97,7 +97,7 @@
 
   /* ── Shell metrics ───────────────────────────────────────────────────── */
   --nav-fh:58px;
-  --nav-gap:12px;
+  --nav-gap:6px;      /* the pill sits close to the bottom edge, above the safe area */
   --rail-w:88px;
   --rail-w-wide:186px;
   --readable:780px;

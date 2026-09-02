@@ -438,38 +438,8 @@ function setMedia(task, on) {
   else if (!on && i >= 0) rec.e.media.splice(i, 1);
   else return;
   localStorage.setItem('log_' + REAL_TODAY, JSON.stringify(rec));
-  if (!isToday) return;
-  const open = $all('.scr.on')[0];
-  const id = open ? open.id.replace('s-', '') : 'home';
-  if (id === 'evening') renderMedia();
-}
-/* The evening form's media row: DO's fetched list for the real today (ticked
-   ones selected, in the label's colour), plus anything already in the record
-   that DO no longer lists. A DO-backed chip toggles through DO so Todoist
-   follows; a record-only chip just toggles the record. */
-function renderMedia() {
-  const wrap = $id('media-wrap'), grid = $id('media-g');
-  if (!wrap || !grid) return;
-  const isToday = TODAY === REAL_TODAY;
-  const fromDo = (isToday && window.DO && DO.mediaTasks) ? DO.mediaTasks() : [];
-  const rec = mediaOf(data.e);
-  const seen = new Set(fromDo.map(mediaKey));
-  const extra = rec.filter(m => !seen.has(mediaKey(m)));
-  const chips = fromDo.map(t => ({ name: t.content, kind: t.kind, sub: t.sub, color: t.color, id: t.id, on: t.done }))
-    .concat(extra.map(m => ({ name: m.name, kind: m.kind, sub: m.sub, color: '', id: '', on: true })));
-  wrap.classList.toggle('hidden', !chips.length);
-  grid.innerHTML = chips.map(c => {
-    const cap = [c.kind, c.sub].filter(Boolean).join(' · ');
-    const act = c.id ? `DO.toggleMediaTask('${attr(c.id)}')` : `LOG.toggleMediaLocal('${attr(c.kind)}','${attr(c.name)}')`;
-    const col = c.color || 'var(--y)';
-    return `<button class="blk-b plan${c.on ? ' on' : ''}" data-name="${attrEsc(c.name)}" onclick="${act}"
-             style="--blk-c:${esc(col)};--blk-bg:${tint(col, 14)}">${esc(c.name)}${cap ? `<small>${esc(cap)}</small>` : ''}</button>`;
-  }).join('');
-}
-function toggleMediaLocal(kind, name) {
-  const i = mediaOf(data.e).findIndex(m => mediaKey(m) === mediaKey({ kind, name }));
-  if (i < 0) return;
-  data.e.media.splice(i, 1); save(); renderMedia();
+  // nothing on the forms shows it — it is in the note, the reports and the
+  // history, and DO's own tile is where it is ticked
 }
 
 /* ── Config-driven form furniture ─────────────────────────────────────────────
@@ -616,7 +586,7 @@ function popE() {
   const e = data.e;
   $id('e-kme').value = e.kme || '';
   scSet('sc-nrg-e', e.nrg); scSet('sc-mood-e', e.mood); scSet('sc-stress', e.stress);
-  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks(); renderMedia();
+  syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks();
 }
 
 function saveEvening() {
@@ -926,6 +896,7 @@ function renderHistory() {
     const prevKm=((parseFloat(pm.km)||0)+(parseFloat(pe.kme)||0))||null;
     const blocks=(e.blocks||[]).join(' · ')||'—';
     const meds=medsOf(e), meals=mealsOf(e), curT=curTotal(e);
+    const media=mediaOf(e);
 
     rows.push(`<div class="hist-day">
       <div class="hist-date">${fmtDateLong(date)}</div>
@@ -956,6 +927,7 @@ function renderHistory() {
         <span class="hist-pill">${caf}</span>
         <span class="hist-pill ${curT?'y':''}">curate: ${curT}</span>
         <span class="hist-pill y">${blocks}</span>
+        ${media.length ? `<span class="hist-pill y">media: ${media.map(x => esc(x.name)).join(' · ')}</span>` : ''}
       </div>
     </div>`);
   }
@@ -1620,7 +1592,8 @@ Prefs.subscribe(k => {
   ({ home: refreshHome, history: renderHistory })[id]?.();
 });
 
-Shell.register('log', { onDayChange: rollDay });
+// `home`: the tab button tapped while on LOG — same as ← back, unsaved-input check included
+Shell.register('log', { onDayChange: rollDay, home: goBack });
 
 return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
@@ -1628,5 +1601,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
-         setMedia, renderMedia, toggleMediaLocal };
+         setMedia };
 })();

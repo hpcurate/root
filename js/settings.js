@@ -1444,7 +1444,7 @@ Config.subscribe(() => {
 // the home menu lists the apps out of the bar: keep it current
 Prefs.subscribe(k => { if ((k === 'apps' || k === '*') && currentCat === null) renderHome(); });
 
-Shell.register('settings', { onShow: render });
+Shell.register('settings', { onShow: render, home });   // the settings tab tapped while here: the menu
 // a deep link (#settings/data) opens on that panel; anything else on the home menu
 const linked = Shell.hashTarget();
 if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub); else home();

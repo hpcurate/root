@@ -214,6 +214,7 @@
    and, when the task has a second label (@album / @set / @track), that as a
    small chip in the corner */
 .ns-do .tt-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
+.ns-do .tt-defer{color:var(--y)}
 .ns-do .md-group{margin-bottom:calc(16px * var(--dens))}
 .ns-do .md-group:last-of-type{margin-bottom:0}
 .ns-do .md-lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:calc(7px * var(--dens));

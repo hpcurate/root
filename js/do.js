@@ -1148,7 +1148,6 @@ async function refreshToday(quiet) {
     tdPersist();
     renderToday(); renderBlocks(); renderMedia(); ttStatus();
     if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
-    if (window.LOG && LOG.renderMedia) LOG.renderMedia();
     const open = todayRows().filter(t => !t.done).length + (wantBlocks ? tdBlocks().tasks.filter(t => !t.done).length : 0);
     if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
   } catch (e) {
@@ -1241,8 +1240,12 @@ function renderToday() {
       </span></button>`;
   }).join('');
   const when = t.fetched ? new Date(t.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
-  box.innerHTML = `<div class="tt-head"><span>today<em>${open} open</em></span>
-      ${td.todayOn ? '<button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button>' : ''}</div>
+  // from 20:00, what is still open is tomorrow's: one button moves it there
+  const apiOpen = td.todayOn ? t.tasks.filter(x => !x.done).length : 0;
+  const defer = apiOpen && lateHour()
+    ? '<button class="tt-refresh tt-defer" data-td-btn="→ tomorrow" data-td-busy="…" onclick="DO.deferToday()">→ tomorrow</button>' : '';
+  box.innerHTML = `<div class="tt-head"><span>today<em>${open} open</em></span><span class="tt-acts">${defer}
+      ${td.todayOn ? '<button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button>' : ''}</span></div>
     ${rows || `<div class="tt-empty">${when ? 'nothing due today' : 'tap refresh to fetch today\'s tasks'}</div>`}
     <div class="tt-status">${t.missing && t.missing.length ? 'not found: ' + esc(t.missing.join(', ')) : when ? 'todoist fetched ' + when : ''}</div>`;
 }
@@ -1269,6 +1272,32 @@ async function toggleTodayTask(id) {
     toast('todoist: ' + e.message);
   }
 }
+/* ── Tomorrow ─────────────────────────────────────────────────────────────────
+   From 20:00 the today list offers "→ tomorrow": every open fetched task is
+   rescheduled to tomorrow in Todoist (v1: POST /tasks/{id} with a due string)
+   and drops off the list. Plants are not touched — TEND owns those, and a
+   missed watering is not something to postpone. The hour only gates the
+   button; the action itself works whenever it is called. */
+const lateHour = () => new Date().getHours() >= 20;
+async function deferToday() {
+  if (tdBusy) return;
+  const open = (td.todayOn ? ttToday().tasks : []).filter(t => !t.done);
+  if (!open.length) { toast('nothing open'); return; }
+  if (!Shell.confirm(`Move ${open.length} open task${open.length === 1 ? '' : 's'} to tomorrow?`)) return;
+  tdBusy = true; renderTdButtons();
+  let moved = 0, failed = 0;
+  try {
+    for (const t of open) {
+      try { await tdFetch(`/tasks/${t.id}`, { method:'POST', body: JSON.stringify({ due_string: 'tomorrow' }) }); moved++; t.deferred = true; }
+      catch { failed++; }
+    }
+    const tt = ttToday();
+    tt.tasks = tt.tasks.filter(t => !t.deferred);
+    tdPersist(); renderToday();
+    toast(failed ? `${moved} moved · ${failed} failed` : `${moved} moved to tomorrow`);
+  } finally { tdBusy = false; renderTdButtons(); }
+}
+
 /* Silently refetch when the tab comes back and the list is older than ten
    minutes — a task added on the desktop should not need a manual refresh. */
 function maybeRefreshToday() {
@@ -1318,6 +1347,7 @@ Config.subscribe(path => {
 Shell.register('do', {
   onShow: () => { renderTabs(); positionGlider(); renderToday(); maybeRefreshToday(); },
   onDayChange: rollDay,
+  home: () => go('home'),        // the DO tab tapped while on DO
 });
 // the date label follows Settings → behaviour → dates without a reload
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
@@ -1332,5 +1362,5 @@ return { go, renderSettings: renderTodoistSettings,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
          renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection,
-         renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks };
+         renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday };
 })();

@@ -585,12 +585,13 @@ const noteMd = $('.ns-log #out-pre').textContent;
 check('the daily note carries a #### media section with the title', /#### media/.test(noteMd) && /\| media_music\s*\| Blonde \(album\) \|/.test(noteMd) && /\| media_count\s*\| 1 \|/.test(noteMd),
   (noteMd.match(/#### media[\s\S]*$/) || ['no section'])[0].slice(0, 200));
 w.LOG.go('evening');
-const mdChip = [...d.querySelectorAll('.ns-log #media-g .blk-b')].find(b => b.dataset.name === 'Blonde');
-check("the evening form shows it selected, in the label's colour, with its labels as a caption", !!mdChip && mdChip.classList.contains('on') && /299438/.test(mdChip.getAttribute('style')) &&
-  /music · album/.test(mdChip.textContent) && !$('.ns-log #media-wrap').classList.contains('hidden'), mdChip ? mdChip.outerHTML.slice(0, 160) : 'no chip');
+check('the evening form shows no media row — the note and the history carry it', !$('.ns-log #media-wrap') && !$('.ns-log #media-g'));
+w.localStorage.setItem('log_' + offset(-1), JSON.stringify(Object.assign(w.LOG.buildNote ? JSON.parse(w.localStorage.getItem('log_' + today)) : {}, { date: offset(-1), e: Object.assign(JSON.parse(w.localStorage.getItem('log_' + today)).e, { media: [{ name: 'Heat', kind: 'movie', sub: '' }] }) })));
+w.LOG.go('history');
+check("history lists a past day's media as a pill", /media: Heat/.test($('.ns-log #hist-list').textContent));
+w.localStorage.removeItem('log_' + offset(-1));
 w.DO.toggleMediaTask('m2'); await tick(50);
-check('unticking reopens it and takes it out of the log', mdOpen.get('m2').open === true && !mdRec().length &&
-  ![...d.querySelectorAll('.ns-log #media-g .blk-b')].find(b => b.dataset.name === 'Blonde')?.classList.contains('on'));
+check('unticking reopens it and takes it out of the log', mdOpen.get('m2').open === true && !mdRec().length);
 w.DO.toggleMediaTask('m1'); await tick(50);
 w.LOG.go('reports'); w.LOG.loadReportLocal('weekly');
 const wr2 = $('.ns-log #rep-pre').textContent;
@@ -638,6 +639,60 @@ check('look sits under appearance', $('.ns-set #set-cat-title').textContent === 
   [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'look,layout,behave');
 click($('.ns-set .hd-back'));
 check('back returns to the home menu', $('.ns-set #s-home').classList.contains('on') && !$('.ns-set #s-cat').classList.contains('on'));
+
+// ── 23. 2.9 — the left arrow as back, tap-the-tab-for-home, the settings icon, → tomorrow ─
+const prev = $('#nav-prev');
+w.Shell.go('do'); await tick();
+check('on an app home the left arrow is the previous-tab arrow', !prev.classList.contains('is-back') && prev.disabled);
+w.DO.openRoutine('routinep1'); await tick();
+check('inside a sub-screen it becomes that screen\'s back button', prev.classList.contains('is-back') && !prev.disabled && prev.getAttribute('aria-label') === 'Back');
+click(prev); await tick();
+check('… and pressing it goes back', $('.ns-do #s-home').classList.contains('on') && !prev.classList.contains('is-back'));
+w.DO.openRoutine('routinep1'); await tick();
+click($('.tab-b[data-app="do"]')); await tick();
+check('tapping the tab you are on goes to its home', $('.ns-do #s-home').classList.contains('on') && !prev.classList.contains('is-back'));
+w.Shell.go('settings'); w.SET.panel('do'); await tick();
+check('a settings category counts as a sub-screen too', prev.classList.contains('is-back'));
+click($('.tab-b[data-app="settings"]')); await tick();
+check('tapping the settings tab there returns to the menu', $('.ns-set #s-home').classList.contains('on') && !prev.classList.contains('is-back'));
+w.Prefs.set('apps', ['do', 'log']);
+click($('.ns-set [data-open="tend"]')); await tick();
+const setBtn = $('.tab-b[data-app="settings"]');
+check("on an app opened from settings the settings button wears that app's icon", setBtn.querySelector('use').getAttribute('href') === '#tab-tend' &&
+  setBtn.querySelector('.tb-l').textContent === 'tend' && setBtn.classList.contains('on'), setBtn.querySelector('use').getAttribute('href'));
+click(setBtn); await tick(400);
+check('… and tapping it goes to the settings home, retiring the slide', $('.ns-set #s-home').classList.contains('on') && w.Shell.TABS.join(',') === 'do,log,settings' &&
+  setBtn.querySelector('use').getAttribute('href') === '#tab-set' && setBtn.querySelector('.tb-l').textContent === 'set', w.Shell.TABS.join(','));
+w.Prefs.reset('apps');
+
+// → tomorrow: the open fetched tasks are rescheduled and drop off the list
+const tmOpen = new Map([
+  ['d1', { id: 'd1', content: 'file taxes', due: today }],
+  ['d2', { id: 'd2', content: 'call bank',  due: today }],
+]);
+const tmMoved = {};
+fetchScript = async (url, opts) => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const m = url.match(/\/tasks\/(\w+)$/);
+  if (m && opts && opts.method === 'POST') { tmMoved[m[1]] = JSON.parse(opts.body).due_string; tmOpen.get(m[1]).due = offset(1); return ok({ id: m[1] }); }
+  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life', color: 'blue' }]);
+  if (url.includes('/tasks?')) {
+    const u = new URL(url);
+    if (u.searchParams.get('project_id') === 'p1') return ok([...tmOpen.values()].map(t => ({ id: t.id, content: t.content, labels: [], priority: 1, due: { date: t.due } })));
+    return ok([]);
+  }
+  return ok([]);
+};
+w.Shell.go('do');
+const tdState = () => JSON.parse(w.localStorage.getItem('do_todoist_v1'));
+if (!tdState().todayOn) w.DO.toggleToday();
+$('.ns-do #td-today-filter').value = '04 | life'; w.DO.saveTodaySettings(); await tick(150);
+const openRows = () => [...d.querySelectorAll('.ns-do #td-today .tt-row:not(.done)')].filter(r => !r.querySelector('.tt-src'));
+check('two tasks due today are listed', openRows().length === 2, openRows().length + ' rows');
+check('the "→ tomorrow" button shows from 20:00 only', !!$('.ns-do .tt-defer') === (new w.Date().getHours() >= 20));
+await w.DO.deferToday();
+check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMoved.d1 === 'tomorrow' && tmMoved.d2 === 'tomorrow', JSON.stringify(tmMoved));
+check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
