@@ -329,13 +329,23 @@ window.Shell = (function () {
      changes shape underneath) the classes flip under #track.still, which is
      dropped again once the change has been flushed. */
   let curView = null, leaveTimer = null;
-  function show(animate) {
+  /* `dir` is +1 moving right through the tabs and -1 moving left; the titles
+     slide with it (the incoming one in from that side, the outgoing one out
+     the other), which is the only part of the change that carries a
+     direction — the pages themselves just cross-fade. */
+  function show(animate, dir) {
     const next = viewOf(TABS[index]);
     if (!next) return;
     if (!animate) track.classList.add('still');
     document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving'));
     const changed = next !== curView;
-    if (curView && changed) { curView.classList.remove('cur'); if (animate) curView.classList.add('leaving'); }
+    const d = dir === -1 ? -1 : 1;
+    if (curView && changed) {
+      curView.style.setProperty('--dir', d);
+      curView.classList.remove('cur');
+      if (animate) curView.classList.add('leaving');
+    }
+    next.style.setProperty('--dir', d);
     next.classList.add('cur');
     if (animate && changed) { next.classList.remove('morph'); void next.offsetWidth; next.classList.add('morph'); }
     curView = next;
@@ -409,8 +419,9 @@ window.Shell = (function () {
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
     checkDay();
+    const dir = i < index ? -1 : 1;      // which way the titles slide
     index = i;
-    show(true);
+    show(true, dir);
     paintNav();
     // leaving an app opened from settings: take its slide out again once the move has played
     if (transient && TABS[i] !== transient) setTimeout(retire, 340);

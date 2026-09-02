@@ -61,6 +61,18 @@ function applySectionOrder() {
   // the media grid is not one of the ordered sections: it belongs to its own tab and always sits last
   const media = $id('td-media'); if (media) home.appendChild(media);
 }
+
+/* Which section is actually first on screen — the sections can be hidden, so
+   CSS's :first-child is not it. That one carries no top margin: the gap under
+   the title band is the shell's, and it is the same on every app. Called last,
+   once the renders below have settled who is hidden. */
+function markFirstSection() {
+  const home = $id('s-home'); if (!home) return;
+  const kids = Array.from(home.children);
+  kids.forEach(el => el.classList.remove('first-vis'));
+  const first = kids.find(el => !el.classList.contains('hidden'));
+  if (first) first.classList.add('first-vis');
+}
 const onFirstTab = () => currentTab === (TABS[0] || {}).id;
 const onMediaTab = () => currentTab === MEDIA_TAB;
 function moveSection(key, dir) {
@@ -255,6 +267,7 @@ function renderHome() {
   renderToday();
   renderBlocks();
   renderMedia();
+  markFirstSection();
 }
 
 function setTab(tab) {

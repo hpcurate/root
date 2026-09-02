@@ -86,19 +86,22 @@ body{
 #track.still .view{transition:none}
 #track.still .h-logo,#track.still .hd-title{animation:none!important}
 
-/* The title does not cross-fade with the page: it morphs. The incoming
+/* The title does not cross-fade with the page: it slides. The incoming
    slide's wordmark — or the header of whichever sub-screen that slide was
-   left on — settles in from a blur and a slight scale while the outgoing
-   one blurs away, so one title reads as becoming the other. It only reads as
-   a morph because every band is the same shape and the wordmark sits in the
+   left on — comes in from the side you are moving towards while the outgoing
+   one leaves the other way, so the two read as one title being pushed along.
+   --dir is +1 or -1, set by Shell from the direction of the move. It only
+   works because every band is the same shape and the wordmark sits in the
    same place on all eight slides — see the band rules below. */
 .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title{
-  animation:title-in var(--t-title-in) cubic-bezier(.2,.8,.2,1) both}
+  animation:title-in var(--t-title-in) cubic-bezier(.22,.9,.24,1) both}
 .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{
-  animation:title-out var(--t-title-out) ease both}
-@keyframes title-in{from{opacity:0;transform:translateY(5px) scale(.92);filter:blur(5px)}
-                    to{opacity:1;transform:none;filter:none}}
-@keyframes title-out{to{opacity:0;transform:translateY(-4px) scale(1.06);filter:blur(4px)}}
+  animation:title-out var(--t-title-out) cubic-bezier(.4,0,.7,.2) both}
+@keyframes title-in{from{opacity:0;transform:translateX(calc(var(--dir,1) * 34px))}
+                    to{opacity:1;transform:none}}
+@keyframes title-out{to{opacity:0;transform:translateX(calc(var(--dir,1) * -34px))}}
+/* nothing of the band may spill sideways while a title is mid-slide */
+.view > .h-top{overflow:hidden}
 
 /* ── One band shape for every app ─────────────────────────────────────────────
    The eight bands used to be eight different heights — their own padding,
@@ -133,8 +136,14 @@ body{
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none}
 .view-body::-webkit-scrollbar{display:none}
-/* the home screens carried the status-bar inset themselves; the band does now */
-.view-body #s-home{padding-top:0}
+/* The gap between the band and the first thing under it, the same on every
+   app. It used to be whatever bottom margin that app had put on its own
+   wordmark — 6px on TRACK, 28px on DO — so the content jumped as you moved
+   across the tabs. The apps' own first-element top margins are cancelled so
+   they cannot add to it; DO marks its first *visible* section itself, since
+   its sections can be switched off (do.css). */
+.view-body #s-home{padding-top:18px}
+.view-body #s-home > :first-child{margin-top:0}
 
 /* ── Floating chrome ──────────────────────────────────────────────────────────
    The bar no longer owns a strip of the screen; it hovers over the content and

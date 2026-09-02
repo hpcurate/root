@@ -109,6 +109,7 @@ function renderProjects() {
   grid.classList.toggle('open', !!open);
   if (!open) {
     grid.innerHTML = TASK_TYPES.map(tt => tile(tt, false)).join('');
+    syncSend();
     return;
   }
 
@@ -132,6 +133,7 @@ function renderProjects() {
   grid.innerHTML = tile(open, true) + body;
   fitTitle(grid.querySelector('.proj-tile.open .proj-name'));
   if (openSub !== null) { renderFormChips(); paintForm(); }
+  syncSend();
 }
 
 /* The task form, drawn where the section rows were. The ids are the ones the
@@ -259,21 +261,14 @@ function pickSub(key, i) {
 // ── Queue ─────────────────────────────────────────────────────────────────────
 function renderQueue() {
   const list = $id('queue-list');
-  const sendBtn = $id('btn-send');
   const n = queue.length;
 
   // an empty queue says so on its own title row — there is no placeholder block
   $id('queue-count').textContent = n ? `${n} task${n!==1?'s':''}` : 'empty';
   $id('queue-clear').classList.toggle('hidden', !n);
+  syncSend();
 
-  if (!n) {
-    list.innerHTML = '';
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'send to todoist';
-    return;
-  }
-  sendBtn.disabled = false;
-  sendBtn.textContent = `send ${n} task${n!==1?'s':''} to todoist`;
+  if (!n) { list.innerHTML = ''; return; }
 
   list.innerHTML = queue.map((t,i) => {
     const color = resolveColor(t.typeKey);
@@ -293,6 +288,17 @@ function renderQueue() {
       <button class="q-del" onclick="PLAN.removeFromQueue(${i})">✕</button>
     </div>`;
   }).join('');
+}
+
+/* The send button is not a disabled button waiting for work — it is simply
+   not there until there is something to send, and it steps out of the way
+   while the task form is open rather than sitting under it. */
+function syncSend() {
+  const wrap = $id('send-wrap'); if (!wrap) return;
+  const n = queue.length;
+  wrap.classList.toggle('hidden', !n || openSub !== null);
+  const b = $id('btn-send');
+  if (b && n) b.textContent = `send ${n} task${n !== 1 ? 's' : ''} to todoist`;
 }
 
 function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
@@ -364,12 +370,14 @@ function renderFormChips() {
   const prios  = Config.get('plan.priorities');
   const none   = field => `<button class="opt-b none-opt on" onclick="PLAN.optPick(this,'${field}',null)">none</button>`;
 
-  // a block chip wears its Todoist label's colour, like DO's block tiles
+  /* A block chip wears its Todoist label's colour, like DO's block tiles.
+     There is no "none" chip on this row: no block is the starting state, and
+     tapping the picked one again clears it (see optPick). */
   const ob = $id('opts-block');
   if (ob) ob.innerHTML = blocks.map(b => {
     const c = labelHue(b);
     return `<button class="opt-b${c ? ' lbl' : ''}"${c ? ` style="--c:${esc(c)}"` : ''} onclick="PLAN.optPick(this,'block','${attr(b)}')">${esc(b)}</button>`;
-  }).join('') + none('block');
+  }).join('');
 
   const ot = $id('opts-time');
   if (ot) ot.innerHTML = times.map(t =>
@@ -391,11 +399,15 @@ function defaultPrioIndex() {
   return i >= 0 ? i : prios.length - 1;
 }
 
+/* Tapping the chip that is already on clears the field — which is how the
+   block row gets back to "none" now that it has no none chip of its own. */
 function optPick(btn, field, val) {
   const row = btn.parentElement;
+  const off = val !== null && btn.classList.contains('on');
   row.querySelectorAll('.opt-b').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  formState[field] = val;
+  if (!off) btn.classList.add('on');
+  else { const noneBtn = row.querySelector('.none-opt'); if (noneBtn) noneBtn.classList.add('on'); }
+  formState[field] = off ? null : val;
 }
 
 function prioPick(btn, val) {
@@ -668,7 +680,7 @@ Shell.register('plan', {
   onShow: () => { if (window.Todoist) Todoist.labels().then(renderProjects); },
 });
 
-return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput,
+return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

@@ -748,6 +748,7 @@ check("PLAN's project tiles take their label's Todoist colour", !!curateTile && 
 check('no glider: the active tab is its own filled pill again', !$('#nav .nav-glider') && $('.tab-b.on')?.dataset.app === 'plan');
 // the morph only reads as one title becoming another if every band is the same
 // shape — so no app sheet may set the band's box or its own wordmark size
+const shellCss = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 const appSheets = ['do','log','plan','store','tend','track','learn','settings']
   .map(a => [a, fs.readFileSync(path.join(ROOT, 'css/' + a + '.css'), 'utf8')]);
 const strays = appSheets.filter(([, css]) => /\.h-top\s*\{/.test(css) || /\.h-logo\{font:/.test(css)).map(([a]) => a);
@@ -759,6 +760,11 @@ check('a tab change cross-fades: the incoming slide is .cur and morphs its title
   $('#view-log').classList.contains('cur') && $('#view-log').classList.contains('morph') &&
   !$('#view-plan').classList.contains('cur') && $('#view-plan').classList.contains('leaving'),
   $('#view-log').className + ' | ' + $('#view-plan').className);
+check('the titles slide the way you moved: back through the tabs is -1', $('#view-log').style.getPropertyValue('--dir') === '-1',
+  'log ' + $('#view-log').style.getPropertyValue('--dir') + ' plan ' + $('#view-plan').style.getPropertyValue('--dir'));
+w.Shell.go('store');
+check('… and forwards is +1', $('#view-store').style.getPropertyValue('--dir') === '1');
+w.Shell.go('log');
 check('the track itself never moves any more', !$('#track').style.transform);
 await tick(1000);                                  // the fade and morph are ~2× what 2.11 shipped with
 check('… and the slide that left is plain again once the fade is over', !$('#view-plan').classList.contains('leaving'));
@@ -828,6 +834,45 @@ check('adding to the queue files it under that section and folds the grid all th
   qAfter[qAfter.length - 1].subType === 'production' && !$('.ns-plan .proj-form') && !$('.ns-plan .proj-tile.open'),
   JSON.stringify(qAfter[qAfter.length - 1] || {}).slice(0, 120));
 w.PLAN.clearQueue();
+
+// the send button, and the block row with no "none" chip
+check('the send button is absent while the queue is empty, not a faded one',
+  $('.ns-plan #send-wrap').classList.contains('hidden') && !$('.ns-plan #btn-send').disabled);
+w.PLAN.pickSub('curate', 0);
+$('.ns-plan #task-name').value = 'a task';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+w.PLAN.addToQueue();
+check('… and appears, named for the count, once something is queued',
+  !$('.ns-plan #send-wrap').classList.contains('hidden') && /send 1 task to todoist/.test($('.ns-plan #btn-send').textContent));
+w.PLAN.pickSub('curate', 0);
+check('… and steps out of the way while the task form is open', $('.ns-plan #send-wrap').classList.contains('hidden'));
+const blockChips = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')];
+check('the block row has no "none" chip', blockChips.length === w.Config.get('plan.blocks').length &&
+  !blockChips.some(b => b.classList.contains('none-opt')), blockChips.map(b => b.textContent).join(','));
+w.PLAN.optPick(blockChips[0], 'block', 'b1');
+check('picking a block selects it', !!$('.ns-plan #opts-block .opt-b.on'));
+w.PLAN.optPick($('.ns-plan #opts-block .opt-b.on'), 'block', 'b1');
+check('… and tapping it again clears the row, since there is no none chip', !$('.ns-plan #opts-block .opt-b.on'));
+w.PLAN.closeForm(); w.PLAN.clearQueue();
+
+// the gap under the title band: the shell's, and the same on every app
+check('the gap under the band is set once, in shell.css', /\.view-body #s-home\{padding-top:18px\}/.test(shellCss) &&
+  /\.view-body #s-home > :first-child\{margin-top:0\}/.test(shellCss));
+w.Shell.go('do');
+const firstOf = () => {
+  const kids = [...$('.ns-do #s-home').children];
+  return { marked: kids.filter(el => el.classList.contains('first-vis')),
+           shown: kids.find(el => !el.classList.contains('hidden')) };
+};
+w.DO.setTab('daily');
+let fv = firstOf();
+check('DO marks the first section actually on screen, so its gap matches the rest',
+  fv.marked.length === 1 && fv.marked[0] === fv.shown, (fv.marked[0] || {}).id + ' vs ' + (fv.shown || {}).id);
+w.DO.setTab('other');
+fv = firstOf();
+check('… and re-marks it when a tab hides the sections above it',
+  fv.marked.length === 1 && fv.marked[0] === fv.shown, (fv.marked[0] || {}).id + ' vs ' + (fv.shown || {}).id);
+w.DO.setTab('daily');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

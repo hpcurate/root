@@ -161,6 +161,9 @@
    routine grid used to sit flush under the last row of tiles */
 .ns-do .tt{margin:calc(22px * var(--dens)) calc(18px * var(--dens)) calc(26px * var(--dens))}
 .ns-do .tt.hidden + .tt{margin-top:calc(22px * var(--dens))}
+/* the first section on screen, whichever it is: the gap above it belongs to
+   the title band, and is the shell's — see .view-body #s-home in shell.css */
+.ns-do .first-vis,.ns-do .tt.first-vis{margin-top:0}
 .ns-do .tt-head{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   padding-bottom:calc(8px * var(--dens));margin-bottom:10px;border-bottom:var(--bw) solid var(--bd)}

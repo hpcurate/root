@@ -190,7 +190,6 @@
           padding:calc(16px * var(--dens));cursor:pointer;transition:opacity .15s;
           box-shadow:var(--shadow-lift)}
 .ns-plan .btn-send:active{opacity:.82}
-.ns-plan .btn-send:disabled{opacity:.3;cursor:not-allowed}
 
 /* ── Settings (rendered inside the settings tab) ── */
 .ns-plan .settings-status{font:400 10px/1.5 var(--mono);letter-spacing:.06em;padding:calc(10px * var(--dens)) calc(13px * var(--dens));border-radius:var(--r1);margin-bottom:14px}

@@ -582,8 +582,10 @@
       <div id="queue-list"></div>
     </div>
 
-    <div class="send-wrap">
-      <button class="btn-send" id="btn-send" onclick="PLAN.go('sending')" disabled>send to todoist</button>
+    <!-- shown only when the queue has something in it, and never over the
+         open task form — PLAN.syncSend() -->
+    <div class="send-wrap hidden" id="send-wrap">
+      <button class="btn-send" id="btn-send" onclick="PLAN.go('sending')">send to todoist</button>
     </div>
   </div>
 

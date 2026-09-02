@@ -516,6 +516,11 @@ both say so, and a new device needs the `.apkg` imported again.
   height.** DO's tab strip is 32px by declaration, not by padding: at a high
   density a padded chip grew past the wordmark and made DO's band the odd one
   out, which is exactly what the shared rule exists to prevent.
+- **The gap under the band is the shell's, and an app must not add to it.**
+  `.view-body #s-home` sets it and zeroes the first child's top margin. A
+  section that can be hidden breaks `:first-child` — DO's
+  `markFirstSection()` marks the first one on screen instead, and its rule
+  needs the specificity to beat `.tt.hidden + .tt`.
 - **`position:fixed` inside `#track` is still forbidden**, for a new reason:
   the track no longer carries a transform, but the title morph animates one
   on `.h-logo` / `.hd-title` and PLAN's FLIP animates them on its tiles, and
@@ -533,6 +538,9 @@ both say so, and a new device needs the `.apkg` imported again.
   `renderSubtasks` and `addToQueue` all guard. `paintForm()` restores the
   controls from `formState` on every draw, which is what makes it safe to
   re-render the grid while the form is open.
+- **`optPick()` toggles.** Tapping the chip that is already on clears the
+  field. The block row has no "none" chip because of it; the time row keeps
+  one and works either way.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -578,11 +586,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 186 checks covering boot, every theme and panel, the
+through DOM events: 197 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects and form of 2.5–2.12. Run it before trusting any change:
+in-place projects and form of 2.5–2.13. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -598,6 +606,43 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.13 — 2026-09-02 — the title slides, the gap is the shell's, send when there is something to send
+
+**The title morph is a slide.** The blur-and-scale settle is gone. The
+incoming wordmark — or the sub-screen header the slide was left on — comes in
+from the side you are moving towards while the outgoing one leaves the other
+way, so the two read as one title being pushed along. `Shell.show()` takes
+the direction from the move and writes `--dir` (+1 forward, −1 back) on both
+slides; the keyframes are a translate and a fade, nothing else. The band is
+`overflow:hidden` so nothing spills sideways mid-slide.
+
+**The gap under the band belongs to the shell.** It used to be whatever
+bottom margin each app had put on its own wordmark — 6px on TRACK, 28px on
+DO — and 2.12 deleted those, which left the content flush. It is one rule
+now (`.view-body #s-home`), with the first element's own top margin
+cancelled so it cannot add to it. DO is the one app whose first section can
+be switched off, so `markFirstSection()` marks the first one *actually on
+screen* — CSS's `:first-child` would land on a `display:none` block — and
+that one drops its top margin.
+
+**The send button is absent, not faded.** It appears only once the queue has
+something in it, names the count, and steps out of the way while the task
+form is open rather than sitting under it (`PLAN.syncSend()`). The disabled
+state and its style are gone.
+
+**No "none" chip on the block row.** No block is the starting state, and
+tapping the chip that is already on clears it — `optPick()` toggles now, so
+the time row (which keeps its none chip) gained the same gesture for free.
+
+**Verified** — `test/harness.mjs`, 197 checks, all green: `--dir` −1 moving
+back through the tabs and +1 forward; the gap set once in `shell.css` and
+DO marking the first visible section on both its tabs; the send button hidden
+on an empty queue with no disabled attribute, appearing as "send 1 task to
+todoist", and hidden again while the form is open; the block row with no
+none chip, a pick selecting and a second tap clearing it. **Not verified**:
+nothing in a browser. The slide's distance (34px) and the 18px gap are both
+eyeball numbers that deserve one look on the phone.
 
 ### 2.12 — 2026-09-02 — one band shape, slower motion, PLAN's form in the grid
 
