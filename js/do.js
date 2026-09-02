@@ -26,7 +26,9 @@ const toast = msg => Shell.toast(msg);
    whenever an edit lands. They stay module-level bindings rather than a call at
    every use site, because the rest of the file reads them dozens of times per
    render. */
-let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS;
+let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS, SECTIONS;
+const SECTION_KEYS = ['blocks', 'routines', 'today'];
+const SECTION_NAMES = { blocks:'Block tasks', routines:'Routine cards', today:'Today list' };
 
 function readConfig() {
   ROUTINES          = Config.get('do.routines');
@@ -35,8 +37,37 @@ function readConfig() {
   // any category added in the editor but missing from the order still shows
   Object.keys(TRAVEL_CATEGORIES).forEach(c => { if (!CATEGORY_ORDER.includes(c)) CATEGORY_ORDER.push(c); });
   TABS = Config.get('do.tabs');
+  const want = (Config.get('do.sections') || []).filter(k => SECTION_KEYS.includes(k));
+  SECTIONS = want.concat(SECTION_KEYS.filter(k => !want.includes(k)));   // anything missing goes last
 }
 readConfig();
+
+/* ── Home sections ────────────────────────────────────────────────────────────
+   Three siblings under the header; the preferred order is applied by moving
+   the real elements, so nothing else has to know about it. The today list and
+   the block tasks show only on the first tab — "other" is for the odd
+   routines, not for today. */
+const SECTION_EL = { blocks:'td-blocks', routines:'home-grid', today:'td-today' };
+function applySectionOrder() {
+  const home = $id('s-home'); if (!home) return;
+  SECTIONS.forEach(k => { const el = $id(SECTION_EL[k]); if (el) home.appendChild(el); });
+}
+const onFirstTab = () => currentTab === (TABS[0] || {}).id;
+function moveSection(key, dir) {
+  const i = SECTIONS.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= SECTIONS.length) return;
+  const next = SECTIONS.slice(); [next[i], next[j]] = [next[j], next[i]];
+  Config.set('do.sections', next);          // the subscriber re-reads and re-renders
+}
+function renderSectionOrder() {
+  const box = $id('do-sections'); if (!box) return;
+  box.innerHTML = SECTIONS.map((k, i) => `<div class="setting-row">
+    <span class="setting-lbl">${SECTION_NAMES[k]}</span>
+    <span class="app-acts">
+      <button class="setting-btn" onclick="DO.moveSection('${k}',-1)"${i === 0 ? ' disabled' : ''} aria-label="move up">↑</button>
+      <button class="setting-btn" onclick="DO.moveSection('${k}',1)"${i === SECTIONS.length - 1 ? ' disabled' : ''} aria-label="move down">↓</button>
+    </span></div>`).join('');
+}
 
 const TRAVEL_KEY = 'travel_state_v2';
 
@@ -207,6 +238,7 @@ function renderHome() {
   }
 
   $id('home-grid').innerHTML = routineCards + travelCard;
+  applySectionOrder();
   renderToday();
   renderBlocks();
 }
@@ -859,6 +891,7 @@ function renderTodoistSettings() {
   const on = $id('td-today-on'); if (on) on.textContent = td.todayOn ? 'on' : 'off';
   const ov = $id('td-today-overdue'); if (ov) ov.textContent = td.todayOverdue ? 'on' : 'off';
   const bo = $id('td-blocks-on'); if (bo) bo.textContent = td.blocksOn ? 'on' : 'off';
+  renderSectionOrder();
   const f = $id('td-today-filter');
   if (f && document.activeElement !== f && f.value === '') f.value = td.todayFilter || '';
   ttStatus();
@@ -924,11 +957,16 @@ async function fetchBlocks(today) {
     return (l && TD_COLORS[l.color]) || '#A78BFA';
   };
   const prev = tdBlocks(), got = [];
+  const blockSet = new Set(blockLabels().map(tdName));
   for (const name of blockLabels()) {
     const tasks = await tdGetAll('/tasks', { label: name });
     tasks.forEach(t => {
       if (tdDueDate(t) !== today) return;
-      got.push({ id:String(t.id), content:String(t.content || ''), block:name, color:colorOf(name),
+      // the colour is the task's OTHER label — @curate, @home — the block label
+      // only says which slot; a task with no other label takes the block's own
+      const labels = Array.isArray(t.labels) ? t.labels.map(String) : [];
+      const tag = labels.find(l => !blockSet.has(tdName(l))) || '';
+      got.push({ id:String(t.id), content:String(t.content || ''), block:name, tag, color:colorOf(tag || name),
                  priority:+t.priority || 1, done:false });
     });
   }
@@ -941,13 +979,13 @@ async function fetchBlocks(today) {
 function renderBlocks() {
   const box = $id('td-blocks'); if (!box) return;
   const b = tdBlocks();
-  const show = td.blocksOn && b.tasks.length > 0;
+  const show = td.blocksOn && b.tasks.length > 0 && onFirstTab();
   box.classList.toggle('hidden', !show);
   if (!show) return;
   const open = b.tasks.filter(x => !x.done).length;
   box.innerHTML = `<div class="tt-head"><span>blocks<em>${open} open</em></span></div>
     <div class="bk-grid">${b.tasks.map(x => `<button class="bk${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleBlockTask('${esc(x.id)}')" aria-pressed="${x.done}">
-      <span class="bk-tag">@${esc(x.block)}</span><span class="bk-name">${esc(x.content)}</span>
+      <span class="bk-tag">@${esc(x.block)}${x.tag ? ` · ${esc(x.tag)}` : ''}</span><span class="bk-name">${esc(x.content)}</span>
       <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </button>`).join('')}</div>`;
 }
@@ -1008,20 +1046,23 @@ async function fetchTodayTasks(today) {
       const proj = projects.find(p => tdName(p.name) === tdName(r.project));
       if (!proj) { missing.push(r.project); continue; }
       const params = { project_id: proj.id };
-      let secName = '';
+      // the project's sections, always: every row names its section, in the project's colour
+      const secs = await tdGetAll('/sections', { project_id: proj.id });
+      const secById = Object.fromEntries(secs.map(s => [String(s.id), s.name]));
       if (r.section) {
-        const secs = await tdGetAll('/sections', { project_id: proj.id });
         const sec = secs.find(s => tdName(s.name) === tdName(r.section));
         if (!sec) { missing.push(r.project + ' > ' + r.section); continue; }
-        params.section_id = sec.id; secName = sec.name;
+        params.section_id = sec.id;
       }
+      const projectColor = TD_COLORS[proj.color] || '';
       const tasks = await tdGetAll('/tasks', params);
       tasks.forEach(t => {
         const due = tdDueDate(t);
         if (!due || due > today) return;
         if (due < today && !td.todayOverdue) return;
+        const section = (params.section_id && secById[String(params.section_id)]) || secById[String(t.section_id)] || '';
         got.push({ id:String(t.id), content:String(t.content || ''), labels:Array.isArray(t.labels) ? t.labels.map(String) : [],
-                   priority:+t.priority || 1, due, project:proj.name, section:secName, done:false });
+                   priority:+t.priority || 1, due, project:proj.name, projectColor, section, done:false });
       });
     }
     const prev = ttToday();
@@ -1060,7 +1101,7 @@ function renderToday() {
   const total = open + (td.blocksOn ? tdBlocks().tasks.filter(x => !x.done).length : 0);
   if (window.Shell && Shell.badge) Shell.badge('do', total);
   const cnt = $id('today-count'); if (cnt) cnt.textContent = total ? `· ${total} to do` : '';
-  const show = td.todayOn || rowsData.length > 0;
+  const show = (td.todayOn || rowsData.length > 0) && onFirstTab();
   box.classList.toggle('hidden', !show);
   if (!show) return;
   const today = tdLocalDate();
@@ -1073,7 +1114,7 @@ function renderToday() {
       <span class="tt-body"><span class="tt-name">${esc(x.content)}</span>
         <span class="tt-meta">${pri ? `<span class="tt-pri ${pri}">${pri}</span>` : ''}${
           x.due < today ? `<span class="tt-late">${esc(x.due)}</span>` : ''}${
-          x.section ? `<span class="tt-sec">${esc(x.section)}</span>` : ''}${
+          x.section ? `<span class="tt-sec"${x.projectColor ? ` style="color:${esc(x.projectColor)};border-color:${esc(x.projectColor)}"` : ''}>${esc(x.section)}</span>` : ''}${
           x.src === 'tend' ? '<span class="tt-src">tend</span>' : ''}</span>
       </span></button>`;
   }).join('');
@@ -1147,6 +1188,7 @@ Config.subscribe(path => {
   Object.keys(ROUTINES).forEach(k => { if (!state[k]) state[k] = {}; });
   renderTabs();
   renderHome();
+  renderSectionOrder();
 });
 
 Shell.register('do', {
@@ -1165,5 +1207,5 @@ return { go, renderSettings: renderTodoistSettings,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
-         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, blockTasks };
+         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, blockTasks, moveSection };
 })();

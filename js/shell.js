@@ -315,6 +315,7 @@ window.Shell = (function () {
   function badge(name, n) {
     const b = btnOf(name); if (!b) return;
     let el = b.querySelector('.tb-badge');
+    b.classList.toggle('has-badge', !!n);     // on the active tab the count replaces the icon
     if (!n) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('span'); el.className = 'tb-badge'; b.appendChild(el); }
     el.textContent = n > 99 ? '99+' : String(n);

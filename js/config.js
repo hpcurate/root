@@ -66,6 +66,9 @@ const DEFAULTS = {
       festival:    ['tent','sardines','party tent','chairs','table','matress','pillows','duvet','bedsheet','cart','cart screws','key','tarp','elastic cables','camelback','water pouch','boots','electric pump','wet wipes','toilet paper','trash bags','lighter','duct tape','rubber mallet'],
     },
     categoryOrder: ['clothes','toiletries','meds','electronics','kamo','essentials','rave','festival'],
+    /* The order of the three sections on DO's first tab: the block tasks from
+       Todoist, the routine cards, the today list. Settings → do moves them. */
+    sections: ['blocks', 'routines', 'today'],
   },
 
   /* ── LOG ────────────────────────────────────────────────────────────────── */

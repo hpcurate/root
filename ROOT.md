@@ -480,7 +480,7 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 102 checks covering boot, every theme and panel, the
+through DOM events: 108 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3 and the Todoist round-trips of 2.4. Run it before trusting any change:
 
@@ -498,6 +498,36 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.6 — 2026-09-02 — DO's home, arranged
+
+**Sections in any order.** DO's first tab has three sections — the block
+tasks, the routine cards, the today list — and Settings → do → "home layout"
+moves them up and down (`do.sections` in Config; blocks first by default).
+The order is applied by moving the three real elements under the header, so
+nothing else knows about it. **Only the first tab** shows the today list and
+the blocks; "other" is for the odd routines.
+
+**Block colour is the task's other label.** A planned task carries a slot
+label (@b1…) and a subject label (@curate, @home…); the tile takes the
+subject's Todoist colour and shows `@b1 · curate`. A task with no second label
+keeps the slot label's colour.
+
+**Section names on every today row, in the project's colour.** A
+whole-project rule now fetches the project's sections and names each task's
+own; the chip is tinted with the project's Todoist colour.
+
+**The active tab's badge is the icon.** On the selected tab the count takes
+the icon's place in the on-accent colour (`has-badge` on the button, set by
+`Shell.badge`); on idle tabs it is the small pill as before.
+
+**Verified** — `test/harness.mjs`, 108 checks, all green: blocks first in the
+DOM by default and moved by `moveSection`; the today list and blocks hidden on
+"other" and back on "daily"; the active DO tab carrying `has-badge` with the
+count; a whole-project rule naming the section in `#4073ff`; a task labelled
+@b1 + @curate drawn in grape (`#884dff`) with `@b1 · curate`. **Not verified**:
+none of it on the phone; the count-as-icon in particular deserves a look with
+tab names switched on.
 
 ### 2.5 — 2026-09-02 — the phone pass: what the first look on a real phone turned up
 

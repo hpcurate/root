@@ -359,10 +359,10 @@ fetchScript = async (url, opts) => {
   const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
   if (m) { if (m[2] === 'close') tdClosed.add(m[1]); else tdClosed.delete(m[1]); return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
-  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life' }, { id: 'p2', name: 'other' }]);
+  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life', color: 'blue' }, { id: 'p2', name: 'other', color: 'red' }]);
   if (url.includes('/sections')) return ok([{ id: 's1', name: 'admin | tasks', project_id: 'p1' }]);
   if (url.includes('/tasks?')) return ok([
-    { id: 't1', content: 'call the bank', labels: ['calls'], priority: 4, due: { date: today } },
+    { id: 't1', content: 'call the bank', labels: ['calls'], priority: 4, due: { date: today }, section_id: 's1' },
     { id: 't2', content: 'old thing',     labels: [],        priority: 1, due: { date: offset(-2) } },
     { id: 't3', content: 'tomorrow',      labels: [],        priority: 2, due: { date: offset(1) } },
     { id: 't4', content: 'no date',       labels: [],        priority: 2, due: null },
@@ -371,13 +371,16 @@ fetchScript = async (url, opts) => {
 };
 click($('.ns-tend #tt-show'));                 // keep TEND's plants off the block for these checks
 w.Shell.go('do');
-$('.ns-do #td-today-filter').value = '04 | life > admin | tasks';
+$('.ns-do #td-today-filter').value = '04 | life';     // whole project: the section still names itself per row
 w.DO.saveTodaySettings();
 w.DO.toggleToday();
 await tick(120);
 const ttRows = d.querySelectorAll('.ns-do #td-today .tt-row');
 check('today block shows due + overdue, not future or dateless', ttRows.length === 2 && !$('.ns-do #td-today').classList.contains('hidden'), 'rows ' + ttRows.length);
 check('priority is shown, label chips are not', !!$('.ns-do .tt-row .tt-pri.p1') && !$('.ns-do .tt-row .tt-lbl'));
+const secChip = $('.ns-do .tt-row .tt-sec');
+check("the section is named on a whole-project rule, in the project's colour", !!secChip && secChip.textContent === 'admin | tasks' && /4073ff/.test(secChip.getAttribute('style') || ''),
+  secChip ? secChip.outerHTML : 'no section chip');
 check('an overdue task is flagged late', !!$('.ns-do .tt-row.late'));
 tdCalls.length = 0;
 w.DO.toggleTodayTask('t1'); await tick(50);
@@ -487,15 +490,15 @@ check('caps off stamps the attribute the token reads', d.documentElement.dataset
 w.Prefs.set('caps', 'on');
 
 const bkOpen = new Map([
-  ['k1', { id: 'k1', content: 'mix the track', labels: ['b1'], priority: 2, due: today, open: true }],
-  ['k2', { id: 'k2', content: 'later',         labels: ['b2'], priority: 1, due: offset(1), open: true }],
+  ['k1', { id: 'k1', content: 'mix the track', labels: ['b1', 'curate'], priority: 2, due: today, open: true }],
+  ['k2', { id: 'k2', content: 'later',         labels: ['b2'],           priority: 1, due: offset(1), open: true }],
 ]);
 fetchScript = async (url, opts) => {
   const method = (opts && opts.method) || 'GET';
   const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
   const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
   if (m) { const t = bkOpen.get(m[1]); if (t) t.open = m[2] === 'reopen'; return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
-  if (url.includes('/labels')) return ok([{ id: 'l1', name: 'b1', color: 'violet' }, { id: 'l2', name: 'b2', color: 'teal' }]);
+  if (url.includes('/labels')) return ok([{ id: 'l1', name: 'b1', color: 'violet' }, { id: 'l2', name: 'b2', color: 'teal' }, { id: 'l3', name: 'curate', color: 'grape' }]);
   if (url.includes('/tasks?')) {
     const lab = new URL(url).searchParams.get('label');
     return ok([...bkOpen.values()].filter(t => t.open && (!lab || t.labels.includes(lab)))
@@ -506,16 +509,25 @@ fetchScript = async (url, opts) => {
 await w.DO.refreshToday(true);          // before go('do'): its onShow would start one of its own
 w.Shell.go('do');
 const tiles = d.querySelectorAll('.ns-do #td-blocks .bk');
-check('block tasks due today are tiles in the label\'s Todoist colour', tiles.length === 1 &&
-  tiles[0].style.getPropertyValue('--bk-c') === '#af38eb' && /mix the track/.test(tiles[0].textContent) && /@b1/.test(tiles[0].textContent),
-  tiles.length + ' tile(s) ' + (tiles[0] ? tiles[0].getAttribute('style') : ''));
+check("block tasks due today are tiles in the OTHER label's Todoist colour", tiles.length === 1 &&
+  tiles[0].style.getPropertyValue('--bk-c') === '#884dff' && /mix the track/.test(tiles[0].textContent) && /@b1 · curate/.test(tiles[0].textContent),
+  tiles.length + ' tile(s) ' + (tiles[0] ? tiles[0].getAttribute('style') + ' ' + tiles[0].textContent : ''));
+check('blocks come first on the home screen by default', $('.ns-do #s-home').children[1]?.id === 'td-blocks', $('.ns-do #s-home').children[1]?.id);
+w.DO.moveSection('blocks', 1);
+check('a section can be moved down', $('.ns-do #s-home').children[1]?.id === 'home-grid' && w.Config.get('do.sections')[0] === 'routines');
+w.Config.reset('do.sections');
+check('the active tab shows the count in place of the icon', $('.tab-b[data-app="do"]').classList.contains('has-badge') && $('.tab-b[data-app="do"] .tb-badge')?.textContent === '1');
+w.DO.setTab('other');
+check("the other tab hides the today list and the blocks", $('.ns-do #td-blocks').classList.contains('hidden') && $('.ns-do #td-today').classList.contains('hidden'));
+w.DO.setTab('daily');
+check('… and the first tab shows them again', !$('.ns-do #td-blocks').classList.contains('hidden'));
 check('no Todoist label chips on the today rows', !$('.ns-do #td-today .tt-lbl'));
 w.DO.toggleBlockTask('k1'); await tick(50);
 check('ticking a block closes it in Todoist and fills the tile', bkOpen.get('k1').open === false && !!$('.ns-do #td-blocks .bk.done'));
 check("it is recorded as a completed block in today's log", JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track'));
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
 const bkChip = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');
-check('the evening form shows it selected, in the label colour', !!bkChip && bkChip.classList.contains('on') && /af38eb/.test(bkChip.getAttribute('style')),
+check('the evening form shows it selected, in the label colour', !!bkChip && bkChip.classList.contains('on') && /884dff/.test(bkChip.getAttribute('style')),
   bkChip ? bkChip.outerHTML.slice(0, 120) : 'no chip');
 w.DO.toggleBlockTask('k1'); await tick(50);
 const bkChip2 = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');   // re-rendered

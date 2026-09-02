@@ -115,9 +115,11 @@ body{
   min-width:15px;height:15px;padding:0 4px;border-radius:var(--r-pill);
   background:var(--y);color:var(--on-y);font:700 8px/15px var(--mono);text-align:center;
   box-shadow:0 0 0 2px var(--bg)}
-/* on the active tab the pill itself is the accent, so the badge steps onto the
-   ground colour instead of inverting — inverted it read as a hole in the pill */
-.tab-b.on .tb-badge{background:var(--bg);color:var(--tx);box-shadow:0 0 0 2px var(--y)}
+/* on the active tab the count takes the icon's place: the pill is already the
+   accent, so a badge on top of it only ever looked like a hole */
+.tab-b.on.has-badge svg{display:none}
+.tab-b.on .tb-badge{position:static;min-width:0;height:19px;padding:0;background:none;box-shadow:none;
+  color:var(--on-y);font:800 15px/19px var(--head);letter-spacing:-.02em}
 
 /* Seven or more tabs (Prefs sets [data-tabs="many"] on <html> from the app
    list) do not fit the pill at its phone width: it grows to the viewport, the
@@ -218,6 +220,7 @@ body{
   #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
   .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
   .tab-b .tb-badge{position:static;margin-left:auto}
+  .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
   .tab-b .tb-l{font-size:10px}
   #nav-prev{left:calc(var(--rail-w-wide) + 14px)}
   #toast{left:calc(50% + var(--rail-w-wide)/2)}
