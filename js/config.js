@@ -187,6 +187,11 @@ const DEFAULTS = {
       { label:'optional',  p:'p3', value:2 },
     ],
     defaultPriority: 2,
+    /* Which rows the task form shows. The task name is always there; the rest
+       is a preference. The time estimate is off by default — a day planned in
+       blocks has no use for a per-task estimate — but the chips above are kept
+       so switching it back on needs no re-typing. */
+    formFields: { block: true, time: false, priority: true, subtasks: true },
   },
 
   /* ── STORE ──────────────────────────────────────────────────────────────── */

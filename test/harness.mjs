@@ -743,18 +743,24 @@ check('the label colours are cached for every app', w.Todoist.labelColor('curate
 w.Shell.go('plan'); await tick(50);
 const curateTile = [...d.querySelectorAll('.ns-plan .proj-tile')].find(t => /curate/.test(t.textContent));
 check("PLAN's project tiles take their label's Todoist colour", !!curateTile && curateTile.style.getPropertyValue('--proj-color') === '#884dff', curateTile && curateTile.getAttribute('style'));
-const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === 'b1');
-check("… and the block chips theirs", !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
 
 // ── 25. 2.11 — the cross-fade, the title morph, PLAN expanding in place ────
 check('no glider: the active tab is its own filled pill again', !$('#nav .nav-glider') && $('.tab-b.on')?.dataset.app === 'plan');
+// the morph only reads as one title becoming another if every band is the same
+// shape — so no app sheet may set the band's box or its own wordmark size
+const appSheets = ['do','log','plan','store','tend','track','learn','settings']
+  .map(a => [a, fs.readFileSync(path.join(ROOT, 'css/' + a + '.css'), 'utf8')]);
+const strays = appSheets.filter(([, css]) => /\.h-top\s*\{/.test(css) || /\.h-logo\{font:/.test(css)).map(([a]) => a);
+check('one band shape: no app sheet sets its own .h-top box or wordmark size', !strays.length, strays.join(','));
+check('… and one wordmark size for all of them', /--title-base:54px/.test(fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8')) &&
+  !appSheets.some(([, css]) => /--title-base/.test(css)));
 w.Shell.go('log');
 check('a tab change cross-fades: the incoming slide is .cur and morphs its title, the outgoing one leaves',
   $('#view-log').classList.contains('cur') && $('#view-log').classList.contains('morph') &&
   !$('#view-plan').classList.contains('cur') && $('#view-plan').classList.contains('leaving'),
   $('#view-log').className + ' | ' + $('#view-plan').className);
 check('the track itself never moves any more', !$('#track').style.transform);
-await tick(450);
+await tick(1000);                                  // the fade and morph are ~2× what 2.11 shipped with
 check('… and the slide that left is plain again once the fade is over', !$('#view-plan').classList.contains('leaving'));
 w.LOG.go('evening');
 w.Shell.go('do'); w.Shell.go('log');
@@ -787,9 +793,41 @@ check('tapping the open tile closes it again', !$('.ns-plan .proj-tile.open') &&
 w.PLAN.openProj('alive'); w.PLAN.openProj('curate');
 check('opening another project swaps which one is open', /curate/.test($('.ns-plan .proj-tile.open').textContent) && projTiles().length === 1);
 w.PLAN.pickSub('curate', 0);
-check('picking a section opens the form and leaves the grid folded',
-  $('.ns-plan #s-form').classList.contains('on') && !$('.ns-plan .proj-tile.open') && projTiles().length === w.Config.get('plan.types').length);
-w.PLAN.go('home');
+check('picking a section opens the task form in the grid, morphing from that row',
+  !!$('.ns-plan .proj-form') && $('.ns-plan .proj-form').dataset.flip === 's:0' &&
+  !d.querySelectorAll('.ns-plan .proj-sec').length && !!$('.ns-plan #task-name'),
+  $('.ns-plan .proj-form') ? $('.ns-plan .proj-form').dataset.flip : 'no panel');
+check('… and the title tile grows again above it', $('.ns-plan .proj-tile.open.wide') &&
+  /curate/.test($('.ns-plan .proj-tile.open').textContent) && $('.ns-plan .pf-sec')?.textContent === 'mixing');
+check('the form is no longer a screen of its own', !$('.ns-plan #s-form'));
+check('the time row is off by default, block and priority on',
+  !$('.ns-plan #opts-time') && !!$('.ns-plan #opts-block') && !!$('.ns-plan #opts-prio') && !!$('.ns-plan #tg-sub'));
+const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === 'b1');
+check("the form's block chips wear their label's Todoist colour",
+  !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
+w.Config.set('plan.formFields', Object.assign(w.Config.get('plan.formFields'), { time: true, subtasks: false }));
+check('the form rows follow the setting', !!$('.ns-plan #opts-time') && !$('.ns-plan #tg-sub') && !$('.ns-plan #sub-text'));
+w.Config.reset('plan.formFields');
+$('.ns-plan #task-name').value = 'write the brief';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')][0], 'block', 'b1');
+w.Config.set('plan.defaultPriority', 2);      // a Config edit re-renders the panel
+check('a re-render while the form is open keeps what was typed and picked',
+  $('.ns-plan #task-name').value === 'write the brief' && !!$('.ns-plan #opts-block .opt-b.on'));
+w.PLAN.closeForm();
+check('cancel goes back to the section rows, project still open',
+  !$('.ns-plan .proj-form') && d.querySelectorAll('.ns-plan .proj-sec').length === 3 && !!$('.ns-plan .proj-tile.open'));
+w.PLAN.pickSub('curate', 1);
+$('.ns-plan #task-name').value = 'master the mix';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+const qBefore = JSON.parse(w.localStorage.getItem('plan_queue') || '[]').length;
+w.PLAN.addToQueue();
+const qAfter = JSON.parse(w.localStorage.getItem('plan_queue') || '[]');
+check('adding to the queue files it under that section and folds the grid all the way back',
+  qAfter.length === qBefore + 1 && qAfter[qAfter.length - 1].name === 'master the mix' &&
+  qAfter[qAfter.length - 1].subType === 'production' && !$('.ns-plan .proj-form') && !$('.ns-plan .proj-tile.open'),
+  JSON.stringify(qAfter[qAfter.length - 1] || {}).slice(0, 120));
+w.PLAN.clearQueue();
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

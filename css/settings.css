@@ -7,11 +7,9 @@
 
 .ns-set .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-set .scr.on{display:block}
-.ns-set #s-home{padding-top:env(safe-area-inset-top)}
-.ns-set .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0}
-.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);
-  color:var(--mu);margin-bottom:10px}
-.ns-set .h-logo{font:800 44px/1 var(--head);letter-spacing:-.02em;margin-bottom:18px}
+/* the band's box is shell.css's, shared by every app */
+.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-set .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-set .h-logo em{color:var(--y);font-style:normal}
 
 /* ── Home menu ────────────────────────────────────────────────────────────────

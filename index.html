@@ -587,59 +587,9 @@
     </div>
   </div>
 
-  <!-- ── FORM ── -->
-  <div id="s-form" class="scr">
-    <div class="hd">
-      <button class="hd-back" onclick="PLAN.go('home')">← back</button>
-      <span class="hd-title">new task</span>
-    </div>
-    <div class="cnt">
-      <div class="form-ctx" id="form-ctx">
-        <div class="form-ctx-dot" id="form-dot"></div>
-        <div class="form-ctx-txt" id="form-ctx-txt"></div>
-      </div>
-
-      <div class="f"><label class="lbl">Task name</label><input type="text" id="task-name" placeholder="describe the task…"></div>
-
-      <!-- the three chip rows are filled by PLAN.renderFormChips() from Config -->
-      <div class="f">
-        <label class="lbl">Block</label>
-        <div class="opts" id="opts-block"></div>
-      </div>
-
-      <div class="f">
-        <label class="lbl">Time</label>
-        <div class="opts" id="opts-time" style="gap:5px"></div>
-      </div>
-
-      <div class="f">
-        <label class="lbl">Priority</label>
-        <div class="prio-row" id="opts-prio"></div>
-      </div>
-
-      <div class="f">
-        <label class="lbl">Subtasks</label>
-        <div class="tg2" id="tg-sub">
-          <button class="tg2-b" onclick="PLAN.setSub(true)">yes</button>
-          <button class="tg2-b on" onclick="PLAN.setSub(false)">no</button>
-        </div>
-      </div>
-
-      <div id="sub-input" class="hidden">
-        <div class="f" style="margin-top:10px">
-          <label class="lbl">Add subtask</label>
-          <div class="st-row">
-            <input type="text" id="sub-text" placeholder="subtask…">
-            <button class="st-add" onclick="PLAN.addSubtask()">+ add</button>
-          </div>
-          <div class="st-list" id="st-list"></div>
-        </div>
-      </div>
-
-      <button class="btn" onclick="PLAN.addToQueue()">+ add to queue</button>
-      <button class="btn btn-ghost" onclick="PLAN.go('home')" style="margin-top:8px">cancel</button>
-    </div>
-  </div>
+  <!-- The task form is not a screen: PLAN.formPanel() draws it inside the tile
+       grid above, morphing out of the section row you tapped. Its rows are
+       Config (plan.formFields) and its ids are unchanged. -->
 
   <!-- ── SENDING ── -->
   <div id="s-sending" class="scr">

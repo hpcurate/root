@@ -342,7 +342,7 @@ window.Shell = (function () {
     if (!animate) { void track.offsetWidth; track.classList.remove('still'); }
     clearTimeout(leaveTimer);
     leaveTimer = setTimeout(() =>
-      document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving')), 420);
+      document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving')), 900);
   }
 
   /* The tab buttons and arrows follow TABS by name, never by a cached list:

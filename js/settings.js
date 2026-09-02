@@ -678,6 +678,22 @@ const EDITORS = {
     read() {},
   },
 
+  /* ── PLAN · task form ──────────────────────────────────────────────────── */
+  'plan.formFields': {
+    title: 'Task form',
+    note: 'Which rows the task form shows when you pick a section. The task name is always there. Switching a row off leaves its chips alone — turning it back on costs nothing.',
+    render() {
+      const f = Config.get('plan.formFields') || {};
+      const NAMES = { block:'block', time:'time estimate', priority:'priority', subtasks:'subtasks' };
+      return `<div class="ed-grid">${Object.keys(NAMES).map(k => `
+        <div class="ed-toggle"><span>${esc(NAMES[k])}</span>
+          <button class="tog${f[k] ? ' on' : ''}" data-cfg-toggle="plan.formFields.${k}"
+                  role="switch" aria-checked="${!!f[k]}" aria-label="${esc(NAMES[k])}"></button>
+        </div>`).join('')}</div>`;
+    },
+    read() {},
+  },
+
   /* ── STORE · categories ────────────────────────────────────────────────── */
   'store.categories': {
     title: 'Aisles',
@@ -904,7 +920,7 @@ const EDITORS = {
 };
 
 const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
-                      'plan.types','plan.chips','store.categories','store.meals','store.quickAmounts',
+                      'plan.types','plan.chips','plan.formFields','store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings'];
 
 function editorHTML(path) {

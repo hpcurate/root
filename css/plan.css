@@ -10,7 +10,6 @@
 
 .ns-plan .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-plan .scr.on{display:block}
-.ns-plan #s-home{padding-top:env(safe-area-inset-top)}
 .ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
@@ -19,10 +18,9 @@
 .ns-plan .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-plan .hd-action:active{color:var(--y)}
 
-/* ── Home header ── */
-.ns-plan .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);margin-bottom:10px}
-.ns-plan .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:22px}
+/* ── Home header ── (the band's box is shell.css's, shared by every app) */
+.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-plan .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-plan .h-logo em{color:var(--y);font-style:normal}
 
 /* ── Content ── */
@@ -48,10 +46,13 @@
 
 /* ── Project tiles ── */
 .ns-plan .projects{padding:0 calc(18px * var(--dens));margin-bottom:26px}
-.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens))}
+/* one tile is the unit the expanded states are measured in: the open project
+   is 1.35 of it, its section rows a half, the task form four */
+.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;
+  --tile-h:92px;--tile-gap:calc(8px * var(--dens));gap:var(--tile-gap)}
 .ns-plan .proj-tile{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
   padding:calc(15px * var(--dens)) calc(14px * var(--dens)) calc(13px * var(--dens));cursor:pointer;text-align:left;user-select:none;
-  display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:92px;
+  display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:var(--tile-h);
   transition:border-color .14s,background .14s}
 /* the tile is drawn like DO's block tiles: a wash of the label's colour, the
    colour on the border; queued lifts the wash */
@@ -68,16 +69,25 @@
 .ns-plan .proj-meta .unmapped{color:var(--or)}
 
 /* ── A project open in place (no sheet) ──
-   The tile spans both columns and its name grows to the width — PLAN fits it
-   in px — and under it sits one row per section, two tiles wide and about
-   half a tile tall, in the project's colour. The other tiles are gone while
-   it is open: the FLIP plays them into these rows. */
-.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:112px;justify-content:space-between}
-.ns-plan .proj-tile.open .proj-head{width:100%}
-.ns-plan .proj-tile.open .proj-dot{width:12px;height:12px}
-.ns-plan .proj-tile.open .proj-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;
-  font-size:34px;line-height:1.05;letter-spacing:.02em}
-.ns-plan .proj-sec{grid-column:1 / -1;min-height:46px;
+   The tile spans both columns with its name centred in the box and the colour
+   dot under it — PLAN sizes the name in px, as large as the box takes — and
+   under the tile sits one row per section, two tiles wide and about half a
+   tile tall. The other tiles are gone while it is open: the FLIP plays them
+   into these rows. */
+.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:calc(var(--tile-h) * 1.35);
+  align-items:center;justify-content:center;text-align:center}
+/* column-reverse puts the name above the dot without reordering the markup */
+.ns-plan .proj-tile.open .proj-head{width:100%;height:100%;flex-direction:column-reverse;
+  align-items:center;justify-content:center;gap:calc(10px * var(--dens))}
+.ns-plan .proj-tile.open .proj-dot{width:11px;height:11px}
+.ns-plan .proj-tile.open .proj-name{max-width:100%;overflow:hidden;white-space:nowrap;
+  font-size:52px;line-height:1;letter-spacing:.01em}
+/* "n sections" is what the rows below now say */
+.ns-plan .proj-tile.open .proj-meta{display:none}
+/* the form open under it: the title grows once more */
+.ns-plan .proj-tile.open.wide{min-height:calc(var(--tile-h) * 1.7)}
+
+.ns-plan .proj-sec{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
   display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   background:color-mix(in srgb,var(--proj-color) 8%,var(--s1));
   border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
@@ -85,6 +95,24 @@
   padding:0 calc(14px * var(--dens));cursor:pointer;user-select:none;transition:background .12s}
 .ns-plan .proj-sec i{font-style:normal;color:var(--proj-color)}
 .ns-plan .proj-sec:active{background:color-mix(in srgb,var(--proj-color) 18%,var(--s1))}
+
+/* ── The task form, in the grid ──
+   Two tiles wide and four tall, morphing out of the section row that was
+   tapped. Which rows it carries is Config (plan.formFields). */
+.ns-plan .proj-form{grid-column:1 / -1;
+  min-height:calc(var(--tile-h) * 4 + var(--tile-gap) * 3);
+  background:color-mix(in srgb,var(--proj-color) 7%,var(--s1));
+  border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
+  padding:calc(14px * var(--dens));display:flex;flex-direction:column}
+.ns-plan .proj-form .f{margin-bottom:calc(13px * var(--dens))}
+.ns-plan .proj-form .btn{margin-top:auto}
+.ns-plan .pf-head{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  padding-bottom:calc(10px * var(--dens));margin-bottom:calc(13px * var(--dens));
+  border-bottom:var(--bw) solid color-mix(in srgb,var(--proj-color) 40%,transparent)}
+.ns-plan .pf-sec{font:700 11px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);color:var(--proj-color)}
+.ns-plan .pf-close{background:none;border:none;color:var(--mu);font:400 10px/1 var(--mono);
+  letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:var(--caps)}
+.ns-plan .pf-close:active{color:var(--y)}
 
 /* ── Options (scale buttons) ── */
 .ns-plan .opts{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
@@ -126,12 +154,8 @@
 .ns-plan .st-del{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens))}
 .ns-plan .st-del:active{color:var(--re)}
 
-/* ── Form context banner ── */
-.ns-plan .form-ctx{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-          padding:calc(11px * var(--dens)) calc(13px * var(--dens));margin-bottom:20px;display:flex;align-items:center;gap:calc(9px * var(--dens))}
-.ns-plan .form-ctx-dot{width:8px;height:8px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
-.ns-plan .form-ctx-txt{font:400 11px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
-.ns-plan .form-ctx-txt em{color:var(--tx);font-style:normal}
+/* the form's context banner is gone: the panel sits under the project's own
+   tile and names its section in .pf-head */
 
 /* ── Buttons ── */
 .ns-plan .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);

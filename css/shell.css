@@ -79,7 +79,7 @@ body{
   position:absolute;inset:0;
   display:flex;flex-direction:column;overflow:hidden;
   opacity:0;pointer-events:none;
-  transition:opacity .2s ease}
+  transition:opacity var(--t-fade) ease}
 .view.cur{opacity:1;pointer-events:auto;z-index:2}
 .view.leaving{z-index:1}
 /* boot and re-parking: no fade, no morph */
@@ -89,17 +89,43 @@ body{
 /* The title does not cross-fade with the page: it morphs. The incoming
    slide's wordmark — or the header of whichever sub-screen that slide was
    left on — settles in from a blur and a slight scale while the outgoing
-   one blurs away, so one title reads as becoming the other. */
+   one blurs away, so one title reads as becoming the other. It only reads as
+   a morph because every band is the same shape and the wordmark sits in the
+   same place on all eight slides — see the band rules below. */
 .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title{
-  animation:title-in .42s cubic-bezier(.2,.8,.2,1) both}
+  animation:title-in var(--t-title-in) cubic-bezier(.2,.8,.2,1) both}
 .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{
-  animation:title-out .2s ease both}
+  animation:title-out var(--t-title-out) ease both}
 @keyframes title-in{from{opacity:0;transform:translateY(5px) scale(.92);filter:blur(5px)}
                     to{opacity:1;transform:none;filter:none}}
 @keyframes title-out{to{opacity:0;transform:translateY(-4px) scale(1.06);filter:blur(4px)}}
 
-.view > .h-top{flex:0 0 auto;position:relative;z-index:20;background:var(--bg);display:flow-root}
+/* ── One band shape for every app ─────────────────────────────────────────────
+   The eight bands used to be eight different heights — their own padding,
+   their own wordmark size (48 / 44 / 54), their own bottom margin — so the
+   title jumped on every tab change and the morph read as a stumble. The
+   rhythm is set once here and the per-app rules are overridden: a label line
+   of fixed height, then the wordmark, bottom-aligned, with the whole band
+   sized off the wordmark alone. DO's daily/media/other strip sits beside the
+   wordmark inside the same row, and is capped (do.css) so it can never be
+   what drives the height. */
+.view > .h-top{
+  flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
+  display:flex;flex-direction:column;justify-content:flex-end;gap:8px;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
+  min-height:calc(env(safe-area-inset-top) + 54px + var(--title-base) * var(--title-scale))}
 .view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
+.view > .h-top > .h-label,.view > .h-top > .h-meta{
+  margin:0;padding:0;min-height:20px;display:flex;align-items:center;gap:8px}
+/* the two apps with a corner action keep their label clear of it */
+.ns-do > .h-top > .h-label{padding-right:calc(118px * var(--dens))}
+.ns-store > .h-top > .h-label{padding-right:calc(80px * var(--dens))}
+.view > .h-top > .h-logo-row{margin:0}
+.view > .h-top .h-logo{
+  margin:0;padding:0;line-height:1;
+  font-size:calc(var(--title-base) * var(--title-scale))}
+.view > .h-top .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:18px}
+
 .view-body{
   flex:1 1 auto;min-height:0;
   overflow-y:auto;overflow-x:hidden;
@@ -109,10 +135,6 @@ body{
 .view-body::-webkit-scrollbar{display:none}
 /* the home screens carried the status-bar inset themselves; the band does now */
 .view-body #s-home{padding-top:0}
-/* the wordmark, by app base size × the Title size dial (tokens.css) */
-.view > .h-top .h-logo{font-size:calc(var(--title-base,54px) * var(--title-scale,1))}
-.ns-do{--title-base:48px}
-.ns-set{--title-base:44px}
 
 /* ── Floating chrome ──────────────────────────────────────────────────────────
    The bar no longer owns a strip of the screen; it hovers over the content and

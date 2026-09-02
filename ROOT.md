@@ -314,7 +314,8 @@ Other anchors, and the single rule that makes each dial real:
 | `--tex-mult` | Texture strength | `body::before`, a `pointer-events:none` fixed overlay |
 | `--chrome-alpha` | Chrome opacity | `--chrome-bg` mixes it with `--chrome-rgb` |
 | `--readable` | Max content width | the `min-width:560px` cap |
-| `--title-scale` | Title size | `.view > .h-top .h-logo` in `shell.css`, times each app's `--title-base` |
+| `--title-scale` | Title size | `.view > .h-top .h-logo` in `shell.css`, times the one `--title-base` |
+| `--t-fade` `--t-title-in` `--t-title-out` `--t-flip` | (not a dial) | the shell's own motion — the tab cross-fade, the title morph, PLAN's FLIPs — all multiplied by `--mo` |
 
 Colour: a preset states only `--y` (accent) and `--on-y` (what reads on top of
 it). `--yd` / `--yb` / `--y-fade` are `color-mix`ed from `--y`, so a custom accent
@@ -505,21 +506,33 @@ both say so, and a new device needs the `.apkg` imported again.
   `s-home`, or hides its back button, gets a dead left arrow.
 - **Every home header is `.h-top`, and Shell lifts it out of the scroller.**
   At boot each view becomes band + `.view-body`; `#s-home > .h-top` is the
-  band. A new app's header must be a `.h-top` directly under `#s-home`, with
-  `env(safe-area-inset-top)` in its own padding (the screen's is zeroed), or
-  it scrolls with the content and the status-bar strip shows through. Any
-  inline `onclick` or id inside it still works — it stays inside the view.
+  band. A new app's header must be a `.h-top` directly under `#s-home` — its
+  box (padding, height, the label row, the wordmark's size and the status-bar
+  inset) belongs to `shell.css` and is shared by all eight, because the title
+  morph only reads as one title becoming another if they are the same shape.
+  Set type and colour in the app sheet; never the box, and never a
+  `--title-base` of its own. A harness check enforces it.
+- **Anything in the band that shares the wordmark's row needs a fixed
+  height.** DO's tab strip is 32px by declaration, not by padding: at a high
+  density a padded chip grew past the wordmark and made DO's band the odd one
+  out, which is exactly what the shared rule exists to prevent.
 - **`position:fixed` inside `#track` is still forbidden**, for a new reason:
   the track no longer carries a transform, but the title morph animates one
   on `.h-logo` / `.hd-title` and PLAN's FLIP animates them on its tiles, and
   any of those becomes the containing block for a fixed descendant while it
   runs.
-- **PLAN's expanded project is not state.** `openKey` lives in the module and
-  is deliberately not persisted or put in Config; `pickSub()` folds the grid
-  before opening the form so the way back is never a surprise. A section row
-  borrows the `data-flip` key of the tile it replaces — that is what makes
-  the tiles look like they become the rows, and why the keys must stay
-  unique per render.
+- **PLAN's expanded project is not state.** `openKey` and `openSub` live in
+  the module and are deliberately not persisted or put in Config. A section
+  row borrows the `data-flip` key of the tile it replaces and the form panel
+  borrows the row's — that is what makes each look like it becomes the next,
+  and why the keys must stay unique per render.
+- **PLAN's form has no screen of its own.** It is drawn into the tile grid by
+  `formPanel()` with the ids it has always had, so every handler is
+  unchanged — but each row is optional (`plan.formFields`), so nothing may
+  assume its element exists: `resetOpts`, `setSub`, `addSubtask`,
+  `renderSubtasks` and `addToQueue` all guard. `paintForm()` restores the
+  controls from `formState` on every draw, which is what makes it safe to
+  re-render the grid while the form is open.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -565,11 +578,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 177 checks covering boot, every theme and panel, the
+through DOM events: 186 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects of 2.5–2.11. Run it before trusting any change:
+in-place projects and form of 2.5–2.12. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -585,6 +598,68 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.12 — 2026-09-02 — one band shape, slower motion, PLAN's form in the grid
+
+**Every title band is now the same box.** The morph in 2.11 read as a stumble
+because the eight bands were eight different heights — each app had its own
+padding, its own wordmark size (48 / 44 / 54) and its own bottom margin, and
+DO's daily/media/other strip made its band taller again. `shell.css` sets the
+rhythm once: a fixed-height label row, then the wordmark, bottom-aligned,
+with the band sized off the wordmark alone. `--title-base` is one value at
+`:root` (54px, still multiplied by the Title size dial), the per-app `.h-top`
+/ `.h-logo` boxes are **deleted** from all eight sheets rather than left to
+lose a specificity fight, and DO's tab chips are a fixed 32px tall so the
+strip can never be what drives the height. A harness check reads the sheets
+and fails if one starts setting its own again.
+
+**The motion is doubled.** The cross-fade, the title morph and PLAN's FLIPs
+were over before the eye caught them. They are tokens now — `--t-fade`,
+`--t-title-in`, `--t-title-out`, `--t-flip` in `tokens.css`, all multiplied
+by `--mo` so the Motion setting still governs them — at twice what 2.11
+shipped with. `flipMs()` reads `--t-flip` so the Web Animations calls keep
+step with the CSS.
+
+**PLAN's task form is the third step of the same expansion.** Tapping a
+section no longer leaves the home screen: the section rows become a panel two
+tiles wide and four tall, morphing out of the row that was tapped, while the
+project's title tile grows again above it (`.open.wide`). The `#s-form`
+screen is gone from the markup — the panel carries the same ids, so
+`optPick` / `prioPick` / `addToQueue` are untouched — and `paintForm()` puts
+every control back from `formState` on each draw, so a re-render never loses
+what has been typed. Adding to the queue folds the whole grid back up.
+
+**Which form rows appear is a setting.** `plan.formFields` (block / time
+estimate / priority / subtasks) with an editor under settings → apps → plan →
+content. **The time estimate is off by default** — it is dead weight for a
+day planned in blocks — but its chips are kept, so switching it back on costs
+nothing. Every row's element is optional now, and the functions that touch
+them all guard.
+
+**The open project tile, properly.** The name is centred in the box with the
+colour dot under it, both centred on both axes, and `fitTitle()` sizes it
+from the tile's own height (up to 92px, shrinking only if it would overrun
+the width) rather than the flat 34px it had. "n sections" is hidden while the
+rows are showing, since the rows are what it was counting.
+
+**One real bug found on the way.** PLAN's `onShow` only redrew when its home
+screen was showing, to protect the form's chips from being wiped. The form
+lives in the grid now and repaints itself from state, so the guard is gone —
+and with it the case where arriving on PLAN after using another screen left
+the tiles on a stale palette.
+
+**Verified** — `test/harness.mjs`, 186 checks, all green: no app sheet
+setting a band box or a wordmark size and one `--title-base` for all of them;
+the form opening as a panel keyed to the row it came from with the title tile
+`.wide` and the section named in its head; `#s-form` gone; the time row off
+by default and following the setting both ways; the block chips in their
+label's colour inside the panel; a Config edit mid-form keeping the typed
+name and the picked block; cancel returning to the rows with the project
+still open; add-to-queue filing under the right section and folding the grid.
+**Not verified**: still nothing in a browser. The band height, the centred
+title at its new size, the four-tile panel and the doubled timings are all
+unseen — the timings especially are a judgement call worth one pass on the
+phone.
 
 ### 2.11 — 2026-09-02 — the cross-fade, the title morph, PLAN opens in place
 

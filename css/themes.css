@@ -254,7 +254,7 @@
 [data-mode="light"] .proj-dot,
 [data-mode="light"] .q-dot,
 [data-mode="light"] .sheet-dot,
-[data-mode="light"] .form-ctx-dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.28)}
+[data-mode="light"] .proj-dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.28)}
 /* the few hardcoded darks that only read on a dark ground */
 [data-mode="light"] .out-pre,
 [data-mode="light"] .rep-pre{color:var(--tx-2)}

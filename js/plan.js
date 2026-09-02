@@ -53,7 +53,6 @@ function go(id) {
   $id('s-'+id).classList.add('on');
   if (view) view.scrollTop = 0;
   if (id==='home')    renderHome();
-  if (id==='form')    renderForm();
   if (id==='sending') startSending();
 }
 
@@ -73,13 +72,22 @@ function renderHome() {
    the colour set in Settings. */
 const labelHue = (...names) => names.map(n => window.Todoist && Todoist.labelColor(n)).find(Boolean) || null;
 
-/* ── A project opens in place ─────────────────────────────────────────────────
-   One project at a time can be open: its tile spans both columns, its name
-   grows to whatever still fits the width, and the other tiles become its
-   section rows — two tiles wide, half a tile tall — which is what the FLIP
-   below plays. The queue below simply slides to wherever the grid now ends.
-   Nothing is persisted: it is a gesture, not state. */
-let openKey = null;
+/* ── A project opens in place, and then so does its form ──────────────────────
+   Two steps, both inside the tile grid and both a FLIP, so nothing ever leaves
+   the home screen:
+
+     tap a project   the tile spans both columns — its name centred and grown
+                     to whatever still fits, the colour dot under it — and the
+                     other tiles become its section rows (full width, about
+                     half a tile tall).
+     tap a section   the rows become the task form: a panel two tiles wide and
+                     four tall, morphing out of the row you tapped, while the
+                     title tile grows again above it.
+
+   The queue below simply slides to wherever the grid now ends. Neither is
+   persisted: they are gestures, not state. */
+let openKey = null;      // the project whose tile is expanded
+let openSub = null;      // the index of the section whose form is open
 
 function renderProjects() {
   const grid = $id('proj-list');
@@ -91,34 +99,92 @@ function renderProjects() {
     const meta = queued ? `<em>${queued} queued</em>`
                : mapped ? `${tt.subs.length} sections`
                         : `<span class="unmapped">not mapped</span>`;
-    return `<button class="proj-tile${queued ? ' has' : ''}${big ? ' open' : ''}" style="--proj-color:${color}"
-              data-flip="p:${tt.key}" aria-expanded="${!!big}" onclick="PLAN.openProj('${tt.key}')">
+    return `<button class="proj-tile${queued ? ' has' : ''}${big ? ' open' : ''}${big && openSub !== null ? ' wide' : ''}"
+              style="--proj-color:${color}" data-flip="p:${tt.key}" aria-expanded="${!!big}"
+              onclick="PLAN.openProj('${tt.key}')">
       <span class="proj-head"><span class="proj-dot"></span><span class="proj-name">${tt.label}</span></span>
       <span class="proj-meta">${meta}</span>
     </button>`;
   };
   grid.classList.toggle('open', !!open);
-  if (!open) { grid.innerHTML = TASK_TYPES.map(tt => tile(tt, false)).join(''); return; }
+  if (!open) {
+    grid.innerHTML = TASK_TYPES.map(tt => tile(tt, false)).join('');
+    return;
+  }
 
   const color  = labelHue(open.label, open.key) || resolveColor(open.key);
   const others = TASK_TYPES.filter(t => t.key !== open.key);
   /* Sections are addressed by index, never by interpolating their text into an
      onclick — several of them contain "|" and spaces. Each row borrows the
-     flip key of the tile it grows out of, so the tiles morph into the rows. */
-  grid.innerHTML = tile(open, true) + open.subs.map((s, i) => {
-    const from = others[i];
-    return `<button class="proj-sec" style="--proj-color:${color}" data-flip="${from ? 'p:' + from.key : 's:' + i}"
-              onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`;
-  }).join('');
+     flip key of the tile it grows out of, so the tiles morph into the rows;
+     the form panel borrows the row's, so it grows out of what you tapped. */
+  // the section list can change under an open form (a Config edit): fall back
+  // to the rows rather than drawing a panel for a section that is gone
+  if (openSub !== null && !open.subs[openSub]) openSub = null;
+  const body = openSub === null
+    ? open.subs.map((s, i) => {
+        const from = others[i];
+        return `<button class="proj-sec" style="--proj-color:${color}" data-flip="${from ? 'p:' + from.key : 's:' + i}"
+                  onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`;
+      }).join('')
+    : formPanel(open, open.subs[openSub], openSub, color);
+
+  grid.innerHTML = tile(open, true) + body;
   fitTitle(grid.querySelector('.proj-tile.open .proj-name'));
+  if (openSub !== null) { renderFormChips(); paintForm(); }
 }
 
-/* The open tile's name at the largest size that still fits on one line. */
+/* The task form, drawn where the section rows were. The ids are the ones the
+   form has always used, so optPick / prioPick / addToQueue are untouched;
+   which rows appear is Config (plan.formFields), and every one of them is
+   optional except the name. */
+function formPanel(tt, s, i, color) {
+  const f = Config.get('plan.formFields') || {};
+  const sub = f.subtasks ? `
+      <div class="f"><label class="lbl">Subtasks</label>
+        <div class="tg2" id="tg-sub">
+          <button class="tg2-b" onclick="PLAN.setSub(true)">yes</button>
+          <button class="tg2-b on" onclick="PLAN.setSub(false)">no</button>
+        </div>
+      </div>
+      <div id="sub-input" class="hidden">
+        <div class="f">
+          <label class="lbl">Add subtask</label>
+          <div class="st-row">
+            <input type="text" id="sub-text" placeholder="subtask…">
+            <button class="st-add" onclick="PLAN.addSubtask()">+ add</button>
+          </div>
+          <div class="st-list" id="st-list"></div>
+        </div>
+      </div>` : '';
+  return `<div class="proj-form" style="--proj-color:${color}" data-flip="s:${i}">
+    <div class="pf-head">
+      <span class="pf-sec">${esc(s.display)}</span>
+      <button class="pf-close" onclick="PLAN.closeForm()">cancel</button>
+    </div>
+    <div class="f">
+      <label class="lbl">Task name</label>
+      <input type="text" id="task-name" placeholder="describe the task…" oninput="PLAN.nameInput(this)">
+    </div>
+    ${f.block    ? `<div class="f"><label class="lbl">Block</label><div class="opts" id="opts-block"></div></div>` : ''}
+    ${f.time     ? `<div class="f"><label class="lbl">Time</label><div class="opts" id="opts-time" style="gap:5px"></div></div>` : ''}
+    ${f.priority ? `<div class="f"><label class="lbl">Priority</label><div class="prio-row" id="opts-prio"></div></div>` : ''}
+    ${sub}
+    <button class="btn" onclick="PLAN.addToQueue()">+ add to queue</button>
+  </div>`;
+}
+
+/* The open tile's name, as large as still fits the tile — measured against the
+   tile's own inner width, since the name shrink-wraps once it is centred. */
 function fitTitle(el) {
-  if (!el || !el.clientWidth) return;
-  let size = 34;
+  const box = el && el.closest('.proj-tile');
+  if (!box || !box.clientWidth || !box.clientHeight) return;      // no layout (jsdom): leave the CSS size
+  let pad = 28;
+  try { const cs = getComputedStyle(box); pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight); } catch {}
+  const avail = box.clientWidth - pad;
+  let size = Math.max(16, Math.min(92, Math.round(box.clientHeight * 0.52)));
   el.style.fontSize = size + 'px';
-  while (size > 14 && el.scrollWidth > el.clientWidth) { size -= 1; el.style.fontSize = size + 'px'; }
+  while (size > 16 && el.scrollWidth > avail) { size -= 2; el.style.fontSize = size + 'px'; }
 }
 
 /* FLIP: note where every flip-keyed element is, re-render, then play each
@@ -141,22 +207,44 @@ function flip(before) {
     if (!dx && !dy && sx === 1 && sy === 1) return;
     el.animate([{ transformOrigin:'0 0', transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})` },
                 { transformOrigin:'0 0', transform:'none' }],
-               { duration:340, easing:'cubic-bezier(.2,.8,.2,1)' });
+               { duration:flipMs(), easing:'cubic-bezier(.2,.8,.2,1)' });
   });
+}
+/* The shell's own motion duration, so the FLIP keeps step with the tab
+   cross-fade and follows the Motion setting (--mo) with it. */
+function flipMs() {
+  let ms = 680, mo = 1;
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    ms = parseFloat(cs.getPropertyValue('--t-flip')) || 680;
+    mo = parseFloat(cs.getPropertyValue('--mo'));
+    if (!isFinite(mo)) mo = 1;
+  } catch {}
+  return Math.max(0, ms * mo);
 }
 
 function openProj(key) {
   if (!typeOf(key)) return;
   const before = snap();
+  openSub = null;                              // a project change closes any open form
   openKey = openKey === key ? null : key;      // tapping the open tile closes it
   renderProjects();
   flip(before);
 }
 
 function closeProj() {
-  if (!openKey) return;
+  if (!openKey && openSub === null) return;
   const before = snap();
-  openKey = null;
+  openKey = null; openSub = null;
+  renderProjects();
+  flip(before);
+}
+
+/* Back from the form to the section rows, the same way it came. */
+function closeForm() {
+  if (openSub === null) return;
+  const before = snap();
+  openSub = null;
   renderProjects();
   flip(before);
 }
@@ -165,8 +253,7 @@ function pickSub(key, i) {
   const tt = typeOf(key);
   const s = tt && tt.subs[i];
   if (!s) return;
-  openKey = null; renderProjects();            // the home is left folded for the way back
-  openForm(key, s.display, s.section);
+  openForm(key, s.display, s.section, i);
 }
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
@@ -215,36 +302,51 @@ function clearQueue() {
 }
 
 // ── Form ──────────────────────────────────────────────────────────────────────
-function openForm(typeKey, display, section) {
+/* The form is a panel inside the tile grid now, not a screen of its own: this
+   only resets the state and asks the grid to redraw, and renderProjects()
+   emits the markup and paints it. */
+function openForm(typeKey, display, section, i) {
   try {
     const tt = typeOf(typeKey);
     if (!tt) { toast('Unknown project: ' + typeKey); return; }
-    const color = resolveColor(typeKey);
-    formState = { typeKey, subType: display, section, block: null, time: null, priority: 2, subtasks: [], hasSub: false };
-    $id('s-form').style.setProperty('--proj-color', color);
-    $id('form-dot').style.background = color;
-    $id('form-ctx-txt').innerHTML = `<em>${esc(tt.label)}</em> · ${esc(display)}`;
-    go('form');
+    const idx = typeof i === 'number' ? i : tt.subs.findIndex(s => s.display === display);
+    const before = snap();
+    formState = { typeKey, subType: display, section, name: '', block: null, time: null,
+                  priority: Config.get('plan.defaultPriority'), subtasks: [], hasSub: false };
+    openKey = typeKey;
+    openSub = idx >= 0 ? idx : 0;
+    renderProjects();
+    flip(before);
   } catch(err) { toast('Error: ' + err.message); console.error(err); }
 }
 
-function renderForm() {
+/* Put the form's controls back in step with formState. Called on every draw
+   of the panel, not just the first, so a re-render (a Config edit landing
+   while it is open) never loses what has been typed or picked. */
+function paintForm() {
+  const nameEl = $id('task-name');
+  if (!nameEl) return;
+  nameEl.value = formState.name || '';
   resetOpts('opts-block', formState.block);
   resetOpts('opts-time', formState.time);
   const prios = $all('.prio-b');
-  prios.forEach(b => b.classList.remove('on'));
-  const di = defaultPrioIndex();
-  if (prios[di]) prios[di].classList.add('on');
-  formState.priority = Config.get('plan.defaultPriority');
-  setSub(false);
-  formState.subtasks = [];
+  if (prios.length) {
+    prios.forEach(b => b.classList.remove('on'));
+    const at = Config.get('plan.priorities').findIndex(p => p.value === formState.priority);
+    const di = at >= 0 ? at : defaultPrioIndex();
+    if (prios[di]) prios[di].classList.add('on');
+  }
+  setSub(formState.hasSub);
   renderSubtasks();
-  $id('task-name').value = '';
-  $id('sub-text').value = '';
 }
 
+function nameInput(el) { formState.name = el.value; }
+
+/* Every row is optional (plan.formFields), so nothing here may assume its
+   element is on the page. */
 function resetOpts(id, activeVal) {
   const row = $id(id);
+  if (!row) return;
   row.querySelectorAll('.opt-b').forEach(b=>{
     const isNone = b.classList.contains('none-opt');
     b.classList.toggle('on', isNone ? activeVal===null : b.textContent===activeVal);
@@ -304,13 +406,15 @@ function prioPick(btn, val) {
 
 function setSub(on) {
   formState.hasSub = on;
-  $id('tg-sub').querySelectorAll('.tg2-b').forEach((b,i)=>
-    b.classList.toggle('on', on ? i===0 : i===1));
-  $id('sub-input').classList.toggle('hidden', !on);
+  const tg = $id('tg-sub');
+  if (tg) tg.querySelectorAll('.tg2-b').forEach((b,i)=> b.classList.toggle('on', on ? i===0 : i===1));
+  const box = $id('sub-input');
+  if (box) box.classList.toggle('hidden', !on);
 }
 
 function addSubtask() {
   const inp = $id('sub-text');
+  if (!inp) return;
   const txt = inp.value.trim(); if(!txt) return;
   formState.subtasks.push(txt); inp.value = ''; renderSubtasks();
 }
@@ -318,7 +422,9 @@ function addSubtask() {
 function deleteSubtask(i) { formState.subtasks.splice(i,1); renderSubtasks(); }
 
 function renderSubtasks() {
-  $id('st-list').innerHTML = formState.subtasks.map((s,i)=>`
+  const list = $id('st-list');
+  if (!list) return;
+  list.innerHTML = formState.subtasks.map((s,i)=>`
     <div class="st-item">
       <span class="st-item-txt">${esc(s)}</span>
       <button class="st-del" onclick="PLAN.deleteSubtask(${i})">✕</button>
@@ -326,8 +432,10 @@ function renderSubtasks() {
 }
 
 function addToQueue() {
-  const raw = $id('task-name').value.trim();
+  const el = $id('task-name');
+  const raw = (el ? el.value : formState.name || '').trim();
   const tt = typeOf(formState.typeKey);
+  if (!tt) return;
   const name = raw ? raw : formState.subType;
   const map = mappings[formState.typeKey] || {};
   if (!map.projectId) {
@@ -336,7 +444,13 @@ function addToQueue() {
   queue.push({ name, typeKey:formState.typeKey, subType:formState.subType, section:formState.section,
     projectLabel:tt.pLabel, projectId:map.projectId||null, block:formState.block, time:formState.time,
     priority:formState.priority, subtasks:[...formState.subtasks] });
-  saveQueue(); toast('Added to queue'); go('home');
+  saveQueue();
+  toast('Added to queue');
+  // fold the whole grid back up: the form, then the project
+  const before = snap();
+  openSub = null; openKey = null;
+  renderProjects(); renderQueue();
+  flip(before);
 }
 
 // ── Sending ───────────────────────────────────────────────────────────────────
@@ -544,15 +658,17 @@ Config.subscribe(path => {
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
 Shell.register('plan', {
-  home: () => go('home'),   // the PLAN tab tapped while on PLAN
-  // the label colours: cached for an hour, refreshed here; only the home
-  // screen is redrawn (the form's chips would lose their selection)
-  onShow: () => { if (window.Todoist) Todoist.labels().then(() => {
-    if ($id('s-home').classList.contains('on')) { renderProjects(); renderFormChips(); }
-  }); },
+  // the PLAN tab tapped while on PLAN: fold the grid first, then go home
+  home: () => { if (openKey || openSub !== null) closeProj(); else go('home'); },
+  /* The label colours: cached for an hour, refreshed on arrival. The redraw
+     used to be skipped unless the home screen was showing, to protect the
+     form's chips; the form lives in the grid now and paintForm() puts every
+     control back from formState on each draw, so it is safe — and arriving
+     on PLAN with a stale palette was the real bug. */
+  onShow: () => { if (window.Todoist) Todoist.labels().then(renderProjects); },
 });
 
-return { go, renderSettings, openProj, closeProj, pickSub,
+return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

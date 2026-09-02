@@ -6,7 +6,6 @@
 
 .ns-do .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-do .scr.on{display:block}
-.ns-do #s-home{padding-top:env(safe-area-inset-top)}
 
 /* ── Sticky sub-screen header ── */
 .ns-do .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
@@ -17,13 +16,13 @@
 .ns-do .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-do .hd-action:active{color:var(--y)}
 
-/* ── Home top ── */
-.ns-do .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);
-         margin-bottom:10px;padding-right:calc(118px * var(--dens))}
-.ns-do .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens));
-            flex-wrap:wrap;margin-bottom:28px}
-.ns-do .h-logo{font:800 48px/1 var(--head);letter-spacing:-.02em}
+/* ── Home top ──
+   The band's box — padding, height, the label row, the wordmark's size — is
+   set once for all eight apps in shell.css, so nothing about it is repeated
+   here. What is left is what is DO's own. */
+.ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-do .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
+.ns-do .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-do .h-logo em{color:var(--y);font-style:normal}
 
 /* ── Home tab selector ────────────────────────────────────────────────────────
@@ -48,13 +47,15 @@
             left:0;width:0;background:var(--y);
             border-radius:var(--r2);z-index:1;
             transition:transform .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1)}
+/* a fixed chip height, not a padded one: the strip shares the wordmark's row
+   in the title band, and at a high density a padded chip grew taller than the
+   wordmark and made DO's band the odd one out */
 .ns-do .tab{position:relative;z-index:2;background:none;border:none;cursor:pointer;
-     flex:0 0 auto;white-space:nowrap;
+     flex:0 0 auto;white-space:nowrap;height:32px;display:flex;align-items:center;
      font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
-     color:var(--mu);padding:calc(9px * var(--dens)) calc(15px * var(--dens));border-radius:var(--r2);transition:color .25s}
+     color:var(--mu);padding:0 calc(15px * var(--dens));border-radius:var(--r2);transition:color .25s}
 .ns-do .tab.active{color:var(--on-y)}
-.ns-do .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
-        display:flex;align-items:center;gap:calc(14px * var(--dens))}
+.ns-do .h-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
 .ns-do .h-act{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
        cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-do .h-act:active{color:var(--y)}

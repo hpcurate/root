@@ -6,19 +6,16 @@
 
 .ns-log .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-log .scr.on{display:block}
-.ns-log #s-home{padding-top:env(safe-area-inset-top)}
 .ns-log .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-log .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-log .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps)}
 
-/* ── Home ── */
-/* the sticky title block: its own safe-area padding, so the status-bar strip
-   is covered once it is stuck at the top of the slide */
-.ns-log .h-top{padding-top:env(safe-area-inset-top)}
-.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);
-        padding:calc(30px * var(--dens)) calc(18px * var(--dens)) calc(6px * var(--dens));display:flex;align-items:center;gap:calc(8px * var(--dens))}
+/* ── Home ──
+   The band's box is shell.css's, shared by all eight apps; this is the date
+   row's own type and the wordmark's weight. */
+.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
 .ns-log .h-date-txt{flex:1}
 .ns-log .h-arr{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s}
 .ns-log .h-arr:active{color:var(--y)}
@@ -26,7 +23,7 @@
          letter-spacing:.08em;cursor:pointer;padding:calc(3px * var(--dens)) calc(6px * var(--dens));transition:all .12s}
 .ns-log .h-today:active{color:var(--y);border-color:var(--y)}
 .ns-log .h-today.hidden{display:none}
-.ns-log .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;padding:calc(6px * var(--dens)) calc(18px * var(--dens)) calc(6px * var(--dens))}
+.ns-log .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-log .h-logo em{color:var(--y);font-style:normal}
 .ns-log .h-streak{font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);padding:0 calc(18px * var(--dens)) calc(24px * var(--dens));min-height:20px}
 .ns-log .h-streak em{color:var(--y);font-style:normal}

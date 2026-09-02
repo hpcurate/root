@@ -7,7 +7,6 @@
 
 .ns-store .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-store .scr.on{display:block}
-.ns-store #s-home{padding-top:env(safe-area-inset-top)}
 
 /* ── Sticky sub-screen header ── */
 .ns-store .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
@@ -20,9 +19,9 @@
 .ns-store .hd-action.danger:active{color:var(--re)}
 
 /* ── Home top ── */
-.ns-store .h-top{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;position:relative}
-.ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);margin-bottom:10px;padding-right:calc(80px * var(--dens))}
-.ns-store .h-logo{font:800 54px/1 var(--head);letter-spacing:-.02em;margin-bottom:24px}
+/* the band's box is shell.css's, shared by every app */
+.ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-store .h-logo em{color:var(--y);font-style:normal}
 .ns-store .h-settings-btn{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
                   background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);

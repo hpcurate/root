@@ -106,6 +106,19 @@
   --readable:780px;
   --scr-pad-b:calc(var(--nav-fh) + 30px + env(safe-area-inset-bottom));
 
+  /* One wordmark size for all eight slides — the title band is measured off
+     it, so an app with its own size made the band jump on every tab change.
+     The Title size dial multiplies it. */
+  --title-base:54px;
+
+  /* The shell's own motion: the tab cross-fade, the title morph, and the
+     tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
+     morph was over before the eye caught it. They follow --mo like the rest. */
+  --t-fade:calc(.4s * var(--mo));
+  --t-title-in:calc(.84s * var(--mo));
+  --t-title-out:calc(.4s * var(--mo));
+  --t-flip:680;                        /* ms, read by PLAN's Web Animations calls */
+
   /* label casing, flipped by the Caps dial */
   --caps:uppercase;
 }
