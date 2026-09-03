@@ -18,7 +18,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | --------- | ---------------------------------------------------------------------- |
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. |
-| **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. |
+| **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter, premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
@@ -339,6 +339,7 @@ versions still work off the same data.
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
 | `plan_sent_v1` | PLAN | what was sent today (name, project, block, time) — LOG offers these as blocks; a new day starts it empty |
 | `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
+| `plan_export_v1` | PLAN | the day start time the export last used, and nothing else. The date, template, mode, notes and slots are deliberately *not* kept: each export is its own day, and only the start time is the same one every time |
 | `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
 | `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
@@ -555,16 +556,30 @@ both say so, and a new device needs the `.apkg` imported again.
 - **PLAN's history binding is `sentLog`, not `history`.** A module-level
   `history` inside the IIFE shadows `window.history` for the whole file,
   which is the sort of thing that breaks a `replaceState` added months later.
-- **A block is two halves.** `blockLines()` fills both with the same task when
-  only one of that block is picked, and splits them in send order when two are
-  — which is why the history stores a `ts` that is nudged per task within a
-  batch rather than one timestamp for the whole send. Two is therefore the
-  ceiling per block, and `toggleSent()` refuses a third rather than letting
-  the copy silently drop one.
+- **The `rest` template has four block slots, not six.** `b3a` and `b3b` do
+  not exist on a rest day — those hours are `free time` — so the panel refuses
+  a b3 assignment while `rest` is picked, and switching to `rest` drops any b3
+  already given out, both with a toast. Anything that reads the slots takes
+  them off the template (`slotsOf`), never from a list of six written down in
+  code. The two templates otherwise differ only by the hour of gym, which is
+  why every offset after it is exactly an hour earlier on a rest day.
+- **A slot is assigned, never derived.** Until 2.16 the `a`/`b` half of a
+  block was inferred from the order the two tasks were sent in, and the task's
+  own `@b1` label decided which block. Neither is true now: the six slots are
+  named and tapped, and the label a task was sent with has no say in where it
+  lands. `toggleSent()` therefore no longer caps two per block — the cap is
+  the number of slots a day has, and the panel refuses a slot another task
+  already holds rather than taking it away in silence.
 - **The sent selection is keyed by `ts`, not by row index.** The list is
   unshifted on every send, so an index-keyed selection would quietly slide
   onto a different task. `renderSent()` also drops any key whose row has gone
-  (a clear, or the 200 cap), or "+ cal" would count what is not on screen.
+  (a clear, or the 200 cap), or "export" would count what is not on screen —
+  and `expRows()` drops that key's slot with it.
+- **The export panel repaints itself from `expForm` on every draw**, the way
+  the task form does — a Config edit or an arriving label fetch re-renders the
+  whole grid under it. The three text fields are the exception in the other
+  direction: they must *not* trigger a full redraw, or the caret leaves the
+  field mid-word, so `expField()` repaints only the preview and the button.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -610,14 +625,15 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 223 checks covering boot, every theme and panel, the
+through DOM events: 265 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects, form and sent history of 2.5–2.16. jsdom has no layout and no Web
-Animations, so anything measured or animated is invisible to it unless the
-harness stands in for both, as it does for PLAN's transition. Run it before
-trusting any change:
+in-place projects, form, sent history and day export of 2.5–2.17. jsdom has no
+layout and no Web Animations, so anything measured or animated is invisible to
+it unless the harness stands in for both, as it does for PLAN's transition. A
+throw part-way through prints every result that ran before it rather than
+losing the lot. Run it before trusting any change:
 
 ```
 cd root/test && npm install && node harness.mjs
@@ -629,10 +645,182 @@ behaviour you fix; a bug that has a check does not come back.
 
 ---
 
+## 8. The PLAN export
+
+### Where ROOT stops
+
+```
+ROOT / PLAN            Todoist                22:00 cloud agent      Google Calendar
+─────────────          ──────────             ─────────────────      ───────────────
+[ export ] ──────────► task "@import"  ──────► reads description ───► writes events
+ picked rows            description =          resolves times         then deletes
+ + day options          the day spec           from the template      the task
+```
+
+**ROOT never touches a calendar.** It is a static page with no Google auth and
+it is not getting any: no OAuth, no calendar API, no calendar ids. It writes
+one Todoist task and stops. `plan.calendars` holds calendar *names*, which are
+passed through verbatim for the agent to resolve. A harness check reads every
+URL in `js/plan.js` and fails if one of them is not Todoist.
+
+### The description — a contract
+
+Frozen the way LOG's `.md` is frozen: the field names and the shape are not
+user-editable, not renameable, and a downstream agent parses them.
+
+```
+day: YYYY-MM-DD
+start: HH:MM
+template: normal|rest
+mode: blocks|full
+
+<slot> | <project> | <task name>
+…
+
+notes:
+- <one per line>
+```
+
+- `b1a | home | chores` means an event named **`b1a|chores`** on whichever
+  calendar `plan.calendars` maps `home` to.
+- `<project>` is the key ROOT resolved, so it is `curate > mixing` where the
+  project splits across calendars and `home` where it does not. The agent
+  looks that key up; it never sees an id.
+- **Unassigned slots are absent.** No placeholder lines.
+- **The whole `notes:` section is omitted** when there are none — never left
+  as a bare header.
+- The sections are separated by one blank line and there is no trailing
+  newline. A harness check compares a mixed export byte for byte.
+
+`mode: blocks` writes the picked tasks only. `mode: full` writes the whole
+template and replaces the day; whatever is already on it is archived to
+`00B | schedule 2` first, not deleted. That calendar name is the **agent's**,
+not ROOT's — it appears once, in the warning text, deliberately not in Config,
+because making it editable here would let it drift out of step with the side
+that actually does the archiving.
+
+### The two templates
+
+`plan.dayTemplates`, editable under settings → apps → plan → content. Every
+row is `at` minutes from the day's start and a duration in minutes, and is
+either a fixed event (`cal` + `event`) or a block slot (`slot`). **Nothing is a
+wall-clock time**, so one number — the start — moves the whole day.
+
+| | `normal` | `rest` |
+| --- | --- | --- |
+| span | 17h00 | 16h00 |
+| rows | 20 | 18 |
+| block slots | b1a b1b b2a b2b **b3a b3b** | b1a b1b b2a b2b |
+| gym | 1h, at +1:45 | — |
+
+The two differ by exactly two things: the hour of gym, and the b3 pair. Losing
+gym is why every offset after +1:45 is an hour earlier on a rest day, and the
+b3 hours are `free time` there instead. `normal` and `rest` are identities —
+the description writes the name down — so rename them and the agent stops
+recognising the day.
+
+### The panel
+
+Drawn into PLAN's tile grid by `renderProjects()`, exactly the way the task
+form is: no `.scr` of its own, opened from the sent list's title row once a row
+is picked. Eight fields — date (tomorrow), start (the only thing persisted,
+in `plan_export_v1`), template, mode, one slot row per picked task, notes,
+preview, and one export button that names the count. Everything else resets on
+each open: an export is one day, not a document.
+
+Every refusal is loud, because the only alternative is dropping a task in
+silence when the description is written:
+
+| the tap | what happens |
+| --- | --- |
+| a seventh row picked | refused — a day has six slots |
+| a slot another task holds | refused, naming the task that holds it |
+| b3 while `rest` is picked | refused — those hours are free time |
+| switching to `rest` with b3 given out | the b3s are dropped, with a toast |
+| export with a picked task unassigned | there is no button; the panel says how many |
+
+---
+
 ## Changelog
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.17 — 2026-09-03 — the export: a day, written down for something else to build
+
+**"+ cal" copied text into a chat. It sends a task now.** The picked rows of
+the sent history become one Todoist task labelled `import` whose description is
+a spec for one day; a 22:00 agent reads it, writes the calendar and deletes the
+task. ROOT's half ends at the POST — it is a static page with no Google auth
+and it is not getting any, so there is no OAuth here, no calendar API and no
+calendar ids, only names passed through for something else to resolve. A
+harness check reads every URL in `js/plan.js` and fails if one is not Todoist.
+
+**Two new Config branches**, both editable under settings → apps → plan →
+content. `plan.calendars` maps a project — or `project > section` where one
+splits, which only `curate` does — to a calendar name; its editor splits on the
+*first* pipe only, because every name has one of its own (`02A1 | curate
+project mixing`). `plan.dayTemplates` holds `normal` and `rest`, each row being
+minutes from the day's start plus a duration, so **the whole day comes off one
+number** and nothing in it is a wall-clock constant.
+
+**`rest` has four block slots, not six**, and that is the thing most likely to
+catch someone out. `b3a`/`b3b` do not exist on a rest day — those hours are
+free time — so assigning one is refused with a word, and switching to `rest`
+with a b3 already given out drops it loudly rather than losing it later when
+the description is written. The two templates otherwise differ only by the hour
+of gym, which is why every offset after it is exactly an hour earlier there.
+
+**Slots are assigned, not inferred.** `calLinesFor()` read `a`/`b` off the
+order two tasks happened to be sent in, and the `@b1` label a task carried
+decided its block. Both are gone: six named slots, tapped. Which means
+`toggleSent()` no longer caps two per block — three b1 tasks going to b1a, b1b
+and b2a is a perfectly good day — and the cap is now the six slots themselves.
+A slot another task holds is refused by name; a task's own slot clears on a
+second tap.
+
+**The panel opens in the tile grid**, like the task form and for the same
+reason: `#s-form` was deleted in 2.12 and no new `.scr` should replace it. Date
+(tomorrow), start (persisted, in `plan_export_v1`, and the only thing that is),
+template, mode, a slot row per picked task, notes, a preview at real resolved
+clock times, and one button naming the count. In `full` mode the preview
+carries the warning that the day will be replaced and that what is there now is
+archived to `00B | schedule 2` — worded as what *will* happen, since ROOT
+cannot see the calendar to say what is there. The export button is simply
+absent while a picked task has no slot, which is the only state where the
+description could drop one silently.
+
+The three text fields repaint the preview alone rather than the whole panel —
+a full redraw pulls the caret out of the field mid-word — while everything else
+redraws the grid and `paintExport()` puts the fields back, so a Config edit or
+an arriving label fetch never loses what has been typed.
+
+**Verified** — `test/harness.mjs`, 265 checks, all green, 42 of them new: both
+templates resolving at 07:00 *and* 09:30 (one start time proves nothing about
+an offset model), including a 17-hour day ending past midnight and marked `+1`;
+`rest` carrying four slots and `normal` six, with every row butting onto the
+next; a b3 assignment refused on `rest` with the toast, the b3 chips marked
+not-on-offer, and the switch to `rest` dropping a b3 already given; a slot
+another task holds refused by name; a seventh pick refused; the description
+byte-exact for a five-task mixed export across four calendars, with `notes:`
+absent when empty and one dash per line when not; a `plan.calendars` edit
+reaching the preview and the description mid-panel while the notes textarea
+keeps what was typed, and the reset putting the shipped calendar back; the
+preview counting one line per picked row in `blocks` and the whole template in
+`full`; the POST going to `api.todoist.com/api/v1/tasks` with `["import"]` and
+the description verbatim; a toast on success *and* on a 500, which leaves the
+panel up with its button back. Plus the eight shipped calendars, both editors
+rendering in the plan panel, and the templates round-tripping through their
+text form (with `1h30` read as ninety minutes). The harness also prints its
+results now when something throws part-way, instead of losing every one.
+
+**Not verified**: nothing in a browser — the Chrome extension is still
+unreachable from here, so this is the fourth entry in a row that has not been
+looked at. The panel is a tall one and the things to check on the phone are
+whether five slot rows of six chips each read as a grid or as a wall, whether
+the preview's three columns hold at a narrow width, and whether opening the
+panel from the sent list — which jumps the page to the top — reads as arriving
+somewhere or as losing your place.
 
 ### 2.16 — 2026-09-03 — one calendar from several sent tasks, and the open tile stops being a box
 

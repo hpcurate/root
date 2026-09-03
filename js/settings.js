@@ -82,6 +82,48 @@ const uniqueKey = (base, taken) => {
 };
 const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
 
+/* ── PLAN's day templates, as text ────────────────────────────────────────────
+   A row is an offset from the day's start and a duration, both in minutes, and
+   then either one field (a block slot) or two (an event and the calendar it
+   goes on). Only the first three pipes divide a line, because a calendar name
+   — "01A1 | routine" — carries one of its own.
+
+       0:00 | 30 | routine p1 | 01A1 | routine
+       4:00 | 90 | b1a
+*/
+const tplHM = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+const tplLine = r => `${tplHM(+r.at || 0)} | ${+r.dur || 0} | ` +
+  (r.slot ? r.slot : `${r.event || ''} | ${r.cal || ''}`);
+/* "1:45", "105", "1h45" and "45m" are all the same number of minutes. */
+function tplMin(s) {
+  const v = String(s).trim().replace(/^\+/, '');
+  let m = /^(\d+):([0-5]\d)$/.exec(v);
+  if (m) return +m[1] * 60 + +m[2];
+  m = /^(?:(\d+)\s*h)?\s*(\d+)?\s*m?$/i.exec(v);
+  if (m && (m[1] || m[2])) return (+(m[1] || 0)) * 60 + (+(m[2] || 0));
+  return null;
+}
+function tplRow(line) {
+  const bits = [];
+  let rest = String(line);
+  while (bits.length < 3) {
+    const p = rest.indexOf('|');
+    if (p < 0) break;
+    bits.push(rest.slice(0, p).trim());
+    rest = rest.slice(p + 1);
+  }
+  bits.push(rest.trim());
+  if (bits.length < 3) return null;
+  const at = tplMin(bits[0]), dur = tplMin(bits[1]);
+  if (at === null || dur === null || !bits[2]) return null;
+  return bits[3] ? { at, dur, cal: bits[3], event: bits[2] } : { at, dur, slot: bits[2] };
+}
+// how long the day runs, for the badge above each template
+const fmtSpan = rows => {
+  const end = rows.reduce((n, r) => Math.max(n, (+r.at || 0) + (+r.dur || 0)), 0);
+  return `${Math.floor(end / 60)}h${String(end % 60).padStart(2, '0')}`;
+};
+
 
 /* ══ Control builders ══════════════════════════════════════════════════════════
    All three read their current value straight from Prefs, so a re-render after
@@ -694,6 +736,50 @@ const EDITORS = {
     read() {},
   },
 
+  /* ── PLAN · calendars ──────────────────────────────────────────────────── */
+  'plan.calendars': {
+    title: 'Calendars',
+    note: 'Which Google Calendar each project\'s events belong on. ROOT never touches a calendar — it passes the name on in the export and the scheduled agent looks it up. One per line: the project, or "project > section" where a project splits, then a pipe, then the calendar name.',
+    render() {
+      const c = Config.get('plan.calendars') || {};
+      return `<div class="f">
+        <textarea data-cfg="plan.calendars" data-map="1" rows="${Math.min(14, Math.max(4, Object.keys(c).length))}"
+                  spellcheck="false" aria-label="project to calendar"
+          >${esc(Object.keys(c).map(k => k + ' | ' + c[k]).join('\n'))}</textarea>
+        <div class="ed-hint">project | calendar name — the first pipe divides them, so the name may hold more</div>
+      </div>`;
+    },
+    read() {},
+  },
+
+  /* ── PLAN · day templates ──────────────────────────────────────────────── */
+  'plan.dayTemplates': {
+    title: 'Day templates',
+    note: 'The shape of a day, as minutes from whatever start time the export is given — nothing here is a clock time, so one number moves the whole day. Three fields is a block slot the picked tasks are assigned to; four or more is a fixed event. "normal" and "rest" are names the export writes down, so keep them.',
+    render() {
+      const t = Config.get('plan.dayTemplates') || {};
+      return Object.keys(t).map(name => {
+        const rows = Array.isArray(t[name]) ? t[name] : [];
+        const slots = rows.filter(r => r.slot).length;
+        return `<div class="ed-card" data-key="${esc(name)}">
+          <div class="ed-head">
+            <span class="ed-badge">${esc(name)}</span>
+            <span class="ed-hint">${rows.length} rows · ${slots} block slot${slots === 1 ? '' : 's'} · ${fmtSpan(rows)}</span>
+          </div>
+          <textarea data-field="rows" rows="${Math.min(22, Math.max(4, rows.length))}" spellcheck="false"
+                    aria-label="${esc(name)} rows">${esc(rows.map(tplLine).join('\n'))}</textarea>
+        </div>`;
+      }).join('') + `<div class="ed-hint">offset | minutes | slot &nbsp;·&nbsp; or &nbsp; offset | minutes | event | calendar name</div>`;
+    },
+    read(box) {
+      const out = {};
+      box.querySelectorAll('.ed-card').forEach(card => {
+        out[card.dataset.key] = lines(card.querySelector('[data-field=rows]').value).map(tplRow).filter(Boolean);
+      });
+      Config.set('plan.dayTemplates', out);
+    },
+  },
+
   /* ── STORE · categories ────────────────────────────────────────────────── */
   'store.categories': {
     title: 'Aisles',
@@ -920,7 +1006,8 @@ const EDITORS = {
 };
 
 const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
-                      'plan.types','plan.chips','plan.formFields','store.categories','store.meals','store.quickAmounts',
+                      'plan.types','plan.chips','plan.formFields','plan.calendars','plan.dayTemplates',
+                      'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings'];
 
 function editorHTML(path) {
@@ -1279,6 +1366,17 @@ function commitField(el) {
     const keepZero = el.dataset.numlist === 'all';
     Config.set(path, el.value.split(',').map(s => parseFloat(s.trim()))
                              .filter(n => isFinite(n) && (keepZero || n !== 0)));
+  } else if (el.dataset.map) {
+    /* "key | value" per line, split on the FIRST pipe only — a value may hold
+       pipes of its own, which every calendar name in plan.calendars does. */
+    const out = {};
+    lines(el.value).forEach(l => {
+      const p = l.indexOf('|');
+      if (p < 0) return;
+      const k = l.slice(0, p).trim();
+      if (k) out[k] = l.slice(p + 1).trim();
+    });
+    Config.set(path, out);
   } else if (el.dataset.pairs) {
     const [a, b] = el.dataset.pairs.split(',');
     Config.set(path, lines(el.value).map(l => {

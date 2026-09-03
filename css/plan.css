@@ -118,6 +118,60 @@
   letter-spacing:.08em;cursor:pointer;padding:calc(2px * var(--dens)) 0;text-transform:var(--caps)}
 .ns-plan .pf-close:active{color:var(--y)}
 
+/* ── The export panel ──
+   The same box as the task form and drawn in the same place, but it belongs
+   to the sent list rather than to a project, so it wears the accent instead
+   of a project's colour. Everything in it is built from Config — the slot
+   chips from the templates, the preview from a template and the calendar map
+   — so nothing here has a fixed width: the chips wrap and the preview's
+   columns shrink. */
+.ns-plan .exp-panel{--proj-color:var(--y);min-height:0}
+.ns-plan .exp-pair{display:grid;grid-template-columns:1fr 1fr;gap:calc(9px * var(--dens))}
+.ns-plan .exp-panel input[type=date],.ns-plan .exp-panel input[type=time]{
+  width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 13px/1 var(--mono);padding:calc(11px * var(--dens)) calc(12px * var(--dens));
+  outline:none;-webkit-appearance:none;min-width:0}
+.ns-plan .exp-panel input[type=date]:focus,.ns-plan .exp-panel input[type=time]:focus{border-color:var(--y)}
+.ns-plan .exp-panel textarea{min-height:60px;font-size:13px}
+
+/* one row per picked task: its name, then the slots it can be given */
+.ns-plan .exp-tasks{display:flex;flex-direction:column;gap:calc(7px * var(--dens))}
+.ns-plan .exp-task{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(10px * var(--dens)) calc(11px * var(--dens));display:flex;flex-direction:column;
+  gap:calc(8px * var(--dens));transition:border-color var(--dur-1),background var(--dur-1)}
+.ns-plan .exp-task.on{background:color-mix(in srgb,var(--q-color,var(--y)) 12%,var(--s1));
+  border-color:var(--q-color,var(--y))}
+.ns-plan .exp-task-name{display:flex;align-items:center;gap:calc(8px * var(--dens));
+  font:400 12px/1.35 var(--mono);color:var(--tx);word-break:break-word}
+.ns-plan .exp-task-name .q-dot{margin-top:0;flex-shrink:0}
+/* built from the templates, so it wraps rather than running off the edge */
+.ns-plan .exp-slots{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
+.ns-plan .exp-slot{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--mu);font:400 11px/1 var(--mono);letter-spacing:.05em;
+  padding:calc(8px * var(--dens)) calc(10px * var(--dens));cursor:pointer;transition:all .1s}
+.ns-plan .exp-slot.on{background:var(--yd);border-color:var(--y);color:var(--y)}
+/* a slot the picked template does not have: dimmed, but still tappable — the
+   tap is what explains why it cannot be used */
+.ns-plan .exp-slot.off{opacity:.4;border-style:dashed}
+
+/* ── The preview ── */
+.ns-plan .exp-warn{background:rgba(255,154,20,.1);border:var(--bw) solid rgba(255,154,20,.32);
+  border-radius:var(--r1);color:#ff9a14;font:400 10px/1.6 var(--mono);letter-spacing:.03em;
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens));margin-bottom:calc(8px * var(--dens))}
+.ns-plan .exp-warn b{font-weight:700}
+.ns-plan .exp-empty,.ns-plan .exp-need{font:400 10px/1.6 var(--mono);color:var(--mu);
+  letter-spacing:.05em;text-align:center;padding:calc(10px * var(--dens)) 0}
+.ns-plan .exp-need{color:var(--or);margin-top:auto}
+.ns-plan .exp-prev{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens));max-height:260px;overflow-y:auto}
+.ns-plan .exp-line{display:grid;grid-template-columns:auto 1fr auto;gap:calc(9px * var(--dens));
+  align-items:baseline;font:400 10px/1.8 var(--mono);letter-spacing:.03em}
+.ns-plan .exp-line.idle{opacity:.45}
+.ns-plan .exp-at{color:var(--y);white-space:nowrap}
+.ns-plan .exp-ev{color:var(--tx);min-width:0;word-break:break-word}
+.ns-plan .exp-cal{color:var(--mu);min-width:0;text-align:right;word-break:break-word}
+.ns-plan .exp-cal.missing{color:var(--re)}
+
 /* ── Options (scale buttons) ── */
 .ns-plan .opts{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
 .ns-plan .opt-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -198,12 +252,12 @@
 .ns-plan .sent-item.on .q-pill{color:var(--tx-2)}
 /* on the title row next to "clear all", and absent until something is picked */
 .ns-plan .row-acts{display:flex;align-items:center;gap:calc(10px * var(--dens))}
-.ns-plan .sent-cal{display:flex;align-items:center;gap:4px;flex:0 0 auto;align-self:center;
+.ns-plan .sent-export{display:flex;align-items:center;gap:4px;flex:0 0 auto;align-self:center;
   background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.04em;
   padding:calc(6px * var(--dens)) calc(8px * var(--dens));cursor:pointer;transition:all var(--dur-1)}
-.ns-plan .sent-cal svg{width:13px;height:13px;display:block}
-.ns-plan .sent-cal:active{border-color:var(--y);color:var(--y)}
+.ns-plan .sent-export svg{width:13px;height:13px;display:block}
+.ns-plan .sent-export:active{border-color:var(--y);color:var(--y)}
 
 /* an empty queue has no placeholder block: the title row already says "empty" */
 

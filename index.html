@@ -588,15 +588,15 @@
     </div>
 
     <!-- every task PLAN has ever sent, newest first; tapping a row selects it
-         and "+ cal" copies the calendar lines for everything selected, at most
-         two tasks per block — PLAN.renderSent() -->
+         and "export" opens the day panel in the tile grid above, where each
+         picked task is given a slot — PLAN.renderSent() / PLAN.openExport() -->
     <div class="sent" id="sent" data-flip="sent">
       <div class="row-lbl">
         <span>sent <em id="sent-count">empty</em></span>
         <span class="row-acts">
-          <button class="sent-cal hidden" id="sent-cal" onclick="PLAN.copyCal()"
-                  aria-label="copy calendar lines for the selected tasks"
-            >+<svg aria-hidden="true"><use href="#ico-cal"/></svg><span id="sent-cal-n"></span></button>
+          <button class="sent-export hidden" id="sent-export" onclick="PLAN.openExport()"
+                  aria-label="build a day out of the selected tasks"
+            ><svg aria-hidden="true"><use href="#ico-cal"/></svg>export<span id="sent-export-n"></span></button>
           <button class="muted-act hidden" id="sent-clear" onclick="PLAN.clearSent()">clear all</button>
         </span>
       </div>

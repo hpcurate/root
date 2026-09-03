@@ -192,6 +192,82 @@ const DEFAULTS = {
        blocks has no use for a per-task estimate — but the chips above are kept
        so switching it back on needs no re-typing. */
     formFields: { block: true, time: false, priority: true, subtasks: true },
+
+    /* ── The export ─────────────────────────────────────────────────────────
+       Which Google Calendar a project's events belong on. A *name*, never an
+       id: ROOT has no Google auth and never resolves one — the name is passed
+       through in the exported description and the scheduled agent looks it up.
+
+       The key is the PLAN type, or `type > sub` where one type splits across
+       several calendars. Only curate splits today; a type with no `>` entry
+       falls back to its own key. */
+    calendars: {
+      'curate > mixing':     '02A1 | curate project mixing',
+      'curate > production': '02A2 | curate project production',
+      'curate > socials':    '02A3 | curate project content',
+      system:                '02B1 | system',
+      admin:                 '02B3 | admin',
+      home:                  '02B4 | home',
+      edu:                   '02B5 | edu / career',
+      alive:                 '02B6 | alive',
+    },
+
+    /* Two shapes of day. Every row is `at` minutes from the day's start and a
+       duration in minutes — nothing here is a wall-clock time, so one start
+       time moves the whole day. A row is either a fixed event (`cal` + `event`)
+       or one of the block slots the picked tasks are assigned to (`slot`).
+
+       `normal` and `rest` are identities, not labels: the exported description
+       carries `template: normal|rest` and a downstream agent parses it.
+
+       The two differ by exactly two things — the hour of gym, and the b3 pair.
+       **`rest` has four block slots, not six**: b3a and b3b do not exist on it,
+       and those hours are free time. Dropping gym is why every offset after it
+       is an hour earlier on a rest day. */
+    dayTemplates: {
+      normal: [
+        { at:   0, dur: 30, cal:'01A1 | routine', event:'routine p1' },
+        { at:  30, dur: 75, cal:'01A2 | kamo',    event:'kamo' },
+        { at: 105, dur: 60, cal:'01A3 | care',    event:'gym' },
+        { at: 165, dur: 30, cal:'01A1 | routine', event:'routine p2' },
+        { at: 195, dur: 45, cal:'01A5 | no work', event:'break' },
+        { at: 240, dur: 90, slot:'b1a' },
+        { at: 330, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 345, dur: 90, slot:'b1b' },
+        { at: 435, dur: 45, cal:'01A1 | routine', event:'routine p3' },
+        { at: 480, dur: 90, slot:'b2a' },
+        { at: 570, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 585, dur: 90, slot:'b2b' },
+        { at: 675, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 690, dur: 45, cal:'01A2 | kamo',    event:'kamo' },
+        { at: 735, dur: 15, cal:'01A1 | routine', event:'meal' },
+        { at: 750, dur: 90, slot:'b3a' },
+        { at: 840, dur: 30, cal:'01A1 | routine', event:'routine p4' },
+        { at: 870, dur: 90, slot:'b3b' },
+        { at: 960, dur: 45, cal:'01A5 | no work', event:'free time' },
+        { at:1005, dur: 15, cal:'01A1 | routine', event:'cooldown' },
+      ],
+      rest: [
+        { at:   0, dur: 30, cal:'01A1 | routine', event:'routine p1' },
+        { at:  30, dur: 75, cal:'01A2 | kamo',    event:'kamo' },
+        { at: 105, dur: 30, cal:'01A1 | routine', event:'routine p2' },
+        { at: 135, dur: 45, cal:'01A5 | no work', event:'break' },
+        { at: 180, dur: 90, slot:'b1a' },
+        { at: 270, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 285, dur: 90, slot:'b1b' },
+        { at: 375, dur: 45, cal:'01A1 | routine', event:'routine p3' },
+        { at: 420, dur: 90, slot:'b2a' },
+        { at: 510, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 525, dur: 90, slot:'b2b' },
+        { at: 615, dur: 15, cal:'01A5 | no work', event:'break' },
+        { at: 630, dur: 45, cal:'01A2 | kamo',    event:'kamo' },
+        { at: 675, dur: 15, cal:'01A1 | routine', event:'meal' },
+        { at: 690, dur: 90, cal:'01A5 | no work', event:'free time' },
+        { at: 780, dur: 30, cal:'01A1 | routine', event:'routine p4' },
+        { at: 810, dur:135, cal:'01A5 | no work', event:'free time' },
+        { at: 945, dur: 15, cal:'01A1 | routine', event:'cooldown' },
+      ],
+    },
   },
 
   /* ── STORE ──────────────────────────────────────────────────────────────── */

@@ -55,6 +55,12 @@ await new Promise(r => setTimeout(r, 50));
 
 let pass = 0, fail = 0;
 const results = [];
+/* A throw part-way through used to take every result with it, which left a
+   typo in one check looking identical to a broken app. Print what ran first. */
+const bail = e => { console.log(results.join('\n'));
+  console.error('\nthrew before the end:\n' + ((e && e.stack) || e)); process.exit(1); };
+process.on('uncaughtException', bail);
+process.on('unhandledRejection', bail);
 function check(name, cond, note) {
   if (cond) { pass++; results.push(`  ok   ${name}`); }
   else { fail++; results.push(`  FAIL ${name}${note ? ' — ' + note : ''}`); }
@@ -926,102 +932,328 @@ check('the sent list starts empty and says so on its title row',
   $('.ns-plan #sent-count').textContent === 'empty' && $('.ns-plan #sent-clear').classList.contains('hidden') &&
   !d.querySelectorAll('.ns-plan #sent-list .q-item').length);
 
-check('… with no "+ cal" until a row is picked', $('.ns-plan #sent-cal').classList.contains('hidden'));
+check('… with no "export" until a row is picked', $('.ns-plan #sent-export').classList.contains('hidden'));
 
-// send five tasks: three into b1, one into b2, one with no block at all
+// seven tasks across five projects — enough to fill the six slots and refuse one more
 let sent = 0;
 fetchScript = async (url, opts) => {
   if (opts && opts.method === 'POST') { sent++; return { ok: true, status: 200, json: async () => ({ id: 'n' + sent }), text: async () => '{}' }; }
   return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
 };
-const queueOne = (section, name, block) => {
-  w.PLAN.pickSub('curate', section);
+const queueOne = (proj, section, name, block) => {
+  w.PLAN.pickSub(proj, section);
   $('.ns-plan #task-name').value = name;
   $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
   if (block) w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === block), 'block', block);
   w.PLAN.addToQueue();
 };
-queueOne(0, 'mix the track', 'b1');
-queueOne(1, 'master it', 'b1');
-queueOne(2, 'render stems', 'b1');
-queueOne(0, 'post the clip', 'b2');
-queueOne(1, 'tidy the desk', null);
+queueOne('curate', 0, 'mix the track', 'b1');       // curate > mixing
+queueOne('curate', 1, 'master it', 'b1');           // curate > production
+queueOne('curate', 2, 'post the clip', 'b2');       // curate > socials
+queueOne('home',   2, 'chores', null);              // home (no per-section calendar)
+queueOne('admin',  0, 'call the bank', null);
+queueOne('edu',    0, 'read chapter 3', null);
+queueOne('alive',  0, 'walk kamo', null);
 w.PLAN.go('sending');
-await tick(700);
+await tick(900);
 const sentRows = () => [...d.querySelectorAll('.ns-plan #sent-list .q-item')];
 const rowFor = name => sentRows().findIndex(r => r.querySelector('.q-item-name').textContent === name);
 const rows = sentRows();
 check('everything sent lands in the sent list, newest first, every row a button',
-  rows.length === 5 && /tidy the desk/.test(rows[0].textContent) && /mix the track/.test(rows[4].textContent) &&
-  rows.every(r => r.tagName === 'BUTTON' && r.getAttribute('aria-pressed') === 'false') &&
-  !d.querySelector('.ns-plan #sent-list .sent-cal'),
+  rows.length === 7 && /walk kamo/.test(rows[0].textContent) && /mix the track/.test(rows[6].textContent) &&
+  rows.every(r => r.tagName === 'BUTTON' && r.getAttribute('aria-pressed') === 'false'),
   rows.map(r => r.querySelector('.q-item-name').textContent).join(' | '));
 check('… each row naming its project, its block and the day',
-  /curate/.test(rows[1].textContent) && /@b2/.test(rows[1].textContent) && /@b1/.test(rows[4].textContent));
+  /curate/.test(rows[4].textContent) && /@b2/.test(rows[4].textContent) && /@b1/.test(rows[6].textContent));
 check('the title row counts them and offers to clear',
-  $('.ns-plan #sent-count').textContent === '5 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
+  $('.ns-plan #sent-count').textContent === '7 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
 
-/* Tapping a row picks it; "+ cal" appears and names how many are picked. */
-const calBtn = () => $('.ns-plan #sent-cal');
+/* Tapping a row picks it; "export" appears and names how many are picked. */
+const expBtn = () => $('.ns-plan #sent-export');
 w.PLAN.toggleSent(rowFor('mix the track'));
-check('tapping a row selects it and brings "+ cal" out',
-  sentRows()[4].classList.contains('on') && sentRows()[4].getAttribute('aria-pressed') === 'true' &&
-  !calBtn().classList.contains('hidden') && $('.ns-plan #sent-cal-n').textContent === '1');
+check('tapping a row selects it and brings "export" out',
+  sentRows()[6].classList.contains('on') && sentRows()[6].getAttribute('aria-pressed') === 'true' &&
+  !expBtn().classList.contains('hidden') && $('.ns-plan #sent-export-n').textContent === '1');
 w.PLAN.toggleSent(rowFor('master it'));
-check('… and a second one of the same block joins it', $('.ns-plan #sent-cal-n').textContent === '2');
+check('… and a second row of the same block joins it — the block no longer caps the picking',
+  $('.ns-plan #sent-export-n').textContent === '2' && sentRows()[rowFor('master it')].classList.contains('on'));
 
-/* A block is two halves, so two of it is the ceiling. */
-w.PLAN.toggleSent(rowFor('render stems'));
-check('a third task of the same block is refused, with a word about why',
-  $('.ns-plan #sent-cal-n').textContent === '2' && !sentRows()[rowFor('render stems')].classList.contains('on') &&
-  /two per block/.test($('#toast').textContent), $('#toast').textContent);
-w.PLAN.toggleSent(rowFor('master it'));
+/* Six slots in a day, so six picked rows is the ceiling. */
+['post the clip', 'chores', 'call the bank', 'read chapter 3'].forEach(nm => w.PLAN.toggleSent(rowFor(nm)));
+check('six rows pick without complaint — one per slot', $('.ns-plan #sent-export-n').textContent === '6');
+w.PLAN.toggleSent(rowFor('walk kamo'));
+check('a seventh is refused, with a word about why',
+  $('.ns-plan #sent-export-n').textContent === '6' && !sentRows()[rowFor('walk kamo')].classList.contains('on') &&
+  /6 slots in a day/.test($('#toast').textContent), $('#toast').textContent);
+w.PLAN.toggleSent(rowFor('read chapter 3'));
 check('tapping a picked row lets it go again',
-  $('.ns-plan #sent-cal-n').textContent === '1' && !sentRows()[rowFor('master it')].classList.contains('on'));
-w.PLAN.toggleSent(rowFor('render stems'));
-check('… which frees the block for another task', sentRows()[rowFor('render stems')].classList.contains('on'));
-w.PLAN.toggleSent(rowFor('render stems'));     // back to "mix the track" alone
+  $('.ns-plan #sent-export-n').textContent === '5' && !sentRows()[rowFor('read chapter 3')].classList.contains('on'));
 
-/* Two tasks in b1 split the block, in the order they were sent; one task in
-   b2 fills both halves of it; a blockless task has no half to name. */
-const hist = JSON.parse(w.localStorage.getItem('plan_history_v1'));
-const item = name => hist.find(h => h.name === name);
-check('a block with two tasks gets one line each, a then b',
-  w.PLAN.calLinesFor([item('mix the track'), item('master it')]) ===
-  'b1a : curate > mix the track\nb1b : curate > master it',
-  JSON.stringify(w.PLAN.calLinesFor([item('mix the track'), item('master it')])));
-check('… whichever order the two rows were tapped in',
-  w.PLAN.calLinesFor([item('master it'), item('mix the track')]) ===
-  w.PLAN.calLinesFor([item('mix the track'), item('master it')]));
-check('a block with one task fills both halves with it',
-  w.PLAN.calLinesFor([item('post the clip')]) === 'b2a : curate > post the clip\nb2b : curate > post the clip',
-  JSON.stringify(w.PLAN.calLinesFor([item('post the clip')])));
-check('a task sent with no block copies the bare project > task',
-  w.PLAN.calLinesFor([item('tidy the desk')]) === 'curate > tidy the desk');
-check('several blocks come out in the form\'s own order, blockless last',
-  w.PLAN.calLinesFor([item('tidy the desk'), item('post the clip'), item('mix the track')]) ===
-  'b1a : curate > mix the track\nb1b : curate > mix the track\n' +
-  'b2a : curate > post the clip\nb2b : curate > post the clip\n' +
-  'curate > tidy the desk',
-  JSON.stringify(w.PLAN.calLinesFor([item('tidy the desk'), item('post the clip'), item('mix the track')])));
+// ── 27. the export panel ───────────────────────────────────────────────────
+/* The two branches the export is built out of, as shipped. */
+const shippedCals = w.Config.defaults('plan.calendars');
+check('plan.calendars ships the eight projects, curate split three ways',
+  Object.keys(shippedCals).length === 8 &&
+  shippedCals['curate > mixing'] === '02A1 | curate project mixing' &&
+  shippedCals['curate > production'] === '02A2 | curate project production' &&
+  shippedCals['curate > socials'] === '02A3 | curate project content' &&
+  ['system','admin','home','edu','alive'].every(k => /^02B\d \| /.test(shippedCals[k])),
+  Object.keys(shippedCals).join(','));
+const shippedTpl = w.Config.defaults('plan.dayTemplates');
+const span = t => t.reduce((n, r) => Math.max(n, r.at + r.dur), 0);
+check('plan.dayTemplates ships both, the normal day 17h with six slots and the rest day 16h with four',
+  Object.keys(shippedTpl).join(',') === 'normal,rest' &&
+  span(shippedTpl.normal) === 17 * 60 && span(shippedTpl.rest) === 16 * 60 &&
+  shippedTpl.normal.filter(r => r.slot).length === 6 && shippedTpl.rest.filter(r => r.slot).length === 4,
+  span(shippedTpl.normal) + '/' + span(shippedTpl.rest));
+check('… every row butting onto the next, so the span really is one number',
+  [shippedTpl.normal, shippedTpl.rest].every(t => t.every((r, i) => i === 0 ? r.at === 0 : r.at === t[i-1].at + t[i-1].dur)));
+/* ROOT writes a Todoist task and stops: it has no Google auth and is not
+   getting any, so nothing in PLAN may reach for one. */
+const planJs = fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8');
+const planUrls = planJs.match(/https?:\/\/[^\s'"`]+/g) || [];
+check('every endpoint PLAN talks to is Todoist — the calendar half is not ROOT\'s',
+  planUrls.length > 0 && planUrls.every(u => /todoist/.test(u)), planUrls.join(' '));
 
-let copied = '';
-w.navigator.clipboard = { writeText: async t => { copied = t; } };
-w.PLAN.toggleSent(rowFor('master it'));        // mix the track is still picked
-w.PLAN.toggleSent(rowFor('post the clip'));
-await w.PLAN.copyCal();
-check('"+ cal" puts one template for every picked task on the clipboard',
-  copied === 'b1a : curate > mix the track\nb1b : curate > master it\n' +
-             'b2a : curate > post the clip\nb2b : curate > post the clip', JSON.stringify(copied));
+w.PLAN.openExport();
+const panel = () => $('.ns-plan .exp-panel');
+check('the export panel opens inside the tile grid, not on a screen of its own',
+  !!panel() && panel().closest('#proj-list') === $('.ns-plan #proj-list') &&
+  !d.querySelector('.ns-plan #s-form') && !d.querySelector('.ns-plan .proj-tile'),
+  panel() ? (panel().parentElement || {}).id : 'no panel');
+check('… with all eight fields on it',
+  ['exp-date','exp-start','exp-tpl','exp-mode','exp-tasks','exp-notes','exp-out','exp-go-wrap']
+    .every(id => !!$('.ns-plan #' + id)),
+  ['exp-date','exp-start','exp-tpl','exp-mode','exp-tasks','exp-notes','exp-out','exp-go-wrap']
+    .filter(id => !$('.ns-plan #' + id)).join(','));
+check('the date defaults to tomorrow', $('.ns-plan #exp-date').value === offset(1),
+  $('.ns-plan #exp-date').value + ' vs ' + offset(1));
+check('the send button steps out of the way while the panel is open',
+  $('.ns-plan #send-wrap').classList.contains('hidden'));
+
+/* One slot row per picked task, six chips each, and nothing to export yet. */
+const taskRows = () => [...d.querySelectorAll('.ns-plan .exp-task')];
+check('every picked row gets its own slot row, with the six named slots to tap',
+  taskRows().length === 5 &&
+  [...taskRows()[0].querySelectorAll('.exp-slot')].map(b => b.textContent).join(' ') === 'b1a b1b b2a b2b b3a b3b',
+  taskRows().length + ' rows');
+check('the export button is absent while a picked task has no slot',
+  !$('.ns-plan #exp-go') && /5 tasks still without a slot/.test($('.ns-plan #exp-go-wrap').textContent),
+  $('.ns-plan #exp-go-wrap').textContent.trim());
+
+/* Slots are assigned by tapping, never derived from the order things were sent. */
+const rowIdx = name => taskRows().findIndex(r => r.querySelector('.exp-task-name').textContent.includes(name));
+const slotBtn = (name, slot) => [...taskRows()[rowIdx(name)].querySelectorAll('.exp-slot')].find(b => b.textContent === slot);
+click(slotBtn('chores', 'b1a'));
+check('a task takes the slot it is given, not the one its send order would imply',
+  slotBtn('chores', 'b1a').classList.contains('on') && taskRows()[rowIdx('chores')].classList.contains('on'));
+click(slotBtn('mix the track', 'b1a'));
+check('… and a slot another task already holds is refused, by name',
+  !slotBtn('mix the track', 'b1a').classList.contains('on') && /b1a is taken — by chores/.test($('#toast').textContent),
+  $('#toast').textContent);
+click(slotBtn('mix the track', 'b1b'));
+click(slotBtn('chores', 'b1a'));
+check('tapping a task\'s own slot again clears it', !slotBtn('chores', 'b1a').classList.contains('on'));
+click(slotBtn('chores', 'b1a'));
+
+/* The rest template has four block slots, not six. */
+const tplChip = n => [...d.querySelectorAll('.ns-plan #exp-tpl .opt-b')].find(b => b.textContent === n);
+check('both templates are offered', !!tplChip('normal') && !!tplChip('rest') &&
+  tplChip('normal').classList.contains('on'));
+click(tplChip('rest'));
+click(slotBtn('master it', 'b3a'));
+check('assigning a b3 slot on a rest day is refused, with a toast saying why',
+  !slotBtn('master it', 'b3a').classList.contains('on') &&
+  /rest has no b3a — those hours are free time/.test($('#toast').textContent), $('#toast').textContent);
+check('… and the two b3 chips are marked as not on offer',
+  slotBtn('master it', 'b3a').classList.contains('off') && slotBtn('master it', 'b3b').classList.contains('off') &&
+  !slotBtn('master it', 'b2b').classList.contains('off'));
+click(slotBtn('master it', 'b2b'));
+check('a rest day still takes its four slots', slotBtn('master it', 'b2b').classList.contains('on'));
+click(slotBtn('master it', 'b2b'));            // free it again
+click(tplChip('rest'));                        // no-op: already on rest
+click(slotBtn('post the clip', 'b2b'));
+click(tplChip('normal'));
+click(slotBtn('master it', 'b3a'));
+check('… and the same slot is taken without complaint once normal is picked back',
+  slotBtn('master it', 'b3a').classList.contains('on'));
+click(tplChip('rest'));
+check('switching back to rest drops the b3 assignment rather than losing it at export time',
+  !slotBtn('master it', 'b3a').classList.contains('on') &&
+  /rest has no b3a \/ b3b — 1 task unassigned/.test($('#toast').textContent), $('#toast').textContent);
+click(tplChip('normal'));
+click(slotBtn('master it', 'b3a'));
+click(slotBtn('call the bank', 'b2a'));
+
+/* Two start times, because one proves nothing about an offset model. */
+const at = (tpl, start, i) => { const r = w.PLAN.resolved(tpl); return r[i]; };
+const setStart = hhmm => { const el = $('.ns-plan #exp-start'); el.value = hhmm;
+  el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+setStart('07:00');
+check('normal resolves off the start time — 07:00 puts gym at 08:45 and b1a at 11:00',
+  at('normal', '', 2).event === 'gym' && at('normal', '', 2).from === '08:45' && at('normal', '', 2).to === '09:45' &&
+  at('normal', '', 5).slot === 'b1a' && at('normal', '', 5).from === '11:00' && at('normal', '', 5).to === '12:30',
+  JSON.stringify([at('normal', '', 2), at('normal', '', 5)]));
+check('… and the 17-hour span ends at midnight',
+  at('normal', '', 19).event === 'cooldown' && at('normal', '', 19).from === '23:45' && at('normal', '', 19).to === '00:00');
+check('rest at the same start puts b1a an hour earlier, gym being gone',
+  at('rest', '', 4).slot === 'b1a' && at('rest', '', 4).from === '10:00' && at('rest', '', 4).to === '11:30' &&
+  at('rest', '', 17).event === 'cooldown' && at('rest', '', 17).from === '22:45',
+  JSON.stringify([at('rest', '', 4), at('rest', '', 17)]));
+setStart('09:30');
+check('a second start time moves the whole day with it, nothing being a wall-clock constant',
+  at('normal', '', 5).from === '13:30' && at('normal', '', 5).to === '15:00' &&
+  at('rest', '', 4).from === '12:30' && at('rest', '', 4).to === '14:00' &&
+  at('normal', '', 19).from === '02:15' && at('normal', '', 19).over === true,
+  JSON.stringify([at('normal', '', 5), at('rest', '', 4), at('normal', '', 19)]));
+check('rest carries four block slots and normal six',
+  w.PLAN.resolved('rest').filter(r => r.slot).length === 4 &&
+  w.PLAN.resolved('normal').filter(r => r.slot).length === 6 &&
+  !w.PLAN.resolved('rest').some(r => /^b3/.test(r.slot || '')));
+setStart('07:00');
+
+/* The preview: one line per event, at the clock time it resolves to. */
+check('the preview shows one line per picked task in blocks mode, with real times',
+  w.PLAN.previewRows().length === 5 && d.querySelectorAll('.ns-plan .exp-line').length === 5,
+  w.PLAN.previewRows().length + ' rows for ' + taskRows().length + ' picked');
+const line = slot => [...d.querySelectorAll('.ns-plan .exp-line')].find(l => l.textContent.includes(slot + '|'));
+check('… naming the event as <slot>|<task> on the calendar the project maps to',
+  /12:45–14:15/.test(line('b1b').textContent) && /b1b\|mix the track/.test(line('b1b').textContent) &&
+  /02A1 \| curate project mixing/.test(line('b1b').textContent), line('b1b').textContent.replace(/\s+/g, ' ').trim());
+check('… and a project with no per-section calendar falls back to its own',
+  /11:00–12:30/.test(line('b1a').textContent) && /02B4 \| home/.test(line('b1a').textContent),
+  line('b1a').textContent.replace(/\s+/g, ' ').trim());
+check('blocks mode writes nothing but the slots — no routine, no breaks',
+  !w.PLAN.previewRows().some(r => r.event));
+w.PLAN.setMode('full');
+check('full schedule previews the whole template, the idle slots included',
+  w.PLAN.previewRows().length === 20 && d.querySelectorAll('.ns-plan .exp-line.idle').length === 1,
+  w.PLAN.previewRows().length + ' rows');
+check('… and warns that the day is replaced, and where what is there now goes',
+  /will be replaced/.test($('.ns-plan .exp-warn').textContent) &&
+  /00B \| schedule 2/.test($('.ns-plan .exp-warn').textContent) &&
+  /archived/.test($('.ns-plan .exp-warn').textContent),
+  $('.ns-plan .exp-warn').textContent.replace(/\s+/g, ' ').trim());
+w.PLAN.setMode('blocks');
+check('the export button is there once every picked task has a slot, and names the count',
+  !!$('.ns-plan #exp-go') && $('.ns-plan #exp-go').textContent === 'export 5 tasks');
+
+/* ── The description is a contract: byte for byte ── */
+const dayISO = offset(1);
+const wanted = [
+  `day: ${dayISO}`, 'start: 07:00', 'template: normal', 'mode: blocks', '',
+  'b1a | home | chores',
+  'b1b | curate > mixing | mix the track',
+  'b2a | admin | call the bank',
+  'b2b | curate > socials | post the clip',
+  'b3a | curate > production | master it',
+].join('\n');
+check('the description renders byte-exactly, slots in template order',
+  w.PLAN.exportDescription() === wanted, JSON.stringify(w.PLAN.exportDescription()));
+check('… with the notes section omitted entirely when there are none, not left as a bare header',
+  !/notes/.test(w.PLAN.exportDescription()));
+const notesEl = $('.ns-plan #exp-notes');
+notesEl.value = 'buy strings\n\n  call mum  \n';
+notesEl.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('… and present, one dash per line, once something is written',
+  w.PLAN.exportDescription() === wanted + '\n\nnotes:\n- buy strings\n- call mum',
+  JSON.stringify(w.PLAN.exportDescription()));
+
+/* plan.calendars is Config: an edit reaches the panel without a reload. */
+const calMap = w.Config.get('plan.calendars');
+calMap['curate > mixing'] = '99Z | somewhere else';
+w.Config.set('plan.calendars', calMap);
+check('a plan.calendars edit survives the re-render and reaches the description',
+  /99Z \| somewhere else/.test($('.ns-plan #exp-out').textContent) &&
+  /b1b \| curate > mixing \| mix the track/.test(w.PLAN.exportDescription()) &&
+  $('.ns-plan #exp-notes').value === 'buy strings\n\n  call mum  \n',
+  $('.ns-plan #exp-out').textContent.replace(/\s+/g, ' ').slice(0, 90));
+w.Config.reset('plan.calendars');
+check('… and resetting it puts the shipped calendar back',
+  /02A1 \| curate project mixing/.test($('.ns-plan #exp-out').textContent));
+
+/* The send: one task, through the shell's own Todoist helper, labelled import. */
+w.Creds.save('tok');
+let posted = null;
+fetchScript = async (url, opts) => {
+  if (opts && opts.method === 'POST') { posted = { url: String(url), body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ id: 'exp1' }), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+await w.PLAN.doExport();
+await tick();
+check('export POSTs one task through the shell helper, labelled import',
+  !!posted && posted.url === 'https://api.todoist.com/api/v1/tasks' &&
+  JSON.stringify(posted.body.labels) === '["import"]' && posted.body.content === `schedule ${dayISO}`,
+  JSON.stringify(posted && { url: posted.url, labels: posted.body.labels, content: posted.body.content }));
+check('… carrying the description verbatim',
+  !!posted && posted.body.description === wanted + '\n\nnotes:\n- buy strings\n- call mum',
+  JSON.stringify(posted && posted.body.description));
+check('… and says so, closing the panel and letting the picked rows go',
+  /exported · 5 tasks/.test($('#toast').textContent) && !panel() &&
+  $('.ns-plan #sent-export').classList.contains('hidden'), $('#toast').textContent);
+check('the start time is remembered for next time',
+  JSON.parse(w.localStorage.getItem('plan_export_v1')).start === '07:00');
+
+/* A failure is never silent: the task not reaching Todoist means no calendar. */
+w.PLAN.toggleSent(rowFor('chores'));
+w.PLAN.openExport();
+click(slotBtn('chores', 'b1a'));
+fetchScript = async (url, opts) => (opts && opts.method === 'POST')
+  ? { ok: false, status: 500, json: async () => ({}), text: async () => '' }
+  : { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+await w.PLAN.doExport();
+await tick();
+check('a failed export says so and leaves the panel up with its button back',
+  /export failed/.test($('#toast').textContent) && !!panel() &&
+  !!$('.ns-plan #exp-go') && !$('.ns-plan #exp-go').disabled, $('#toast').textContent);
+w.PLAN.closeExport();
+check('cancelling puts the project tiles back', !panel() && !!d.querySelector('.ns-plan .proj-tile'));
+
 confirmAnswer = true;
 w.PLAN.clearSent();
 check('clear empties the list, the key and the selection',
   !sentRows().length && JSON.parse(w.localStorage.getItem('plan_history_v1')).length === 0 &&
-  calBtn().classList.contains('hidden'));
+  expBtn().classList.contains('hidden'));
 check("clearing the history leaves today's own sent record alone — LOG reads that one",
-  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 5,
-  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 5));
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 7,
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 7));
 w.PLAN.clearQueue();
+
+/* The two new branches are editable in settings, like every other content
+   branch — and the templates round-trip through their text form. */
+w.SET.panel('plan');
+const edPaths = [...d.querySelectorAll('.ns-set [data-content-for="plan"] [data-group]')].map(b => b.dataset.group);
+check('plan.calendars and plan.dayTemplates are editable in settings → apps → plan',
+  edPaths.includes('plan.calendars') && edPaths.includes('plan.dayTemplates'), edPaths.join(','));
+const calBox = $('.ns-set [data-group="plan.calendars"] textarea');
+check('… the calendar map rendering one line per project, the name keeping its own pipes',
+  /^curate > mixing \| 02A1 \| curate project mixing$/m.test(calBox.value) &&
+  /^alive \| 02B6 \| alive$/m.test(calBox.value), calBox.value.split('\n')[0]);
+calBox.value = calBox.value.replace('02B6 | alive', '02B9 | alive again');
+calBox.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('… and an edit splitting on the first pipe only, so the name survives whole',
+  w.Config.get('plan.calendars').alive === '02B9 | alive again' &&
+  w.Config.get('plan.calendars')['curate > mixing'] === '02A1 | curate project mixing',
+  JSON.stringify(w.Config.get('plan.calendars').alive));
+w.Config.reset('plan.calendars');
+w.SET.panel('plan');
+const tplBox = () => $('.ns-set [data-group="plan.dayTemplates"] [data-key="normal"] textarea');
+check('the day templates render as offset | minutes | what',
+  /^0:00 \| 30 \| routine p1 \| 01A1 \| routine$/m.test(tplBox().value) &&
+  /^4:00 \| 90 \| b1a$/m.test(tplBox().value), tplBox().value.split('\n')[0]);
+const beforeTpl = JSON.stringify(w.Config.get('plan.dayTemplates').normal);
+tplBox().dispatchEvent(new w.Event('input', { bubbles: true }));
+check('… and round-trip through that text unchanged',
+  JSON.stringify(w.Config.get('plan.dayTemplates').normal) === beforeTpl,
+  JSON.stringify(w.Config.get('plan.dayTemplates').normal).slice(0, 120));
+w.SET.panel('plan');
+tplBox().value = tplBox().value.replace('4:00 | 90 | b1a', '4:00 | 1h30 | b1a');
+tplBox().dispatchEvent(new w.Event('input', { bubbles: true }));
+check('… reading "1h30" as ninety minutes, so a duration can be written either way',
+  JSON.stringify(w.Config.get('plan.dayTemplates').normal) === beforeTpl);
+w.Config.reset('plan.dayTemplates');
+w.Shell.go('plan');
 
 /* The open project tile is a heading, not a box: no wash, no border, half a
    tile tall — and the same with the form open under it. */

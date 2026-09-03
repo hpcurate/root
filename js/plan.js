@@ -42,6 +42,7 @@ function loadState() {
   try { mappings = JSON.parse(localStorage.getItem('plan_mappings') || '{}'); } catch { mappings={}; }
   try { todoistProjects = JSON.parse(localStorage.getItem('plan_projects') || '[]'); } catch { todoistProjects=[]; }
   loadHistory();
+  loadExportPrefs();
 }
 
 function saveQueue() { localStorage.setItem('plan_queue', JSON.stringify(queue)); }
@@ -93,6 +94,15 @@ let openSub = null;      // the index of the section whose form is open
 
 function renderProjects() {
   const grid = $id('proj-list');
+  /* The export panel takes the grid whole — it belongs to the sent list, not
+     to a project, so no tile is open behind it. */
+  if (expOpen) {
+    grid.classList.add('open');
+    grid.innerHTML = exportPanel();
+    paintExport();
+    syncSend();
+    return;
+  }
   const open = openKey ? typeOf(openKey) : null;
   const tile = (tt, big) => {
     const color  = labelHue(tt.label, tt.key) || resolveColor(tt.key);
@@ -273,15 +283,16 @@ function openProj(key) {
   if (!typeOf(key)) return;
   const before = snap();
   openSub = null;                              // a project change closes any open form
+  expOpen = false;                             // …and so does opening a project
   openKey = openKey === key ? null : key;      // tapping the open tile closes it
   renderProjects();
   flip(before);
 }
 
 function closeProj() {
-  if (!openKey && openSub === null) return;
+  if (!openKey && openSub === null && !expOpen) return;
   const before = snap();
-  openKey = null; openSub = null;
+  openKey = null; openSub = null; expOpen = false;
   renderProjects();
   flip(before);
 }
@@ -340,7 +351,7 @@ function renderQueue() {
 function syncSend() {
   const wrap = $id('send-wrap'); if (!wrap) return;
   const n = queue.length;
-  wrap.classList.toggle('hidden', !n || openSub !== null);
+  wrap.classList.toggle('hidden', !n || openSub !== null || expOpen);
   const b = $id('btn-send');
   if (b && n) b.textContent = `send ${n} task${n !== 1 ? 's' : ''} to todoist`;
 }
@@ -363,6 +374,7 @@ function openForm(typeKey, display, section, i) {
     const before = snap();
     formState = { typeKey, subType: display, section, name: '', block: null, time: null,
                   priority: Config.get('plan.defaultPriority'), subtasks: [], hasSub: false };
+    expOpen = false;                           // the grid holds one panel at a time
     openKey = typeKey;
     openSub = idx >= 0 ? idx : 0;
     renderProjects();
@@ -620,21 +632,24 @@ function saveHistory() {
   try { localStorage.setItem(HIST_KEY, JSON.stringify(sentLog)); } catch {}
 }
 
-/* ── Picking the rows to build a calendar out of ──────────────────────────────
-   Tapping a row selects it; "+ cal" then copies one template covering
-   everything selected at once. A block is two halves, so two tasks of the
-   same block is the ceiling — a third tap on b2 is refused with a word,
-   rather than silently dropping one of the three at copy time.
+/* ── Picking the rows to build a day out of ───────────────────────────────────
+   Tapping a row selects it; "export" then opens the panel where each picked
+   task is given a slot by hand. A day has as many slots as its longest
+   template offers, so that many picked tasks is the ceiling — one more is
+   refused with a word, rather than accepted and then dropped at export time.
+
+   Which half of which block a task lands in is no longer inferred from the
+   order it was sent in, nor from the block label it carries: the six slots
+   are named and assigned explicitly.
 
    The selection is a gesture, not state: it lives in the module, is never
    persisted, and is keyed by the task's own `ts` rather than its row index —
    the list is unshifted on every send, and an index would quietly slide onto
    a different task. */
-const SEL_PER_BLOCK = 2;
 let sentSel = new Set();
 const histKey = t => t.ts != null ? 'ts:' + t.ts : `n:${t.date}|${t.block || ''}|${t.name}`;
 
-/* Selected, oldest first — the order that decides a from b within a block. */
+/* Selected, oldest first — a stable order for the slot rows in the panel. */
 function selectedSent() {
   return sentLog.filter(t => sentSel.has(histKey(t)))
                 .slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
@@ -644,14 +659,14 @@ function toggleSent(i) {
   const item = sentLog[i]; if (!item) return;
   const key = histKey(item);
   Prefs.tap();
-  if (sentSel.has(key)) sentSel.delete(key);
+  if (sentSel.has(key)) { sentSel.delete(key); delete expSlots[key]; }
   else {
-    if (item.block && selectedSent().filter(t => t.block === item.block).length >= SEL_PER_BLOCK) {
-      toast(`${item.block} is full — two per block`); return;
-    }
+    const cap = allSlots().length;
+    if (sentSel.size >= cap) { toast(`${cap} slots in a day — let one go first`); return; }
     sentSel.add(key);
   }
   renderSent();
+  if (expOpen) renderProjects();
 }
 
 function renderSent() {
@@ -663,7 +678,7 @@ function renderSent() {
   const n = sentLog.length;
   $id('sent-count').textContent = n ? `${n} task${n !== 1 ? 's' : ''}` : 'empty';
   $id('sent-clear').classList.toggle('hidden', !n);
-  syncCal();
+  syncExport();
   list.innerHTML = sentLog.map((t, i) => {
     const on = sentSel.has(histKey(t));
     const pills = [t.project, t.block ? `@${t.block}` : null, Prefs.formatDate(t.date, 'short')].filter(Boolean);
@@ -678,73 +693,354 @@ function renderSent() {
   }).join('');
 }
 
-/* "+ cal" is absent until something is picked, and names the count — the same
+/* "export" is absent until something is picked, and names the count — the same
    rule the send button follows: a button that cannot do anything is not there. */
-function syncCal() {
-  const b = $id('sent-cal'); if (!b) return;
+function syncExport() {
+  const b = $id('sent-export'); if (!b) return;
   const n = sentSel.size;
   b.classList.toggle('hidden', !n);
-  const label = $id('sent-cal-n'); if (label) label.textContent = n ? String(n) : '';
+  const label = $id('sent-export-n'); if (label) label.textContent = n ? String(n) : '';
 }
 
-/* ── The calendar lines ───────────────────────────────────────────────────────
-   A block is two halves in the day's template, a and b. One task selected in
-   a block fills both halves; two split it, in the order they were sent. So a
-   lone task in b1 copies
+/* ══ THE EXPORT ═══════════════════════════════════════════════════════════════
+   The picked rows become one Todoist task labelled `import` whose description
+   is the spec for one day. That is the whole of ROOT's half:
 
-       b1a : curate > mix the track
-       b1b : curate > mix the track
+     PLAN ──► todoist task @import ──► the 22:00 agent ──► google calendar
 
-   and a block with two copies one line each. A task with no block has no
-   half to name, so it copies the bare "project > task". */
-function blockLines(block, items) {
-  const nameOf = t => `${t.project || t.typeKey} > ${t.name}`;
-  if (!block) return items.map(nameOf).join('\n');
-  const pair = items.length >= 2 ? items.slice(0, 2) : [items[0], items[0]];
-  return pair.map((t, i) => `${block}${'ab'[i]} : ${nameOf(t)}`).join('\n');
+   **ROOT never touches a calendar.** It is a static page with no Google auth
+   and it is not getting any: no OAuth, no calendar API, no calendar ids. It
+   writes a task and stops. `plan.calendars` maps a project to a calendar
+   *name* and the name is passed through verbatim for the agent to resolve.
+
+   Everything about the day comes off one number — the start time. Each row of
+   a template is `at` minutes from that start and a duration, so moving the
+   start moves the whole day and nothing here is a wall-clock constant.
+
+   The panel is drawn into the tile grid by renderProjects(), the way the task
+   form is: no screen of its own, and every draw repaints itself from expForm
+   so a re-render (a Config edit, an arriving label fetch) never loses what has
+   been typed. */
+const EXP_KEY = 'plan_export_v1';       // the last start time used, nothing else
+let expOpen  = false;
+let expSlots = {};                      // histKey → slot id, assigned by tapping
+const expForm = { day:null, start:'07:00', template:'normal', mode:'blocks', notes:'' };
+
+function loadExportPrefs() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(EXP_KEY) || 'null'); } catch {}
+  if (s && typeof s.start === 'string' && HM.test(s.start)) expForm.start = s.start;
+}
+function saveExportPrefs() {
+  try { localStorage.setItem(EXP_KEY, JSON.stringify({ start: expForm.start })); } catch {}
 }
 
-/* Several tasks at once: one template per block, the blocks in the order the
-   form's chips are in (plan.blocks) so a day reads b1 → b2 → b3 whatever
-   order the rows were tapped in, anything unknown after them, and the
-   blockless tasks last as bare lines. */
-function calLinesFor(items) {
-  const order = Config.get('plan.blocks') || [];
-  const rank = b => { const i = order.indexOf(b); return i < 0 ? order.length : i; };
-  const byBlock = new Map(), bare = [];
-  items.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach(t => {
-    if (!t.block) { bare.push(t); return; }
-    if (!byBlock.has(t.block)) byBlock.set(t.block, []);
-    byBlock.get(t.block).push(t);
+/* ── Templates ──────────────────────────────────────────────────────────────
+   `normal` and `rest` are identities, not labels — the description carries the
+   name and a downstream agent parses it. The slot chips are read off the
+   templates rather than hardcoded, so editing them in settings changes what a
+   task can be given. */
+const templates    = () => Config.get('plan.dayTemplates') || {};
+const rowsOf       = n => { const t = templates()[n]; return Array.isArray(t) ? t : []; };
+const slotsOf      = n => rowsOf(n).filter(r => r.slot).map(r => r.slot);
+/* Every slot any template has, in template order. A slot the *picked*
+   template does not have is still offered and then refused with a word —
+   hiding it would leave "why can I not put this at b3" unanswered. */
+function allSlots() {
+  const out = [];
+  Object.keys(templates()).forEach(n => slotsOf(n).forEach(s => { if (!out.includes(s)) out.push(s); }));
+  return out;
+}
+
+const HM = /^(\d{1,2}):([0-5]\d)$/;
+function startMin() { const m = HM.exec(expForm.start || ''); return m ? +m[1] * 60 + +m[2] : 7 * 60; }
+/* minutes from the day's own midnight → a clock time, plus how many days it
+   ran over: a 17-hour day started at 08:00 ends tomorrow, and the preview says so. */
+function clock(mins) {
+  const day = Math.floor(mins / 1440), r = ((mins % 1440) + 1440) % 1440;
+  return { hm: `${String(Math.floor(r / 60)).padStart(2, '0')}:${String(r % 60).padStart(2, '0')}`, day };
+}
+/* A template with its real clock times, resolved from the one start time. */
+function resolved(name) {
+  const s0 = startMin();
+  return rowsOf(name).map(r => {
+    const a = clock(s0 + (+r.at || 0)), b = clock(s0 + (+r.at || 0) + (+r.dur || 0));
+    return Object.assign({}, r, { from:a.hm, to:b.hm, over:a.day > 0 });
   });
-  const out = [...byBlock.keys()].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(b))
-                                 .map(b => blockLines(b, byBlock.get(b)));
-  if (bare.length) out.push(blockLines(null, bare));
-  return out.join('\n');
 }
 
-async function copyCal() {
-  const items = selectedSent(); if (!items.length) return;
-  const text = calLinesFor(items);
+/* ── Which calendar a task belongs on ───────────────────────────────────────
+   The key is the project, or `project > section` where the project splits
+   across several calendars (only curate does today). ROOT emits the key it
+   resolved, never an id. */
+const calendars = () => Config.get('plan.calendars') || {};
+function calKeyFor(t) {
+  const c = calendars(), sub = `${t.typeKey} > ${t.section || ''}`;
+  return (t.section && c[sub] !== undefined) ? sub : String(t.typeKey || '');
+}
+function calNameFor(t) { return calendars()[calKeyFor(t)] || null; }
+
+/* The picked rows with the slot each has been given. A key whose row has gone
+   (a clear, or the 200 cap) takes its slot with it. */
+function expRows() {
+  const rows = selectedSent();
+  const live = new Set(rows.map(histKey));
+  Object.keys(expSlots).forEach(k => { if (!live.has(k)) delete expSlots[k]; });
+  return rows.map(t => ({ t, key: histKey(t), slot: expSlots[histKey(t)] || null }));
+}
+
+// tomorrow, from local parts — never from an ISO string in UTC, which is
+// yesterday here until 01:00 or 02:00
+function isoAdd(iso, n) {
+  const p = String(iso).split('-').map(Number);
+  const d = new Date(p[0], (p[1] || 1) - 1, (p[2] || 1) + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function openExport() {
+  if (!sentSel.size) return;
   Prefs.tap();
-  try { await navigator.clipboard.writeText(text); toast('copied · paste it into the chat'); return; }
-  catch {}
-  // no clipboard API (or no permission): the old way still works everywhere
+  expOpen = true;
+  openKey = null; openSub = null;                  // the grid holds one panel at a time
+  expForm.day = isoAdd(Shell.today(), 1);          // tomorrow, every time it opens
+  expForm.template = Object.keys(templates())[0] || 'normal';
+  expForm.mode = 'blocks';
+  expForm.notes = '';
+  expSlots = {};
+  renderProjects();
+  /* The panel draws where the project tiles are, well above the sent list it
+     was opened from, so take the page up to it. No FLIP on the way in: the
+     scroll would invalidate every box it measured. */
+  if (view) view.scrollTop = 0;
+}
+
+function closeExport() {
+  if (!expOpen) return;
+  const before = snap();
+  expOpen = false;
+  renderProjects();
+  flip(before);
+}
+
+/* Assigning is by tap, and the refusals are loud. A slot the picked template
+   does not have (b3 on a rest day) and a slot another task already holds are
+   both refused with a word — accepting either would drop a task in silence
+   when the description is written. Tapping a task's own slot clears it. */
+function pickSlot(i, slot) {
+  const rows = expRows(), r = rows[i];
+  if (!r) return;
+  Prefs.tap();
+  if (r.slot === slot) { delete expSlots[r.key]; renderProjects(); return; }
+  if (!slotsOf(expForm.template).includes(slot)) {
+    toast(`${expForm.template} has no ${slot} — those hours are free time`); return;
+  }
+  const held = rows.find(x => x.slot === slot && x.key !== r.key);
+  if (held) { toast(`${slot} is taken — by ${held.t.name}`); return; }
+  expSlots[r.key] = slot;
+  renderProjects();
+}
+
+/* Switching to a shorter template drops the slots it does not have — with a
+   word, for the same reason. */
+function setTemplate(name) {
+  if (!rowsOf(name).length) return;
+  Prefs.tap();
+  expForm.template = name;
+  const have = slotsOf(name);
+  const lost = Object.keys(expSlots).filter(k => !have.includes(expSlots[k]));
+  lost.forEach(k => delete expSlots[k]);
+  if (lost.length) {
+    const gone = allSlots().filter(s => !have.includes(s)).join(' / ');
+    toast(`${name} has no ${gone} — ${lost.length} task${lost.length !== 1 ? 's' : ''} unassigned`);
+  }
+  renderProjects();
+}
+
+function setMode(m) { Prefs.tap(); expForm.mode = m === 'full' ? 'full' : 'blocks'; renderProjects(); }
+
+/* The three text fields repaint only what reads them. A full redraw would
+   pull the caret out of the field being typed in. */
+function expField(el) {
+  if (el.id === 'exp-date')  expForm.day = el.value || expForm.day;
+  if (el.id === 'exp-start' && HM.test(el.value)) { expForm.start = el.value; saveExportPrefs(); }
+  if (el.id === 'exp-notes') { expForm.notes = el.value; return; }
+  renderPreview();
+}
+
+/* ── The description ──────────────────────────────────────────────────────────
+   **A contract**, the way LOG's `.md` is one: the field names and the shape
+   are frozen and the scheduled agent parses them. Newline separated:
+
+       day: 2026-09-04
+       start: 07:00
+       template: normal
+       mode: blocks
+
+       b1a | home | chores
+       b2a | curate > mixing | mix the track
+
+       notes:
+       - one per line
+
+   `b1a | home | chores` means an event named `b1a|chores` on whichever
+   calendar `plan.calendars` maps `home` to. Unassigned slots are absent —
+   never a placeholder line — and the whole notes section is omitted when
+   there are none rather than left as a bare header. */
+const noteLines = () => String(expForm.notes || '').split('\n').map(s => s.trim()).filter(Boolean);
+
+function exportDescription() {
+  const order = allSlots();
+  const lines = expRows().filter(r => r.slot)
+    .sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot))
+    .map(r => `${r.slot} | ${calKeyFor(r.t)} | ${r.t.name}`);
+  const notes = noteLines();
+  const out = [[`day: ${expForm.day}`, `start: ${expForm.start}`,
+                `template: ${expForm.template}`, `mode: ${expForm.mode}`].join('\n')];
+  if (lines.length) out.push(lines.join('\n'));
+  if (notes.length) out.push(['notes:'].concat(notes.map(n => '- ' + n)).join('\n'));
+  return out.join('\n\n');
+}
+
+/* ── The preview ────────────────────────────────────────────────────────────
+   Every event the export will produce, at the clock time it actually resolves
+   to. In `blocks` only the assigned slots; in `full` the whole template, with
+   an unclaimed slot shown as the idle hours it will be rather than left out. */
+function previewRows() {
+  const bySlot = {};
+  expRows().forEach(r => { if (r.slot) bySlot[r.slot] = r; });
+  const out = [];
+  resolved(expForm.template).forEach(r => {
+    if (!r.slot) { if (expForm.mode === 'full') out.push(Object.assign({}, r, { name:r.event })); return; }
+    const hit = bySlot[r.slot];
+    if (!hit) { if (expForm.mode === 'full') out.push(Object.assign({}, r, { name:`${r.slot} · unassigned`, cal:null, idle:true })); return; }
+    const cal = calNameFor(hit.t);
+    out.push(Object.assign({}, r, { name:`${r.slot}|${hit.t.name}`, cal, missing:!cal }));
+  });
+  return out;
+}
+
+/* ── The panel ──────────────────────────────────────────────────────────────
+   Drawn into the tile grid by renderProjects(), like the task form: no `.scr`
+   of its own. Everything typed lives in expForm, and paintExport() puts the
+   three text fields back on every draw. */
+function exportPanel() {
+  const rows  = expRows();
+  const slots = allSlots();
+  const have  = slotsOf(expForm.template);
+  const chip  = (on, label, handler) =>
+    `<button class="opt-b${on ? ' on' : ''}" onclick="${handler}">${esc(label)}</button>`;
+  return `<div class="proj-form exp-panel" data-flip="export">
+    <div class="pf-head">
+      <span class="pf-sec">export · ${rows.length} task${rows.length !== 1 ? 's' : ''}</span>
+      <button class="pf-close" onclick="PLAN.closeExport()">cancel</button>
+    </div>
+
+    <div class="exp-pair">
+      <div class="f"><label class="lbl">Date</label>
+        <input type="date" id="exp-date" aria-label="day to schedule"
+               oninput="PLAN.expField(this)" onchange="PLAN.expField(this)"></div>
+      <div class="f"><label class="lbl">Start</label>
+        <input type="time" id="exp-start" aria-label="day start time"
+               oninput="PLAN.expField(this)" onchange="PLAN.expField(this)"></div>
+    </div>
+
+    <div class="f"><label class="lbl">Template</label>
+      <div class="opts" id="exp-tpl">${Object.keys(templates()).map(n =>
+        chip(expForm.template === n, n, `PLAN.setTemplate('${attr(n)}')`)).join('')}</div></div>
+
+    <div class="f"><label class="lbl">Mode</label>
+      <div class="opts" id="exp-mode">${[['blocks','blocks only'], ['full','full schedule']].map(([v, l]) =>
+        chip(expForm.mode === v, l, `PLAN.setMode('${v}')`)).join('')}</div></div>
+
+    <div class="f"><label class="lbl">Slots</label>
+      <div class="exp-tasks" id="exp-tasks">${rows.map((r, i) => `
+        <div class="exp-task${r.slot ? ' on' : ''}" style="--q-color:${resolveColor(r.t.typeKey)}">
+          <span class="exp-task-name"><span class="q-dot"></span>${esc(r.t.name)}</span>
+          <span class="exp-slots">${slots.map(s =>
+            `<button class="exp-slot${r.slot === s ? ' on' : ''}${have.includes(s) ? '' : ' off'}"
+                     aria-pressed="${r.slot === s}"
+                     onclick="PLAN.pickSlot(${i},'${attr(s)}')">${esc(s)}</button>`).join('')}</span>
+        </div>`).join('')}</div></div>
+
+    <div class="f"><label class="lbl">Notes</label>
+      <textarea id="exp-notes" rows="3" spellcheck="false" aria-label="notes"
+                placeholder="passed through as written…" oninput="PLAN.expField(this)"></textarea></div>
+
+    <div class="f"><label class="lbl">Preview</label><div id="exp-out">${previewHTML()}</div></div>
+    <div id="exp-go-wrap">${goHTML()}</div>
+  </div>`;
+}
+
+/* ROOT cannot see the calendar, so `full` is worded as what *will* happen —
+   never as a diff of what is there. The archive calendar is the agent's, not
+   ROOT's: it is named here so the warning is honest, and nothing reads it. */
+function previewHTML() {
+  const rows = previewRows();
+  const warn = expForm.mode === 'full'
+    ? `<div class="exp-warn">the whole of ${esc(expForm.day)} will be replaced — anything already
+         on it is archived to <b>00B | schedule 2</b> first, not deleted</div>` : '';
+  if (!rows.length) return warn + `<div class="exp-empty">nothing to write yet — give a task a slot</div>`;
+  return warn + `<div class="exp-prev">${rows.map(r => `
+    <div class="exp-line${r.idle ? ' idle' : ''}">
+      <span class="exp-at">${esc(r.from)}–${esc(r.to)}${r.over ? ' +1' : ''}</span>
+      <span class="exp-ev">${esc(r.name)}</span>
+      <span class="exp-cal${r.missing ? ' missing' : ''}">${esc(r.cal || (r.idle ? '—' : 'no calendar'))}</span>
+    </div>`).join('')}</div>`;
+}
+
+/* One button, naming the count — and absent while a picked task has no slot,
+   which is the only state where the export would drop one in silence. */
+function goHTML() {
+  const rows = expRows();
+  if (!rows.length) return '';
+  const need = rows.filter(r => !r.slot).length;
+  return need
+    ? `<div class="exp-need">${need} task${need !== 1 ? 's' : ''} still without a slot</div>`
+    : `<button class="btn" id="exp-go" onclick="PLAN.doExport()">export ${rows.length} task${rows.length !== 1 ? 's' : ''}</button>`;
+}
+
+function renderPreview() {
+  const box = $id('exp-out');     if (box) box.innerHTML = previewHTML();
+  const wrap = $id('exp-go-wrap'); if (wrap) wrap.innerHTML = goHTML();
+}
+
+function paintExport() {
+  const d = $id('exp-date');  if (d) d.value = expForm.day   || '';
+  const s = $id('exp-start'); if (s) s.value = expForm.start || '';
+  const n = $id('exp-notes'); if (n) n.value = expForm.notes || '';
+}
+
+/* One task, labelled `import`, through the shell's own authenticated helper —
+   ROOT has exactly one Todoist key and one fetch path, deliberately. A toast
+   either way: a task that did not reach Todoist means no calendar that night,
+   and finding out at 22:00 is finding out too late. */
+async function doExport() {
+  const rows = expRows();
+  if (!rows.length) return;
+  const need = rows.filter(r => !r.slot).length;
+  if (need) { toast(`${need} task${need !== 1 ? 's' : ''} still without a slot`); return; }
+  const n = rows.length, day = expForm.day;
+  const btn = $id('exp-go');
+  if (btn) { btn.disabled = true; btn.textContent = 'exporting…'; }
   try {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.setAttribute('readonly', '');
-    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-    document.body.appendChild(ta); ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    toast(ok ? 'copied · paste it into the chat' : 'could not copy');
-  } catch { toast('could not copy'); }
+    await Todoist.call('/tasks', { method:'POST', body: JSON.stringify({
+      content: `schedule ${day}`, description: exportDescription(), labels: ['import'] }) });
+    saveExportPrefs();
+    sentSel.clear(); expSlots = {}; expOpen = false;
+    renderHome();
+    toast(`exported · ${n} task${n !== 1 ? 's' : ''} for ${day}`);
+  } catch (err) {
+    toast('export failed · ' + ((err && err.message) || 'unknown error'));
+    renderPreview();                       // puts the button back, enabled
+  }
 }
 
 function clearSent() {
   if (!sentLog.length) return;
   if (!Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.')) return;
-  sentLog = []; sentSel.clear(); saveHistory(); renderSent(); toast('history cleared');
+  sentLog = []; sentSel.clear(); expSlots = {};
+  if (expOpen) { expOpen = false; renderProjects(); }
+  saveHistory(); renderSent(); toast('history cleared');
 }
 /* Queue first, then what was sent today; one entry per name, with the
    project's colour so LOG can draw it in the project's hue. */
@@ -870,7 +1166,7 @@ Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 
 Shell.register('plan', {
   // the PLAN tab tapped while on PLAN: fold the grid first, then go home
-  home: () => { if (openKey || openSub !== null) closeProj(); else go('home'); },
+  home: () => { if (expOpen) closeExport(); else if (openKey || openSub !== null) closeProj(); else go('home'); },
   /* The label colours: cached for an hour, refreshed on arrival. The redraw
      used to be skipped unless the home screen was showing, to protect the
      form's chips; the form lives in the grid now and paintForm() puts every
@@ -880,7 +1176,9 @@ Shell.register('plan', {
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
-         renderSent, toggleSent, copyCal, clearSent, calLinesFor,
+         renderSent, toggleSent, clearSent,
+         openExport, closeExport, pickSlot, setTemplate, setMode, expField, doExport,
+         exportDescription, previewRows, resolved,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();
