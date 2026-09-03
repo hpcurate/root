@@ -1255,6 +1255,122 @@ check('… reading "1h30" as ninety minutes, so a duration can be written either
 w.Config.reset('plan.dayTemplates');
 w.Shell.go('plan');
 
+// ── 28. the day a task is due, picked on the form ──────────────────────────
+/* Everything PLAN sent used to be due "today", full stop. The day is picked
+   on the task form now — ← tomorrow → — carried on the queued task, and sent
+   as an explicit date. */
+w.PLAN.pickSub('home', 0);
+const dWord = () => $('.ns-plan #date-word').textContent;
+const dSub  = () => $('.ns-plan #date-sub').textContent;
+check('the task form carries a date row: an arrow either side of the day itself',
+  !!$('.ns-plan #opts-date') && !!$('.ns-plan #date-back') && !!$('.ns-plan #date-fwd') &&
+  !!$('.ns-plan #date-now'));
+check('… starting on today, with its left arrow dead — nothing is planned into the past',
+  dWord() === 'today' && $('.ns-plan #date-back').disabled &&
+  !$('.ns-plan #date-now').classList.contains('on'), dWord());
+click($('.ns-plan #date-fwd'));
+check('one tap right is tomorrow, in words, and the middle marks itself moved',
+  dWord() === 'tomorrow' && dSub() === w.Prefs.formatDate(offset(1), 'short') &&
+  $('.ns-plan #date-now').classList.contains('on') && !$('.ns-plan #date-back').disabled,
+  dWord() + ' / ' + dSub());
+click($('.ns-plan #date-fwd'));
+check('… and past tomorrow it names the weekday, the date itself under it either way',
+  dWord() !== 'tomorrow' && dWord() !== 'today' && dSub() === w.Prefs.formatDate(offset(2), 'short'),
+  dWord() + ' / ' + dSub());
+click($('.ns-plan #date-back'));
+check('the left arrow walks it back a day', dWord() === 'tomorrow', dWord());
+w.PLAN.stepDate(-1); w.PLAN.stepDate(-1);
+check('the floor holds: it will not step past today', dWord() === 'today' && $('.ns-plan #date-back').disabled, dWord());
+click($('.ns-plan #date-fwd'));
+click($('.ns-plan #date-now'));
+check('tapping the middle is the way back to today',
+  dWord() === 'today' && !$('.ns-plan #date-now').classList.contains('on'), dWord());
+
+/* The panel repaints itself from formState on every draw, the day included. */
+click($('.ns-plan #date-fwd'));
+$('.ns-plan #task-name').value = 'water the plants';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+w.Config.set('plan.defaultPriority', 2);           // a re-render under the open form
+check('a re-render keeps the day picked, the way it keeps what was typed',
+  dWord() === 'tomorrow' && $('.ns-plan #task-name').value === 'water the plants', dWord());
+w.PLAN.setSub(true);
+$('.ns-plan #sub-text').value = 'fill the can';
+w.PLAN.addSubtask();
+w.PLAN.addToQueue();
+const qDated = JSON.parse(w.localStorage.getItem('plan_queue'));
+check('the queued task carries the day it was given, not the day it was queued',
+  qDated.length === 1 && qDated[0].date === offset(1), JSON.stringify(qDated.map(t => [t.name, t.date])));
+check('… and the queue row says so — a pill only when the day is not today',
+  /tomorrow/.test($('.ns-plan #queue-list').textContent));
+w.PLAN.pickSub('home', 1);
+check('the next task starts on the same day: a day is queued in one gesture', dWord() === 'tomorrow', dWord());
+click($('.ns-plan #date-now'));
+$('.ns-plan #task-name').value = 'take the bins out';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+w.PLAN.addToQueue();
+check('… and one put back on today wears no pill',
+  !/tomorrow/.test([...d.querySelectorAll('.ns-plan #queue-list .q-item')][1].textContent),
+  [...d.querySelectorAll('.ns-plan #queue-list .q-item')].map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+
+/* What Todoist is actually told. */
+const posts = [];
+fetchScript = async (url, opts) => {
+  if (opts && opts.method === 'POST') { posts.push(JSON.parse(opts.body));
+    return { ok: true, status: 200, json: async () => ({ id: 'dd' + posts.length }), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+const sentBefore = JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length;
+w.PLAN.go('sending');
+await tick(700);
+const bodyOf = nm => posts.find(b => b.content === nm) || {};
+check('each task is sent with its own explicit due date, never the word "today"',
+  bodyOf('water the plants').due_date === offset(1) && bodyOf('take the bins out').due_date === today &&
+  posts.every(b => !b.due_string),
+  JSON.stringify(posts.map(b => [b.content, b.due_date, b.due_string])));
+check("… and a subtask lands on its parent's day",
+  bodyOf('fill the can').parent_id === 'dd1' && bodyOf('fill the can').due_date === offset(1),
+  JSON.stringify(bodyOf('fill the can')));
+
+w.PLAN.go('home');
+const sentRec = JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks;
+check("only the task due today joins plan_sent_v1 — LOG's evening form is about today",
+  sentRec.length === sentBefore + 1 && sentRec[sentRec.length - 1].name === 'take the bins out',
+  (sentRec.length - sentBefore) + ' added, last ' + (sentRec[sentRec.length - 1] || {}).name);
+const plannedNames = w.PLAN.plannedToday().map(t => t.name);
+check('… and plannedToday() says the same, for the queue as well as the sent',
+  plannedNames.includes('take the bins out') && !plannedNames.includes('water the plants'),
+  plannedNames.join(','));
+const histDated = JSON.parse(w.localStorage.getItem('plan_history_v1'));
+check('the sent history files a task under the day it is due, not the day it was pushed',
+  histDated.length === 2 && (histDated.find(t => t.name === 'water the plants') || {}).date === offset(1) &&
+  (histDated.find(t => t.name === 'take the bins out') || {}).date === today,
+  JSON.stringify(histDated.map(t => [t.name, t.date])));
+check('… and the row names that day',
+  [...d.querySelectorAll('.ns-plan #sent-list .q-item')]
+    .find(r => /water the plants/.test(r.textContent))?.textContent
+    .includes(w.Prefs.formatDate(offset(1), 'short')));
+confirmAnswer = true;
+w.PLAN.clearSent(); w.PLAN.clearQueue();
+
+/* An override written before the row existed has no key for it, and a missing
+   key is not "off" — it is "not asked". */
+w.Config.set('plan.formFields', { block: true, time: false, priority: true, subtasks: true });
+w.PLAN.pickSub('home', 0);
+check('an override predating the date row still shows it', !!$('.ns-plan #opts-date'));
+w.SET.panel('plan');
+const dateTog = () => $('.ns-set [data-cfg-toggle="plan.formFields.date"]');
+check('… and the switch in settings shows it on', !!dateTog() && dateTog().classList.contains('on'),
+  dateTog() ? dateTog().className : 'no switch');
+click(dateTog());
+check('… so one tap turns it off, not two', w.Config.get('plan.formFields').date === false,
+  JSON.stringify(w.Config.get('plan.formFields')));
+w.Shell.go('plan');
+w.PLAN.pickSub('home', 0);
+check('the date row follows the setting, like every other row',
+  !$('.ns-plan #opts-date') && !!$('.ns-plan #opts-block'));
+w.Config.reset('plan.formFields'); w.Config.reset('plan.defaultPriority');
+w.PLAN.closeProj();
+
 /* The open project tile is a heading, not a box: no wash, no border, half a
    tile tall — and the same with the form open under it. */
 check('an open project tile drops its box and stands half a tile tall',

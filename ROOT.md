@@ -337,8 +337,8 @@ versions still work off the same data.
 | `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
-| `plan_sent_v1` | PLAN | what was sent today (name, project, block, time) — LOG offers these as blocks; a new day starts it empty |
-| `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
+| `plan_sent_v1` | PLAN | what was sent **for today** (name, project, block, time) — LOG offers these as blocks; a new day starts it empty. Since 2.18 a task sent for another day is deliberately absent |
+| `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200, each filed under the day it is *due*. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
 | `plan_export_v1` | PLAN | the day start time the export last used, and nothing else. The date, template, mode, notes and slots are deliberately *not* kept: each export is its own day, and only the start time is the same one every time |
 | `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
@@ -586,6 +586,27 @@ both say so, and a new device needs the `.apkg` imported again.
 - **`html` carries the ground colour too.** The fixed body does not paint the
   strip under the home indicator; the root does, and with `color-scheme:dark`
   and no background it paints black.
+- **A queued task carries its own due date, and the queue can outlive the
+  day it was built on.** `startSending()` sends `due_date`, the day picked on
+  the form — never `due_string:'today'` resolved at send time. A task queued
+  before 2.18 has no `date` and falls back to `Shell.today()`.
+- **"Sent today" is now "due today".** `recordSent()` keeps a task out of
+  `plan_sent_v1` unless its day *is* today, and `plannedToday()` filters the
+  queue the same way, or planning tomorrow's morning would fill tonight's
+  evening form. The history takes every task either way, filed under its due
+  day — which is the day the row names.
+- **A `formFields` key that is missing is "not asked", not "off".** An
+  override is stored whole-branch, so one written before a row existed has no
+  answer for it. `formFields()` in `plan.js` reads it through
+  `Config.defaults()`, the editor renders the same merge, and the settings
+  toggle flips what it is *showing* — without that last part the first tap on
+  a never-seen switch sets it to what it already said. Safe for this branch
+  because it is a fixed set of booleans: there is no deletion to express. Any
+  other branch keeps the whole-branch rule.
+- **The date stepper repaints itself, and only itself.** `stepDate()` /
+  `resetDate()` call `paintDate()` rather than `renderProjects()` — a full
+  redraw would run a FLIP on the whole grid for a one-word change. `paintForm()`
+  calls it too, so a Config edit landing under the open form keeps the day.
 - **A hidden app opened from settings is a transient slide.** `Shell.open()`
   splices it into `TABS` before settings and re-parks the track before
   animating, because settings' index moves by one; `retire()` does the same
@@ -625,11 +646,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 265 checks covering boot, every theme and panel, the
+through DOM events: 287 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects, form, sent history and day export of 2.5–2.17. jsdom has no
+in-place projects, form, sent history, day export and due dates of 2.5–2.18. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -745,6 +766,84 @@ silence when the description is written:
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.18 — 2026-09-03 — a task has a day, and it is picked with two arrows
+
+**Everything PLAN sent was due today. Full stop, in code.** `startSending()`
+wrote `due_string:'today'` on every task and every subtask, so planning
+tomorrow morning meant sending the batch tomorrow morning. The task form has a
+date row now — `←` the day in words `→` — sitting directly under the task name:
+
+```
+   ←        tomorrow          →
+           FRI, 4 SEP
+```
+
+A stepper rather than a date field, and the same three parts LOG's date header
+already has. A day is nearly always today or the next one or two; a native
+picker is four taps and a keyboard for something a nudge should do. The middle
+says `today` / `tomorrow` / the weekday while it is still this coming week and
+the short date past that, with the resolved date always underneath, and it is
+itself the way back to today — tapping it is the reset, the way tapping a
+picked chip clears it. It wears the accent while it is on any other day.
+
+**Nothing steps into the past.** Todoist would take an overdue date happily
+enough, but there is no reason to plan backwards, and a floor is what gives the
+left arrow's disabled state a meaning. The floor is re-derived from
+`Shell.today()` on every paint, never captured — the form can be opened either
+side of midnight.
+
+**The day is sticky between tasks, and is not state.** Queueing a day's work is
+one gesture with five tasks in it, so the next form opens on the day the last
+one was queued for (`lastDate`, held in the module beside `openKey`, never
+persisted and re-floored against the real today on every open — a day left over
+from last night falls back on its own). The queue row wears a pill for it, but
+only when the day is not today: most tasks still are, and saying so on every
+row is noise.
+
+**What Todoist is told is now an explicit `due_date`**, the day picked when the
+task was queued — not the word "today" resolved whenever the send happens. A
+queue can outlive the day it was built on, and subtasks take their parent's
+day. A task queued before this version has no `date` and falls back to today.
+
+**"Sent today" became "due today", which matters to LOG.** `plan_sent_v1` is
+what the evening form offers as extra blocks, so a task sent *for tomorrow* has
+no business in it; `recordSent()` keeps it out and `plannedToday()` filters the
+queue the same way. The standing history takes every task either way, but files
+each under the day it is **due** rather than the day it was pushed — that is
+the day the row names, and the day the export is built out of.
+
+**One row, one toggle** — `plan.formFields.date`, on by default. Which meant
+fixing something the toggles had latent all along: an override is stored
+whole-branch, so one written before a row existed has no key for it, and a
+missing key was read as "off". PLAN and the editor both read that branch
+through `Config.defaults()` now, and the toggle flips what the switch is
+*showing* rather than what the override happens to hold — otherwise the first
+tap on a never-seen switch set it to what it already said and did nothing.
+Narrow to a fixed set of booleans: everywhere else the whole-branch rule
+stands, because a list needs deletions to be expressible.
+
+**Verified** — `test/harness.mjs`, 287 checks, all green, 22 of them new: the
+row's three parts, starting on today with the left arrow dead; a tap right
+reading `tomorrow` with the short date under it and the middle marking itself
+moved; a second tap naming the weekday; the left arrow walking back; the floor
+refusing two steps past today; the middle returning to it; a Config edit
+landing under the open form keeping the day the way it keeps the name; the
+queued task carrying the day it was *given* and the queue row pilling it (and
+not pilling today); the next form opening on the same day; the POST bodies
+carrying `due_date` per task with no `due_string` anywhere, and the subtask on
+its parent's day; only the today task reaching `plan_sent_v1` and
+`plannedToday()`; the history filing both under their due days and the row
+naming it; an override predating the row still showing it, its switch reading
+on, and one tap — not two — turning it off.
+
+**Not verified**: nothing in a browser — the Chrome extension is still
+unreachable from here, which makes this the fifth entry in a row that has not
+been looked at. On the phone the things to check are whether the two arrows are
+a comfortable thumb target at the default density, whether the word and the
+date under it stay on one line each at the largest interface scale, and whether
+the accent fill on the middle reads as "this is not today" rather than as a
+selected chip.
 
 ### 2.17 — 2026-09-03 — the export: a day, written down for something else to build
 

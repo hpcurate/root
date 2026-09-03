@@ -33,7 +33,7 @@ function typeOf(key) { return TASK_TYPES.find(t => t.key === key); }
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let queue = [];
-let formState = { typeKey:null, subType:null, block:null, time:null, priority:2, subtasks:[], hasSub:false };
+let formState = { typeKey:null, subType:null, block:null, time:null, date:null, priority:2, subtasks:[], hasSub:false };
 let todoistProjects = [];
 let mappings = {};
 
@@ -146,12 +146,21 @@ function renderProjects() {
   syncSend();
 }
 
+/* Which rows the form shows. An override is stored whole-branch, so one
+   written before a row existed has no key for it — and a missing key is not
+   "off", it is "not asked". The shipped record fills the gaps, which is the
+   only reason the date row appears for someone who has touched this editor
+   before today. Safe here and nowhere else: this branch is a fixed set of
+   booleans, so there is no deletion to express. */
+const formFields = () => Object.assign({}, Config.defaults('plan.formFields'),
+                                       Config.get('plan.formFields') || {});
+
 /* The task form, drawn where the section rows were. The ids are the ones the
    form has always used, so optPick / prioPick / addToQueue are untouched;
    which rows appear is Config (plan.formFields), and every one of them is
    optional except the name. */
 function formPanel(tt, s, i, color) {
-  const f = Config.get('plan.formFields') || {};
+  const f = formFields();
   const sub = f.subtasks ? `
       <div class="f"><label class="lbl">Subtasks</label>
         <div class="tg2" id="tg-sub">
@@ -178,6 +187,7 @@ function formPanel(tt, s, i, color) {
       <label class="lbl">Task name</label>
       <input type="text" id="task-name" placeholder="describe the task…" oninput="PLAN.nameInput(this)">
     </div>
+    ${f.date     ? dateRow() : ''}
     ${f.block    ? `<div class="f"><label class="lbl">Block</label><div class="opts" id="opts-block"></div></div>` : ''}
     ${f.time     ? `<div class="f"><label class="lbl">Time</label><div class="opts" id="opts-time" style="gap:5px"></div></div>` : ''}
     ${f.priority ? `<div class="f"><label class="lbl">Priority</label><div class="prio-row" id="opts-prio"></div></div>` : ''}
@@ -327,7 +337,10 @@ function renderQueue() {
 
   list.innerHTML = queue.map((t,i) => {
     const color = resolveColor(t.typeKey);
-    const pills = [t.subType, t.block ? `@${t.block}` : null, t.time ? `@${t.time}` : null,
+    /* The day only earns a pill when it is not today — every task used to be
+       due today and most still will be, so saying so on every row is noise. */
+    const day = t.date && t.date !== Shell.today() ? dateWord(t.date) : null;
+    const pills = [t.subType, day, t.block ? `@${t.block}` : null, t.time ? `@${t.time}` : null,
       ['','urgent','mandatory','optional'][t.priority] || null].filter(Boolean);
     const stLine = t.subtasks?.length ? `<div class="q-pill">${t.subtasks.length} subtask${t.subtasks.length!==1?'s':''}</div>` : '';
     return `<div class="q-item" style="--q-color:${color}">
@@ -372,7 +385,10 @@ function openForm(typeKey, display, section, i) {
     if (!tt) { toast('Unknown project: ' + typeKey); return; }
     const idx = typeof i === 'number' ? i : tt.subs.findIndex(s => s.display === display);
     const before = snap();
-    formState = { typeKey, subType: display, section, name: '', block: null, time: null,
+    // the day carries over from the last task queued, but never a day that has
+    // since gone past — see the date stepper below
+    const day = lastDate && dayGap(Shell.today(), lastDate) > 0 ? lastDate : Shell.today();
+    formState = { typeKey, subType: display, section, name: '', block: null, time: null, date: day,
                   priority: Config.get('plan.defaultPriority'), subtasks: [], hasSub: false };
     expOpen = false;                           // the grid holds one panel at a time
     openKey = typeKey;
@@ -389,6 +405,7 @@ function paintForm() {
   const nameEl = $id('task-name');
   if (!nameEl) return;
   nameEl.value = formState.name || '';
+  paintDate();
   resetOpts('opts-block', formState.block);
   resetOpts('opts-time', formState.time);
   const prios = $all('.prio-b');
@@ -403,6 +420,93 @@ function paintForm() {
 }
 
 function nameInput(el) { formState.name = el.value; }
+
+/* ── The day a task is due ────────────────────────────────────────────────────
+   One line — ← tomorrow → — rather than a date field: the same three parts
+   LOG's date header has, and for the same reason. A day is nearly always
+   today or the next one or two, and a native date picker is four taps and a
+   keyboard for something a nudge should do. The middle reads as a word where
+   there is one and is itself the way back to today.
+
+   Nothing is due before today. Todoist would take an overdue date happily
+   enough, but there is no reason to plan into the past, and a floor is what
+   makes the left arrow's disabled state mean something.
+
+   The day is held in `formState` and carried on the queued task, so what is
+   sent is the day picked when it was queued — not "today" resolved at send
+   time. Between two tasks it is sticky (`lastDate`): queueing a day's work
+   is one gesture with five tasks in it, and re-picking tomorrow five times is
+   the sort of thing the queue exists to avoid. It lives in the module like
+   `openKey` does — never persisted, and re-floored against the real today on
+   every open, so a date left over from last night falls back on its own. */
+let lastDate = null;
+
+function dayGap(from, to) {
+  const p = s => { const x = String(s).split('-').map(Number); return new Date(x[0], (x[1] || 1) - 1, x[2] || 1); };
+  return Math.round((p(to) - p(from)) / 864e5);
+}
+
+/* today / tomorrow / the weekday while it is still this coming week, and the
+   date itself past that — a label read without counting days. */
+function dateWord(day) {
+  const n = dayGap(Shell.today(), day);
+  if (n === 0) return 'today';
+  if (n === 1) return 'tomorrow';
+  if (n > 1 && n < 7) {
+    const d = new Date(day + 'T00:00:00');
+    if (!isNaN(d)) return d.toLocaleDateString('en-GB', { weekday:'long' }).toLowerCase();
+  }
+  return Prefs.formatDate(day, 'short');
+}
+
+/* The floor is re-derived, never stored: the form may be opened either side
+   of midnight, and "today" moves under it. */
+function formDate() {
+  const day = formState.date || Shell.today();
+  return dayGap(Shell.today(), day) < 0 ? Shell.today() : day;
+}
+
+function dateRow() {
+  return `<div class="f"><label class="lbl">Date</label>
+      <div class="dstep" id="opts-date">
+        <button class="dstep-a" id="date-back" aria-label="a day earlier"
+                onclick="PLAN.stepDate(-1)">←</button>
+        <button class="dstep-v" id="date-now" aria-label="due date — tap for today"
+                onclick="PLAN.resetDate()"><span class="dstep-w" id="date-word"></span><span
+                class="dstep-d" id="date-sub"></span></button>
+        <button class="dstep-a" id="date-fwd" aria-label="a day later"
+                onclick="PLAN.stepDate(1)">→</button>
+      </div>
+    </div>`;
+}
+
+/* Repainted on its own by the two handlers and from paintForm() on every
+   draw of the panel, so a re-render never puts the day back to today. */
+function paintDate() {
+  const word = $id('date-word');
+  if (!word) return;
+  const day = formDate(), moved = dayGap(Shell.today(), day) > 0;
+  word.textContent = dateWord(day);
+  const sub = $id('date-sub');   if (sub)  sub.textContent = Prefs.formatDate(day, 'short');
+  const back = $id('date-back'); if (back) back.disabled = !moved;
+  const now = $id('date-now');
+  if (now) { now.classList.toggle('on', moved); now.setAttribute('aria-label', `due ${dateWord(day)} — tap for today`); }
+}
+
+function stepDate(n) {
+  const next = isoAdd(formDate(), n);
+  if (dayGap(Shell.today(), next) < 0) return;   // nothing is planned into the past
+  Prefs.tap();
+  formState.date = next;
+  paintDate();
+}
+
+function resetDate() {
+  if (formDate() === Shell.today()) return;
+  Prefs.tap();
+  formState.date = Shell.today();
+  paintDate();
+}
 
 /* Every row is optional (plan.formFields), so nothing here may assume its
    element is on the page. */
@@ -509,9 +613,11 @@ function addToQueue() {
   if (!map.projectId) {
     if (!confirm('No project mapped for '+formState.typeKey+'. Add anyway? It will go to inbox.')) return;
   }
+  const day = formDate();
   queue.push({ name, typeKey:formState.typeKey, subType:formState.subType, section:formState.section,
     projectLabel:tt.pLabel, projectId:map.projectId||null, block:formState.block, time:formState.time,
-    priority:formState.priority, subtasks:[...formState.subtasks] });
+    date:day, priority:formState.priority, subtasks:[...formState.subtasks] });
+  lastDate = day;                              // the next task starts on the same day
   saveQueue();
   toast('Added to queue');
   // fold the whole grid back up: the form, then the project
@@ -542,7 +648,11 @@ async function startSending() {
     const labels = [task.projectLabel];
     if (task.block) labels.push(task.block);
     if (task.time) labels.push(task.time);
-    const body = { content: task.name, due_string: 'today', priority: task.priority, labels };
+    /* An explicit date, not the word "today": the day was picked when the task
+       was queued and a queue can outlive the day it was built on. A task
+       queued before the date row existed has none, and falls back to today. */
+    const due = task.date || Shell.today();
+    const body = { content: task.name, due_date: due, priority: task.priority, labels };
     if (task.projectId) body.project_id = task.projectId;
     if (task.projectId && task.section) {
       const sid = sectionMap[task.projectId]?.[task.section];
@@ -559,7 +669,7 @@ async function startSending() {
       const created = await res.json();
       success++;
       for (const st of (task.subtasks || [])) {
-        const stBody = { content: st, parent_id: created.id, due_string: 'today', priority: task.priority };
+        const stBody = { content: st, parent_id: created.id, due_date: due, priority: task.priority };
         const sr = await fetch(PROXY + '/tasks', {
           method:'POST', headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
           body: JSON.stringify(stBody),
@@ -586,9 +696,11 @@ async function startSending() {
 }
 
 // ── What was planned today, for LOG ───────────────────────────────────────────
-/* Everything sent is due "today", so a task that went through is a plan for
-   today — LOG offers it as an extra block on the evening form. Sent tasks are
-   kept under plan_sent_v1 for the current day only; the queue counts as
+/* A task that went through *and is due today* is a plan for today — LOG offers
+   it as an extra block on the evening form. Since 2.18 a task can be sent for
+   any day, so the due date is what decides: one queued for tomorrow has
+   nothing to do with tonight's log and is kept out of plan_sent_v1 entirely.
+   Sent tasks are kept there for the current day only; the queue counts as
    planned too, since it is what you are about to send. */
 const SENT_KEY = 'plan_sent_v1';
 function readSent() {
@@ -601,15 +713,19 @@ function recordSent(tasks) {
   if (!tasks.length) return;
   const s = readSent();
   const today = Shell.today(), now = Date.now();
+  let mine = 0;
   tasks.forEach((t, i) => {
-    s.tasks.push({ name:t.name, typeKey:t.typeKey, block:t.block, time:t.time });
-    /* …and into the standing history, newest first. `ts` is nudged by the
-       position in the batch so a send of several tasks into one block keeps
-       the order they were queued in — which is what decides a from b below. */
+    const day = t.date || today;
+    if (day === today) { s.tasks.push({ name:t.name, typeKey:t.typeKey, block:t.block, time:t.time }); mine++; }
+    /* …and into the standing history, newest first — every task whatever its
+       day, filed under the day it is *due* rather than the day it was pushed.
+       That is the day the row names, and the day the export is built out of.
+       `ts` is nudged by the position in the batch so a send of several tasks
+       into one block keeps the order they were queued in. */
     sentLog.unshift({ name:t.name, typeKey:t.typeKey, project:(typeOf(t.typeKey) || {}).label || t.typeKey,
-                      section:t.subType || '', block:t.block || null, date:today, ts:now + i });
+                      section:t.subType || '', block:t.block || null, date:day, ts:now + i });
   });
-  try { localStorage.setItem(SENT_KEY, JSON.stringify(s)); } catch {}
+  if (mine) try { localStorage.setItem(SENT_KEY, JSON.stringify(s)); } catch {}
   saveHistory();
   renderSent();
 }
@@ -1043,10 +1159,12 @@ function clearSent() {
   saveHistory(); renderSent(); toast('history cleared');
 }
 /* Queue first, then what was sent today; one entry per name, with the
-   project's colour so LOG can draw it in the project's hue. */
+   project's colour so LOG can draw it in the project's hue. A queued task
+   due some other day is not part of today's plan either — the same rule
+   recordSent() applies to what has already gone. */
 function plannedToday() {
-  const out = [], seen = new Set();
-  readSent().tasks.concat(queue).forEach(t => {
+  const out = [], seen = new Set(), today = Shell.today();
+  readSent().tasks.concat(queue.filter(t => (t.date || today) === today)).forEach(t => {
     const key = String(t.name || '').trim().toLowerCase();
     if (!key || seen.has(key)) return;
     seen.add(key);
@@ -1176,6 +1294,7 @@ Shell.register('plan', {
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
+         stepDate, resetDate, dateWord,
          renderSent, toggleSent, clearSent,
          openExport, closeExport, pickSlot, setTemplate, setMode, expField, doExport,
          exportDescription, previewRows, resolved,

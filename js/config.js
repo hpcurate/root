@@ -190,8 +190,10 @@ const DEFAULTS = {
     /* Which rows the task form shows. The task name is always there; the rest
        is a preference. The time estimate is off by default — a day planned in
        blocks has no use for a per-task estimate — but the chips above are kept
-       so switching it back on needs no re-typing. */
-    formFields: { block: true, time: false, priority: true, subtasks: true },
+       so switching it back on needs no re-typing. `date` is the ← today →
+       stepper: on by default, and PLAN reads this record through the shipped
+       one, so an override written before the row existed still shows it. */
+    formFields: { date: true, block: true, time: false, priority: true, subtasks: true },
 
     /* ── The export ─────────────────────────────────────────────────────────
        Which Google Calendar a project's events belong on. A *name*, never an

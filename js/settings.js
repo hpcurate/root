@@ -725,8 +725,10 @@ const EDITORS = {
     title: 'Task form',
     note: 'Which rows the task form shows when you pick a section. The task name is always there. Switching a row off leaves its chips alone — turning it back on costs nothing.',
     render() {
-      const f = Config.get('plan.formFields') || {};
-      const NAMES = { block:'block', time:'time estimate', priority:'priority', subtasks:'subtasks' };
+      // the shipped record fills any key an older override has no answer for,
+      // the way PLAN reads it — see formFields() in plan.js
+      const f = Object.assign({}, Config.defaults('plan.formFields'), Config.get('plan.formFields') || {});
+      const NAMES = { date:'due date', block:'block', time:'time estimate', priority:'priority', subtasks:'subtasks' };
       return `<div class="ed-grid">${Object.keys(NAMES).map(k => `
         <div class="ed-toggle"><span>${esc(NAMES[k])}</span>
           <button class="tog${f[k] ? ' on' : ''}" data-cfg-toggle="plan.formFields.${k}"
@@ -1490,9 +1492,16 @@ view.addEventListener('click', e => {
   if (t.dataset.cfgToggle) {
     const path = t.dataset.cfgToggle;
     const i = path.lastIndexOf('.');
-    const obj = Config.get(path.slice(0, i)) || {};
-    obj[path.slice(i + 1)] = !obj[path.slice(i + 1)];
-    Config.set(path.slice(0, i), obj);
+    const branch = path.slice(0, i), key = path.slice(i + 1);
+    const obj = Config.get(branch) || {};
+    /* Flip what the switch is *showing*. An override is stored whole-branch,
+       so one written before this key shipped has no answer for it and reads
+       as undefined — which the panel draws from the default. Without the same
+       fallback here the first tap would set it to what it already showed and
+       do nothing visible. */
+    const cur = obj[key] !== undefined ? obj[key] : (Config.defaults(branch) || {})[key];
+    obj[key] = !cur;
+    Config.set(branch, obj);
     renderContent(); return;
   }
 
