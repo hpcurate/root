@@ -70,19 +70,26 @@
 .ns-plan .proj-meta .unmapped{color:var(--or)}
 
 /* ── A project open in place (no sheet) ──
-   The tile spans both columns and keeps its name where an unopened tile has
-   it — top left, the colour dot to its left — just larger; PLAN sizes it in
-   px, as large as fits. Under it sits one row per section, two tiles wide
-   and about half a tile tall. */
-.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:var(--tile-h)}
+   Once open, the tile stops being a box: no wash, no border, just the name
+   where an unopened tile has it — top left, the colour dot to its left — at
+   half a tile's height, so it reads as the heading over the rows rather than
+   a banner competing with them. The horizontal padding stays, so the name
+   lines up with the section rows' own text. Under it sits one row per
+   section, two tiles wide and about half a tile tall. */
+.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
+  background:none;border-color:transparent;justify-content:center;
+  padding-top:0;padding-bottom:0}
+/* both of these would otherwise paint the box back in: they are more
+   specific than .open, or as specific and declared earlier */
+.ns-plan .proj-tile.open:active,.ns-plan .proj-tile.open.has{background:none}
 .ns-plan .proj-tile.open .proj-head{width:100%}
 .ns-plan .proj-tile.open .proj-dot{width:11px;height:11px}
 .ns-plan .proj-tile.open .proj-name{min-width:0;overflow:hidden;white-space:nowrap;
   font-size:24px;line-height:1.1;letter-spacing:.03em}
 /* "n sections" is what the rows below now say */
 .ns-plan .proj-tile.open .proj-meta{display:none}
-/* the form open under it: the title block grows once more */
-.ns-plan .proj-tile.open.wide{min-height:calc(var(--tile-h) * 1.15)}
+/* the form open under it: the same heading, unchanged — .wide is kept as the
+   state marker (aria and the harness read it) but no longer grows the box */
 
 .ns-plan .proj-sec{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
   display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
@@ -178,13 +185,23 @@
 .ns-plan .q-del:active{color:var(--re)}
 
 /* ── The sent history ──
-   Same row as a queued task, with a "+ calendar" button where the queue has
-   its delete: it copies this task's block as the two template lines. */
+   Same row as a queued task, but the whole row is the button: tapping it
+   picks the task, and the "+ calendar" on the title row copies a template
+   covering everything picked. A picked row wears its project's colour, the
+   way a queued project tile does. */
 .ns-plan .sent{padding:0 calc(18px * var(--dens));margin-top:26px}
+.ns-plan .sent-item{width:100%;grid-template-columns:auto 1fr;text-align:left;cursor:pointer;
+  transition:background var(--dur-1),border-color var(--dur-1)}
+.ns-plan .sent-item .q-item-name{display:block}
+.ns-plan .sent-item.on{background:color-mix(in srgb,var(--q-color,var(--y)) 14%,var(--s1));
+  border-color:var(--q-color,var(--y))}
+.ns-plan .sent-item.on .q-pill{color:var(--tx-2)}
+/* on the title row next to "clear all", and absent until something is picked */
+.ns-plan .row-acts{display:flex;align-items:center;gap:calc(10px * var(--dens))}
 .ns-plan .sent-cal{display:flex;align-items:center;gap:4px;flex:0 0 auto;align-self:center;
   background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.04em;
-  padding:calc(8px * var(--dens)) calc(9px * var(--dens));cursor:pointer;transition:all var(--dur-1)}
+  padding:calc(6px * var(--dens)) calc(8px * var(--dens));cursor:pointer;transition:all var(--dur-1)}
 .ns-plan .sent-cal svg{width:13px;height:13px;display:block}
 .ns-plan .sent-cal:active{border-color:var(--y);color:var(--y)}
 

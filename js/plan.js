@@ -620,47 +620,112 @@ function saveHistory() {
   try { localStorage.setItem(HIST_KEY, JSON.stringify(sentLog)); } catch {}
 }
 
+/* ── Picking the rows to build a calendar out of ──────────────────────────────
+   Tapping a row selects it; "+ cal" then copies one template covering
+   everything selected at once. A block is two halves, so two tasks of the
+   same block is the ceiling — a third tap on b2 is refused with a word,
+   rather than silently dropping one of the three at copy time.
+
+   The selection is a gesture, not state: it lives in the module, is never
+   persisted, and is keyed by the task's own `ts` rather than its row index —
+   the list is unshifted on every send, and an index would quietly slide onto
+   a different task. */
+const SEL_PER_BLOCK = 2;
+let sentSel = new Set();
+const histKey = t => t.ts != null ? 'ts:' + t.ts : `n:${t.date}|${t.block || ''}|${t.name}`;
+
+/* Selected, oldest first — the order that decides a from b within a block. */
+function selectedSent() {
+  return sentLog.filter(t => sentSel.has(histKey(t)))
+                .slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+function toggleSent(i) {
+  const item = sentLog[i]; if (!item) return;
+  const key = histKey(item);
+  Prefs.tap();
+  if (sentSel.has(key)) sentSel.delete(key);
+  else {
+    if (item.block && selectedSent().filter(t => t.block === item.block).length >= SEL_PER_BLOCK) {
+      toast(`${item.block} is full — two per block`); return;
+    }
+    sentSel.add(key);
+  }
+  renderSent();
+}
+
 function renderSent() {
   const list = $id('sent-list'); if (!list) return;
+  // a row that has gone (cleared, or pushed past the 200 cap) takes its
+  // selection with it, or "+ cal" would count tasks that are not on screen
+  const live = new Set(sentLog.map(histKey));
+  [...sentSel].forEach(k => { if (!live.has(k)) sentSel.delete(k); });
   const n = sentLog.length;
   $id('sent-count').textContent = n ? `${n} task${n !== 1 ? 's' : ''}` : 'empty';
   $id('sent-clear').classList.toggle('hidden', !n);
+  syncCal();
   list.innerHTML = sentLog.map((t, i) => {
+    const on = sentSel.has(histKey(t));
     const pills = [t.project, t.block ? `@${t.block}` : null, Prefs.formatDate(t.date, 'short')].filter(Boolean);
-    return `<div class="q-item" style="--q-color:${resolveColor(t.typeKey)}">
+    return `<button class="q-item sent-item${on ? ' on' : ''}" style="--q-color:${resolveColor(t.typeKey)}"
+              aria-pressed="${on}" onclick="PLAN.toggleSent(${i})">
       <span class="q-dot"></span>
-      <div class="q-item-body">
-        <div class="q-item-name">${esc(t.name)}</div>
-        <div class="q-item-meta">${pills.map(p => `<div class="q-pill">${esc(p)}</div>`).join('')}</div>
-      </div>
-      <button class="sent-cal" onclick="PLAN.copyCal(${i})" aria-label="copy calendar lines for ${esc(t.name)}"
-        >+<svg aria-hidden="true"><use href="#ico-cal"/></svg></button>
-    </div>`;
+      <span class="q-item-body">
+        <span class="q-item-name">${esc(t.name)}</span>
+        <span class="q-item-meta">${pills.map(p => `<span class="q-pill">${esc(p)}</span>`).join('')}</span>
+      </span>
+    </button>`;
   }).join('');
 }
 
+/* "+ cal" is absent until something is picked, and names the count — the same
+   rule the send button follows: a button that cannot do anything is not there. */
+function syncCal() {
+  const b = $id('sent-cal'); if (!b) return;
+  const n = sentSel.size;
+  b.classList.toggle('hidden', !n);
+  const label = $id('sent-cal-n'); if (label) label.textContent = n ? String(n) : '';
+}
+
 /* ── The calendar lines ───────────────────────────────────────────────────────
-   A block is two halves in the day's template, a and b. One task in a block
-   fills both halves; two tasks split it, in the order they were sent. So a
+   A block is two halves in the day's template, a and b. One task selected in
+   a block fills both halves; two split it, in the order they were sent. So a
    lone task in b1 copies
 
        b1a : curate > mix the track
        b1b : curate > mix the track
 
    and a block with two copies one line each. A task with no block has no
-   half to name, so it copies the bare "project > task" and says so. */
-function calLines(item) {
+   half to name, so it copies the bare "project > task". */
+function blockLines(block, items) {
   const nameOf = t => `${t.project || t.typeKey} > ${t.name}`;
-  if (!item.block) return nameOf(item);
-  const same = sentLog.filter(t => t.date === item.date && t.block === item.block)
-                      .slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  const pair = same.length >= 2 ? same.slice(0, 2) : [item, item];
-  return pair.map((t, i) => `${item.block}${'ab'[i]} : ${nameOf(t)}`).join('\n');
+  if (!block) return items.map(nameOf).join('\n');
+  const pair = items.length >= 2 ? items.slice(0, 2) : [items[0], items[0]];
+  return pair.map((t, i) => `${block}${'ab'[i]} : ${nameOf(t)}`).join('\n');
 }
 
-async function copyCal(i) {
-  const item = sentLog[i]; if (!item) return;
-  const text = calLines(item);
+/* Several tasks at once: one template per block, the blocks in the order the
+   form's chips are in (plan.blocks) so a day reads b1 → b2 → b3 whatever
+   order the rows were tapped in, anything unknown after them, and the
+   blockless tasks last as bare lines. */
+function calLinesFor(items) {
+  const order = Config.get('plan.blocks') || [];
+  const rank = b => { const i = order.indexOf(b); return i < 0 ? order.length : i; };
+  const byBlock = new Map(), bare = [];
+  items.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach(t => {
+    if (!t.block) { bare.push(t); return; }
+    if (!byBlock.has(t.block)) byBlock.set(t.block, []);
+    byBlock.get(t.block).push(t);
+  });
+  const out = [...byBlock.keys()].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(b))
+                                 .map(b => blockLines(b, byBlock.get(b)));
+  if (bare.length) out.push(blockLines(null, bare));
+  return out.join('\n');
+}
+
+async function copyCal() {
+  const items = selectedSent(); if (!items.length) return;
+  const text = calLinesFor(items);
   Prefs.tap();
   try { await navigator.clipboard.writeText(text); toast('copied · paste it into the chat'); return; }
   catch {}
@@ -679,7 +744,7 @@ async function copyCal(i) {
 function clearSent() {
   if (!sentLog.length) return;
   if (!Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.')) return;
-  sentLog = []; saveHistory(); renderSent(); toast('history cleared');
+  sentLog = []; sentSel.clear(); saveHistory(); renderSent(); toast('history cleared');
 }
 /* Queue first, then what was sent today; one entry per name, with the
    project's colour so LOG can draw it in the project's hue. */
@@ -815,7 +880,7 @@ Shell.register('plan', {
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
-         renderSent, copyCal, clearSent, calLines,
+         renderSent, toggleSent, copyCal, clearSent, calLinesFor,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

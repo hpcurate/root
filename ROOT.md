@@ -555,10 +555,16 @@ both say so, and a new device needs the `.apkg` imported again.
 - **PLAN's history binding is `sentLog`, not `history`.** A module-level
   `history` inside the IIFE shadows `window.history` for the whole file,
   which is the sort of thing that breaks a `replaceState` added months later.
-- **A block is two halves.** `calLines()` fills both with the same task when
-  a block holds only one, and splits them in send order when it holds two —
-  which is why the history stores a `ts` that is nudged per task within a
-  batch rather than one timestamp for the whole send.
+- **A block is two halves.** `blockLines()` fills both with the same task when
+  only one of that block is picked, and splits them in send order when two are
+  — which is why the history stores a `ts` that is nudged per task within a
+  batch rather than one timestamp for the whole send. Two is therefore the
+  ceiling per block, and `toggleSent()` refuses a third rather than letting
+  the copy silently drop one.
+- **The sent selection is keyed by `ts`, not by row index.** The list is
+  unshifted on every send, so an index-keyed selection would quietly slide
+  onto a different task. `renderSent()` also drops any key whose row has gone
+  (a clear, or the 200 cap), or "+ cal" would count what is not on screen.
 - **A hidden box must be emptied.** `renderBlocks()` used to return early
   when the section was hidden, leaving the old tiles in it; anything counting
   `.bk` (the harness, but also a future badge) saw ghosts. Hide *and* clear.
@@ -604,11 +610,11 @@ ramp and the card treatments reach them without a new class list in
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 213 checks covering boot, every theme and panel, the
+through DOM events: 223 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects, form and sent history of 2.5–2.15. jsdom has no layout and no Web
+in-place projects, form and sent history of 2.5–2.16. jsdom has no layout and no Web
 Animations, so anything measured or animated is invisible to it unless the
 harness stands in for both, as it does for PLAN's transition. Run it before
 trusting any change:
@@ -627,6 +633,63 @@ behaviour you fix; a bug that has a check does not come back.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.16 — 2026-09-03 — one calendar from several sent tasks, and the open tile stops being a box
+
+**"+ cal" is one button for a whole day, not one per row.** 2.15 gave every
+sent row its own "+ 📅", which could only ever guess at the block's other
+half by looking it up in the history. Tapping a row now *picks* it — the row
+fills with its project's colour, the way a queued tile does — and a single
+"+ cal" on the sent title row copies one template covering everything picked:
+
+```
+b1a : curate > mix the track
+b1b : curate > master it
+b2a : home > dishes
+b2b : home > dishes
+```
+
+One template per block, the blocks in the order the form's chips are in
+(`plan.blocks`) whatever order the rows were tapped in, anything unknown after
+them, and blockless tasks last as bare `project > task` lines. Within a block
+the two halves still split in send order (`ts`), and one picked task still
+fills both halves.
+
+**Two per block is the ceiling.** A block has an `a` and a `b` and nothing
+else, so a third tap on a b2 row is refused with `b2 is full — two per block`
+rather than being accepted and silently dropped at copy time. Blockless tasks
+have no half to name, so nothing caps them.
+
+The selection is a gesture, not state: held in the module, never persisted,
+and keyed by each task's `ts` rather than its row index — the list is
+unshifted on every send, and an index would slide onto a different task.
+`renderSent()` drops any key whose row has gone. The button is absent until
+something is picked, and names the count, which is the rule the send button
+already followed.
+
+**The open project tile stops being a box.** No wash, no border, half a tile
+tall: just the name at 24px with its colour dot beside it, so it reads as the
+heading over the section rows instead of a banner competing with them. Its
+horizontal padding stays, so the name lines up with the rows' own text. The
+same is now true with the form open under it — `.open.wide` no longer grows
+the heading, and is kept only as the state marker `aria-expanded` and the
+harness read. Two rules exist purely to stop the box being painted back in:
+`:active` is more specific than `.open`, and `.has` is as specific and
+declared earlier.
+
+**Verified** — `test/harness.mjs`, 223 checks, all green, ten of them new:
+five tasks sent into b1 ×3, b2 and no block, each row a `<button>` with
+`aria-pressed` and no per-row +cal; a tap selecting one and bringing "+ cal"
+out with its count; a second of the same block joining; a third refused with
+the toast saying why; a tap letting one go and freeing the block again; two
+tasks splitting a block a-then-b whichever order they were tapped in; one
+filling both halves; a blockless one copying bare; three blocks coming out in
+the form's order with the blockless line last; the clipboard getting the
+whole thing; clear emptying the list, the key *and* the selection. Plus three
+reading the open tile's rules off `plan.css`, since jsdom loads no
+stylesheets. **Not verified**: nothing in a browser. The picked row's 14%
+wash, the "+ cal" chip's size on the title row and the heading at half a
+tile all want one look on the phone.
 
 ### 2.15 — 2026-09-03 — the sent history, and the open tile as a heading
 

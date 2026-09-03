@@ -587,12 +587,18 @@
       <div id="queue-list"></div>
     </div>
 
-    <!-- every task PLAN has ever sent, newest first; each row copies the
-         calendar lines for its block — PLAN.renderSent() -->
+    <!-- every task PLAN has ever sent, newest first; tapping a row selects it
+         and "+ cal" copies the calendar lines for everything selected, at most
+         two tasks per block — PLAN.renderSent() -->
     <div class="sent" id="sent" data-flip="sent">
       <div class="row-lbl">
         <span>sent <em id="sent-count">empty</em></span>
-        <button class="muted-act hidden" id="sent-clear" onclick="PLAN.clearSent()">clear all</button>
+        <span class="row-acts">
+          <button class="sent-cal hidden" id="sent-cal" onclick="PLAN.copyCal()"
+                  aria-label="copy calendar lines for the selected tasks"
+            >+<svg aria-hidden="true"><use href="#ico-cal"/></svg><span id="sent-cal-n"></span></button>
+          <button class="muted-act hidden" id="sent-clear" onclick="PLAN.clearSent()">clear all</button>
+        </span>
       </div>
       <div id="sent-list"></div>
     </div>

@@ -749,6 +749,7 @@ check('no glider: the active tab is its own filled pill again', !$('#nav .nav-gl
 // the morph only reads as one title becoming another if every band is the same
 // shape — so no app sheet may set the band's box or its own wordmark size
 const shellCss = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const planCss = fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8');
 const appSheets = ['do','log','plan','store','tend','track','learn','settings']
   .map(a => [a, fs.readFileSync(path.join(ROOT, 'css/' + a + '.css'), 'utf8')]);
 const strays = appSheets.filter(([, css]) => /\.h-top\s*\{/.test(css) || /\.h-logo\{font:/.test(css)).map(([a]) => a);
@@ -782,8 +783,7 @@ const projTiles = () => [...d.querySelectorAll('.ns-plan .proj-tile')];
 check('every project is a tile, none open', projTiles().length === w.Config.get('plan.types').length && !$('.ns-plan .proj-tile.open'));
 // jsdom loads no stylesheets, so this one is read off the sheet itself
 check('the "n sections" line is drawn in the tile colour, not a muted grey',
-  /\.ns-plan \.proj-meta\{[^}]*color:var\(--proj-color/.test(fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')) &&
-  !!$('.ns-plan .proj-meta'));
+  /\.ns-plan \.proj-meta\{[^}]*color:var\(--proj-color/.test(planCss) && !!$('.ns-plan .proj-meta'));
 w.PLAN.openProj('curate');
 const openTile = $('.ns-plan .proj-tile.open');
 const secs = [...d.querySelectorAll('.ns-plan .proj-sec')];
@@ -926,7 +926,9 @@ check('the sent list starts empty and says so on its title row',
   $('.ns-plan #sent-count').textContent === 'empty' && $('.ns-plan #sent-clear').classList.contains('hidden') &&
   !d.querySelectorAll('.ns-plan #sent-list .q-item').length);
 
-// send three tasks: two into b1, one into b2
+check('… with no "+ cal" until a row is picked', $('.ns-plan #sent-cal').classList.contains('hidden'));
+
+// send five tasks: three into b1, one into b2, one with no block at all
 let sent = 0;
 fetchScript = async (url, opts) => {
   if (opts && opts.method === 'POST') { sent++; return { ok: true, status: 200, json: async () => ({ id: 'n' + sent }), text: async () => '{}' }; }
@@ -941,44 +943,96 @@ const queueOne = (section, name, block) => {
 };
 queueOne(0, 'mix the track', 'b1');
 queueOne(1, 'master it', 'b1');
-queueOne(2, 'post the clip', 'b2');
+queueOne(2, 'render stems', 'b1');
+queueOne(0, 'post the clip', 'b2');
+queueOne(1, 'tidy the desk', null);
 w.PLAN.go('sending');
 await tick(700);
-const rows = [...d.querySelectorAll('.ns-plan #sent-list .q-item')];
-check('everything sent lands in the sent list, newest first, with a +cal button each',
-  rows.length === 3 && /post the clip/.test(rows[0].textContent) && /mix the track/.test(rows[2].textContent) &&
-  rows.every(r => !!r.querySelector('.sent-cal use')), rows.map(r => r.querySelector('.q-item-name').textContent).join(' | '));
+const sentRows = () => [...d.querySelectorAll('.ns-plan #sent-list .q-item')];
+const rowFor = name => sentRows().findIndex(r => r.querySelector('.q-item-name').textContent === name);
+const rows = sentRows();
+check('everything sent lands in the sent list, newest first, every row a button',
+  rows.length === 5 && /tidy the desk/.test(rows[0].textContent) && /mix the track/.test(rows[4].textContent) &&
+  rows.every(r => r.tagName === 'BUTTON' && r.getAttribute('aria-pressed') === 'false') &&
+  !d.querySelector('.ns-plan #sent-list .sent-cal'),
+  rows.map(r => r.querySelector('.q-item-name').textContent).join(' | '));
 check('… each row naming its project, its block and the day',
-  /curate/.test(rows[0].textContent) && /@b2/.test(rows[0].textContent) && /@b1/.test(rows[2].textContent));
+  /curate/.test(rows[1].textContent) && /@b2/.test(rows[1].textContent) && /@b1/.test(rows[4].textContent));
 check('the title row counts them and offers to clear',
-  $('.ns-plan #sent-count').textContent === '3 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
+  $('.ns-plan #sent-count').textContent === '5 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
+
+/* Tapping a row picks it; "+ cal" appears and names how many are picked. */
+const calBtn = () => $('.ns-plan #sent-cal');
+w.PLAN.toggleSent(rowFor('mix the track'));
+check('tapping a row selects it and brings "+ cal" out',
+  sentRows()[4].classList.contains('on') && sentRows()[4].getAttribute('aria-pressed') === 'true' &&
+  !calBtn().classList.contains('hidden') && $('.ns-plan #sent-cal-n').textContent === '1');
+w.PLAN.toggleSent(rowFor('master it'));
+check('… and a second one of the same block joins it', $('.ns-plan #sent-cal-n').textContent === '2');
+
+/* A block is two halves, so two of it is the ceiling. */
+w.PLAN.toggleSent(rowFor('render stems'));
+check('a third task of the same block is refused, with a word about why',
+  $('.ns-plan #sent-cal-n').textContent === '2' && !sentRows()[rowFor('render stems')].classList.contains('on') &&
+  /two per block/.test($('#toast').textContent), $('#toast').textContent);
+w.PLAN.toggleSent(rowFor('master it'));
+check('tapping a picked row lets it go again',
+  $('.ns-plan #sent-cal-n').textContent === '1' && !sentRows()[rowFor('master it')].classList.contains('on'));
+w.PLAN.toggleSent(rowFor('render stems'));
+check('… which frees the block for another task', sentRows()[rowFor('render stems')].classList.contains('on'));
+w.PLAN.toggleSent(rowFor('render stems'));     // back to "mix the track" alone
 
 /* Two tasks in b1 split the block, in the order they were sent; one task in
-   b2 fills both halves of it. */
+   b2 fills both halves of it; a blockless task has no half to name. */
 const hist = JSON.parse(w.localStorage.getItem('plan_history_v1'));
-const lineOf = name => w.PLAN.calLines(hist.find(h => h.name === name));
-check('a block with two tasks copies one line each, a then b',
-  lineOf('mix the track') === 'b1a : curate > mix the track\nb1b : curate > master it',
-  JSON.stringify(lineOf('mix the track')));
-check('… and either row of that block copies the same pair', lineOf('master it') === lineOf('mix the track'));
+const item = name => hist.find(h => h.name === name);
+check('a block with two tasks gets one line each, a then b',
+  w.PLAN.calLinesFor([item('mix the track'), item('master it')]) ===
+  'b1a : curate > mix the track\nb1b : curate > master it',
+  JSON.stringify(w.PLAN.calLinesFor([item('mix the track'), item('master it')])));
+check('… whichever order the two rows were tapped in',
+  w.PLAN.calLinesFor([item('master it'), item('mix the track')]) ===
+  w.PLAN.calLinesFor([item('mix the track'), item('master it')]));
 check('a block with one task fills both halves with it',
-  lineOf('post the clip') === 'b2a : curate > post the clip\nb2b : curate > post the clip',
-  JSON.stringify(lineOf('post the clip')));
+  w.PLAN.calLinesFor([item('post the clip')]) === 'b2a : curate > post the clip\nb2b : curate > post the clip',
+  JSON.stringify(w.PLAN.calLinesFor([item('post the clip')])));
 check('a task sent with no block copies the bare project > task',
-  w.PLAN.calLines({ project: 'curate', name: 'no block', block: null, date: today }) === 'curate > no block');
+  w.PLAN.calLinesFor([item('tidy the desk')]) === 'curate > tidy the desk');
+check('several blocks come out in the form\'s own order, blockless last',
+  w.PLAN.calLinesFor([item('tidy the desk'), item('post the clip'), item('mix the track')]) ===
+  'b1a : curate > mix the track\nb1b : curate > mix the track\n' +
+  'b2a : curate > post the clip\nb2b : curate > post the clip\n' +
+  'curate > tidy the desk',
+  JSON.stringify(w.PLAN.calLinesFor([item('tidy the desk'), item('post the clip'), item('mix the track')])));
 
 let copied = '';
 w.navigator.clipboard = { writeText: async t => { copied = t; } };
-await w.PLAN.copyCal(2);                       // the oldest row: mix the track
-check('tapping +cal puts those lines on the clipboard', copied === lineOf('mix the track'), JSON.stringify(copied));
+w.PLAN.toggleSent(rowFor('master it'));        // mix the track is still picked
+w.PLAN.toggleSent(rowFor('post the clip'));
+await w.PLAN.copyCal();
+check('"+ cal" puts one template for every picked task on the clipboard',
+  copied === 'b1a : curate > mix the track\nb1b : curate > master it\n' +
+             'b2a : curate > post the clip\nb2b : curate > post the clip', JSON.stringify(copied));
 confirmAnswer = true;
 w.PLAN.clearSent();
-check('clear empties the list and the key', !d.querySelectorAll('.ns-plan #sent-list .q-item').length &&
-  JSON.parse(w.localStorage.getItem('plan_history_v1')).length === 0);
+check('clear empties the list, the key and the selection',
+  !sentRows().length && JSON.parse(w.localStorage.getItem('plan_history_v1')).length === 0 &&
+  calBtn().classList.contains('hidden'));
 check("clearing the history leaves today's own sent record alone — LOG reads that one",
-  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 3,
-  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 3));
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 5,
+  JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 5));
 w.PLAN.clearQueue();
+
+/* The open project tile is a heading, not a box: no wash, no border, half a
+   tile tall — and the same with the form open under it. */
+check('an open project tile drops its box and stands half a tile tall',
+  /\.ns-plan \.proj-tile\.open\{[^}]*min-height:calc\(var\(--tile-h\) \/ 2\)/.test(planCss) &&
+  /\.ns-plan \.proj-tile\.open\{[^}]*background:none/.test(planCss) &&
+  /\.ns-plan \.proj-tile\.open\{[^}]*border-color:transparent/.test(planCss));
+check('… and neither :active nor a queued project paints it back in',
+  /\.ns-plan \.proj-tile\.open:active,\.ns-plan \.proj-tile\.open\.has\{background:none\}/.test(planCss));
+check('… and the form open under it no longer grows the heading',
+  !/\.proj-tile\.open\.wide\{[^}]*min-height/.test(planCss));
 
 // the gap under the title band: the shell's, and the same on every app
 check('the gap under the band is set once, in shell.css', /\.view-body #s-home\{padding-top:18px\}/.test(shellCss) &&
