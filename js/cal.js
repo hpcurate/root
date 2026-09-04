@@ -169,12 +169,17 @@ function stepsHTML() {
   const days = strip(), i = days.indexOf(sel);
   const prev = i > 0 ? days[i - 1] : null;
   const next = i >= 0 && i < days.length - 1 ? days[i + 1] : null;
-  const arrow = (day, glyph, label) =>
+  /* The shell's own chevrons from the sprite, not "←" and "→" as text. A glyph
+     is at the mercy of whichever font is loaded, sits off the optical centre,
+     and ignores the Icon weight dial — the arrows beside the nav have always
+     been drawn, and these are the same pair at the same size. */
+  const arrow = (day, icon, label) =>
     `<button class="cal-arrow${day ? '' : ' off'}" data-act="pick"${day ? ` data-day="${esc(day)}"` : ''}
-             ${day ? '' : 'disabled aria-disabled="true"'} aria-label="${esc(label)}">${glyph}</button>`;
-  return arrow(prev, '←', 'previous day') +
+             ${day ? '' : 'disabled aria-disabled="true"'} aria-label="${esc(label)}"
+      ><svg aria-hidden="true"><use href="#${icon}"/></svg></button>`;
+  return arrow(prev, 'ico-chev-l', 'previous day') +
          `<span class="cal-steps-sep" aria-hidden="true"></span>` +
-         arrow(next, '→', 'next day');
+         arrow(next, 'ico-chev-r', 'next day');
 }
 
 /* The day's name lives in the title band, beside the wordmark — so the stepper

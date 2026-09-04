@@ -57,10 +57,13 @@
 body:has(#view-cal.cur) .cal-steps{display:flex}
 body:has(#nav.chrome-off) .cal-steps{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
 
+/* the sprite's chevrons at the size the nav's own arrows use, so the three
+   read as one family rather than as two arrows and a pair of characters */
 .cal-steps .cal-arrow{flex:0 0 auto;width:38px;height:32px;background:none;
-  border:none;border-radius:var(--r-pill);color:var(--tx);
-  font:400 15px/1 var(--mono);cursor:pointer;
+  border:none;border-radius:var(--r-pill);color:var(--tx);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:0;
   transition:color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
+.cal-steps .cal-arrow svg{width:17px;height:17px;display:block}
 .cal-steps .cal-arrow:active{background:var(--y-fade);color:var(--y)}
 .cal-steps .cal-arrow.off{opacity:.28;cursor:default;color:var(--bd-2)}
 .cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}

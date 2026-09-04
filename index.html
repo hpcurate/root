@@ -76,9 +76,15 @@
     <circle cx="12" cy="12" r="4"/>
     <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>
   </symbol>
+  <!-- Sliders, not a gear. The gear was a circle with eight radiating strokes
+       and DAY's sun is a circle with eight radiating strokes — at 19px they
+       were the same mark. The sun belongs to DAY, so settings moved: two rails
+       with a knob on each, which is what this panel actually is. The rails are
+       drawn as two segments with a gap where the knob sits, so nothing shows
+       through a shape that has no fill. -->
   <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="3.4"/>
-    <path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7M18.6 18.6l-1.7-1.7M7.1 7.1 5.4 5.4"/>
+    <line x1="3" y1="8" x2="6.6" y2="8"/><circle cx="9" cy="8" r="2.4"/><line x1="11.4" y1="8" x2="21" y2="8"/>
+    <line x1="3" y1="16" x2="12.6" y2="16"/><circle cx="15" cy="16" r="2.4"/><line x1="17.4" y1="16" x2="21" y2="16"/>
   </symbol>
   <!-- the "!" a tab wears in place of its own icon while something is overdue
        (Shell.alert) — one stroke and its dot, at the icon's own weight -->

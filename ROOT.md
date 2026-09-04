@@ -451,6 +451,16 @@ both say so, and a new device needs the `.apkg` imported again.
   already reads a variable column count, so it round-trips.
 - **Turning a LOG field off never deletes data.** The input keeps its value, save
   still reads it, the export still writes the column.
+- **A tab icon is only doing its job if it is not another tab's icon.** 2.21
+  gave DAY a sun — a circle with eight radiating strokes — which is exactly
+  what the settings gear was. At 19px they were one mark. Settings wears
+  sliders now; the sun belongs to the app that is about a day. A harness check
+  takes a signature of each `tab-*` symbol's shapes and fails on a duplicate,
+  which is what catches this without anyone having to look at the bar.
+- **An arrow in this app is drawn, never typed.** `←` and `→` as text are at
+  the mercy of whichever font is loaded, sit off the optical centre, and ignore
+  the Icon weight dial. DAY's stepper uses `#ico-chev-l` / `#ico-chev-r` — the
+  same pair the nav's own arrows use, at the same 17px.
 - **Never open a selector inside the `:root` block.** An override of a token
   goes after the block closes, beside `[data-caps="off"]`. 2.21 added the blur
   override inside it, which closed `:root` early and left every token below
@@ -833,7 +843,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 414 checks covering boot, every theme and panel, the
+through DOM events: 417 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1050,6 +1060,30 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.21.2 — 2026-09-04 — two icons that were one icon, and arrows that were characters
+
+DAY's new sun was a circle with eight radiating strokes. So was the settings
+gear. At 19px, in a bar where they sit four apart, they were the same mark —
+which is the whole failure of an icon. The sun stays with DAY, where it means
+something; **settings wears sliders**, which is what forty dials and a pile of
+toggles actually are. Two rails, a knob on each, each rail drawn as two
+segments with a gap where the knob sits so nothing shows through a shape with
+no fill.
+
+**DAY's stepper arrows are drawn now, not typed.** They were `←` and `→` as
+text in the mono face: at the mercy of whichever font is loaded, off the
+optical centre, and invisible to the Icon weight dial. They are
+`#ico-chev-l` / `#ico-chev-r` from the sprite — the same pair the nav's own
+arrows have always used, at the same 17px — so the three arrows on that edge of
+the screen finally read as one family.
+
+**Verified** — 417 checks, all green, 3 new. The one worth keeping takes a
+signature of every `tab-*` symbol's shapes and fails on a duplicate: the gear
+and the sun were both `circle+path`, so it catches this class of mistake
+without anyone having to look at the bar. Plus settings' symbol being lines and
+knobs rather than a circle and a ray path, and the stepper's two buttons
+carrying `<use>` of the two chevrons with no arrow character anywhere in them.
 
 ### 2.21.1 — 2026-09-04 — the :root block 2.21 split in half
 

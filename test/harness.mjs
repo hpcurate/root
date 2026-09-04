@@ -2130,6 +2130,20 @@ const calSymbol = (html.match(/<symbol id="tab-cal"[\s\S]*?<\/symbol>/) || [''])
 check('DAY wears a sun, not an agenda that read like PLAN\'s grid at 19px',
   /<circle/.test(calSymbol) && !/<rect/.test(calSymbol),
   calSymbol.replace(/\s+/g, ' ').slice(0, 90));
+/* A tab icon is only doing its job if it is not another tab's icon. DAY's sun
+   was a circle with eight radiating strokes and so was the settings gear —
+   the same mark twice, which at 19px is one mark. A signature of each symbol's
+   shapes catches that without anyone having to look. */
+const tabSigs = [...html.matchAll(/<symbol id="(tab-[\w-]+)"[\s\S]*?<\/symbol>/g)].map(m =>
+  [m[1], (m[0].match(/<(circle|rect|line|path|polyline|polygon)\b/g) || [])
+    .map(s => s.slice(1)).sort().join('+')]);
+const sigDupes = tabSigs.filter(([, sig], i) => tabSigs.findIndex(([, s]) => s === sig) !== i);
+check('no two tab icons are built from the same shapes',
+  tabSigs.length > 8 && sigDupes.length === 0,
+  sigDupes.map(([n, s]) => n + ':' + s).join(', ') || tabSigs.length + ' distinct');
+check('… settings wearing sliders now, which is what that panel actually is',
+  /<symbol id="tab-set"[\s\S]*?<line[\s\S]*?<circle[\s\S]*?<\/symbol>/.test(html) &&
+  !/<symbol id="tab-set"[^>]*>\s*<circle[^>]*\/>\s*<path/.test(html));
 
 /* DAY's stepper and its empty day. */
 check('the stepper is shown only while DAY is the slide on screen',
@@ -2143,6 +2157,12 @@ check('… and the arrows are in the fixed stepper, not in the scrolling day',
   d.querySelectorAll('#cal-steps .cal-arrow').length === 2 &&
   !d.querySelector('#view-cal .cal-arrow'),
   d.querySelectorAll('#cal-steps .cal-arrow').length + ' in the stepper');
+check('… drawn from the sprite like the nav\'s own arrows, never typed as characters',
+  d.querySelectorAll('#cal-steps .cal-arrow svg use').length === 2 &&
+  [...d.querySelectorAll('#cal-steps .cal-arrow svg use')].map(u => u.getAttribute('href')).join(',')
+    === '#ico-chev-l,#ico-chev-r' &&
+  ![...d.querySelectorAll('#cal-steps .cal-arrow')].some(b => /[←→]/.test(b.textContent)),
+  [...d.querySelectorAll('#cal-steps .cal-arrow svg use')].map(u => u.getAttribute('href')).join(','));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
