@@ -44,6 +44,11 @@
   .ns-log #s-home .lc{flex:1 1 auto;min-height:0}
   .ns-log #s-home .grid{flex:0 0 auto}
 }
+/* below that the home flows again, and the opened chart needs a height of its
+   own since there is no leftover space to fill */
+@media (max-height:559px){
+  .ns-log .lc-trend.big .lc-plot{height:190px}
+}
 
 /* ── The month ── */
 .ns-log .lc{padding:0 calc(18px * var(--dens)) calc(14px * var(--dens));
@@ -90,7 +95,7 @@
    ring is the one heavy line in the grid, and it can be, because there is
    exactly one of it. */
 .ns-log .lc-c.sel{box-shadow:0 0 0 1.5px var(--y);border-color:var(--y)}
-.ns-log .lc-c:active{background:var(--s2)}
+.ns-log .lc-c:active{background:var(--press)}
 
 /* ── The fortnight ───────────────────────────────────────────────────────────
    Three series, each in its own colour, with a dot on every day that has a
@@ -103,10 +108,38 @@
    an accent-relative palette cannot promise that; these are the same three the
    app already uses for the med slots. */
 .ns-log .lc-trend{flex:0 0 auto;margin-top:calc(12px * var(--dens));
-  --lc-nrg:#6ec5e0;--lc-mood:#5cdb7d;--lc-stress:#e0806b}
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  --lc-nrg:#6ec5e0;--lc-mood:#5cdb7d;--lc-stress:#e0806b;--lc-yax:16px}
 .ns-log .lc-trend.empty{font:400 9px/1.5 var(--mono);color:var(--bd-2);letter-spacing:.04em;text-align:center;
-  padding:calc(10px * var(--dens)) 0 0}
-.ns-log .lc-spark{display:block;width:100%;height:58px;overflow:visible}
+  padding:calc(10px * var(--dens)) 0 0;cursor:default}
+.ns-log .lc-plot{display:flex;align-items:stretch;min-height:0}
+.ns-log .lc-spark{display:block;flex:1;min-width:0;width:100%;height:58px;overflow:visible}
+
+/* ── Opened over the month ───────────────────────────────────────────────────
+   Tapping the chart puts it where the calendar was. It is the same chart — the
+   same series, the same dots — with the room to carry axes, which is most of
+   what makes a chart answerable: a line that rose is worth less than a line
+   that rose from 2 to 4 on the ninth. The month is one tap away and the key
+   row says "close" where it said "14d", so there is no hidden state.
+
+   The grow is deliberately small. It is the same object gaining room, not a
+   panel arriving, and a big scale would say the opposite. */
+.ns-log .lc.big{justify-content:flex-start}
+.ns-log .lc-trend.big{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+  margin-top:0;animation:lc-open var(--dur-3) var(--ease) both}
+@keyframes lc-open{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.ns-log .lc-trend.big .lc-plot{flex:1 1 auto}
+.ns-log .lc-trend.big .lc-spark{height:auto}
+/* the axes are HTML, not SVG text: the viewBox is stretched to fill the width,
+   so a <text> inside it would be stretched with it */
+.ns-log .lc-yax{position:relative;flex:0 0 var(--lc-yax);min-width:0}
+.ns-log .lc-yax span{position:absolute;right:calc(5px * var(--dens));transform:translateY(-50%);
+  font:400 7.5px/1 var(--mono);color:var(--bd-2);letter-spacing:.04em}
+.ns-log .lc-xax{position:relative;height:12px;margin-left:var(--lc-yax);flex:0 0 auto}
+.ns-log .lc-xax span{position:absolute;top:3px;transform:translateX(-50%);
+  font:400 7.5px/1 var(--mono);color:var(--bd-2);letter-spacing:.02em}
+.ns-log .lc-g{stroke:var(--bd);stroke-width:1;vector-effect:non-scaling-stroke;fill:none;opacity:.5}
+.ns-log .lc-trend.big .lc-key{margin-left:var(--lc-yax)}
 .ns-log .lc-l{fill:none;stroke-width:1.4;vector-effect:non-scaling-stroke;
   stroke-linecap:round;stroke-linejoin:round;opacity:.85}
 /* a dot is a zero-length path with a round cap — a circle whose size is the
@@ -133,7 +166,7 @@
 .ns-log .grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(6px * var(--dens));padding:0 calc(18px * var(--dens))}
 .ns-log .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(13px * var(--dens)) calc(13px * var(--dens)) calc(12px * var(--dens));
       cursor:pointer;position:relative;transition:border-color .12s;user-select:none}
-.ns-log .card:active{background:var(--s2)}
+.ns-log .card:active{background:var(--press)}
 .ns-log .card.done{border-color:var(--y)}
 .ns-log .card.done::after{content:'✓';position:absolute;top:11px;right:13px;font:11px/1 var(--mono);color:var(--y)}
 .ns-log .card-t{font:700 12px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:4px}
@@ -235,7 +268,7 @@
 .ns-log .caf-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
            color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(9px * var(--dens));cursor:pointer;transition:background .12s}
-.ns-log .caf-reset:active{background:var(--s2)}
+.ns-log .caf-reset:active{background:var(--press)}
 /* ── Curate output: three counters, one purple shade each ── */
 .ns-log .cur-g{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(5px * var(--dens));margin-bottom:6px}
 .ns-log .cur-b{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--mu);
@@ -247,7 +280,7 @@
 .ns-log .cur-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
            color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(9px * var(--dens));cursor:pointer;transition:background .12s}
-.ns-log .cur-reset:active{background:var(--s2)}
+.ns-log .cur-reset:active{background:var(--press)}
 
 /* ── Misc layout ── */
 .ns-log .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);

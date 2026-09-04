@@ -66,7 +66,7 @@
 .ns-do .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
       padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));cursor:pointer;position:relative;
       transition:border-color .12s;user-select:none}
-.ns-do .card:active{background:var(--s2)}
+.ns-do .card:active{background:var(--press)}
 .ns-do .card.done{border-color:var(--y)}
 .ns-do .card.done::after{content:'✓';position:absolute;top:11px;right:13px;
                   font:11px/1 var(--mono);color:var(--y)}
@@ -92,7 +92,7 @@
           padding:calc(15px * var(--dens)) calc(14px * var(--dens));cursor:pointer;text-align:left;
           display:flex;align-items:center;justify-content:space-between;
           margin-bottom:6px;transition:all .1s}
-.ns-do .item-btn:active{background:var(--s2)}
+.ns-do .item-btn:active{background:var(--press)}
 .ns-do .item-btn.checked{background:var(--yd);border-color:var(--y);color:var(--tx)}
 /* the tick is stroked in currentColor so it follows --on-y across themes */
 .ns-do .item-check-ico{width:18px;height:18px;border-radius:var(--r1);border:var(--bw) solid var(--bd);
@@ -168,6 +168,16 @@
   font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   padding-bottom:calc(8px * var(--dens));margin-bottom:10px;border-bottom:var(--bw) solid var(--bd)}
 .ns-do .tt-head em{color:var(--mu);font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:none;margin-left:8px}
+/* The section's own title is the fold switch. It has to look like the plain
+   heading it replaced — a heading that is a button is only obvious once, and
+   after that it is just the heading — so the only tell is the caret. */
+.ns-do .tt-name{display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;
+  color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;
+  min-width:0}
+.ns-do .tt-name:active{color:var(--tx)}
+.ns-do .tt-caret{width:11px;height:11px;flex:0 0 auto;color:var(--mu);
+  transform:rotate(90deg);transition:transform var(--dur-2) var(--ease)}
+.ns-do .tt.folded .tt-caret{transform:rotate(0)}
 .ns-do .tt-refresh{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.08em;
   text-transform:var(--caps);cursor:pointer;padding:calc(2px * var(--dens)) 0}
 .ns-do .tt-refresh:active{color:var(--y)}
@@ -175,7 +185,7 @@
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   padding:calc(11px * var(--dens)) calc(12px * var(--dens));margin-bottom:6px;cursor:pointer;
   transition:border-color var(--dur-1),background var(--dur-1);color:var(--tx)}
-.ns-do .tt-row:active{background:var(--s2)}
+.ns-do .tt-row:active{background:var(--press)}
 .ns-do .tt-row.late{border-color:color-mix(in srgb,var(--or) 45%,transparent)}
 .ns-do .tt-row.done{opacity:.55}
 .ns-do .tt-check{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border:1.5px solid var(--mu);border-radius:var(--r1);
@@ -264,7 +274,7 @@
 .ns-do .qk-head{display:flex;align-items:flex-start;gap:calc(11px * var(--dens));width:100%;text-align:left;
   background:none;border:none;color:var(--tx);cursor:pointer;
   padding:calc(14px * var(--dens)) calc(14px * var(--dens)) calc(12px * var(--dens))}
-.ns-do .qk-head:active{background:var(--s2)}
+.ns-do .qk-head:active{background:var(--press)}
 .ns-do .qk-check{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border:1.5px solid var(--mu);border-radius:var(--r1);
   display:flex;align-items:center;justify-content:center;color:transparent;transition:background .12s,border-color .12s,color .12s}
 .ns-do .qk-check svg{width:10px;height:10px}
@@ -288,7 +298,7 @@
   width:100%;text-align:left;background:none;border:none;cursor:pointer;color:var(--tx);
   font:400 12px/1.4 var(--mono);padding:calc(9px * var(--dens)) calc(6px * var(--dens));
   border-radius:var(--r1);overflow-wrap:anywhere}
-.ns-do .qk-item:active{background:var(--s2)}
+.ns-do .qk-item:active{background:var(--press)}
 .ns-do .qk-item.checked{color:var(--tx-2)}
 .ns-do .qk-item.checked span:first-child{text-decoration:line-through;text-decoration-color:var(--mu)}
 .ns-do .qk-tick{flex:0 0 auto;width:16px;height:16px;border:1.5px solid var(--mu);border-radius:var(--r1);
@@ -333,7 +343,7 @@
          padding:calc(13px * var(--dens)) calc(14px * var(--dens));cursor:pointer;text-align:left;
          display:flex;align-items:center;gap:calc(11px * var(--dens));
          margin-bottom:6px;transition:all .1s}
-.ns-do .tv-item:active{background:var(--s2)}
+.ns-do .tv-item:active{background:var(--press)}
 .ns-do .tv-item.checked{background:var(--yd);border-color:var(--y);color:var(--tx)}
 .ns-do .tv-count-grp{display:flex;align-items:center;gap:calc(3px * var(--dens));flex-shrink:0}
 .ns-do .tv-step{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -378,7 +388,7 @@
 .ns-do .tv-list-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
               padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));margin-bottom:8px;cursor:pointer;
               transition:border-color .12s}
-.ns-do .tv-list-card:active{background:var(--s2)}
+.ns-do .tv-list-card:active{background:var(--press)}
 .ns-do .tv-list-card.done{border-color:var(--gr)}
 .ns-do .tv-list-head{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));margin-bottom:6px}
 .ns-do .tv-list-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps)}
@@ -393,7 +403,7 @@
             color:var(--mu);font:400 13px/1 var(--mono);letter-spacing:.05em;
             padding:calc(14px * var(--dens));cursor:pointer;text-align:left;
             display:flex;align-items:center;gap:calc(11px * var(--dens));margin-bottom:6px;transition:all .1s}
-.ns-do .tv-cat-row:active{background:var(--s2)}
+.ns-do .tv-cat-row:active{background:var(--press)}
 .ns-do .tv-cat-row.on{background:var(--yd);border-color:var(--y);color:var(--tx)}
 .ns-do .tv-cat-name{flex:1;text-transform:capitalize}
 .ns-do .tv-cat-count{font:400 10px/1 var(--mono);color:var(--mu);letter-spacing:.04em}

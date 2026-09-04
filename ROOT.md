@@ -17,7 +17,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards and the consistency strip. |
-| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy and mood, then the doors. Its tab wears a `!` while a half of the day is unwritten. |
+| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
@@ -365,7 +365,8 @@ Other anchors, and the single rule that makes each dial real:
 | `--dens` | Spacing | every padding/gap in the app sheets |
 | `--ui-scale` | Interface scale | `html{zoom:var(--ui-scale)}` — native, scales boxes, text, borders and fixed positioning together |
 | `--icon-stroke` | Icon weight | CSS beats the sprite's `stroke-width` presentation attribute — but gated on `[data-icon-stroke="custom"]`, which Prefs sets only once the dial has moved, so the sprite's deliberate 1.8/2.0/2.2 mix survives at the default |
-| `--mo` | Motion | `--dur-1/2/3` all multiply by it |
+| `--mo` | Motion + Animation speed | `--dur-1/2/3` all multiply by it. It is `--mo-base` (the preset, an attribute) times `--mo-scale` (the speed dial, an inline property) — split so the two compose, and because a *speed* runs the opposite way to a *duration*: Prefs writes 1/speed |
+| `--press` | (not a dial) | the wash under a finger. One token so `[data-scrolling]` can take it to transparent for the length of a scroll — see §6 |
 | `--tex-mult` | Texture strength | `body::before`, a `pointer-events:none` fixed overlay |
 | `--chrome-alpha` | Chrome opacity | `--chrome-bg` mixes it with `--chrome-rgb` |
 | `--readable` | Max content width | the `min-width:560px` cap |
@@ -607,6 +608,19 @@ both say so, and a new device needs the `.apkg` imported again.
   (`notifyDo`). A new counting app should do the same, not touch the nav.
 - **A new label says `text-transform:var(--caps)`, never `uppercase`.** The
   literal is invisible to the caps switch; 2.5 rewrote 113 of them.
+- **A press wash says `var(--press)`, never `var(--s2)`.** On a touch screen
+  `:active` is applied the moment the finger lands and is not cleared until it
+  lifts, so a touch that turns into a scroll lights up whatever row it started
+  on and keeps it lit as the list moves under it. The shell sets
+  `data-scrolling` on `<html>` while any slide is moving (and for 160ms after,
+  plus on any `touchmove`), and `[data-scrolling="on"]{--press:transparent}`
+  takes the wash out. One token, so it reaches every `:active` in every app and
+  any future one for free; 2.22.3 rewrote 22 of them. A tap that is a tap still
+  lights up, because a tap does not scroll.
+  The press rules that mix a *project's* colour (PLAN's tiles, DO's block
+  tiles) are not on this token — their resting value differs per rule — so they
+  can still light up under a drag. They are not in long scrollers, which is why
+  it has not been worth the duplication.
 - **`LOG.setBlock()` writes today's record even when another day is selected.**
   It edits the live record only if the selected day is the real today, and the
   stored one otherwise, so a tick on DO never changes which day LOG is showing.
@@ -929,7 +943,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 499 checks covering boot, every theme and panel, the
+through DOM events: 524 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1172,6 +1186,62 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.22.3 — 2026-09-04 — nothing is pressed while you scroll, and a chart that opens
+
+**A row lit up under a finger on the way down a list.** `:active` on a touch
+screen is applied the moment the finger lands and is not cleared until it lifts,
+so a touch that turns into a scroll lights up whatever it started on and keeps
+it lit as the list moves under it. The fix is one token: the 22 press washes
+that said `background:var(--s2)` say `var(--press)` now, the shell raises
+`data-scrolling` on `<html>` while any slide is moving, and
+`[data-scrolling="on"]{--press:transparent}` takes the wash out for the length
+of the gesture. It reaches every `:active` in every app at once and any future
+one for free, and a tap that is a tap still lights up — because a tap does not
+scroll. The rules that press with a *project's* colour are not on the token
+(their resting value differs per rule) and are noted in §6 as the exception.
+
+**DO's quick section folds from its own title.** Tapping "quick" hides the cards
+and leaves the head — the count is still there, and so is the way back. A
+section you have finished with should be able to get out of the way without
+being switched off in settings, which is a different and more permanent thing.
+The title had to keep looking like the heading it replaced: a heading that is
+also a button is only obvious once, so the only tell is a caret.
+
+**LOG's fortnight opens over the month.** At the height it has beside the
+calendar it can carry three lines and no labels, and labels are most of what
+makes a chart answerable — a line that rose is worth less than a line that rose
+from 2 to 4 on the ninth. Tapping it puts it where the month was, with a 1–5
+scale, a date under every point and gridlines; tapping it again gives the month
+back. The axes are **HTML, not SVG `<text>`**: the viewBox is stretched to fill
+the width, so text inside it would be stretched with it. Each label is placed at
+the same fraction the plot draws with, so they line up by construction rather
+than by eye — which is also why the plot gained a 4% inset at each end, where
+half of the first and last dot used to hang over the edge.
+
+**Two motion dials.** `--mo` is now `--mo-base` (the preset) times `--mo-scale`
+(a new **Animation speed** slider, 0.5×–3×), split so the two compose — "reduced,
+and half again" is a real thing to want — and because a speed runs the opposite
+way to a duration, so Prefs writes 1/speed. And **"keep the bar moving"**: an
+opt-in exception that leaves the tab pill animating at Motion: none. The pill
+growing into place under the tab you picked is feedback rather than decoration —
+without it the only confirmation that the tap landed is that the page has
+already changed, which is not the same thing. Off by default: someone who asks
+for no motion should get none until they say otherwise.
+
+**Verified** — `test/harness.mjs`, 524 checks, all green, 25 new. The token
+existing and no sheet still pressing with the literal; the flag raised by a real
+scroll event and lowered 160ms later. The quick title folding, keeping its
+count, persisting, and unfolding. The chart opening over the month, carrying
+exactly 5 y labels / 14 x labels / 5 gridlines only when open, those placed at
+0/25/50/75/100% and 4%…96% — the same fractions the plot uses — and being HTML
+rather than `<text>`. `--mo` composing from the two parts, speed 2× writing a
+0.5 scale and 0.5× writing 2, `navMotion` off by default and scoped to `#nav`
+and `.nav-arrow` when on, both controls on the layout panel, and the appearance
+reset knowing about them.
+
+**Still not verified by me**: how it looks. The Chrome extension is still not
+connected.
 
 ### 2.22.2 — 2026-09-04 — one thing moves, and a hairline
 

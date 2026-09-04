@@ -360,6 +360,9 @@ function layoutHTML() {
     ${sectionHead('Motion & contrast')}
     ${chips('motion', [{ v:'full', l:'full' }, { v:'reduced', l:'reduced' }, { v:'none', l:'none' }],
       'Animation', 'the OS setting still wins when it asks for less')}
+    ${slider('motionSpeed', 'Animation speed', v => v.toFixed(1) + '×')}
+    ${toggle('navMotion', 'Keep the bar moving',
+      'the tab pill still grows into place at Motion: none — the one confirmation that a tap landed')}
     ${chips('contrast', [{ v:'normal', l:'normal' }, { v:'more', l:'more' }, { v:'max', l:'maximum' }],
       'Contrast', 'lifts muted text and hardens hairlines')}
     ${chips('accentUse', [{ v:'subtle', l:'subtle' }, { v:'normal', l:'normal' }, { v:'loud', l:'loud' }],
@@ -1703,7 +1706,8 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-appearance') {
     confirmed('Reset every appearance setting?', () => {
       ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
-       'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
+       'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle','cardStyle',
+       'accentUse','radius','border',
        'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');

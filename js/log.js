@@ -307,6 +307,18 @@ function refreshHome() {
    calendar rather than a picture of one — a day three weeks ago used to be
    twenty taps away. */
 let monthAnchor = null;              // the ISO day whose month is on screen
+let trendBig = false;                // the fortnight, opened over the month
+
+/* The chart takes the month's place rather than sitting under a squeezed one:
+   at the height it has beside the calendar it can carry three lines and no
+   labels, and labels are most of what makes a chart answerable. Tapping it
+   again gives the month back. */
+function toggleTrend() {
+  if (!$id('log-cal')) return;
+  trendBig = !trendBig;
+  Prefs.tap();
+  renderMonth();
+}
 
 function monthShift(n) {
   const base = monthAnchor || REAL_TODAY;
@@ -357,7 +369,7 @@ function renderMonth() {
 
   const label = first.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
   const atNow = `${y}-${String(m + 1).padStart(2, '0')}` >= REAL_TODAY.slice(0, 7);
-  box.innerHTML = `
+  const month = `
     <div class="lc-head">
       <button class="lc-arr" data-month="-1" aria-label="previous month">
         <svg aria-hidden="true"><use href="#ico-chev-l"/></svg></button>
@@ -365,8 +377,9 @@ function renderMonth() {
       <button class="lc-arr" data-month="1"${atNow ? ' disabled' : ''} aria-label="next month">
         <svg aria-hidden="true"><use href="#ico-chev-r"/></svg></button>
     </div>
-    <div class="lc-grid">${heads}${cells.join('')}</div>
-    ${trendHTML()}`;
+    <div class="lc-grid">${heads}${cells.join('')}</div>`;
+  box.classList.toggle('big', trendBig);
+  box.innerHTML = (trendBig ? '' : month) + trendHTML();
 }
 
 /* Fourteen days of energy, mood and stress, as three lines with a dot on every
@@ -399,9 +412,13 @@ function trendHTML() {
      a circle whose diameter is the stroke width in *screen* pixels, so it is
      immune to the viewBox's scaling in both axes. Each is drawn twice, a
      surface-coloured halo under the colour, so three series crossing on the
-     same day still read as three dots. */
-  const W = 100, H = 40;
-  const x = i => (i / (N - 1)) * W;
+     same day still read as three dots.
+
+     PAD insets the plot from both ends. Half of the first and last dot used to
+     hang over the edge, and — more to the point — the big chart's axis labels
+     are placed at the same fractions, so they need somewhere to sit. */
+  const W = 100, H = 40, PAD = 4;
+  const x = i => PAD + (i / (N - 1)) * (W - PAD * 2);
   const y = v => H - (Math.max(1, Math.min(5, v)) - 1) / 4 * H;
   const path = vals => {
     let d = '', pen = false;
@@ -420,15 +437,39 @@ function trendHTML() {
   const avg = v => { const f = v.filter(Boolean); return f.length ? (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1) : '—'; };
   const line = (vals, cls) => has(vals)
     ? `<path class="lc-l ${cls}" d="${path(vals)}"/>${dots(vals, cls)}` : '';
-  return `<div class="lc-trend">
-    <svg class="lc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-      ${line(stress, 'stress')}${line(mood, 'mood')}${line(nrg, 'nrg')}
-    </svg>
+
+  /* ── Opened up ───────────────────────────────────────────────────────────
+     The axes only appear here, because they only fit here. Both are HTML
+     rather than SVG text: the viewBox is stretched, so a <text> in it would be
+     stretched too, and a label that is 1.4× as wide as it is tall is a label
+     you have to work at. Each is absolutely placed at the same fraction the
+     plot uses, so they line up by construction rather than by eye. */
+  const scale = trendBig ? [5, 4, 3, 2, 1].map(v =>
+    `<span style="top:${((5 - v) / 4 * 100).toFixed(2)}%">${v}</span>`).join('') : '';
+  // the row sits under the plot and is inset by the same gutter, so a label at
+  // x% of it is under the point at x% of the chart
+  const xLabels = trendBig ? Array.from({ length: N }, (_, i) => {
+    const iso = dateOffset(REAL_TODAY, -(N - 1 - i));
+    return `<span style="left:${x(i).toFixed(2)}%">${+iso.slice(8)}</span>`;
+  }).join('') : '';
+  const grid = trendBig ? [1, 2, 3, 4, 5].map(v =>
+    `<path class="lc-g" d="M${PAD} ${y(v).toFixed(1)}H${W - PAD}"/>`).join('') : '';
+
+  return `<div class="lc-trend${trendBig ? ' big' : ''}" data-trend
+      role="button" tabindex="0" aria-expanded="${trendBig}"
+      aria-label="${trendBig ? 'close the trend' : 'open the trend'}">
+    <div class="lc-plot">
+      ${trendBig ? `<div class="lc-yax" aria-hidden="true">${scale}</div>` : ''}
+      <svg class="lc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        ${grid}${line(stress, 'stress')}${line(mood, 'mood')}${line(nrg, 'nrg')}
+      </svg>
+    </div>
+    ${trendBig ? `<div class="lc-xax" aria-hidden="true">${xLabels}</div>` : ''}
     <div class="lc-key">
       <span class="lc-kk nrg">energy <b>${avg(nrg)}</b></span>
       <span class="lc-kk mood">mood <b>${avg(mood)}</b></span>
       <span class="lc-kk stress">stress <b>${avg(stress)}</b></span>
-      <span class="lc-kn">14d</span>
+      <span class="lc-kn">${trendBig ? 'close' : '14d'}</span>
     </div>
   </div>`;
 }
@@ -1981,7 +2022,14 @@ if (calBox) calBox.addEventListener('click', e => {
   const arr = e.target.closest('[data-month]');
   if (arr) { if (!arr.disabled) monthShift(+arr.dataset.month); return; }
   const cell = e.target.closest('[data-day]');
-  if (cell && !cell.disabled) pickDate(cell.dataset.day);
+  if (cell && !cell.disabled) { pickDate(cell.dataset.day); return; }
+  if (e.target.closest('[data-trend]')) toggleTrend();
+});
+// the chart is a button, so it answers the keyboard like one
+if (calBox) calBox.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (!e.target.closest || !e.target.closest('[data-trend]')) return;
+  e.preventDefault(); toggleTrend();
 });
 
 // `home`: the tab button tapped while on LOG — same as ← back, unsaved-input check included
@@ -1993,7 +2041,7 @@ Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
 refreshAlert();
 
 return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
-         sc, setColdShower, setWo,
+         toggleTrend, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,

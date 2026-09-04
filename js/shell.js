@@ -419,17 +419,38 @@ window.Shell = (function () {
     navEl.classList.add('chrome-off');
     arrows.forEach(a => a.classList.add('chrome-off'));
   }
+  /* ── Scrolling suppresses the press wash ───────────────────────────────────
+     On a touch screen `:active` is applied the moment the finger lands and is
+     not cleared until it lifts, so a touch that turns into a scroll lights up
+     whatever row it started on and keeps it lit as the list moves under it.
+     One attribute on <html> takes --press to transparent for the length of the
+     gesture (tokens.css); a tap that is a tap still lights up, because a tap
+     does not scroll. The tail is short — long enough to outlast momentum
+     between two scroll events, short enough that the next real press is not
+     swallowed. */
+  const rootEl = document.documentElement;
+  let scrollFlag = null;
+  function markScrolling() {
+    rootEl.setAttribute('data-scrolling', 'on');
+    clearTimeout(scrollFlag);
+    scrollFlag = setTimeout(() => rootEl.removeAttribute('data-scrolling'), 160);
+  }
   function watchScroll(view) {
     let last = 0;
     view.addEventListener('scroll', () => {
       const y = view.scrollTop, dy = y - last;
       last = y;
+      markScrolling();
       clearTimeout(chromeTimer);
       if (y > 72 && dy > 6)      hideChrome();
       else if (dy < -6 || y < 8) showChrome();
       chromeTimer = setTimeout(showChrome, 900);   // idle always brings it back
     }, { passive: true });
   }
+  /* A drag that has not moved the scroller yet — the first few pixels, and any
+     drag inside something that turns out not to scroll — still must not read
+     as a press. */
+  document.addEventListener('touchmove', markScrolling, { passive: true });
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
   /* The slides are stacked, not side by side, and a tab change is a cross-fade

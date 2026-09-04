@@ -346,7 +346,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   background:none;border:none;border-bottom:var(--bw) solid var(--bd);cursor:pointer;color:var(--tx);
   padding:calc(11px * var(--dens)) calc(4px * var(--dens))}
 .sr:last-child{border-bottom:none}
-.sr:active{background:var(--s2)}
+.sr:active{background:var(--press)}
 /* the kind sits in a fixed column so the titles line up down the list */
 .sr-k{flex:0 0 52px;font:700 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
 .sr-b{flex:1;min-width:0}

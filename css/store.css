@@ -181,7 +181,7 @@
 .ns-store .li-item{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
          padding:calc(12px * var(--dens)) calc(13px * var(--dens));margin-bottom:5px;cursor:pointer;text-align:left;
          display:flex;align-items:center;gap:calc(11px * var(--dens));transition:all .1s;user-select:none}
-.ns-store .li-item:active{background:var(--s2)}
+.ns-store .li-item:active{background:var(--press)}
 .ns-store .li-dot{width:8px;height:8px;border-radius:50%;background:var(--cat-color,#888);flex-shrink:0;
         transition:all .15s;border:none;padding:0;cursor:pointer;
         box-shadow:0 0 0 6px transparent}
@@ -215,7 +215,7 @@
 .ns-store .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
       padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(16px * var(--dens));cursor:pointer;position:relative;
       transition:border-color .12s;user-select:none;text-align:left}
-.ns-store .card:active{background:var(--s2)}
+.ns-store .card:active{background:var(--press)}
 .ns-store .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:6px;
         display:flex;align-items:center;gap:calc(8px * var(--dens))}
 .ns-store .card-s{font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em}
@@ -229,7 +229,7 @@
 .ns-store .cat-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           padding:calc(18px * var(--dens)) calc(15px * var(--dens));cursor:pointer;transition:border-color .12s;
           display:flex;flex-direction:column;gap:calc(10px * var(--dens));user-select:none;min-height:108px}
-.ns-store .cat-card:active{background:var(--s2)}
+.ns-store .cat-card:active{background:var(--press)}
 .ns-store .cat-card.has{border-color:var(--cat-color)}
 .ns-store .cat-ico{width:24px;height:24px;color:var(--cat-color)}
 .ns-store .cat-name{font:700 12px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
@@ -242,7 +242,7 @@
           color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.04em;
           padding:calc(14px * var(--dens)) calc(12px * var(--dens));cursor:pointer;text-align:left;transition:all .1s;
           display:flex;align-items:center;justify-content:space-between;gap:calc(8px * var(--dens));user-select:none}
-.ns-store .item-add:active{background:var(--s2)}
+.ns-store .item-add:active{background:var(--press)}
 .ns-store .item-add.active{background:rgba(255,255,255,0);border-color:var(--cat-color)}
 .ns-store .item-add .qty-badge{font:700 11px/1 var(--mono);color:var(--cat-color);
                      background:var(--s2);border-radius:var(--r1);padding:calc(4px * var(--dens)) calc(7px * var(--dens));flex-shrink:0}
@@ -252,7 +252,7 @@
            margin-bottom:8px;overflow:hidden;transition:border-color .15s}
 .ns-store .meal-card.open{border-color:var(--y)}
 .ns-store .meal-header{display:flex;align-items:center;gap:calc(12px * var(--dens));padding:calc(15px * var(--dens));cursor:pointer;user-select:none}
-.ns-store .meal-header:active{background:var(--s2)}
+.ns-store .meal-header:active{background:var(--press)}
 .ns-store .meal-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);flex:1;color:var(--tx)}
 .ns-store .meal-count{font:400 10px/1 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-store .meal-arrow{font:400 11px/1 var(--mono);color:var(--mu);transition:transform .15s}

@@ -2573,6 +2573,133 @@ check('the key names all three, each with the dot the chart draws',
   d.querySelectorAll('.ns-log .lc-kk').length === 3 &&
   /stress/.test($('.ns-log .lc-key').textContent), $('.ns-log .lc-key')?.textContent.trim());
 
+
+// ── 35. 2.22.3 — the press wash, a fold, a chart that opens, two dials ──────
+const tokensCss2 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const doCss3  = fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8');
+const logCss3 = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+
+/* :active on a touch screen is applied when the finger lands and cleared when
+   it lifts — so a touch that becomes a scroll lights up the row it started on
+   and keeps it lit as the list moves under it. One token, switched off for the
+   length of the gesture. */
+check('the press wash is one token, not 22 literals',
+  /--press:var\(--s2\)/.test(tokensCss2) &&
+  /\[data-scrolling="on"\]\{--press:transparent\}/.test(tokensCss2));
+check('… and no app sheet presses with the literal any more', (() => {
+  const sheets = ['do','log','store','learn','shell','plan','tend','track','settings'];
+  const bad = sheets.filter(s => /:active\{background:var\(--s2\)/.test(
+    fs.readFileSync(path.join(ROOT, 'css/' + s + '.css'), 'utf8')));
+  return bad.length === 0;
+})());
+check('… reaching the row that reported it',
+  /\.ns-do \.qk-item:active\{background:var\(--press\)\}/.test(doCss3) &&
+  /\.ns-do \.qk-head:active\{background:var\(--press\)\}/.test(doCss3));
+check('the shell raises the flag while a slide moves, and lowers it after',
+  /rootEl\.setAttribute\('data-scrolling', 'on'\)/.test(shellJs) &&
+  /rootEl\.removeAttribute\('data-scrolling'\)/.test(shellJs) &&
+  /addEventListener\('touchmove', markScrolling/.test(shellJs));
+w.Shell.go('do');
+const body = $('#view-do .view-body');
+body.dispatchEvent(new w.Event('scroll', { bubbles: false }));
+check('… and a scroll actually raises it', d.documentElement.dataset.scrolling === 'on',
+  String(d.documentElement.dataset.scrolling));
+await tick(220);
+check('… and it is down again once the gesture is over', !d.documentElement.dataset.scrolling,
+  String(d.documentElement.dataset.scrolling));
+
+/* DO's quick section folds from its own title. */
+w.Shell.go('do');
+if (!JSON.parse(w.localStorage.getItem('do_todoist_v1')).quickOn) w.DO.toggleQuick();
+w.DO.renderQuick();
+const quickShown = () => !$('.ns-do #td-quick').classList.contains('hidden');
+if (quickShown()) {
+  check('the quick section\'s title is the fold switch', !!$('.ns-do #td-quick .tt-name'));
+  click($('.ns-do #td-quick .tt-name'));
+  check('… folding hides the cards and keeps the head',
+    $('.ns-do #td-quick').classList.contains('folded') &&
+    !!$('.ns-do #td-quick .tt-head') && !!$('.ns-do #td-quick .tt-name') &&
+    $('.ns-do #td-quick #td-quick-body').classList.contains('hidden'),
+    $('.ns-do #td-quick').className);
+  check('… the count stays readable while it is folded',
+    /open/.test($('.ns-do #td-quick .tt-name').textContent),
+    $('.ns-do #td-quick .tt-name').textContent.trim());
+  check('… and it is remembered', JSON.parse(w.localStorage.getItem('do_todoist_v1')).quickFold === true);
+  click($('.ns-do #td-quick .tt-name'));
+  check('… tapping it again brings them back',
+    !$('.ns-do #td-quick').classList.contains('folded') &&
+    !$('.ns-do #td-quick #td-quick-body').classList.contains('hidden'));
+} else {
+  check('the quick section folds from its title (source)', /toggleQuickFold/.test(
+    fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8')));
+}
+
+/* LOG's chart opens over the month. */
+w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
+check('the chart is a button', !!$('.ns-log [data-trend]') &&
+  $('.ns-log [data-trend]').getAttribute('role') === 'button');
+click($('.ns-log [data-trend]'));
+check('opening it takes the month\'s place rather than squeezing it',
+  $('.ns-log #log-cal').classList.contains('big') &&
+  !$('.ns-log .lc-grid') && !$('.ns-log .lc-head') && !!$('.ns-log .lc-trend.big'));
+check('… and only then does it carry axes',
+  d.querySelectorAll('.ns-log .lc-yax span').length === 5 &&
+  d.querySelectorAll('.ns-log .lc-xax span').length === 14 &&
+  d.querySelectorAll('.ns-log .lc-g').length === 5,
+  d.querySelectorAll('.ns-log .lc-yax span').length + '/' +
+  d.querySelectorAll('.ns-log .lc-xax span').length + '/' +
+  d.querySelectorAll('.ns-log .lc-g').length);
+/* The y labels run 5 at the top to 1 at the bottom; the x labels start at the
+   plot's own PAD inset and end at 100 − PAD, which is where the first and last
+   points are. Both read off the same x()/y() the chart draws with. */
+const yTops = [...d.querySelectorAll('.ns-log .lc-yax span')].map(s => parseFloat(s.style.top));
+const xLefts = [...d.querySelectorAll('.ns-log .lc-xax span')].map(s => parseFloat(s.style.left));
+check('… the axes placed at the same fractions the plot uses, so they line up by construction',
+  yTops.join(',') === '0,25,50,75,100' &&
+  xLefts[0] === 4 && xLefts[13] === 96 &&
+  xLefts.every((v, i) => i === 0 || v > xLefts[i - 1]),
+  yTops.join(',') + ' | ' + xLefts[0] + '…' + xLefts[13]);
+check('… and they are HTML, not <text> in a viewBox that is stretched',
+  !/<text/.test($('.ns-log .lc-spark').innerHTML) &&
+  $('.ns-log .lc-yax').tagName === 'DIV');
+check('… the three series still drawn, and the key saying how to get back',
+  d.querySelectorAll('.ns-log .lc-l').length === 3 &&
+  $('.ns-log .lc-kn').textContent === 'close', $('.ns-log .lc-kn').textContent);
+click($('.ns-log [data-trend]'));
+check('tapping it again gives the month back',
+  !$('.ns-log #log-cal').classList.contains('big') && !!$('.ns-log .lc-grid') &&
+  !d.querySelector('.ns-log .lc-yax') && $('.ns-log .lc-kn').textContent === '14d');
+
+/* Motion: a speed dial that composes with the preset, and one exception to none. */
+check('--mo is the preset times the dial, so the two compose',
+  /--mo-base:1;/.test(tokensCss2) && /--mo-scale:1;/.test(tokensCss2) &&
+  /--mo:calc\(var\(--mo-base\) \* var\(--mo-scale\)\)/.test(tokensCss2) &&
+  /\[data-motion="reduced"\]\{--mo-base:\.45\}/.test(tokensCss2) &&
+  !/\[data-motion="reduced"\]\{--mo:/.test(tokensCss2));
+w.Prefs.set('motionSpeed', 2);
+check('… and speed goes in while a duration multiplier comes out',
+  d.documentElement.style.getPropertyValue('--mo-scale') === '0.5',
+  d.documentElement.style.getPropertyValue('--mo-scale'));
+w.Prefs.set('motionSpeed', 0.5);
+check('… both ways', d.documentElement.style.getPropertyValue('--mo-scale') === '2',
+  d.documentElement.style.getPropertyValue('--mo-scale'));
+w.Prefs.set('motionSpeed', 1);
+check('the bar can keep moving at Motion: none, and does not by default',
+  w.Prefs.SCHEMA.navMotion.def === false &&
+  d.documentElement.dataset.navMotion === 'off');
+w.Prefs.set('navMotion', true);
+check('… switched on it is one exception, scoped to the bar and its arrows',
+  d.documentElement.dataset.navMotion === 'on' &&
+  /\[data-motion="none"\]\[data-nav-motion="on"\] #nav,/.test(tokensCss2) &&
+  /\[data-motion="none"\]\[data-nav-motion="on"\] \.nav-arrow\{\s*\n?\s*transition-duration:\.24s!important\}/.test(tokensCss2));
+w.Prefs.set('navMotion', false);
+w.SET.panel('layout');
+check('both are controls on the layout panel, findable like every other dial',
+  !!$('.ns-set [data-slider="motionSpeed"]') && !!$('.ns-set [data-pref="navMotion"]'));
+check('… and the appearance reset knows about them',
+  /'motion','motionSpeed','navMotion','contrast'/.test(
+    fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 /* ── a ninth app has to arrive on an install that already has an app list ────

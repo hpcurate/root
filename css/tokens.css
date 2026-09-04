@@ -80,13 +80,26 @@
 
   /* ── Motion ──────────────────────────────────────────────────────────────
      Every transition in the app multiplies by --mo, so "reduced" and "none" are
-     one variable rather than a hunt through five stylesheets. */
-  --mo:1;
+     one variable rather than a hunt through five stylesheets.
+
+     --mo is two things multiplied: the Motion preset (full / reduced / none,
+     an attribute) and the Speed dial (a continuous inline property Prefs
+     writes). Split so the two compose — "reduced, and half again" is a real
+     thing to want — and so the dial keeps the preset's character rather than
+     replacing it. --mo-scale is the *inverse* of the speed: Prefs writes 1/x,
+     because a duration multiplier and a speed run opposite ways. */
+  --mo-base:1;
+  --mo-scale:1;
+  --mo:calc(var(--mo-base) * var(--mo-scale));
   --dur-1:calc(.12s * var(--mo));
   --dur-2:calc(.22s * var(--mo));
   --dur-3:calc(.3s  * var(--mo));
   --ease:cubic-bezier(.4,0,.2,1);
   --ease-out:cubic-bezier(.34,1.4,.5,1);
+
+  /* The wash under a finger. One token rather than 22 literals, because it has
+     to be switchable: see [data-scrolling] below. */
+  --press:var(--s2);
 
   /* ── Chrome ──────────────────────────────────────────────────────────────
      --chrome-rgb is the ground colour as bare channels, so the floating nav's
@@ -168,14 +181,39 @@ html{height:100%;zoom:var(--ui-scale)}
 [data-icon-stroke="custom"] .ico,
 [data-icon-stroke="custom"] .cat-ico{stroke-width:var(--icon-stroke)}
 
+/* ── Nothing is "pressed" while a slide is scrolling ─────────────────────────
+   On a touch screen `:active` is applied the moment the finger lands and is not
+   cleared until it lifts — so a touch that becomes a scroll lights up whatever
+   row it started on and keeps it lit as the list moves under it. That is the
+   square that appeared under a finger on the way down DO's quick cards.
+
+   The shell sets data-scrolling on <html> while any slide is moving (and for a
+   beat after), and the press wash goes to nothing. One token, so it reaches
+   every `:active` in every app at once and any future one for free — which is
+   why the 22 `background:var(--s2)` press rules were rewritten to --press.
+   The press feedback itself is untouched: a tap that is a tap still lights up,
+   because a tap does not scroll. */
+[data-scrolling="on"]{--press:transparent}
+
 /* Motion */
-[data-motion="reduced"]{--mo:.45}
-[data-motion="none"]{--mo:0}
+[data-motion="reduced"]{--mo-base:.45}
+[data-motion="none"]{--mo-base:0}
 [data-motion="none"] *,
 [data-motion="none"] *::before,
 [data-motion="none"] *::after{
   animation-duration:.01ms!important;animation-iteration-count:1!important;
   transition-duration:.01ms!important;scroll-behavior:auto!important}
+/* ── The bar keeps moving, when asked ────────────────────────────────────────
+   The pill growing into place under the tab you picked is feedback, not
+   decoration: with it gone the only confirmation that the tap landed is that
+   the page has already changed, which is not the same thing. Motion: none is
+   still none everywhere else — this is one opt-in exception, and it has to be
+   !important because the blanket rule above is. */
+[data-motion="none"][data-nav-motion="on"] #nav,
+[data-motion="none"][data-nav-motion="on"] #nav *,
+[data-motion="none"][data-nav-motion="on"] #nav *::before,
+[data-motion="none"][data-nav-motion="on"] .nav-arrow{
+  transition-duration:.24s!important}
 
 /* Contrast. Rather than a second palette per theme, the two boosted levels
    lighten the foreground, harden the hairlines and lift the muted tone — the

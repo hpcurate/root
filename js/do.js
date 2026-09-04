@@ -773,7 +773,8 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       // the media tab: every open task carrying one of do.mediaLabels, any date
                       mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 },
                       // the quick cards: every open task carrying do.quickLabel, with its subtasks
-                      quickOn:true, quickHideDone:false, quick:{ date:null, tasks:[], fetched:0 } };
+                      quickOn:true, quickHideDone:false, quickFold:false,
+                      quick:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -1443,13 +1444,28 @@ function renderQuick() {
         </button>`).join('')}</div>` : ''}
     </div>`;
   };
+  /* The title is a switch. Tapping "quick" folds the cards away and leaves the
+     head — so the count is still there, and so is the way back. A section you
+     have finished with should be able to get out of the way without being
+     switched off in settings, which is a different and more permanent thing. */
   const done = q.tasks.length - open;
-  box.innerHTML = `<div class="tt-head"><span>quick<em>${open} open</em></span><span class="tt-acts">
-      ${done ? `<button class="tt-refresh tt-clear" onclick="DO.clearQuickDone()">clear ${done}</button>` : ''}
+  const fold = !!td.quickFold;
+  box.classList.toggle('folded', fold);
+  box.innerHTML = `<div class="tt-head"><button class="tt-name" onclick="DO.toggleQuickFold()"
+        aria-expanded="${!fold}" aria-controls="td-quick-body">quick<em>${open} open</em>
+        <svg class="tt-caret" aria-hidden="true"><use href="#ico-chev-r"/></svg></button><span class="tt-acts">
+      ${fold ? '' : `${done ? `<button class="tt-refresh tt-clear" onclick="DO.clearQuickDone()">clear ${done}</button>` : ''}
       <button class="tt-refresh" onclick="DO.toggleQuickHideDone()">${td.quickHideDone ? 'show done' : 'hide done'}</button>
-      <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button></span></div>
-    ${shown.length ? `<div class="qk-grid">${shown.map(card).join('')}</div>` : '<div class="tt-empty">all done</div>'}
-    <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>`;
+      <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button>`}</span></div>
+    <div id="td-quick-body"${fold ? ' class="hidden"' : ''}>
+      ${shown.length ? `<div class="qk-grid">${shown.map(card).join('')}</div>` : '<div class="tt-empty">all done</div>'}
+      <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>
+    </div>`;
+}
+
+function toggleQuickFold() {
+  td.quickFold = !td.quickFold;
+  tdPersist(); renderQuick(); Prefs.tap();
 }
 
 /* ── Clearing what is finished ─────────────────────────────────────────────────
@@ -1805,7 +1821,7 @@ maybeRefreshToday();
 
 return { go, renderSettings: renderTodoistSettings,
          renderQuick, toggleQuickTask, toggleQuickSub, toggleQuick, toggleQuickHideDone,
-         clearQuickDone, quickTasks,
+         toggleQuickFold, clearQuickDone, quickTasks,
          renderHistory, toggleHistory, statsFor, statsRange,
          toggle, toggleAll, openRoutine, setTab, resetDay,
          openList, deleteList, toggleCat, createList, toggleTravel,

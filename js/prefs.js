@@ -162,6 +162,9 @@ const SCHEMA = {
   depth:        { kind:'enum',   def:'auto',   values:['auto','flat','soft','lift','heavy','glow'], attr:'data-depth' },
   texture:      { kind:'enum',   def:'auto',   values:['auto','none','grain','scan','grid','dots'], attr:'data-texture' },
   motion:       { kind:'enum',   def:'full',   values:['full','reduced','none'],       attr:'data-motion' },
+  /* The bar's own motion, kept when everything else is switched off. Only does
+     anything at Motion: none — see tokens.css. */
+  navMotion:    { kind:'bool',   def:false, attr:'data-nav-motion' },
   contrast:     { kind:'enum',   def:'normal', values:['normal','more','max'],         attr:'data-contrast' },
   caps:         { kind:'enum',   def:'on',     values:['on','off'],                    attr:'data-caps' },
   navStyle:     { kind:'enum',   def:'pill',   values:['pill','bar','minimal'],        attr:'data-nav' },
@@ -170,6 +173,10 @@ const SCHEMA = {
   titleSize:    { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-title' },
 
   // appearance — continuous, written as inline custom properties
+  /* How fast the motion runs, on top of whichever preset is picked. Stored as
+     a *speed* because that is what it is called and what the readout says;
+     --mo is a duration multiplier, so apply() writes 1/speed. */
+  motionSpeed:  { kind:'range',  def:1,    min:0.5, max:3,   step:0.1 },
   radius:       { kind:'range',  def:null, min:0,   max:24,  step:1,    unit:'px',  cssVar:'--r-base' },
   border:       { kind:'range',  def:null, min:0,   max:3,   step:0.5,  unit:'px',  cssVar:'--bw' },
   density:      { kind:'range',  def:1,    min:0.78,max:1.35,step:0.02,             cssVar:'--dens' },
@@ -444,6 +451,7 @@ function apply() {
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
   root.setAttribute('data-chrome-blur', prefs.chromeBlur   ? 'on' : 'off');
+  root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.style.colorScheme = info.mode;
 
@@ -458,6 +466,10 @@ function apply() {
   // only claim the icons once the dial has actually been moved — see tokens.css
   root.setAttribute('data-icon-stroke',
     prefs.iconStroke === SCHEMA.iconStroke.def ? 'sprite' : 'custom');
+  /* Speed in, duration multiplier out: 2× fast is half as long. Clamped away
+     from zero so a pasted look carrying nonsense cannot divide by it. */
+  const speed = Math.max(.1, +prefs.motionSpeed || 1);
+  st.setProperty('--mo-scale', String(Math.round((1 / speed) * 1000) / 1000));
   st.setProperty('--chrome-alpha',prefs.chromeAlpha);
   st.setProperty('--readable',    prefs.contentWidth + 'px');
   st.setProperty('--tex-mult',    prefs.textureAmount);

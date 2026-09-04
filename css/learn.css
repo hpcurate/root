@@ -41,7 +41,7 @@
   padding:calc(16px * var(--dens)) calc(15px * var(--dens));margin-bottom:8px;cursor:pointer;
   transition:border-color var(--dur-1),background var(--dur-1);user-select:none;
   display:grid;grid-template-columns:1fr auto;gap:calc(10px * var(--dens));align-items:center}
-.ns-learn .deck:active{background:var(--s2)}
+.ns-learn .deck:active{background:var(--press)}
 .ns-learn .deck.has-due{border-color:var(--y)}
 .ns-learn .deck-name{font:700 13px/1.2 var(--head);letter-spacing:.06em;text-transform:var(--caps);color:var(--tx);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -75,7 +75,7 @@
 .ns-learn .btn:active{opacity:.82}
 .ns-learn .btn:disabled{opacity:.35;cursor:default}
 .ns-learn .btn-ghost{background:transparent;border:var(--bw) solid var(--bd);color:var(--tx)}
-.ns-learn .btn-ghost:active{background:var(--s2)}
+.ns-learn .btn-ghost:active{background:var(--press)}
 .ns-learn .btn-danger{background:var(--re);color:#fff;border:none}
 
 /* ── study ── */
@@ -105,7 +105,7 @@
 .ns-learn .reveal-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
   font:700 12px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
   padding:calc(18px * var(--dens));cursor:pointer;margin-top:14px;transition:all var(--dur-1)}
-.ns-learn .reveal-btn:active{background:var(--s2);border-color:var(--y)}
+.ns-learn .reveal-btn:active{background:var(--press);border-color:var(--y)}
 
 .ns-learn .answer-row{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(5px * var(--dens));margin-top:14px}
 .ns-learn .ans{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
@@ -116,7 +116,7 @@
 .ns-learn .ans.hard{border-color:color-mix(in srgb,var(--or) 40%,transparent)}  .ns-learn .ans.hard .ans-l{color:var(--or)}
 .ns-learn .ans.good{border-color:var(--yb)}                                       .ns-learn .ans.good .ans-l{color:var(--y)}
 .ns-learn .ans.easy{border-color:color-mix(in srgb,var(--gr) 40%,transparent)}  .ns-learn .ans.easy .ans-l{color:var(--gr)}
-.ns-learn .ans:active{background:var(--s2)}
+.ns-learn .ans:active{background:var(--press)}
 
 /* ── scoreboard ── */
 .ns-learn .done-banner{background:color-mix(in srgb,var(--gr) 12%,transparent);border:var(--bw) solid color-mix(in srgb,var(--gr) 30%,transparent);
