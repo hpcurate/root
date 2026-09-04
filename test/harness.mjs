@@ -254,7 +254,7 @@ w.Config.reset('log.streakRequires');
 
 // ── 15. 2.2 — three more apps in the track ─────────────────────────────────
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
-check('eight tabs, settings last', w.Shell.TABS.length === 8 && w.Shell.TABS[7] === 'settings', w.Shell.TABS.join(','));
+check('nine tabs, settings last', w.Shell.TABS.length === 9 && w.Shell.TABS[8] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
@@ -271,7 +271,7 @@ check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settin
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
 w.Prefs.reset('apps');
-check('reset restores all eight in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,settings', w.Shell.TABS.join(','));
+check('reset restores all nine in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,settings', w.Shell.TABS.join(','));
 w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
@@ -621,7 +621,7 @@ check('settings opens on a home menu with three categories', $('.ns-set #s-home'
   [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
-check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn',
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal',
   [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
 click($('.ns-set [data-open="tend"]')); await tick();
 check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
@@ -633,7 +633,7 @@ check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,s
 w.Prefs.reset('apps');
 w.SET.panel('do');
 check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
-  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'do');
 check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
   !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
@@ -702,7 +702,7 @@ check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMov
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
 // ── 24. 2.10 — the title band, blocks → tomorrow, PLAN in label colours ────
-check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','settings'].every(a => {
+check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','cal','settings'].every(a => {
   const v = $('#view-' + a); return v.children.length === 2 && v.children[0].classList.contains('h-top') && v.children[1].classList.contains('view-body');
 }), [...d.querySelectorAll('#track .view')].map(v => v.id + ':' + [...v.children].map(c => c.className).join('+')).join(' '));
 check("DO's tab strip and date live in the band", !!$('#view-do > .h-top #home-tabs') && !!$('#view-do > .h-top #date-label'));
@@ -756,7 +756,7 @@ check('no glider: the active tab is its own filled pill again', !$('#nav .nav-gl
 // shape — so no app sheet may set the band's box or its own wordmark size
 const shellCss = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 const planCss = fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8');
-const appSheets = ['do','log','plan','store','tend','track','learn','settings']
+const appSheets = ['do','log','plan','store','tend','track','learn','cal','settings']
   .map(a => [a, fs.readFileSync(path.join(ROOT, 'css/' + a + '.css'), 'utf8')]);
 const strays = appSheets.filter(([, css]) => /\.h-top\s*\{/.test(css) || /\.h-logo\{font:/.test(css)).map(([a]) => a);
 check('one band shape: no app sheet sets its own .h-top box or wordmark size', !strays.length, strays.join(','));
@@ -1643,7 +1643,269 @@ check('switched off it never flags, whatever the hour',
 w.Config.reset('log.alerts');
 w.PLAN.clearQueue();
 
+// ── 30. 2.20 — the exported day, drawn as a calendar ───────────────────────
+w.Prefs.reset('apps');
+w.Shell.go('cal');
+
+/* The line §8 draws around PLAN is drawn around CAL too: it is a view of what
+   PLAN resolved, and it talks to nothing. */
+const calJs = fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8');
+check('CAL reaches for nothing — no endpoint, no fetch, the calendar half is still not ROOT\'s',
+  !/https?:\/\//.test(calJs) && !/\bfetch\s*\(/.test(calJs) && !/XMLHttpRequest/.test(calJs),
+  (calJs.match(/https?:\/\/[^\s'"`]+/g) || []).join(' '));
+check('CAL is a module with a tab, a slide and a settings panel',
+  !!w.CAL && w.Shell.TABS.includes('cal') && !!$('#view-cal') &&
+  !!$('.tab-b[data-app="cal"]') && !!$('.ns-set .set-panel[data-panel="cal"]'),
+  w.Shell.TABS.join(','));
+/* Section 27 already exported a day through the real button, so CAL is holding
+   one — which is itself worth saying out loud before clearing it. */
+check('the export back in §27 landed here without CAL being asked',
+  w.CAL.days().length > 0, w.CAL.days().join(','));
+confirmAnswer = true;
+w.CAL.clearAll();
+check('clearing empties the key and puts the empty state back',
+  !w.CAL.days().length && !!$('.ns-cal .cal-empty') && /nothing planned/.test($('.ns-cal .cal-empty').textContent),
+  $('.ns-cal #cal-body').textContent.trim().slice(0, 60));
+
+/* Two tasks, two projects, exported for tomorrow. */
+w.Shell.go('plan');
+confirmAnswer = true;
+w.PLAN.clearSent();
+let calSent = 0;
+fetchScript = async (url, opts) => {
+  if (opts && opts.method === 'POST') { calSent++; return { ok: true, status: 200, json: async () => ({ id: 'c' + calSent }), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+queueOne('home',   2, 'clear the desk', 'b1');
+queueOne('curate', 0, 'mix the track',  'b1');
+w.PLAN.go('sending');
+await tick(900);
+w.PLAN.toggleSent(rowFor('clear the desk'));
+w.PLAN.toggleSent(rowFor('mix the track'));
+w.PLAN.openExport();
+click(slotBtn('clear the desk', 'b1a'));
+click(slotBtn('mix the track', 'b2a'));
+const calDay = $('.ns-plan #exp-date').value;              // tomorrow
+await w.PLAN.doExport();
+await tick();
+
+const stored = () => JSON.parse(w.localStorage.getItem('cal_days_v1') || '{"days":{}}').days;
+const rec = () => stored()[calDay];
+check('exporting writes the day into cal_days_v1, under the day it is for',
+  !!rec() && rec().day === calDay && Object.keys(stored()).length === 1, Object.keys(stored()).join(','));
+check('… carrying the four things the export was given',
+  rec().start === '07:00' && rec().template === 'normal' && rec().mode === 'blocks' &&
+  Array.isArray(rec().notes), JSON.stringify({ s: rec().start, t: rec().template, m: rec().mode }));
+
+/* The whole template goes down, not just the two rows the export writes: CAL
+   is a view of the day, and the day has a shape either way. */
+const evs = () => rec().events;
+const kinds = k => evs().filter(e => e.kind === k);
+check('the whole template is stored, not only what blocks-mode exported',
+  evs().length === w.Config.defaults('plan.dayTemplates').normal.length, evs().length + ' rows');
+check('… the two given slots stored as tasks, the four unclaimed ones as idle, the rest as fixed',
+  kinds('task').length === 2 && kinds('idle').length === 4 && kinds('fixed').length === 14,
+  `task ${kinds('task').length} / idle ${kinds('idle').length} / fixed ${kinds('fixed').length}`);
+check('every row carries the clock time PLAN resolved it to, from the one start',
+  evs()[0].from === '07:00' && evs()[0].to === '07:30' &&
+  kinds('task').find(e => e.slot === 'b1a').from === '11:00',
+  evs()[0].from + '–' + evs()[0].to);
+
+/* The colour is the project's own — the same one PLAN paints its tile with,
+   which is what "the same colours as plan" has to mean to be worth anything. */
+w.Shell.go('plan');
+const tileColor = key => {
+  const t = d.querySelector(`.ns-plan .proj-tile[data-flip="p:${key}"]`);
+  return t ? (String(t.getAttribute('style') || '').match(/--proj-color:\s*([^;"]+)/) || [])[1]?.trim() : null;
+};
+check('a task row wears its project\'s colour, the very one PLAN\'s tile uses',
+  kinds('task').find(e => e.project === 'home').color === tileColor('home') &&
+  kinds('task').find(e => e.project === 'curate').color === tileColor('curate') &&
+  tileColor('home') !== tileColor('curate'),
+  `${kinds('task').find(e => e.project === 'home').color} vs tile ${tileColor('home')}`);
+check('… and the calendar each task was exported to travels with it',
+  kinds('task').find(e => e.slot === 'b2a').cal === '02A1 | curate project mixing' &&
+  kinds('task').find(e => e.slot === 'b1a').cal === '02B4 | home',
+  kinds('task').map(e => e.cal).join(' | '));
+
+/* A stored day is self-contained: renaming the project later must not repaint
+   a day already planned, because the day is a record, not a live query. */
+const homeWas = tileColor('home');
+const types = w.Config.get('plan.types');
+types.find(t => t.key === 'home').color = '#000000';
+w.Config.set('plan.types', types);
+check('recolouring a project repaints its tile but not the days already planned',
+  tileColor('home') === '#000000' && homeWas !== '#000000' &&
+  rec().events.find(e => e.project === 'home').color === homeWas,
+  `stored ${rec().events.find(e => e.project === 'home').color} / tile now ${tileColor('home')}`);
+w.Config.reset('plan.types');
+
+// ── the drawing ──
+w.Shell.go('cal');
+const evRows = () => [...d.querySelectorAll('.ns-cal .cal-ev')];
+const styleOf = (el, prop) => (String(el.getAttribute('style') || '').match(new RegExp(prop + ':\\s*([^;"]+)')) || [])[1]?.trim();
+check('CAL lands on the day just exported and draws every row of it',
+  w.CAL.selected() === calDay && evRows().length === evs().length, evRows().length + ' drawn');
+check('the head names the day, its template and what is on it',
+  /normal/.test($('.ns-cal .ch-meta').textContent) && /07:00/.test($('.ns-cal .ch-meta').textContent) &&
+  /2 tasks/.test($('.ns-cal .ch-meta').textContent) && /tomorrow/.test($('.ns-cal .ch-when').textContent),
+  $('.ns-cal .ch-meta').textContent);
+check('an hour is drawn an hour tall — the height is the duration, not a constant',
+  styleOf(evRows()[0], '--ev-h') === '28px' &&            // 30 min at the default 56px/hour
+  styleOf(evRows().find(r => r.classList.contains('task')), '--ev-h') === '84px',
+  evRows().slice(0, 3).map(r => styleOf(r, '--ev-h')).join(','));
+check('the task rows carry the project colour into the drawing',
+  styleOf(evRows().find(r => r.classList.contains('task')), '--ev-color') === tileColor('home'),
+  styleOf(evRows().find(r => r.classList.contains('task')), '--ev-color'));
+check('a fixed row is coloured by the calendar it sits on, from cal.eventColors',
+  styleOf(evRows()[0], '--ev-color') === w.Config.get('cal.eventColors')['01A1 | routine'],
+  styleOf(evRows()[0], '--ev-color'));
+check('an unclaimed slot is named and marked, never shown as a task',
+  evRows().some(r => r.classList.contains('idle') && /free/.test(r.textContent)),
+  evRows().filter(r => r.classList.contains('idle')).map(r => r.textContent.trim()).join(' | '));
+
+/* The strip: today is always a chip, and so is every planned day ahead. */
+const chips = () => [...d.querySelectorAll('.ns-cal .cal-chip')].map(c => c.dataset.day);
+check('the strip offers today even with nothing on it, and the planned day beside it',
+  chips().includes(today) && chips().includes(calDay) &&
+  $('.ns-cal .cal-chip[data-day="' + calDay + '"]').classList.contains('on'), chips().join(','));
+click($('.ns-cal .cal-chip[data-day="' + today + '"]'));
+check('picking an unplanned day says so rather than drawing yesterday\'s',
+  w.CAL.selected() === today && !!$('.ns-cal .cal-empty'), w.CAL.selected());
+click($('.ns-cal .cal-chip[data-day="' + calDay + '"]'));
+check('… and picking the planned one brings it back', !!$('.ns-cal .cal-day'));
+
+// ── the dials ──
+w.Prefs.set('calShowFixed', false);
+check('switching the template off leaves only the blocks',
+  evRows().length === 6 && !evRows().some(r => r.classList.contains('fixed')), evRows().length + ' rows');
+w.Prefs.set('calShowIdle', false);
+check('… and switching the unclaimed hours off leaves only the two tasks',
+  evRows().length === 2 && evRows().every(r => r.classList.contains('task')), evRows().length + ' rows');
+w.Prefs.set('calHour', 100);
+check('the hour dial really changes the drawing',
+  styleOf(evRows()[0], '--ev-h') === '150px', styleOf(evRows()[0], '--ev-h'));
+w.Prefs.set('calHour', 56);
+w.Prefs.set('calCalNames', true);
+check('calendar names can be put on the rows',
+  /02B4 \| home/.test(evRows()[0].textContent), evRows()[0].textContent.trim());
+w.Prefs.set('calCalNames', false);
+w.Prefs.set('calShowFixed', true); w.Prefs.set('calShowIdle', true);
+
+/* A failed export is not a planned day. */
+w.Shell.go('plan');
+w.PLAN.toggleSent(rowFor('clear the desk'));
+w.PLAN.openExport();
+click(slotBtn('clear the desk', 'b1b'));
+const failDay = $('.ns-plan #exp-date').value;
+const beforeFail = JSON.stringify(stored());
+fetchScript = async (url, opts) => (opts && opts.method === 'POST')
+  ? { ok: false, status: 500, json: async () => ({}), text: async () => '' }
+  : { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+await w.PLAN.doExport();
+await tick();
+check('an export that failed writes no day — a drawn day is a scheduled day',
+  JSON.stringify(stored()) === beforeFail && failDay === calDay, Object.keys(stored()).join(','));
+
+/* Re-exporting a day is how you correct it, so the last export wins whole. */
+fetchScript = async (url, opts) => (opts && opts.method === 'POST')
+  ? { ok: true, status: 200, json: async () => ({ id: 'c9' }), text: async () => '{}' }
+  : { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+await w.PLAN.doExport();
+await tick();
+check('re-exporting the same day replaces it rather than merging into it',
+  Object.keys(stored()).length === 1 && rec().events.filter(e => e.kind === 'task').length === 1 &&
+  rec().events.find(e => e.kind === 'task').slot === 'b1b',
+  rec().events.filter(e => e.kind === 'task').map(e => e.slot).join(','));
+
+/* A day that is nothing but template, with the template switched off, is the
+   one state where the drawing really is empty. It has to say which dials did
+   that — "nothing planned" would be a lie about a day that was planned. */
+w.CAL.write({ day: offset(3), start:'07:00', template:'normal', mode:'blocks', notes:[],
+  events: [{ from:'07:00', to:'07:30', dur:30, kind:'fixed', name:'routine p1', cal:'01A1 | routine' }] });
+w.Prefs.set('calShowFixed', false); w.Prefs.set('calShowIdle', false);
+check('a day whose every row is switched off says so, rather than "nothing planned"',
+  !!$('.ns-cal .cal-empty') && /switched off/.test($('.ns-cal .cal-empty').textContent) &&
+  !!$('.ns-cal .cal-head'),
+  $('.ns-cal .cal-empty').textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
+w.Prefs.set('calShowFixed', true); w.Prefs.set('calShowIdle', true);
+w.CAL.pick(calDay);
+
+/* The keep window sweeps behind and never ahead. */
+const old = JSON.parse(w.localStorage.getItem('cal_days_v1'));
+old.days[offset(-400)] = { day: offset(-400), events: [], notes: [] };
+old.days[offset(400)]  = { day: offset(400),  events: [], notes: [] };
+w.localStorage.setItem('cal_days_v1', JSON.stringify(old));
+w.Shell.go('cal');                                     // onShow reloads, the dial prunes
+w.Prefs.set('calKeep', 30);
+check('a day past the keep window is swept, and a day far ahead never is',
+  !stored()[offset(-400)] && !!stored()[offset(400)], Object.keys(stored()).join(','));
+w.Prefs.reset('calKeep');
+
+/* Findable and accounted for, like everything else. */
+check('a planned task is findable by its own name, and the row names the day it is on',
+  w.SEARCH.results('clear the desk').some(r => r.kind === 'cal' && /clear the desk/.test(r.title) && r.sub.includes(calDay)),
+  JSON.stringify(w.SEARCH.results('clear the desk').map(r => r.kind + ':' + r.sub).slice(0, 3)));
+w.Shell.go('settings'); w.SET.panel('cal');
+check('CAL\'s panel renders, with its dials and its stored count',
+  !!$('.ns-set .set-panel[data-panel="cal"] [data-pref="calHour"]') &&
+  /day/.test($('.ns-set #cal-status').textContent), $('.ns-set #cal-status').textContent);
+check('… and its event colours are editable content like every other branch',
+  !!$('.ns-set [data-content-for="cal"] [data-group="cal.eventColors"] textarea'),
+  [...d.querySelectorAll('.ns-set [data-content-for="cal"] [data-group]')].map(b => b.dataset.group).join(','));
+w.SET.panel('data');
+check('cal_days_v1 is filed under CAL in the storage report',
+  /CAL/.test($('.ns-set #panel-data').textContent), 'no CAL row');
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* ── a ninth app has to arrive on an install that already has an app list ────
+   `apps` is stored whole, so without the appsSeen migration CAL would have no
+   tab on any install that has ever opened the layout panel — which is every
+   install that has been used. Proved by booting a second window with prefs
+   already in localStorage, which is the only way to run Prefs.load() again. */
+async function bootWith(seed) {
+  const dom2 = new JSDOM(html, {
+    url: 'http://localhost/root/index.html',
+    runScripts: 'dangerously', resources: new LocalLoader(),
+    pretendToBeVisual: true, virtualConsole: new VirtualConsole(),
+    beforeParse(win) {
+      win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
+      win.requestAnimationFrame = fn => setTimeout(fn, 0);
+      win.Element.prototype.scrollIntoView = function () {};
+      win.HTMLElement.prototype.scrollIntoView = function () {};
+      win.confirm = () => true;
+      win.fetch = async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '' });
+      win.navigator.vibrate = () => true;
+      win.localStorage.setItem('root_prefs_v1', JSON.stringify(seed));
+    },
+  });
+  await new Promise(r => dom2.window.addEventListener('load', r));
+  await new Promise(r => setTimeout(r, 40));
+  return dom2.window;
+}
+
+// an install from before CAL, with three apps in the bar and the rest switched off
+const w2 = await bootWith({ apps: ['do', 'log', 'track'], theme: 'void' });
+check('a new app reaches an install whose app list predates it',
+  w2.Prefs.get('apps').includes('cal') && w2.Shell.TABS.includes('cal') &&
+  !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
+  w2.Prefs.get('apps').join(','));
+check('… in its shipped position, not tacked onto the end of settings',
+  w2.Prefs.get('apps').join(',') === 'do,log,track,cal', w2.Prefs.get('apps').join(','));
+check('… while the apps that install had switched off stay switched off',
+  ['plan', 'store', 'tend', 'learn'].every(a => !w2.Prefs.get('apps').includes(a)),
+  w2.Prefs.get('apps').join(','));
+check('… and the migration records what it offered, so it runs once and not every boot',
+  w2.Prefs.get('appsSeen').includes('cal') &&
+  JSON.parse(w2.localStorage.getItem('root_prefs_v1')).appsSeen.includes('cal'),
+  JSON.stringify(w2.Prefs.get('appsSeen')));
+
+// an install that has already been offered CAL and turned it off keeps it off
+const w3 = await bootWith({ apps: ['do', 'log'], appsSeen: w.Prefs.APPS.slice(), theme: 'void' });
+check('an app switched off on purpose is not resurrected by the same migration',
+  !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
+  w3.Prefs.get('apps').join(','));
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -8,7 +8,7 @@
 
 ## 1. What ROOT is
 
-Seven small single-purpose tools that share one phone, one frame and one set of
+Eight small single-purpose tools that share one phone, one frame and one set of
 storage keys. It is a static site — no build step, no framework, no dependencies,
 no network except the Todoist calls you explicitly ask for (and, only when you
 import an Anki deck, the three libraries LEARN needs to unpack it). Open
@@ -23,12 +23,16 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
+| **CAL**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A strip of the planned days ahead. Written at export time and read from nowhere else — see §9. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
-Which of the seven get a tab, and in what order, is itself a setting
+Which of the eight get a tab, and in what order, is itself a setting
 (appearance → layout → apps in the bar). Settings is always last. An app
 switched off keeps its slide and opens from the settings home.
+
+That list is stored whole, so a *new* app needs `Prefs.appsSeen` to reach an
+install that already has one — see §6, which is the trap CAL walked into.
 
 ### The vision (2.0)
 
@@ -85,14 +89,15 @@ root/
 │   ├── store.css      │
 │   ├── tend.css       │
 │   ├── track.css      │
-│   ├── learn.css      ┘
+│   ├── learn.css      │
+│   ├── cal.css        ┘
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
     ├── prefs.js       appearance + behaviour engine   (loaded from <head>)
     ├── config.js      the content layer
     ├── shell.js       Creds, Shell, the slide track, swipe, keyboard
-    ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js
+    ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js  cal.js
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
 ```
@@ -101,11 +106,11 @@ root/
 
 ```
 <head>   prefs.js          stamps the look on <html> before the first paint
-         tokens.css → do → log → plan → store → tend → track → learn
+         tokens.css → do → log → plan → store → tend → track → learn → cal
                     → shell → settings → themes.css
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
-         do / log / plan / store / tend / track / learn
+         do / log / plan / store / tend / track / learn / cal
          settings.js       needs every module to exist to render its panels
          search.js         reads SET.searchIndex() and the modules' search hooks
 ```
@@ -124,8 +129,8 @@ specificity. `settings.css` is after `shell.css` for the same reason.
 ### Namespacing
 
 Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE` /
-`TEND` / `TRACK` / `LEARN`, and each does its DOM lookups through a scoped
-helper:
+`TEND` / `TRACK` / `LEARN` / `CAL`, and each does its DOM lookups through a
+scoped helper:
 
 ```js
 const SCOPE = '.ns-do ';
@@ -138,7 +143,10 @@ an app module.** Inline `onclick` handlers therefore read `DO.go(...)`, not
 `go(...)`. TEND has no inline handlers at all: every button carries `data-act`
 and one document-level listener, filtered on `.closest('.ns-tend')`, dispatches
 — its markup is in three places (the slide, the overlays, the settings panel)
-and that is the one listener that reaches all of them.
+and that is the one listener that reaches all of them. CAL is built the same
+way and for the same reason — its markup is in the slide and in the settings
+panel, and a day name interpolated into an inline handler is one more thing to
+get wrong.
 
 Any *user-editable* value that is interpolated into an inline handler —
 `onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
@@ -380,11 +388,12 @@ versions still work off the same data.
 | `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
+| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`. Written only by PLAN's export; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
 | `root_theme` | shell | legacy; kept in step with the active theme for the standalone apps |
-| **`root_prefs_v1`** | Prefs | every appearance and behaviour setting |
+| **`root_prefs_v1`** | Prefs | every appearance and behaviour setting, plus `appsSeen` — every app this install has ever been offered, which is what lets a new app arrive (§6) |
 | **`root_config_v1`** | Config | content **overrides only** — absent on an untouched install |
 
 Export writes **every** key on the origin, unfiltered. A backup that silently
@@ -700,6 +709,34 @@ both say so, and a new device needs the `.apkg` imported again.
   animating, because settings' index moves by one; `retire()` does the same
   in reverse 340 ms after you leave it. `paintNav()` reads `TABS` by name for
   the same reason — a cached button list would be one off.
+- **A new app does not reach an install that already has an app list.**
+  `Prefs.apps` is stored whole and replaces the default whole — the same rule
+  Config uses for a branch — so adding `'cal'` to `Prefs.APPS` gave it a tab on
+  a fresh install and *nothing at all* on any install that had ever opened the
+  layout panel, which is every install that has been used. `appsSeen` is what
+  tells the two cases apart: an app in `APPS` this install has never been
+  offered is new and goes in, in its shipped position; an app missing from
+  `apps` but present in `appsSeen` was switched off on purpose and stays off.
+  The result is persisted at once, or switching the new app straight back off
+  would be undone on the next boot. `APPS_BEFORE_SEEN` is the one-time fallback
+  for installs written before any of this existed — a historical fact, not a
+  list to keep up to date. Two harness checks boot a second jsdom window with
+  prefs already in localStorage, which is the only way to run `load()` twice.
+- **A stored calendar day is a record, not a live query.** Each event in
+  `cal_days_v1` carries its own resolved clock time, calendar name and colour,
+  so CAL never reads `plan.types`. Renaming or recolouring a project in March
+  must not repaint a day planned in September — the day says what was planned,
+  and there is a check for exactly that.
+- **CAL stores the whole template, not what the export wrote.** `mode: blocks`
+  sends the assigned slots alone, but the day still has the shape the template
+  gives it. The rows the export left out are stored as `fixed` (a template
+  event) or `idle` (a slot nobody claimed) and each can be switched off. A view
+  built from the exported lines only would show a day with holes in it.
+- **CAL is written on success, never on the attempt.** `doExport()` builds the
+  day *before* it clears the panel's state, but hands it over only after the
+  Todoist task lands. A day drawn for an export that failed is a day that is
+  not actually scheduled, and telling those two apart at a glance is the whole
+  point of the view.
 
 ---
 
@@ -727,8 +764,12 @@ wordmark), a `css/x.css` scoped to `.ns-x`, a module that calls
 `tab-x` sprite symbol — the settings home reuses it), `'x'` in `Prefs.APPS`, a
 `data-panel="x"` settings panel ending in a `[data-content-for="x"]` box, `'x'`
 in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
-`GROUPS` row for its storage keys. `startTab`, the app list and the shell's TABS all follow
-`Prefs.APPS`. Use the `card` class on the app's raised surfaces so the depth
+`GROUPS` row for its storage keys, and its display name in `APP_NAMES` /
+`APP_HINTS` (settings **and** `search.js` keep their own copy). `startTab`, the
+app list and the shell's TABS all follow `Prefs.APPS` — and because `apps` is
+stored whole, `appsSeen` is what actually gets the new tab onto an install that
+already has an app list. That is automatic, but read the §6 note before
+assuming a new tab appears: for CAL it did not. Use the `card` class on the app's raised surfaces so the depth
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
@@ -740,13 +781,13 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 328 checks covering boot, every theme and panel, the
+through DOM events: 366 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
 in-place projects, form, sent history, day export and due dates of 2.5–2.18,
 and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
-alert in 2.19. jsdom has no
+alert in 2.19, and CAL and the new-app migration in 2.20. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -779,6 +820,12 @@ it is not getting any: no OAuth, no calendar API, no calendar ids. It writes
 one Todoist task and stops. `plan.calendars` holds calendar *names*, which are
 passed through verbatim for the agent to resolve. A harness check reads every
 URL in `js/plan.js` and fails if one of them is not Todoist.
+
+**CAL does not change that**, and §9 says so at more length: it is a local
+drawing of what PLAN resolved before it sent the task, not a second window onto
+Google. A harness check reads `js/cal.js` and fails on any URL, any `fetch(`
+and any `XMLHttpRequest` at all — a stricter rule than PLAN's, because CAL has
+no reason to talk to anything.
 
 ### The description — a contract
 
@@ -858,10 +905,121 @@ silence when the description is written:
 
 ---
 
+## 9. CAL — the day, drawn
+
+### What it is, and what it is not
+
+```
+PLAN / export ──┬──► Todoist task "@import" ──► 22:00 agent ──► Google Calendar
+                │
+                └──► cal_days_v1 ──► CAL          (local, offline, read-only)
+```
+
+One action, two destinations. The right-hand branch never leaves the browser:
+CAL has no network of its own, and unlike PLAN — which is *allowed* Todoist —
+it is allowed nothing at all. It draws the day PLAN had already resolved a
+moment earlier, which is why it costs no extra request and works with the phone
+in flight mode.
+
+**It is not a calendar client.** It cannot tell you what is really on your
+Google calendar, only what ROOT asked for. If the agent failed at 22:00, CAL
+still shows the day as planned — the same way PLAN's sent list shows what was
+sent, not what survived.
+
+### The record
+
+`write(day)` is the only way in, and PLAN's `doExport()` is its only caller,
+after the Todoist task lands. One entry per ISO day; re-exporting replaces it
+whole, because re-exporting is how a day is corrected.
+
+Each event carries its own resolved values — clock times from the one start
+time, the calendar name, and the colour — so a stored day never has to ask PLAN
+anything and is unaffected by later edits to `plan.types`. The three kinds:
+
+| kind | is | drawn |
+| --- | --- | --- |
+| `task` | a picked task in the slot it was given | the project's colour, bold |
+| `fixed` | a template event (routine, kamo, gym, break) | the calendar's colour from `cal.eventColors`, quiet |
+| `idle` | a block slot nobody claimed | dashed and dimmed, named by `cal.idleLabel` |
+
+`fixed` and `idle` are stored even in `mode: blocks`, where the export does not
+write them: the day has that shape whether or not Google is told about it.
+Each can be switched off — which is the one state where the drawing is empty
+and has to say *which dial did it* rather than "nothing planned".
+
+### The dials
+
+`calHour` (how tall an hour is drawn — the one place a pixel is a setting rather
+than a token), `calShowFixed`, `calShowIdle`, `calCalNames`, `calAhead` (how far
+the strip looks forward) and `calKeep` (how long a passed day is kept). The keep
+window sweeps behind only; a day planned three weeks out is the point of the
+strip.
+
+---
+
 ## Changelog
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.20 — 2026-09-04 — the day you planned, drawn where you can see it
+
+**CAL, an eighth app.** Everything needed to draw the day was already being
+computed at export time — PLAN resolves the template against one start time,
+puts the picked tasks in their slots and works out which calendar each belongs
+on, and then threw all of it away the moment the Todoist task was written. It
+is kept now, in `cal_days_v1`, and CAL draws it: a strip of the days that have
+been planned, and the chosen one as proportional blocks, an hour drawn an hour
+tall. The tasks wear their projects' colours — the very values PLAN paints its
+own tiles with, so the two views agree rather than merely resembling each other.
+
+It costs no request and no permission. **ROOT still never touches a calendar**
+(§8): CAL is a local drawing of what ROOT *asked for*, not a window onto what
+Google did with it, and it will show a day as planned even if the 22:00 agent
+never ran. The harness reads `js/cal.js` and fails on any URL, any `fetch(` and
+any `XMLHttpRequest` — a stricter rule than PLAN's, which is at least allowed
+Todoist.
+
+Three decisions worth writing down. **The whole template is stored, not the
+exported lines**: `mode: blocks` sends the assigned slots alone, but the day
+still has the shape the template gives it, so the unclaimed slots and the
+routine hours are kept and each can be switched off. **A stored day is a
+record, not a live query**: every row carries its own clock time, calendar name
+and colour, so renaming a project in March cannot repaint a day planned in
+September. **The day is written on success, never on the attempt** — a drawn
+day is a scheduled day, and telling those apart at a glance is the point.
+
+**And the trap underneath it: a new app does not reach an existing install.**
+`Prefs.apps` is stored whole and replaces the default whole, the same rule
+Config uses for a branch — so adding `'cal'` to `Prefs.APPS` gave it a tab on a
+fresh install and *nothing at all* on any install that had ever opened the
+layout panel, which is every install that has ever been used. CAL would have
+shipped invisible, which is the one bug a new tab can actually have. `appsSeen`
+now records every app an install has been offered: an app in `APPS` it has
+never seen is new and goes in, in its shipped position, while an app missing
+from `apps` but present in `appsSeen` was switched off on purpose and stays
+off. It persists immediately, or switching the new tab straight back off would
+be undone on the next boot.
+
+**Verified** — `test/harness.mjs`, 366 checks, all green, 38 of them new. CAL
+reaching for nothing; the export writing the day under the day it is for and
+carrying the whole template, two slots as tasks, four as idle and fourteen as
+fixed; every row at the clock time PLAN resolved; a task's colour being the
+same value as its PLAN tile's, and a recoloured project repainting the tile but
+not the day already stored; an hour drawn 56px and a 90-minute block 84px; the
+strip offering today with nothing on it; each dial really changing the drawing;
+a failed export writing no day at all; a re-export replacing rather than
+merging; the keep window sweeping behind and never ahead; the task findable by
+name with its day on the row; and `cal_days_v1` filed under CAL in the storage
+report. The migration is proved by booting a *second* jsdom window with prefs
+already in localStorage — the only way to run `Prefs.load()` twice — once as an
+install from before CAL, which gains the tab in its shipped position while the
+apps it had switched off stay off, and once as an install that had already been
+offered CAL and turned it down, which keeps it off.
+
+**Not verified**: how any of it looks. jsdom does not lay out or paint, and the
+browser this was built on had no extension connected to drive it, so the visual
+pass is still owed.
 
 ### 2.19 — 2026-09-04 — one field over the lot, the quick cards, the history the sweep ate, and a tab that says something
 

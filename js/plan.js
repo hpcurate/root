@@ -1111,6 +1111,41 @@ function previewRows() {
   return out;
 }
 
+/* ── The same day, written down for CAL ─────────────────────────────────────
+   The rows the preview draws, kept locally so the day can be looked at without
+   opening a calendar. **The whole template goes down, not only what the export
+   writes**: `mode: blocks` sends the assigned slots alone, but the day still
+   has the shape the template gives it, and CAL is a view of the day rather
+   than a view of the export. The rows the export leaves out are marked so CAL
+   can dim them, or hide them entirely.
+
+   Every row carries its own resolved colour and calendar name. CAL never reads
+   `plan.types` — a project renamed or recoloured in March must not repaint a
+   day planned in September, because that day is a record of what was planned,
+   not a live query. */
+function calendarDay() {
+  const bySlot = {};
+  expRows().forEach(r => { if (r.slot) bySlot[r.slot] = r; });
+  const events = resolved(expForm.template).map(r => {
+    const base = { from:r.from, to:r.to, over:!!r.over, dur:+r.dur || 0 };
+    if (!r.slot) return Object.assign(base, { kind:'fixed', name:r.event, cal:r.cal || null });
+    const hit = bySlot[r.slot];
+    if (!hit) return Object.assign(base, { kind:'idle', name:r.slot, slot:r.slot });
+    const tt = typeOf(hit.t.typeKey);
+    return Object.assign(base, {
+      kind:'task', slot:r.slot, name:hit.t.name,
+      cal: calNameFor(hit.t),
+      project: hit.t.typeKey,
+      projectLabel: (tt && tt.label) || hit.t.typeKey,
+      section: hit.t.section || null,
+      // the tile's own colour rule, so the two views agree
+      color: (tt && labelHue(tt.label, tt.key)) || resolveColor(hit.t.typeKey),
+    });
+  });
+  return { day:expForm.day, start:expForm.start, template:expForm.template,
+           mode:expForm.mode, notes:noteLines(), events };
+}
+
 /* ── The panel ──────────────────────────────────────────────────────────────
    Drawn into the tile grid by renderProjects(), like the task form: no `.scr`
    of its own. Everything typed lives in expForm, and paintExport() puts the
@@ -1215,9 +1250,14 @@ async function doExport() {
   const btn = $id('exp-go');
   if (btn) { btn.disabled = true; btn.textContent = 'exporting…'; }
   try {
+    const written = calendarDay();       // built before the state below is cleared
     await Todoist.call('/tasks', { method:'POST', body: JSON.stringify({
       content: `schedule ${day}`, description: exportDescription(), labels: ['import'] }) });
     saveExportPrefs();
+    /* CAL gets the day only once the task has landed. A day drawn for an export
+       that failed would be a day that is not actually scheduled — and the whole
+       point of the view is telling those two apart at a glance. */
+    if (window.CAL) CAL.write(written);
     sentSel.clear(); expSlots = {}; expOpen = false;
     renderHome();
     toast(`exported · ${n} task${n !== 1 ? 's' : ''} for ${day}`);

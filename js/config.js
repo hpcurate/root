@@ -298,6 +298,29 @@ const DEFAULTS = {
     },
   },
 
+  /* ── CAL ────────────────────────────────────────────────────────────────────
+     The colours CAL paints a day in. A *task* row already carries its project's
+     colour — resolved by PLAN at export time and stored with the day, so a
+     project recoloured next month does not repaint the days already planned.
+     What is left is the template around it: the fixed rows, which are grouped
+     by the calendar they sit on rather than by project, so the routine hours
+     read as one band all day.
+
+     The key is the calendar name from `plan.calendars` / `plan.dayTemplates`,
+     and `*` is the fallback for one this map has never heard of. */
+  cal: {
+    eventColors: {
+      '01A1 | routine': '#7a8699',
+      '01A2 | kamo':    '#c98b3f',
+      '01A3 | care':    '#3fc9b0',
+      '01A5 | no work': '#4f5560',
+      '*':              '#6b6b6b',
+    },
+    /* What an unclaimed block slot is called on the day. It is not "empty" —
+       those hours exist and are yours; nothing was filed into them. */
+    idleLabel: 'free',
+  },
+
   /* ── STORE ──────────────────────────────────────────────────────────────── */
   store: {
     /* `icon` is a sprite id from index.html. Adding a category with an unknown

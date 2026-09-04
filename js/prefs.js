@@ -141,7 +141,7 @@ const THEME_CHARACTER = {
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
-const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn'];
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal'];
 
 /* ── Schema ───────────────────────────────────────────────────────────────────
    Every setting in one table: its default, its kind, and its bounds. The
@@ -187,6 +187,11 @@ const SCHEMA = {
 
   // navigation — which apps have a tab, and in what order
   apps:         { kind:'list',   def:APPS.slice() },
+  /* Every app this install has ever been offered. Not a setting — there is no
+     control for it — but it lives here so it is stored, exported and restored
+     with the rest. See the note on load(): it is what tells a brand-new app
+     apart from one the user switched off. */
+  appsSeen:     { kind:'list',   def:APPS.slice() },
 
   // behaviour
   startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
@@ -203,6 +208,15 @@ const SCHEMA = {
   dateFormat:   { kind:'enum',   def:'long', values:['long','short','iso'] },
   weekStart:    { kind:'enum',   def:'mon',  values:['mon','sun'] },
   currency:     { kind:'text',   def:'€' },
+
+  /* CAL. `calHour` is the one place a pixel is a setting rather than a token:
+     it is how tall an hour is drawn, which is a dial, not a shape. */
+  calHour:      { kind:'range',  def:56,  min:28, max:120, step:4, unit:'px / hour' },
+  calShowFixed: { kind:'bool',   def:true },
+  calShowIdle:  { kind:'bool',   def:true },
+  calCalNames:  { kind:'bool',   def:false },
+  calAhead:     { kind:'range',  def:7,   min:1,  max:21,  step:1, unit:' days' },
+  calKeep:      { kind:'range',  def:60,  min:7,  max:365, step:1, unit:' days' },
 };
 
 /* ── State ────────────────────────────────────────────────────────────────── */
@@ -216,6 +230,36 @@ function defaultsOf() {
   return o;
 }
 
+/* The apps an install was offered before `appsSeen` existed. A one-time
+   migration constant, not a list to keep up to date: every install that boots
+   from here on stores its own `appsSeen`, so this is read once per install and
+   then never again. */
+const APPS_BEFORE_SEEN = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn'];
+
+/* ── A new app has to arrive on an install that already has an app list ───────
+   `apps` is stored whole and replaces the default whole — the same rule Config
+   uses for a branch — so an app added in a later version has no tab on any
+   install that has ever opened the layout panel, which is every install that
+   has been used. CAL would have shipped invisible, and an invisible tab is the
+   one bug a new tab can actually have.
+
+   `appsSeen` is what tells the two cases apart. An app in APPS this install has
+   never been offered is *new*: it goes in, in its shipped position. An app
+   missing from `apps` but present in `appsSeen` was switched off deliberately
+   and stays off. The result is persisted immediately — without that, switching
+   the new app straight back off would be undone on the next boot. */
+function adoptNewApps(stored) {
+  if (!Array.isArray(prefs.apps) || !prefs.apps.length) prefs.apps = APPS.slice();
+  const seen  = Array.isArray(stored.appsSeen) ? stored.appsSeen : APPS_BEFORE_SEEN;
+  const fresh = APPS.filter(a => !seen.includes(a));
+  prefs.appsSeen = APPS.slice();
+  if (!fresh.length) return fresh;
+  // rebuilt from APPS so a new app lands where it ships, not on the end
+  prefs.apps = APPS.filter(a => prefs.apps.includes(a) || fresh.includes(a));
+  persist();
+  return fresh;
+}
+
 function load() {
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch {}
@@ -227,6 +271,7 @@ function load() {
       if (legacy && THEMES.some(t => t.id === legacy)) prefs.theme = legacy;
     } catch {}
   }
+  adoptNewApps(stored);
 }
 
 function persist() {

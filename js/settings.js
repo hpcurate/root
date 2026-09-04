@@ -32,25 +32,25 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','data'];
 /* Which category a panel sits in, and what its pill says. `data` is a single
    panel, so its category shows no pill bar. */
 const CATS = {
-  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn'] },
+  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal'] },
   appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
-                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn' };
+                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'cal' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
 const lastPanel = {};           // per category: the pill you were on
 
 /* Display names for the app list and the start-tab chips. */
-const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN' };
+const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'CAL' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
-                    tend:'plant care', track:'CAP curriculum', learn:'anki decks' };
+                    tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day' };
 
 /* Which storage keys belong to which app — read-only bookkeeping for the
    storage report. The shell never writes to another app's keys. LEARN's decks
@@ -61,6 +61,7 @@ const GROUPS = [
   { name:'PLAN',  color:'#5e8cff', match:k => k.startsWith('plan_') },
   { name:'STORE', color:'#e8a33d', match:k => k === 'store_state_v1' || k === 'eat_state_v1' },
   { name:'TEND',  color:'#3fc9b0', match:k => k.startsWith('tend.') || k.startsWith('tend_') },
+  { name:'CAL',   color:'#c98b3f', match:k => k === 'cal_days_v1' },
   { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
   { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
@@ -1044,12 +1045,37 @@ const EDITORS = {
     },
     read() {},
   },
+
+  /* ── CAL · the colours around the blocks ───────────────────────────────────
+     A task row is already the colour of its project — PLAN resolves that at
+     export time and it travels with the day. What is editable here is the
+     template around it, which is grouped by calendar rather than by project. */
+  'cal.eventColors': {
+    title: 'Event colours',
+    note: 'The template hours around your blocks, coloured by the calendar they sit on. One per line: the calendar name, a pipe, then a hex colour. The line "*" is the fallback for a calendar this list has never heard of. A task keeps its own project\'s colour and is not set here.',
+    render() {
+      const c = Config.get('cal.eventColors') || {};
+      return `<div class="f">
+        <textarea data-cfg="cal.eventColors" data-map="1" rows="${Math.min(12, Math.max(4, Object.keys(c).length))}"
+                  spellcheck="false" aria-label="calendar to colour"
+          >${esc(Object.keys(c).map(k => k + ' | ' + c[k]).join('\n'))}</textarea>
+        <div class="ed-hint">calendar | #hex — the first pipe divides them, so the name may hold more</div>
+      </div>
+      <div class="f">
+        <label class="lbl">Unclaimed slot <em>what an empty block hour is called</em></label>
+        <input type="text" data-cfg="cal.idleLabel" value="${esc(Config.get('cal.idleLabel') || '')}"
+               aria-label="unclaimed slot label">
+      </div>`;
+    },
+    paths: ['cal.eventColors', 'cal.idleLabel'],
+    read() {},
+  },
 };
 
 const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
-                      'tend.groups','tend.labels','track.labels','learn.ratings'];
+                      'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors'];
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -1371,6 +1397,7 @@ const RENDERERS = {
   tend: () => { window.TEND && TEND.renderSettings();  renderContent('tend'); },
   track:() => { window.TRACK&& TRACK.renderSettings(); renderContent('track'); },
   learn:() => { window.LEARN&& LEARN.renderSettings(); renderContent('learn'); },
+  cal:  () => { window.CAL  && CAL.renderSettings();   renderContent('cal'); },
 };
 
 /* Two screens: the home menu and a category. Switching screens starts at the

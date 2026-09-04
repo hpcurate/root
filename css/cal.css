@@ -1,0 +1,112 @@
+/* ── CAL ──────────────────────────────────────────────────────────────────────
+   The exported day, drawn as a calendar. One screen: a strip of the days that
+   have been planned, then the day itself as proportional blocks.
+
+   Every radius is a ratio of --r-base, every border is var(--bw), every gap is
+   scaled by --dens — a literal here would make one surface immune to the whole
+   theme system (see §4 of ROOT.md). The one deliberate literal is the block
+   height, which comes from --cal-hour: it is a dial, not a shape. */
+
+.ns-cal .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-cal .scr.on{display:block}
+
+/* the band's box is shell.css's, shared by every app */
+.ns-cal .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-cal .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
+.ns-cal .h-logo em{color:var(--y);font-style:normal}
+
+.ns-cal .cnt{padding:0 calc(18px * var(--dens))}
+
+/* ── the day strip ────────────────────────────────────────────────────────────
+   It scrolls sideways inside #track, so it claims the gesture itself: the
+   track's pan-y reaches every descendant and overflow-x alone buys a scroller
+   that works with a mouse and is dead under a finger (§6 of ROOT.md). Built
+   from stored days, so it has no fixed width and must wrap or scroll — it
+   scrolls. */
+.ns-cal .cal-strip{display:flex;gap:calc(7px * var(--dens));overflow-x:auto;
+  touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;
+  padding:calc(4px * var(--dens)) 0 calc(10px * var(--dens));scrollbar-width:none}
+.ns-cal .cal-strip::-webkit-scrollbar{display:none}
+
+.ns-cal .cal-chip{flex:0 0 auto;min-width:46px;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(7px * var(--dens)) calc(9px * var(--dens));
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--tx);cursor:pointer;transition:border-color var(--dur-1),background var(--dur-1)}
+.ns-cal .cal-chip .cc-day{font:400 8.5px/1 var(--mono);letter-spacing:1.2px;
+  text-transform:var(--caps);color:var(--tx-2)}
+.ns-cal .cal-chip .cc-num{font:800 16px/1 var(--head);color:var(--tx)}
+.ns-cal .cal-chip .cc-dot{font:400 8px/1 var(--mono);color:var(--y);min-height:8px}
+.ns-cal .cal-chip.on{border-color:var(--y);background:var(--y-fade)}
+.ns-cal .cal-chip.on .cc-num{color:var(--y)}
+.ns-cal .cal-chip.empty .cc-num{color:var(--bd-2)}
+.ns-cal .cal-chip.past{opacity:.55}
+
+/* ── the day's head ── */
+.ns-cal .cal-head{margin:calc(6px * var(--dens)) 0 calc(12px * var(--dens))}
+.ns-cal .ch-when{font:800 19px/1.2 var(--head);color:var(--tx);letter-spacing:-.01em;
+  display:flex;align-items:baseline;gap:8px}
+.ns-cal .ch-when em{font:400 9px/1 var(--mono);letter-spacing:1.6px;color:var(--y);
+  text-transform:var(--caps);font-style:normal}
+.ns-cal .ch-meta{font:400 9.5px/1.5 var(--mono);letter-spacing:.8px;color:var(--tx-2);
+  text-transform:var(--caps);margin-top:5px}
+
+/* ── the day itself ───────────────────────────────────────────────────────────
+   One row per event, its height the duration, so an hour looks like an hour.
+   The rows butt onto each other the way the template does, so the day reads as
+   one column rather than as a list of cards. */
+.ns-cal .cal-day{display:flex;flex-direction:column;
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);overflow:hidden}
+
+.ns-cal .cal-ev{display:flex;align-items:stretch;gap:calc(10px * var(--dens));
+  min-height:var(--ev-h,40px);border-top:var(--bw) solid var(--bd);
+  padding:calc(6px * var(--dens)) calc(10px * var(--dens));background:var(--s1)}
+.ns-cal .cal-ev:first-child{border-top:none}
+
+.ns-cal .ev-at{flex:0 0 auto;width:42px;font:400 9px/1.35 var(--mono);
+  letter-spacing:.4px;color:var(--tx-2);padding-top:1px}
+.ns-cal .ev-at b{display:block;font-weight:400;color:var(--bd-2)}
+
+/* the colour bar is the project's, and it is the whole left edge of the box —
+   a dot would be invisible on a 90-minute block and shouting on a 15-minute one */
+.ns-cal .ev-box{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;
+  justify-content:center;gap:2px;padding-left:calc(10px * var(--dens));
+  border-left:3px solid var(--ev-color,var(--bd));border-radius:var(--r1)}
+.ns-cal .ev-name{font:600 12.5px/1.35 var(--head);color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-cal .ev-meta{font:400 8.5px/1.3 var(--mono);letter-spacing:1px;
+  text-transform:var(--caps);color:var(--tx-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* a task is the day's substance; the template around it is not, and an
+   unclaimed slot is the least of the three */
+.ns-cal .cal-ev.task{background:var(--s1)}
+.ns-cal .cal-ev.task .ev-name{font-weight:700}
+.ns-cal .cal-ev.fixed{background:transparent}
+.ns-cal .cal-ev.fixed .ev-name{font-weight:400;color:var(--tx-2)}
+.ns-cal .cal-ev.idle{background:transparent}
+.ns-cal .cal-ev.idle .ev-box{border-left-style:dashed;border-left-color:var(--bd)}
+.ns-cal .cal-ev.idle .ev-name{font-weight:400;color:var(--bd-2);font-style:italic}
+
+/* ── notes ── */
+.ns-cal .cal-notes{margin-top:calc(12px * var(--dens));background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(12px * var(--dens)) calc(14px * var(--dens))}
+.ns-cal .cn-title{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--tx-2);
+  text-transform:var(--caps);margin-bottom:calc(8px * var(--dens))}
+.ns-cal .cn-row{font:400 11.5px/1.5 var(--mono);color:var(--tx);
+  padding:calc(3px * var(--dens)) 0}
+
+/* ── nothing planned ── */
+.ns-cal .cal-empty{background:var(--s1);border:var(--bw) solid var(--bd);
+  border-radius:var(--r2);padding:calc(26px * var(--dens)) calc(18px * var(--dens));
+  text-align:center;margin-top:calc(8px * var(--dens))}
+.ns-cal .ce-title{font:800 15px/1.3 var(--head);color:var(--tx)}
+.ns-cal .ce-note{font:400 11px/1.6 var(--mono);color:var(--tx-2);
+  margin:calc(9px * var(--dens)) auto calc(16px * var(--dens));max-width:34em}
+
+/* ── the settings panel (reached through .ns-cal on that panel) ── */
+.ns-cal .settings-status{font:400 10px/1.4 var(--mono);letter-spacing:.6px;
+  padding:calc(9px * var(--dens)) calc(12px * var(--dens));border-radius:var(--r1);
+  border:var(--bw) solid var(--bd);color:var(--tx-2);margin-bottom:calc(10px * var(--dens))}
+.ns-cal .settings-status.ok{color:var(--gr);border-color:color-mix(in srgb,var(--gr) 40%,var(--bd))}
