@@ -347,6 +347,7 @@ function layoutHTML() {
     ${toggle('showTabLabels', 'Show tab names', 'off leaves the icons alone')}
     ${toggle('colorfulTabs', 'Colour-code the tabs', 'each app keeps its own hue instead of the accent')}
     ${slider('chromeAlpha', 'Chrome opacity', v => pct(v))}
+    ${toggle('chromeBlur', 'Blur behind the bar', 'off is flatter, and cheaper on a tired phone')}
     ${toggle('autoHideChrome', 'Get out of the way', 'the bar steps aside while you scroll down')}
 
     ${sectionHead('Apps in the bar')}
@@ -588,7 +589,10 @@ const EDITORS = {
             'log.kmTarget','log.streakRequires'],
     note: 'What the forms call things, plus the walking target and the streak rule. The underlying field names in the exported .md never change, so your Obsidian notes stay parseable.',
     render() {
-      const meds = Config.get('log.meds'), caf = Config.get('log.caffeine');
+      // read through the shipped record: an override written before a slot
+      // existed has no answer for it, and a missing key is "not asked", not "gone"
+      const meds = Object.assign({}, Config.defaults('log.meds'), Config.get('log.meds') || {});
+      const caf = Config.get('log.caffeine');
       const cur  = Config.get('log.curate'), sc = Config.get('log.scales');
       const pair = (path, a, b, la, lb) => `<div class="ed-pair">
         <div><label class="lbl">${esc(la)}</label><input type="text" data-cfg="${path}" data-sub="${a.k}" value="${esc(a.v)}"></div>
@@ -596,7 +600,9 @@ const EDITORS = {
       </div>`;
       return `
         <label class="lbl">Medication slots</label>
-        ${pair('log.meds', {k:'lam',v:meds.lam}, {k:'rit',v:meds.rit}, 'slot 1', 'slot 2')}
+        <div class="ed-grid">${Object.keys(meds).map((k, i) => `
+          <div><label class="lbl">slot ${i + 1}</label>
+            <input type="text" data-cfg="log.meds" data-sub="${esc(k)}" value="${esc(meds[k])}"></div>`).join('')}</div>
 
         <label class="lbl">Caffeine counters</label>
         ${pair('log.caffeine', {k:'c',v:caf.c}, {k:'ed',v:caf.ed}, 'counter 1', 'counter 2')}
@@ -1676,7 +1682,7 @@ view.addEventListener('click', e => {
     ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
      'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
      'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
-     'showTabLabels','accentGlow','monoNumbers','colorfulTabs','apps'].forEach(k => Prefs.reset(k));
+     'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
     render(); Shell.toast('appearance reset');
   }
   if (t.dataset.act === 'reset-behaviour') {

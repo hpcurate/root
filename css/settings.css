@@ -134,14 +134,23 @@
 .ns-set .data-stat-k{font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);color:var(--mu)}
 .ns-set .data-stat-v{font:700 13px/1 var(--mono);color:var(--tx)}
 
+/* A status box sits under whatever produced it, so it needs a gap above as
+   well as below — without one it butted straight onto the row of buttons it
+   reports on and read as part of that row. */
 .ns-set .td-status{font:400 10px/1.6 var(--mono);color:var(--mu);letter-spacing:.04em;
-  padding:10px 12px;margin-bottom:8px;border-radius:var(--r1);
+  padding:10px 12px;margin:calc(12px * var(--dens)) 0 8px;border-radius:var(--r1);
   background:var(--s1);border:var(--bw) solid var(--bd);word-break:break-word}
 .ns-set .td-status.good{color:var(--gr);border-color:color-mix(in srgb,var(--gr) 40%,transparent)}
 .ns-set .td-status.bad{color:var(--re);border-color:color-mix(in srgb,var(--re) 40%,transparent)}
 .ns-set .td-status.busy{color:var(--y);border-color:var(--yb)}
 .ns-set .td-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ns-set .td-acts .setting-btn{text-align:center}
+
+/* The content editors close every app panel. They are a section of their own —
+   often straight after a danger button — so they carry the gap a new section
+   deserves rather than sitting on whatever came last. */
+.ns-set .set-content{display:block;margin-top:calc(26px * var(--dens))}
+.ns-set .set-content:empty{margin-top:0}
 
 /* ── Theme gallery ────────────────────────────────────────────────────────── */
 .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:6px}

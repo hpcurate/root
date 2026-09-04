@@ -50,6 +50,12 @@ readConfig();
 /* ── State ─────────────────────────────────────────────────────────────────── */
 const DEF = {
   startDate:'2026-09-01', examDate:'2027-05-15', stageStart:'2027-01-04', stageEnd:'2027-06-30',
+  /* The day tracking began. Ticks dated before it are the progress you already
+     had when you set the app up — counted as done, but kept out of the pace and
+     the trend, because they are not progress this app watched you make and
+     counting them made the first week read as a sprint. Null falls back to
+     startDate, so an install that never sets it behaves exactly as before. */
+  trackFrom:null,
   revisionWeeks:4, applyLead:8, stageFactor:0.4,
   done:{},                             // topic id -> 'YYYY-MM-DD'
   pse:null,
@@ -78,7 +84,13 @@ function n1(x)   { return (Math.round(x * 10) / 10).toFixed(1); }
 /* ── Derived ───────────────────────────────────────────────────────────────── */
 const doneCount = () => C.filter(c => S.done[c.id]).length;
 const lvlItems  = lv => C.filter(c => c.lv === lv);
-const doneDates = () => C.filter(c => S.done[c.id] && isISO(S.done[c.id])).map(c => D(S.done[c.id])).sort((a, b) => a - b);
+/* Every tick that carries a date. */
+const allDoneDates = () => C.filter(c => S.done[c.id] && isISO(S.done[c.id])).map(c => D(S.done[c.id])).sort((a, b) => a - b);
+const trackFromISO = () => (isISO(S.trackFrom) ? S.trackFrom : S.startDate);
+/* Split at the tracking start: what came before is the baseline, what came on
+   or after it is what the pace and the trend are made of. */
+const baseCount = () => { const f = D(trackFromISO()); return allDoneDates().filter(d => d < f).length; };
+const doneDates = () => { const f = D(trackFromISO()); return allDoneDates().filter(d => d >= f); };
 
 function paceNow() {
   const ds = doneDates();
@@ -179,7 +191,11 @@ function renderSqueeze(j) {
 function drawChart(j) {
   const W = 360, H = 240, padL = 26, padR = 12, padT = 12, padB = 32;
   const ds = doneDates();
-  const a0 = isISO(S.startDate) ? D(S.startDate) : today();
+  /* The line starts at the baseline height on the day tracking began, and only
+     counted ticks move it — so the topics ticked during setup show as where you
+     started rather than as a vertical cliff in week one. */
+  const base = baseCount();
+  const a0 = isISO(trackFromISO()) ? D(trackFromISO()) : today();
   const anchor = ds.length && ds[0] < a0 ? ds[0] : a0;
   const t = today();
   const ends = [wks(anchor, j.exam), wks(anchor, t)];
@@ -223,7 +239,7 @@ function drawChart(j) {
   }
 
   // actual
-  const pts = [[0, 0]]; let run = 0;
+  const pts = [[0, base]]; let run = base;
   ds.forEach(d => { run++; pts.push([wk(d), run]); });
   const nReal = pts.length - 1;                                          // dots mark completions only
   if (pts.length > 1 && wk(t) > pts[pts.length - 1][0]) pts.push([wk(t), run]);  // flat line up to today
@@ -314,6 +330,14 @@ function renderSettings() {
   if (!$id('setExam')) return;
   const fill = (id, v) => { const el = $id(id); if (el && document.activeElement !== el) el.value = v; };
   fill('setStart', S.startDate);
+  fill('setTrackFrom', trackFromISO());
+  const bn = $id('baseNote');
+  if (bn) {
+    const n = baseCount();
+    bn.textContent = n
+      ? `${n} tick${n === 1 ? '' : 's'} before that date — counted as done, kept out of the pace`
+      : 'nothing ticked before that date yet';
+  }
   fill('setExam', S.examDate);
   fill('setStageStart', S.stageStart);
   fill('setStageEnd', S.stageEnd);
@@ -375,6 +399,7 @@ view.addEventListener('click', e => {
 
 const bind = (id, ev, fn) => { const el = $id(id); if (el) el.addEventListener(ev, fn); };
 bind('setStart',      'change', e => { if (isISO(e.target.value)) { S.startDate  = e.target.value; save(); render(); } });
+bind('setTrackFrom',  'change', e => { if (isISO(e.target.value)) { S.trackFrom  = e.target.value; save(); render(); } });
 bind('setExam',       'change', e => { if (isISO(e.target.value)) { S.examDate   = e.target.value; save(); render(); } });
 bind('setStageStart', 'change', e => { if (isISO(e.target.value)) { S.stageStart = e.target.value; save(); render(); } });
 bind('setStageEnd',   'change', e => { if (isISO(e.target.value)) { S.stageEnd   = e.target.value; save(); render(); } });
@@ -422,6 +447,19 @@ function doneOn(iso) {
 }
 function progress() { return { done:doneCount(), total:TOTAL, pse:!!S.pse }; }
 
+/* "Everything ticked so far is where I am starting from." Moves the tracking
+   start to tomorrow, so every tick that exists today falls behind it. No dates
+   are rewritten — which is what makes this safe to press twice, and what keeps
+   the record of when each topic was actually ticked. */
+function baselineNow() {
+  const t = today();
+  const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+  S.trackFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  save(); render();
+  const n = baseCount();
+  toast(n ? `${n} topic${n === 1 ? '' : 's'} set as your starting point` : 'tracking starts tomorrow');
+}
+
 return { render, renderSettings, toggle, exportData, pickImport, importData, resetAll, project,
-         doneOn, progress };
+         doneOn, progress, baselineNow, baseCount, trackFrom: trackFromISO };
 })();

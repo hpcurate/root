@@ -916,6 +916,12 @@ w.PLAN.closeForm(); w.PLAN.clearQueue();
   check('… and no text is faded on the way — the name you tapped never leaves the screen',
     !!name && !/opacity/.test(name.css) && !anims.some(a => / > child/.test(a.key)),
     anims.filter(a => /opacity/.test(a.css)).map(a => a.key).join(','));
+  /* The border is the thing you notice last, so it has to finish first for the
+     gesture to read as fluid rather than as a box still settling. */
+  const fade = tileAnims.find(a => /borderColor/.test(a.css));
+  check('… the border fade finishing well before the move does',
+    !!fade && fade.opts.duration > 0 && fade.opts.duration <= 300,
+    fade ? String(fade.opts.duration) : 'no fade');
 
   const rows = ['sec:0', 'sec:1', 'sec:2'].map(of);
   check('the section rows are revealed, not flown in from the tiles they replaced',
@@ -1630,8 +1636,16 @@ $('.ns-log #m-sl').value = '7'; w.LOG.saveMorning();
 check('writing it moves the flag on to the evening rather than clearing it',
   w.LOG.alertReason() === 'evening' && logIcon() === '#tab-alert', w.LOG.alertReason());
 w.LOG.go('evening'); $('.ns-log #e-kme').value = '2'; w.LOG.saveEvening();
-check('… and with both halves written it is tomorrow that is unplanned',
-  w.LOG.alertReason() === 'plan' && logIcon() === '#tab-alert', w.LOG.alertReason());
+/* The unplanned-tomorrow rule is PLAN's business, so it flags PLAN — a "!" on
+   LOG that means "go and use the other app" pointed at the wrong door. LOG
+   still owns the rule, the hours and the preview. */
+const planIcon = () => $('.tab-b[data-app="plan"] svg use').getAttribute('href');
+const planBtn  = () => $('.tab-b[data-app="plan"]');
+check('… and with both halves written it is tomorrow that is unplanned — flagged on PLAN, not LOG',
+  w.LOG.alertReason() === 'plan' && planIcon() === '#tab-alert' &&
+  planBtn().classList.contains('has-alert') && logIcon() === '#tab-log' &&
+  !logBtn().classList.contains('has-alert'),
+  w.LOG.alertReason() + ' log=' + logIcon() + ' plan=' + planIcon());
 w.Shell.go('plan');
 w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
 $('.ns-plan #task-name').value = 'clear the desk';
@@ -1639,14 +1653,22 @@ $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
 w.PLAN.optPick($('.ns-plan #opts-block .opt-b'), 'block', 'b1');
 w.PLAN.stepDate(1);
 w.PLAN.addToQueue();
-check('planning one block for tomorrow answers it: the icon goes back',
+check('planning one block for tomorrow answers it: PLAN\'s icon goes back',
   w.PLAN.plannedOn(offset(1)).blocks === 1 && w.LOG.refreshAlert() === null &&
+  planIcon() === '#tab-plan' && !planBtn().classList.contains('has-alert') &&
   logIcon() === '#tab-log' && !logBtn().classList.contains('has-alert'),
-  JSON.stringify(w.PLAN.plannedOn(offset(1))) + ' / ' + logIcon());
+  JSON.stringify(w.PLAN.plannedOn(offset(1))) + ' / ' + planIcon());
+check('an alerting tab wears a filled pill, not only a "!"',
+  /\.tab-b\.has-alert::before\{[^}]*opacity:1/.test(fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8')) &&
+  /\.tab-b\.has-alert::before\{[^}]*background:var\(--or\)/.test(fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8')));
 w.LOG.testAlert('evening');
 check('the settings preview really changes the tab, and says which rule it is showing',
   logIcon() === '#tab-alert' && /preview/.test($('.ns-log #al-status').textContent),
   $('.ns-log #al-status').textContent);
+w.LOG.testAlert('plan');
+check('… and previewing the plan rule moves the "!" to PLAN',
+  planIcon() === '#tab-alert' && logIcon() === '#tab-log',
+  'log=' + logIcon() + ' plan=' + planIcon());
 w.LOG.testAlert('');
 check('… and switching the preview off puts the real state back',
   logIcon() === '#tab-log' && /nothing to flag/.test($('.ns-log #al-status').textContent),
@@ -1761,18 +1783,29 @@ const evRows = () => [...d.querySelectorAll('.ns-cal .cal-ev')];
 const styleOf = (el, prop) => (String(el.getAttribute('style') || '').match(new RegExp(prop + ':\\s*([^;"]+)')) || [])[1]?.trim();
 check('CAL lands on the day just exported and draws every row of it',
   w.CAL.selected() === calDay && evRows().length === evs().length, evRows().length + ' drawn');
-check('the nav names the day, in lower case, and says it is tomorrow',
-  $('.ns-cal .cw-date').textContent === $('.ns-cal .cw-date').textContent.toLowerCase() &&
-  /tomorrow/.test($('.ns-cal .cw-rel').textContent),
-  $('.ns-cal .cw-date').textContent + ' / ' + $('.ns-cal .cw-rel').textContent);
+check('the date sits in the title band beside the wordmark, in lower case',
+  $('#view-cal > .h-top #cal-band-date .cbd-date').textContent ===
+    $('#view-cal #cal-band-date .cbd-date').textContent.toLowerCase() &&
+  /tomorrow/.test($('#view-cal #cal-band-date .cbd-rel').textContent),
+  $('#view-cal #cal-band-date').textContent);
+check('… on the wordmark\'s own row, at a declared height so it cannot grow the band',
+  !!$('#view-cal > .h-top > .h-logo-row > .h-logo') &&
+  !!$('#view-cal > .h-top > .h-logo-row > #cal-band-date') &&
+  /\.ns-cal \.cal-band-date\{[^}]*height:32px/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')));
 check('… and the head says what the day is made of, lower case too',
   /normal/.test($('.ns-cal .ch-meta').textContent) && /07:00/.test($('.ns-cal .ch-meta').textContent) &&
   /2 tasks/.test($('.ns-cal .ch-meta').textContent) &&
   $('.ns-cal .ch-meta').textContent === $('.ns-cal .ch-meta').textContent.toLowerCase(),
   $('.ns-cal .ch-meta').textContent);
-check('CAL opts out of the caps switch by name, the one app that does',
-  /\.ns-cal \.cw-date\{[^}]*text-transform:none/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
+check('DAY opts out of the caps switch by name, the one app that does',
+  /\.ns-cal \.cbd-date\{[^}]*text-transform:none/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
   /\.ns-cal \.ch-meta\{[^}]*text-transform:none/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')));
+/* Fixed, so it may not live in the slide: a transformed ancestor would become
+   its containing block, and #track animates transforms. */
+check('the day stepper is a sibling of #views, never inside #track',
+  $('#cal-steps').parentElement === d.body && !$('#track #cal-steps') &&
+  $('#cal-steps').classList.contains('ns-cal'),
+  $('#cal-steps').parentElement?.tagName);
 check('an hour is drawn an hour tall — the height is the duration, not a constant',
   styleOf(evRows()[0], '--ev-h') === '28px' &&            // 30 min at the default 56px/hour
   styleOf(evRows().find(r => r.classList.contains('task')), '--ev-h') === '84px',
@@ -2003,6 +2036,94 @@ check('only the picked task is moved, and it leaves the list',
   JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks
     .filter(t => !t.done).length === openIds.length - 1,
   deferPosts.join(',') + ' | left ' + JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.filter(t => !t.done).length);
+
+// ── 32. 2.21 — the twelve fixes ───────────────────────────────────────────
+const calCss2  = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
+const setCss   = fs.readFileSync(path.join(ROOT, 'css/settings.css'), 'utf8');
+const doCss    = fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8');
+
+/* TRACK: what you had done before the app is a starting point, not a sprint. */
+w.Shell.go('track');
+if (!w.TRACK.progress().done) { w.TRACK.toggle('t01'); w.TRACK.toggle('t02'); }
+const doneBefore = w.TRACK.progress().done;
+check('there are ticks to bank', doneBefore > 0, String(doneBefore));
+w.TRACK.baselineNow();
+check('"everything ticked is my start" banks what is done and starts tracking tomorrow',
+  w.TRACK.trackFrom() === offset(1) && w.TRACK.baseCount() === doneBefore &&
+  w.TRACK.progress().done === doneBefore,
+  `from ${w.TRACK.trackFrom()} · banked ${w.TRACK.baseCount()} · still done ${w.TRACK.progress().done}`);
+check('… so nothing ticked before it can move the pace',
+  w.TRACK.project().p === null || w.TRACK.project().p === 0,
+  JSON.stringify(w.TRACK.project().p));
+w.SET.panel('track');
+check('the panel offers the tracking start and says how much is banked',
+  !!$('.ns-set #setTrackFrom') && /kept out of the pace/.test($('.ns-set #baseNote').textContent),
+  $('.ns-set #baseNote').textContent);
+
+/* LOG: a third medication slot, additive to a contract the Obsidian side parses. */
+check('log.meds ships a third slot — keys are the contract, labels are yours',
+  Object.keys(w.Config.defaults('log.meds')).join(',') === 'lam,rit,m3',
+  Object.keys(w.Config.defaults('log.meds')).join(','));
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
+check('… the evening form drawing one button per slot rather than two by name',
+  d.querySelectorAll('.ns-log #med-g .med-b').length === 3 && !!$('.ns-log #med-m3'),
+  d.querySelectorAll('.ns-log #med-g .med-b').length + ' buttons');
+w.LOG.toggleMed('m3');
+$('.ns-log #e-kme').value = '3';
+w.LOG.saveEvening();
+check('… and the record writing meds_m3 beside the two that were always there',
+  JSON.parse(w.localStorage.getItem('log_' + today)).e.meds_m3 === true,
+  JSON.stringify(JSON.parse(w.localStorage.getItem('log_' + today)).e.meds_m3));
+/* The .md is the contract the Obsidian side parses: one row per slot, the two
+   original names untouched and the new one added after them. Additive, so a
+   note written before today is unaffected and the parser (which looks rows up
+   by name) simply finds no m3 row in it. */
+const medNote = w.LOG.buildNote();
+const medRec = JSON.parse(w.localStorage.getItem('log_' + today)).e;
+const yn = v => (v ? 'yes' : 'no');
+check('the exported note writes a row per slot, each matching the record',
+  ['lam', 'rit', 'm3'].every(k =>
+    new RegExp(`\\| meds_${k}\\s+\\| ${yn(medRec['meds_' + k])} \\|`).test(medNote)) &&
+  medRec.meds_m3 === true,
+  (medNote.match(/\| meds_\w+\s+\|[^\n]*/g) || []).join(' · '));
+check('… in the order the slots are configured, so the table reads the same every day',
+  (medNote.match(/\| (meds_\w+)/g) || []).join(',') === '| meds_lam,| meds_rit,| meds_m3',
+  (medNote.match(/\| (meds_\w+)/g) || []).join(','));
+
+/* The chrome. */
+w.Prefs.set('chromeBlur', false);
+check('the blur behind the bar is a setting, and off really removes it',
+  d.documentElement.dataset.chromeBlur === 'off' &&
+  /\[data-chrome-blur="off"\]\{[^}]*--chrome-blur:none/
+    .test(fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8')),
+  d.documentElement.dataset.chromeBlur);
+w.Prefs.set('chromeBlur', true);
+check('… and back on again', d.documentElement.dataset.chromeBlur === 'on');
+
+/* The gaps, the colour, the icon — appearance, asserted where it lives. */
+check('a status box has a gap above it as well as below',
+  /\.ns-set \.td-status\{[^}]*margin:calc\(12px \* var\(--dens\)\) 0 8px/.test(setCss));
+check('the content editors carry their own gap, so they never butt onto a danger button',
+  /\.ns-set \.set-content\{[^}]*margin-top:calc\(26px \* var\(--dens\)\)/.test(setCss));
+check('a quick card\'s second line takes the card\'s colour, like a block tile\'s tag',
+  /\.ns-do \.qk-sub\{[^}]*color:var\(--bk-c/.test(doCss));
+const calSymbol = (html.match(/<symbol id="tab-cal"[\s\S]*?<\/symbol>/) || [''])[0];
+check('DAY wears a sun, not an agenda that read like PLAN\'s grid at 19px',
+  /<circle/.test(calSymbol) && !/<rect/.test(calSymbol),
+  calSymbol.replace(/\s+/g, ' ').slice(0, 90));
+
+/* DAY's stepper and its empty day. */
+check('the stepper is shown only while DAY is the slide on screen',
+  /body:has\(#view-cal\.cur\) \.cal-steps\{display:flex\}/.test(calCss2) &&
+  /\.cal-steps\{[\s\S]*?position:fixed/.test(calCss2));
+w.Shell.go('cal'); w.CAL.pick(today);
+check('an unplanned day offers one of DAY\'s own controls, not a stretched form button',
+  !!$('.ns-cal .cal-empty') && !!$('.ns-cal .ce-go') && !d.querySelector('.ns-cal .cal-empty .btn'),
+  $('.ns-cal .cal-empty')?.textContent.replace(/\s+/g, ' ').trim().slice(0, 50));
+check('… and the arrows are in the fixed stepper, not in the scrolling day',
+  d.querySelectorAll('#cal-steps .cal-arrow').length === 2 &&
+  !d.querySelector('#view-cal .cal-arrow'),
+  d.querySelectorAll('#cal-steps .cal-arrow').length + ' in the stepper');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

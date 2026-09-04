@@ -268,7 +268,10 @@
 .ns-do .qk-name{display:block;font:700 12.5px/1.35 var(--head);letter-spacing:.04em;
   text-transform:var(--caps);overflow-wrap:anywhere}
 .ns-do .qk.done .qk-name{color:var(--tx-2);text-decoration:line-through;text-decoration-color:var(--mu)}
-.ns-do .qk-sub{display:block;font:400 9.5px/1.4 var(--mono);color:var(--mu);letter-spacing:.06em;margin-top:5px}
+/* the second line reads in the card's own colour, the way a block tile's tag
+   does — it names the label the card came from, so it belongs to the box */
+.ns-do .qk-sub{display:block;font:400 9.5px/1.4 var(--mono);color:var(--bk-c,var(--mu));letter-spacing:.06em;margin-top:5px}
+.ns-do .qk.done .qk-sub{color:var(--mu)}
 .ns-do .qk-bar{height:2px;background:var(--bd);margin:0 calc(14px * var(--dens))}
 .ns-do .qk-bar-fill{height:100%;transition:width .25s ease}
 .ns-do .qk-list{padding:calc(6px * var(--dens)) calc(8px * var(--dens)) calc(8px * var(--dens))}

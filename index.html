@@ -68,14 +68,13 @@
     <rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 6V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/>
     <line x1="7" y1="11" x2="13" y2="11"/><line x1="7" y1="15" x2="11" y2="15"/>
   </symbol>
-  <!-- CAL is a day, not a month: the rail is the clock and the bars are the
-       blocks on it. PLAN already wears the month grid, and two calendar icons
-       in one bar would be two tabs nobody could tell apart. -->
+  <!-- DAY is a day, not a schedule: a sun over the horizon. The agenda mark it
+       replaced was three bars on a rail, which at 19px was three bars on a rail
+       — indistinguishable from PLAN's month grid at a glance, which is the only
+       size that matters here. -->
   <symbol id="tab-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="4" y1="4" x2="4" y2="20"/>
-    <rect x="8" y="4" width="12" height="4.5" rx="1.2"/>
-    <rect x="8" y="10.5" width="8" height="4.5" rx="1.2"/>
-    <rect x="8" y="17" width="10" height="3" rx="1.2"/>
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>
   </symbol>
   <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3.4"/>
@@ -983,8 +982,14 @@
       <div class="h-label">the day, as planned</div>
       <!-- the wordmark is DAY; the app's id stays `cal` everywhere it is an
            identity (the storage key, .ns-cal, Prefs.APPS, the settings panel).
-           A name is a label, an id is not — the same split plan.types keeps. -->
-      <div class="h-logo">DAY<em>.</em></div>
+           A name is a label, an id is not — the same split plan.types keeps.
+           The date shares the wordmark's row, so it carries a fixed height:
+           anything in the band that could grow past the wordmark makes this
+           band the odd one out and the title morph stumbles. -->
+      <div class="h-logo-row">
+        <div class="h-logo">DAY<em>.</em></div>
+        <div class="cal-band-date" id="cal-band-date"></div>
+      </div>
     </div>
     <div class="cnt">
       <div id="cal-body"></div>
@@ -1485,6 +1490,14 @@
         <input type="date" id="setStart" aria-label="plan start">
       </div>
       <div class="setRow">
+        <div class="sl">Tracking starts<s>ticks before this count as done, but not towards your pace</s></div>
+        <input type="date" id="setTrackFrom" aria-label="tracking start">
+      </div>
+      <div class="setRow">
+        <div class="sl">Starting point<s id="baseNote">—</s></div>
+        <button class="setting-btn" onclick="TRACK.baselineNow()">everything ticked is my start</button>
+      </div>
+      <div class="setRow">
         <div class="sl">Exam<s>CAP Électricien, mid-May</s></div>
         <input type="date" id="setExam" aria-label="exam date">
       </div>
@@ -1637,6 +1650,14 @@
 
 
 <!-- ═══ FLOATING CHROME ══════════════════════════════════════════════════════ -->
+<!-- DAY's day stepper. It sits here, a sibling of #views, and NOT inside the
+     slide, because it is position:fixed and nothing fixed may live inside
+     #track — a transformed ancestor becomes its containing block, and the
+     title morph and PLAN's FLIP both animate transforms in there. It carries
+     .ns-cal so cal.js's one delegated listener reaches it, and CSS shows it
+     only while DAY's slide is the current one. -->
+<div class="ns-cal cal-steps" id="cal-steps" aria-label="day stepper"></div>
+
 <!-- the left arrow doubles as the back button of whatever sub-screen is open
      (Shell sets .is-back); the second icon is the one shown then -->
 <button class="nav-arrow" id="nav-prev" aria-label="Previous tab">

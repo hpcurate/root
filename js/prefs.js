@@ -184,6 +184,7 @@ const SCHEMA = {
   accentGlow:   { kind:'bool',   def:false, attr:'data-glow' },
   monoNumbers:  { kind:'bool',   def:true,  attr:'data-tnum' },
   colorfulTabs: { kind:'bool',   def:false, attr:'data-color-tabs' },
+  chromeBlur:   { kind:'bool',   def:true,  attr:'data-chrome-blur' },
 
   // navigation — which apps have a tab, and in what order
   apps:         { kind:'list',   def:APPS.slice() },
@@ -434,6 +435,7 @@ function apply() {
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
+  root.setAttribute('data-chrome-blur', prefs.chromeBlur   ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.style.colorScheme = info.mode;
 

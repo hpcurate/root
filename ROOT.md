@@ -434,9 +434,17 @@ both say so, and a new device needs the `.apkg` imported again.
   orphaned items to it when an aisle is deleted.
 - **`plan.types[].key` is an identity, not a label.** `plan_mappings` is filed
   under it, so the editor preserves it across a rename.
-- **LOG's field names are frozen.** `meds_lam`, `meds_rit`, `cur_mix`, `cur_prod`,
-  `cur_cont` and the two caffeine counters are fixed slots with *editable labels*.
-  Renaming the label changes what you see; the record and the `.md` are untouched.
+- **LOG's field names are frozen.** `cur_mix`, `cur_prod`, `cur_cont` and the two
+  caffeine counters are fixed slots with *editable labels*. Renaming the label
+  changes what you see; the record and the `.md` are untouched.
+- **The medication slots are `log.meds`'s keys, and the keys are the contract.**
+  The record writes `meds_<key>` and the `.md` exports one row per key, in the
+  order Config holds them. A key is never renamed and never removed; a label is
+  free. **Adding one is additive** — a note written before it simply has no row
+  for it, the parser looks rows up by name, and `medsOf()` reads a missing slot
+  as false. `m3` was added that way in 2.21. Nothing may go back to naming
+  `lam` and `rit` by hand: the form, the export, the parser, the history pills
+  and both reports all walk `medKeys()`.
 - **The `.md` block table has a floor of six columns.** Lowering the block cap
   keeps the table identical (extra cells come out empty, as they always did on a
   light day); only deliberately raising it past six widens the table. The parser
@@ -701,6 +709,13 @@ both say so, and a new device needs the `.apkg` imported again.
   button, and `paintNav()` deliberately only ever touches the settings button's.
   An app opened transiently from settings wears its icon on the settings button,
   where the alert does not follow it.
+- **The alert is LOG's, but the "!" is not always LOG's.** Since 2.21 an
+  unwritten morning or evening flags **LOG** and an unplanned tomorrow flags
+  **PLAN** — a "!" on LOG that means "go and use the other app" pointed at the
+  wrong door. LOG still owns all three rules, the hours, the preview and the
+  only calls to `Shell.alert`; `alertReasons()` returns every rule that is
+  firing (they are independent now) and `alertReason()` is the first of them,
+  which is what the settings line reports.
 - **LOG's alert is derived on a tick, never stored.** `alertReason()` is
   recomputed from the real today's record, the clock and PLAN — so there is no
   state to go stale, and no "dismiss". The one thing that can make it lie is
@@ -749,6 +764,18 @@ both say so, and a new device needs the `.apkg` imported again.
   gives it. The rows the export left out are stored as `fixed` (a template
   event) or `idle` (a slot nobody claimed) and each can be switched off. A view
   built from the exported lines only would show a day with holes in it.
+- **DAY's stepper is the newest thing `position:fixed` inside `#track` would
+  have broken.** It is a sibling of `#views` with `.ns-cal` on it — so cal.js's
+  one delegated listener still reaches it — and CSS shows it only while
+  `#view-cal` carries `.cur`. Its arrows are therefore *not* inside the slide,
+  and `paintSteps()` finds it with `getElementById`, not the scoped `$id`.
+- **TRACK's pace counts from `trackFrom`, not from the first tick.** Ticks
+  dated before it are the progress you already had when you set the app up:
+  counted as done, kept out of the pace and drawn as the trend's starting
+  height rather than a cliff in week one. Null falls back to `startDate`, so an
+  install that never touches it behaves exactly as before, and `baselineNow()`
+  moves the date to *tomorrow* rather than rewriting any tick's date — which is
+  what makes it safe to press twice.
 - **CAL is written on success, never on the attempt.** `doExport()` builds the
   day *before* it clears the panel's state, but hands it over only after the
   Todoist task lands. A day drawn for an export that failed is a day that is
@@ -798,7 +825,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 388 checks covering boot, every theme and panel, the
+through DOM events: 411 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -976,15 +1003,22 @@ write them: the day has that shape whether or not Google is told about it.
 Each can be switched off — which is the one state where the drawing is empty
 and has to say *which dial did it* rather than "nothing planned".
 
-### Left, the day, right
+### The date up top, the arrows down below
 
-Stepping walks the days that **exist** — the planned ones plus today — not the
-calendar, so "next" never lands on a run of empty days to click through. An
-arrow with nowhere to go is dimmed and disabled *in place*: a control that
-disappears at the edge shifts the label beside it and the day jumps under your
-thumb. This replaced a horizontal strip of day chips, which as a sideways
-scroller inside `#track` needed its own `touch-action` to work under a finger
-at all; two buttons and a label need none of that.
+The day's name sits in the **title band**, beside the wordmark, where every
+other app puts its date — at a declared 32px height, because anything sharing
+the wordmark's row that could grow past it makes this band the odd one out and
+the title morph stumble.
+
+The **stepper** is a fixed pill just above the nav, sharing the nav's chrome
+treatment and hiding with it. Being fixed, it is a sibling of `#views` and not
+part of the slide (§3, §6). Stepping walks the days that **exist** — the
+planned ones plus today — not the calendar, so "next" never lands on a run of
+empty days to click through. An arrow with nowhere to go is dimmed and disabled
+*in place*: a control that disappears at the edge moves the one beside it.
+
+Both replaced a horizontal strip of day chips, which as a sideways scroller
+inside `#track` needed its own `touch-action` to work under a finger at all.
 
 ### Lower case, deliberately
 
@@ -1008,6 +1042,74 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.21 — 2026-09-04 — twelve fixes, three of which were not fixes
+
+The first release driven by looking at the thing on a real screen rather than
+by the harness, and it shows: half of this is gaps, colours and a button that
+belonged to another app.
+
+**TRACK counts from the day you start, not from the day you set it up.**
+Ticking off what you had already done made the first week read as a sprint and
+the projected finish read as a fantasy. `trackFrom` splits the two: ticks
+before it are *banked* — still done, still on the count, drawn as the trend's
+starting height — and only what comes after moves the pace. "Everything ticked
+is my start" moves the date to tomorrow rather than rewriting any tick's date,
+which is what makes it safe to press twice and what keeps the record of when
+each topic was actually finished.
+
+**The "!" moved to the tab it is about.** LOG's three rules were all flagging
+LOG, including the one that means "nothing is planned for tomorrow" — a
+signpost pointing at the wrong door. That one flags **PLAN** now. LOG still
+owns all three, and `alertReasons()` returns every rule that is firing, because
+they are independent once they are not sharing a tab. And an alerting tab wears
+a **filled pill** the way the active tab does: a thin "!" in a bar of thin
+marks read as just another icon.
+
+**A third medication slot — and the last time that will need code.** The two
+were named by hand in a dozen places: the form, the record, the export, the
+parser, the history pills and both reports. They are `log.meds`'s keys now and
+everything walks them. The keys stay the contract (`meds_<key>`, one `.md` row
+each, in Config's order); adding one is additive, so a note written yesterday
+has no row for it and reads exactly as it always did.
+
+**A setting for the blur behind the bar.** It is the most expensive thing the
+chrome does, and on a tired phone it is what makes the bar smear as the page
+moves.
+
+**DAY, seen properly for the first time.** The date moved into the title band
+beside the wordmark, at a declared height so it cannot grow the band. The
+arrows moved out of the slide entirely and became a fixed pill above the nav —
+which they had to, since nothing `position:fixed` may live inside `#track`; the
+stepper is a sibling of `#views` carrying `.ns-cal` so the one delegated
+listener still reaches it. The tab icon became a sun: the agenda mark it
+replaced was three bars on a rail, which at 19px is indistinguishable from
+PLAN's month grid, and 19px is the only size that matters. And the empty day's
+"open plan" is one of DAY's own controls rather than a form button stretched
+across a card.
+
+**The rest.** PLAN's border fade now finishes at 42% of the move — the border
+is the thing you notice last, so it has to finish first for the gesture to read
+as fluid. A quick card's second line takes the card's colour, like a block
+tile's tag. A status box has a gap above it as well as below. The content
+editors carry their own top gap, so they never butt onto a danger button again.
+
+**Verified** — `test/harness.mjs`, 411 checks, all green, 23 new. Banking the
+ticks and the pace refusing to count them; the panel saying how much is banked.
+The plan rule flagging PLAN while LOG stays clear, the preview moving it, and
+planning one block clearing it. Three med buttons drawn from Config, `meds_m3`
+in the record, and the note writing one row per slot in Config's order, each
+matching the record. The blur attribute going off and back on. The stepper
+being a sibling of `#views` and shown only on DAY's slide, its two arrows not
+in the scrolling day, and the empty day offering `.ce-go` rather than a `.btn`.
+The sun icon carrying a circle and no rects. The fade's duration under 300ms
+against a 680ms move. And the four appearance rules asserted in the sheets that
+hold them.
+
+**Still not verified by me**: how it looks. The Chrome extension is still not
+connected, so every appearance fix here is verified as *specified*. The
+difference this time is that the specification came from your screenshots
+rather than from my guess.
 
 ### 2.20.1 — 2026-09-04 — a task over several hours, a day you step through, and a transition that stops zooming
 

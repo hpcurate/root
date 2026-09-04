@@ -165,22 +165,34 @@ function visibleEvents(rec) {
    click through. An arrow with nowhere to go is darkened and disabled rather
    than removed: a control that vanishes at the edge moves the ones beside it,
    and the day would jump under your thumb. */
-function navHTML() {
+function stepsHTML() {
   const days = strip(), i = days.indexOf(sel);
   const prev = i > 0 ? days[i - 1] : null;
   const next = i >= 0 && i < days.length - 1 ? days[i + 1] : null;
-  const rel = relLabel(sel);
   const arrow = (day, glyph, label) =>
     `<button class="cal-arrow${day ? '' : ' off'}" data-act="pick"${day ? ` data-day="${esc(day)}"` : ''}
              ${day ? '' : 'disabled aria-disabled="true"'} aria-label="${esc(label)}">${glyph}</button>`;
-  return `<div class="cal-nav">
-    ${arrow(prev, '←', 'previous day')}
-    <div class="cal-when">
-      <span class="cw-date">${esc(lower(Prefs.formatDate(sel)))}</span>
-      ${rel ? `<span class="cw-rel">${esc(rel)}</span>` : ''}
-    </div>
-    ${arrow(next, '→', 'next day')}
-  </div>`;
+  return arrow(prev, '←', 'previous day') +
+         `<span class="cal-steps-sep" aria-hidden="true"></span>` +
+         arrow(next, '→', 'next day');
+}
+
+/* The day's name lives in the title band, beside the wordmark — so the stepper
+   below carries no label and the date is where every other app puts its date. */
+function paintBand() {
+  const el = document.querySelector('#view-cal #cal-band-date');
+  if (!el) return;
+  const rel = relLabel(sel);
+  el.innerHTML = `<span class="cbd-date">${esc(lower(Prefs.formatDate(sel, 'short')))}</span>` +
+                 (rel ? `<span class="cbd-rel">${esc(rel)}</span>` : '');
+}
+
+/* The stepper is a sibling of #views, not part of the slide — it is fixed, and
+   nothing fixed may live inside #track. getElementById, not the scoped helper:
+   the element carries .ns-cal itself rather than sitting under it. */
+function paintSteps() {
+  const el = document.getElementById('cal-steps');
+  if (el) el.innerHTML = stepsHTML();
 }
 
 /* One row per event, its height the duration — so an hour looks like an hour
@@ -191,11 +203,14 @@ function dayHTML() {
   const rec = sel && DB.days[sel];
   if (!rec) {
     const today = Shell.today();
+    /* The action is one of this app's own controls, not a full-width form
+       button: the empty state is a card like every other card here, and a
+       `.btn` stretched across it read as a screen from a different app. */
     return `<div class="cal-empty card">
       <div class="ce-title">${sel === today ? 'nothing planned for today' : 'nothing planned for this day'}</div>
       <div class="ce-note">PLAN writes the day here when you export it — pick the sent tasks,
-        give each one a slot, and the calendar follows.</div>
-      <button class="btn btn-2" data-act="to-plan">open PLAN</button>
+        give each one a slot, and the day follows.</div>
+      <button class="ce-go" data-act="to-plan">open plan<span aria-hidden="true">→</span></button>
     </div>`;
   }
   const evs = visibleEvents(rec);
@@ -248,7 +263,9 @@ function render() {
   const box = $id('cal-body');
   if (!box) return;
   if (!sel || !strip().includes(sel)) sel = pickDefault();
-  box.innerHTML = navHTML() + dayHTML();
+  box.innerHTML = dayHTML();
+  paintBand();
+  paintSteps();
 }
 
 /* ── Settings ──────────────────────────────────────────────────────────────── */

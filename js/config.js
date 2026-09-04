@@ -96,7 +96,7 @@ const DEFAULTS = {
      exported .md table are a contract with the Obsidian side of this workflow,
      so they are deliberately NOT user-renameable. What IS editable is everything
      you see and count: which blocks exist and what colour they are, how many
-     meals a day has, what the two med slots and three curate counters are
+     meals a day has, what the med slots and three curate counters are
      called, the wording at the ends of each 1–5 scale, and which sections of the
      morning/evening forms appear at all. */
   log: {
@@ -112,8 +112,12 @@ const DEFAULTS = {
       { name: 'cooking',    color: '#5cdb7d' },
     ],
     maxBlocks: 6,
-    /* Exactly two slots, fixed keys, free labels. */
-    meds: { lam: 'lamotrigine', rit: 'ritalin' },
+    /* Fixed keys, free labels. The *keys* are the contract — the day record
+       writes `meds_<key>` and the .md exports a row per key — so a key is
+       never renamed and never removed; a label is yours to change. Adding one
+       is additive: older notes simply have no row for it, and the parser looks
+       rows up by name. `m3` arrived in 2.21. */
+    meds: { lam: 'lamotrigine', rit: 'ritalin', m3: 'medication' },
     mealCount: 4,
     mealLabel: 'meal',
     caffeine: { c: 'coffee', ed: 'energy drink' },

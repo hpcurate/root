@@ -94,6 +94,12 @@
   --chrome-rgb:14,14,14;
   --chrome-bg:rgba(var(--chrome-rgb), var(--chrome-alpha));
   --chrome-blur:saturate(140%) blur(18px);
+/* Settings → appearance → "blur behind the bar". Off is a real preference and
+   not only a taste one: the blur is the most expensive thing the chrome does,
+   and on a tired phone it is what makes the bar smear as the page moves. */
+}
+:root[data-chrome-blur="off"]{
+  --chrome-blur:none;
 
   /* ── Shell metrics ───────────────────────────────────────────────────── */
   --nav-fh:58px;

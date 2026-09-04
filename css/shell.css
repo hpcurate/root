@@ -192,8 +192,14 @@ body{
    button takes the warning colour — on the active tab the pill is already the
    accent, so there the "!" simply reads in the inverted colour like the icon
    it replaced */
-.tab-b.has-alert{color:var(--or)}
+/* An alerting tab wears a filled pill, the way the active tab does — the "!"
+   alone was a thin mark in a bar of thin marks and read as another icon. The
+   pill is the warning colour on an idle tab; on the active tab it is already
+   the accent, so only the glyph inverts. */
+.tab-b.has-alert{color:var(--on-y)}
+.tab-b.has-alert::before{transform:scale(1);opacity:1;background:var(--or)}
 .tab-b.on.has-alert{color:var(--on-y)}
+.tab-b.on.has-alert::before{background:var(--y)}
 /* on the active tab the count takes the icon's place: the pill is already the
    accent, so a badge on top of it only ever looked like a hole */
 .tab-b.on.has-badge svg{display:none}

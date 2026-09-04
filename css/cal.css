@@ -7,7 +7,9 @@
    theme system (see §4 of ROOT.md). The one deliberate literal is the block
    height, which comes from --cal-hour: it is a dial, not a shape. */
 
-.ns-cal .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+/* the stepper floats above the nav, so the day has to clear both of them */
+.ns-cal .scr{display:none;min-height:100%;
+  padding-bottom:calc(var(--scr-pad-b) + var(--nav-fh) * .8)}
 .ns-cal .scr.on{display:block}
 
 /* the band's box is shell.css's, shared by every app */
@@ -17,32 +19,52 @@
 
 .ns-cal .cnt{padding:0 calc(18px * var(--dens))}
 
-/* ── left, the day, right ─────────────────────────────────────────────────────
-   One row, and it does not scroll: the day strip it replaced was a horizontal
-   scroller inside #track, which needed its own touch-action to be usable under
-   a finger at all. Two buttons and a label need none of that.
+/* ── the date, beside the wordmark ───────────────────────────────────────────
+   It shares the wordmark's row, so it declares a height rather than growing
+   one out of its padding: a band that is taller than the other eight makes the
+   title morph stumble, which is exactly what the shared band rule exists to
+   prevent. Right-aligned, and vertically centred against the wordmark. */
+.ns-cal .h-logo-row{display:flex;align-items:center;justify-content:space-between;
+  gap:calc(14px * var(--dens))}
+.ns-cal .cal-band-date{flex:0 0 auto;height:32px;min-width:0;
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px}
+/* DAY reads lower case throughout: these opt out of the caps switch by name —
+   the one deliberate exception to the "always var(--caps)" rule, written down
+   in ROOT.md §9 so it reads as a choice rather than a miss. */
+.ns-cal .cbd-date{font:700 11.5px/1 var(--mono);letter-spacing:.06em;color:var(--tx);
+  text-transform:none;white-space:nowrap}
+.ns-cal .cbd-rel{font:400 8px/1 var(--mono);letter-spacing:1.4px;color:var(--y);
+  text-transform:none;white-space:nowrap}
 
-   An arrow with nowhere to go is dimmed in place, never removed — a control
-   that disappears at the edge shifts the label beside it. */
-.ns-cal .cal-nav{display:flex;align-items:center;justify-content:space-between;
-  gap:calc(10px * var(--dens));padding:calc(4px * var(--dens)) 0 calc(12px * var(--dens))}
-.ns-cal .cal-arrow{flex:0 0 auto;width:36px;height:36px;background:var(--s1);
-  border:var(--bw) solid var(--bd);border-radius:var(--r3);color:var(--tx);
+/* ── the day stepper, above the bar ──────────────────────────────────────────
+   Fixed, and therefore a sibling of #views rather than part of the slide —
+   nothing position:fixed may live inside #track (§3). It rides just above the
+   nav, shares the nav's chrome treatment, and follows it out of the way when
+   the chrome hides.
+
+   An arrow with nowhere to go is dimmed in place, never removed: a control
+   that disappears at the edge moves the one beside it. */
+.cal-steps{
+  display:none;position:fixed;z-index:59;
+  left:50%;transform:translateX(-50%);
+  bottom:calc(max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + var(--nav-fh) + 8px);
+  align-items:center;gap:calc(4px * var(--dens));padding:4px;
+  background:var(--chrome-bg);
+  -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
+  border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  box-shadow:var(--shadow-chrome);
+  transition:opacity .26s ease, transform .26s ease}
+body:has(#view-cal.cur) .cal-steps{display:flex}
+body:has(#nav.chrome-off) .cal-steps{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
+
+.cal-steps .cal-arrow{flex:0 0 auto;width:38px;height:32px;background:none;
+  border:none;border-radius:var(--r-pill);color:var(--tx);
   font:400 15px/1 var(--mono);cursor:pointer;
-  transition:border-color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
-.ns-cal .cal-arrow:active{background:var(--y-fade);border-color:var(--y)}
-.ns-cal .cal-arrow.off{opacity:.3;cursor:default;color:var(--bd-2)}
-.ns-cal .cal-arrow.off:active{background:var(--s1);border-color:var(--bd)}
-
-/* CAL reads lower case throughout, so these three opt out of the caps switch
-   by name rather than inheriting it — the one deliberate exception to the
-   "always var(--caps)" rule, and the reason it is written down here. */
-.ns-cal .cal-when{flex:1 1 auto;min-width:0;text-align:center}
-.ns-cal .cw-date{display:block;font:800 17px/1.2 var(--head);color:var(--tx);
-  letter-spacing:-.01em;text-transform:none;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ns-cal .cw-rel{display:block;font:400 8.5px/1 var(--mono);letter-spacing:1.6px;
-  color:var(--y);text-transform:none;margin-top:4px}
+  transition:color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
+.cal-steps .cal-arrow:active{background:var(--y-fade);color:var(--y)}
+.cal-steps .cal-arrow.off{opacity:.28;cursor:default;color:var(--bd-2)}
+.cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}
+.cal-steps .cal-steps-sep{width:var(--bw);height:16px;background:var(--bd);flex:0 0 auto}
 
 /* ── the day's head ── */
 .ns-cal .cal-head{margin:0 0 calc(12px * var(--dens))}
@@ -102,6 +124,14 @@
 .ns-cal .ce-title{font:800 15px/1.3 var(--head);color:var(--tx)}
 .ns-cal .ce-note{font:400 11px/1.6 var(--mono);color:var(--tx-2);
   margin:calc(9px * var(--dens)) auto calc(16px * var(--dens));max-width:34em}
+/* the app's own control, not a form button: a full-width .btn stretched across
+   a card read as a screen borrowed from somewhere else */
+.ns-cal .ce-go{display:inline-flex;align-items:center;gap:calc(8px * var(--dens));
+  background:var(--y-fade);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
+  color:var(--y);font:700 10px/1 var(--mono);letter-spacing:.12em;text-transform:none;
+  padding:calc(10px * var(--dens)) calc(16px * var(--dens));cursor:pointer;
+  transition:background var(--dur-1)}
+.ns-cal .ce-go:active{background:color-mix(in srgb,var(--y) 24%,transparent)}
 
 /* ── the settings panel (reached through .ns-cal on that panel) ── */
 .ns-cal .settings-status{font:400 10px/1.4 var(--mono);letter-spacing:.6px;

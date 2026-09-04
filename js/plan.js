@@ -309,9 +309,13 @@ function flip(before) {
     if (resized) {
       let bd = '', bg = '';
       try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
+      /* The fade runs at under half the move's length and is out of the way
+         early. Matching the move made the box look like it was still settling
+         after it had stopped — the border is the thing you notice last, so it
+         has to finish first for the whole gesture to read as fluid. */
       el.animate([{ borderColor:a.bd || 'transparent', backgroundColor:a.bg || 'transparent' },
                   { borderColor:bd || 'transparent',   backgroundColor:bg || 'transparent' }],
-        { duration:ms, easing:FLIP_EASE });
+        { duration:Math.max(90, Math.round(ms * .42)), easing:'ease-out' });
     }
   });
 }

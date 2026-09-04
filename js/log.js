@@ -76,16 +76,26 @@ function weekMonday(iso) {
 // ── Storage ───────────────────────────────────────────────────────────────────
 const SK = () => 'log_' + TODAY;
 
+/* One `meds_<key>` per configured slot, all false. A function declaration and
+   a guard on purpose: fresh() can run while the module is still initialising,
+   before medsCfg() below exists. */
+function medFields() {
+  const out = {};
+  try { medKeys().forEach(k => { out['meds_' + k] = false; }); }
+  catch { out.meds_lam = false; out.meds_rit = false; }
+  return out;
+}
+
 function fresh() {
   return {
     date: TODAY,
     scale: 5,          // ratings are 1–5; older days are stamped by migrateScales()
     m: { wt:'', sl:'', nrg:'', mood:'', cs_on:null, cs:'', wkg:'', km:'', wo:'', tkg:'', tmin:'' },
-    e: { kme:'', nrg:'', mood:'', stress:'', meds_lam:false, meds_rit:false, meals:[],
+    e: Object.assign(medFields(), { kme:'', nrg:'', mood:'', stress:'', meals:[],
          caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[],
          /* what was finished on DO's media tab: { name, kind, sub } — a title,
             its label (movie / show / podcast / music) and the second label if any */
-         media:[] },
+         media:[] }),
     entries: []
   };
 }
@@ -94,12 +104,26 @@ const mediaOf = (e = {}) => Array.isArray(e.media) ? e.media : [];
 /* Readers that understand both the old and new shapes, so days logged before
    this change still render, export and report correctly.
    Old: e.meds = 'yes'|'no' (both drugs at once), e.bmix = mixing blocks. */
+/* The slots are Config's, read through the shipped record so an override
+   written before a slot existed still shows it — the same merge plan.formFields
+   uses, and safe for the same reason: a fixed set of keys with no deletion to
+   express. */
+const medsCfg = () => Object.assign({}, Config.defaults('log.meds'), Config.get('log.meds') || {});
+const medKeys = () => Object.keys(medsCfg());
 function medsOf(e = {}) {
-  if (e.meds_lam !== undefined || e.meds_rit !== undefined) {
-    return { lam: !!e.meds_lam, rit: !!e.meds_rit };
+  const keys = medKeys();
+  const any = keys.some(k => e['meds_' + k] !== undefined);
+  if (any) {
+    const out = {};
+    keys.forEach(k => { out[k] = !!e['meds_' + k]; });
+    return out;
   }
+  // Old: e.meds = 'yes'|'no', both drugs at once. A slot added since is not
+  // something that day can answer for, so it stays false.
   const legacy = e.meds === 'yes';
-  return { lam: legacy, rit: legacy };
+  const out = {};
+  keys.forEach(k => { out[k] = (k === 'lam' || k === 'rit') ? legacy : false; });
+  return out;
 }
 function mealsOf(e = {}) { return Array.isArray(e.meals) ? e.meals : []; }
 function curOf(e = {}) {
@@ -165,8 +189,7 @@ function initData() {
     if (data.m.cs_on === undefined)          data.m.cs_on  = null;
     // fold the legacy shapes forward once, on read
     const meds = medsOf(data.e);
-    data.e.meds_lam = meds.lam;
-    data.e.meds_rit = meds.rit;
+    Object.keys(meds).forEach(k => { data.e['meds_' + k] = meds[k]; });
     const cur = curOf(data.e);
     data.e.cur_mix = cur.mix; data.e.cur_prod = cur.prod; data.e.cur_cont = cur.cont;
   } catch { data = fresh(); }
@@ -210,8 +233,9 @@ function morningLogged(d) {
 }
 function eveningLogged(d) {
   const e = d?.e;
-  return !!e && (['kme','nrg','mood','stress','meds_lam','meds_rit','meals','blocks',
+  return !!e && (['kme','nrg','mood','stress','meals','blocks',
                   'caf_c','caf_ed','cur_mix','cur_prod','cur_cont','bmix'].some(k => has(e[k])) ||
+                 medKeys().some(k => has(e['meds_' + k])) ||
                  e.meds === 'yes');
 }
 /* What a day needs before it extends the streak — Settings → content. */
@@ -284,24 +308,45 @@ function plannedBlocks(iso) {
 
 /* Which rule is firing, or null. The real today, always: the alert is about
    now, not about whichever day the history is being read on. */
-function alertReason() {
-  if (alertTest) return alertTest;
+/* Every rule that is firing, not just the first: the three no longer share one
+   tab, so they can no longer share one answer. `alertReason()` is still the
+   first of them, which is what the settings line reports. */
+function alertReasons() {
+  if (alertTest) return [alertTest];
   const a = alertCfg();
-  if (a.on === false) return null;
+  if (a.on === false) return [];
   const now = nowMin(), rec = readDay(REAL_TODAY);
   const m = hourOf(a.morning), e = hourOf(a.evening), p = hourOf(a.plan);
-  if (m !== null && now >= m && !morningLogged(rec)) return 'morning';
-  if (e !== null && now >= e && !eveningLogged(rec)) return 'evening';
-  if (p !== null && now >= p && !plannedBlocks(dateOffset(REAL_TODAY, 1))) return 'plan';
-  return null;
+  const out = [];
+  if (m !== null && now >= m && !morningLogged(rec)) out.push('morning');
+  if (e !== null && now >= e && !eveningLogged(rec)) out.push('evening');
+  if (p !== null && now >= p && !plannedBlocks(dateOffset(REAL_TODAY, 1))) out.push('plan');
+  return out;
 }
+function alertReason() { return alertReasons()[0] || null; }
+
 const ALERT_SAYS = { morning: 'morning log not written', evening: 'evening log not written',
                      plan: 'nothing planned for tomorrow' };
+/* ── Which tab wears which flag ───────────────────────────────────────────────
+   An unwritten morning or evening is LOG's business and flags LOG. **An
+   unplanned tomorrow is PLAN's**, and flags PLAN — it was on LOG only because
+   LOG happens to own the rule, and a "!" on the log tab that means "go and use
+   the other app" is a signpost pointing at the wrong door.
+
+   LOG still owns all three: it holds the hours, the preview and the settings,
+   and it is the only caller of Shell.alert for either tab. The two are
+   independent now — a morning can be unwritten while tomorrow is planned, and
+   both tabs answer for themselves. */
 function refreshAlert() {
-  const why = alertReason();
-  if (window.Shell && Shell.alert) Shell.alert('log', !!why, why ? ALERT_SAYS[why] : '');
+  const all = alertReasons();
+  const logWhy  = all.find(r => r === 'morning' || r === 'evening') || null;
+  const planWhy = all.includes('plan') ? 'plan' : null;
+  if (window.Shell && Shell.alert) {
+    Shell.alert('log',  !!logWhy,  logWhy  ? ALERT_SAYS[logWhy]  : '');
+    Shell.alert('plan', !!planWhy, planWhy ? ALERT_SAYS[planWhy] : '');
+  }
   renderAlertSettings();
-  return why;
+  return alertReason();
 }
 
 /* ── Settings ── */
@@ -367,16 +412,18 @@ function scSet(id, val) {
 
 // ── Meds: selected = taken, unselected = not taken ────────────────────────────
 function toggleMed(which) {
+  if (!medKeys().includes(which)) return;
   dirty = true;
-  const k = which === 'lam' ? 'meds_lam' : 'meds_rit';
-  data.e[k] = !data.e[k];
+  data.e['meds_' + which] = !data.e['meds_' + which];
   syncMedsUI();
 }
 function syncMedsUI() {
-  [['lam','meds_lam'], ['rit','meds_rit']].forEach(([id, k]) => {
+  medKeys().map(id => [id, 'meds_' + id]).forEach(([id, k]) => {
     const on = !!data.e[k];
-    $id('med-' + id).classList.toggle('on', on);
-    $id('med-' + id + '-s').textContent = on ? 'yes' : 'no';
+    // a slot added since the form was last drawn has no button yet
+    const btn = $id('med-' + id), st = $id('med-' + id + '-s');
+    if (btn) btn.classList.toggle('on', on);
+    if (st) st.textContent = on ? 'yes' : 'no';
   });
 }
 
@@ -570,7 +617,7 @@ function attrEsc(s) { return esc(s ?? '').replace(/"/g, '&quot;'); }
 function renderForms() {
   const cfg = {
     blocks: Config.get('log.blocks'),
-    meds:   Config.get('log.meds'),
+    meds:   medsCfg(),
     // the editor's number field can be emptied mid-edit; never draw zero meals
     meals:  Math.max(1, Math.min(12, parseInt(Config.get('log.mealCount'), 10) || 4)),
     mealLabel: Config.get('log.mealLabel'),
@@ -585,12 +632,12 @@ function renderForms() {
   if (wo) wo.innerHTML = cfg.workouts.map(w =>
     `<button class="wo4-b" onclick="LOG.setWo(this,'${attr(w)}')">${esc(w)}</button>`).join('');
 
-  // meds — two fixed slots, free labels
+  // meds — fixed keys, free labels, as many as Config holds
   const medG = $id('med-g');
-  if (medG) medG.innerHTML = ['lam','rit'].map(k =>
-    `<button class="med-b ${k}" id="med-${k}" onclick="LOG.toggleMed('${k}')">
+  if (medG) medG.innerHTML = Object.keys(cfg.meds).map(k =>
+    `<button class="med-b ${esc(k)}" id="med-${esc(k)}" onclick="LOG.toggleMed('${attr(k)}')">
        <span class="med-name">${esc(cfg.meds[k])}</span>
-       <span class="med-state" id="med-${k}-s">no</span>
+       <span class="med-state" id="med-${esc(k)}-s">no</span>
      </button>`).join('');
 
   // meals — count is a setting
@@ -798,8 +845,7 @@ ${ents}
 | nrg_evening   | ${e.nrg||''} |
 | mood_evening  | ${e.mood||''} |
 | stress        | ${e.stress||''} |
-| meds_lam      | ${meds.lam?'yes':'no'} |
-| meds_rit      | ${meds.rit?'yes':'no'} |
+${Object.keys(meds).map(k => `| ${('meds_' + k).padEnd(13)} | ${meds[k]?'yes':'no'} |`).join('\n')}
 | meals         | ${mealsCell} |
 | meals_count   | ${meals.length} |
 | caffeine      | ${caf} |
@@ -1024,8 +1070,8 @@ function renderHistory() {
         </div>
       </div>
       <div class="hist-row">
-        <span class="hist-pill ${meds.lam?'y':''}">lam: ${meds.lam?'yes':'no'}</span>
-        <span class="hist-pill ${meds.rit?'y':''}">rit: ${meds.rit?'yes':'no'}</span>
+        ${Object.keys(meds).map(k =>
+          `<span class="hist-pill ${meds[k]?'y':''}">${esc(k)}: ${meds[k]?'yes':'no'}</span>`).join('')}
         <span class="hist-pill ${meals.length?'y':''}">${meals.length} meals</span>
         <span class="hist-pill">${m.wo||'—'}</span>
         <span class="hist-pill">${kmTot}</span>
@@ -1088,14 +1134,18 @@ function parseDayContent(date, content) {
   d.e.mood   = tableVal('mood_evening',  content);
   d.e.stress = tableVal('stress',        content);
 
-  // Meds: new per-drug rows, falling back to the old combined "meds" row
-  const lamRaw = tableVal('meds_lam', content), ritRaw = tableVal('meds_rit', content);
-  if (lamRaw !== '' || ritRaw !== '') {
-    d.e.meds_lam = lamRaw === 'yes';
-    d.e.meds_rit = ritRaw === 'yes';
+  /* Meds: one row per slot, falling back to the old combined "meds" row. A
+     note written before a slot existed simply has no row for it — the parser
+     looks rows up by name, so an added slot is additive and older notes read
+     exactly as they did. */
+  const keys = medKeys();
+  const raw = {};
+  keys.forEach(k => { raw[k] = tableVal('meds_' + k, content); });
+  if (keys.some(k => raw[k] !== '')) {
+    keys.forEach(k => { d.e['meds_' + k] = raw[k] === 'yes'; });
   } else {
     const legacy = tableVal('meds', content) === 'yes';
-    d.e.meds_lam = legacy; d.e.meds_rit = legacy;
+    keys.forEach(k => { d.e['meds_' + k] = (k === 'lam' || k === 'rit') ? legacy : false; });
   }
 
   // Meals: "1,2,3" or "-"
@@ -1371,8 +1421,9 @@ function buildWeeklyReport(days, getDay) {
   const weights=dd.map(d=>d.m?.wkg||null), sleeps=dd.map(d=>d.m?.sl||null);
   const allKm=dd.map(d=>{const m=d.m||{},e=d.e||{};return(m.km||e.kme)?((parseFloat(m.km)||0)+(parseFloat(e.kme)||0)):null;});
   const totalKm=allKm.filter(Boolean).reduce((a,b)=>a+b,0).toFixed(1);
-  const lamDays=dd.filter(d=>medsOf(d.e).lam).length;
-  const ritDays=dd.filter(d=>medsOf(d.e).rit).length;
+  // one tally per configured slot, so a slot added later reports itself
+  const medLbl=medsCfg(); const medDays={};
+  Object.keys(medLbl).forEach(k=>{medDays[k]=dd.filter(d=>medsOf(d.e)[k]).length;});
   const loggedE=dd.filter(d=>d.e?.kme).length;
   const totalMeals=dd.reduce((a,d)=>a+mealsOf(d.e).length,0);
   const csDays=dd.filter(d=>d.m?.cs_on===true).length;
@@ -1416,8 +1467,7 @@ ${days.map((d,i)=>dayRow(dd[i],i)).join('\n')}
 
 | metric | result |
 | --- | --- |
-| lamotrigine | ${lamDays} / 7 |
-| ritalin | ${ritDays} / 7 |
+${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / 7 |`).join('\n')}
 | meals | ${totalMeals} total · ${loggedE?(totalMeals/loggedE).toFixed(1):'—'} / day |
 | cold showers | ${csDays} / 7 |
 | avg sleep | ${avg(sleeps)||'—'} h |
@@ -1477,8 +1527,9 @@ function buildMonthlyReport(days, getDay) {
   const sleeps=dd.map(d=>d.m?.sl||null).filter(Boolean);
   const allKm=dd.map(d=>{const m=d.m||{},e=d.e||{};return(m.km||e.kme)?((parseFloat(m.km)||0)+(parseFloat(e.kme)||0)):null;}).filter(Boolean);
   const totalKm=allKm.reduce((a,b)=>a+b,0).toFixed(1);
-  const lamDays=dd.filter(d=>medsOf(d.e).lam).length;
-  const ritDays=dd.filter(d=>medsOf(d.e).rit).length;
+  // one tally per configured slot, so a slot added later reports itself
+  const medLbl=medsCfg(); const medDays={};
+  Object.keys(medLbl).forEach(k=>{medDays[k]=dd.filter(d=>medsOf(d.e)[k]).length;});
   const loggedDays=dd.filter(d=>d.m?.wt||d.e?.kme).length;
   const loggedE=dd.filter(d=>d.e?.kme).length;
   const totalMeals=dd.reduce((a,d)=>a+mealsOf(d.e).length,0);
@@ -1506,7 +1557,7 @@ function buildMonthlyReport(days, getDay) {
     const wMood=avg(wdd.map(d=>d.m?.mood||null).filter(Boolean));
     const wStress=avg(wdd.map(d=>d.e?.stress||null).filter(Boolean));
     const wKm=wdd.map(d=>{const m=d.m||{},e=d.e||{};return(m.km||e.kme)?((parseFloat(m.km)||0)+(parseFloat(e.kme)||0)):0;}).reduce((a,b)=>a+b,0).toFixed(1);
-    const wMeds=wdd.filter(d=>{const md=medsOf(d.e);return md.lam&&md.rit;}).length;
+    const wMeds=wdd.filter(d=>{const md=medsOf(d.e);return Object.keys(medLbl).every(k=>md[k]);}).length;
     const wCur=wdd.reduce((a,d)=>a+curTotal(d.e),0);
     return `| wk ${String(wk).padStart(2,'0')} | ${wNrg||'—'} | ${wMood||'—'} | ${wStress||'—'} | ${wKm} | ${wMeds}/${wdays.length} | ${wCur} |`;
   }).join('\n');
@@ -1521,15 +1572,14 @@ function buildMonthlyReport(days, getDay) {
 | week | avg nrg | avg mood | avg stress | km | meds | curate |
 | ---- | ------- | -------- | ---------- | -- | ---- | ------ |
 ${weekRows}
-| **month** | ${avg(nrgs)||'—'} | ${avg(moods)||'—'} | ${avg(stresses)||'—'} | ${totalKm} | ${Math.min(lamDays,ritDays)}/${loggedDays} | ${curMix+curProd+curCont} |
+| **month** | ${avg(nrgs)||'—'} | ${avg(moods)||'—'} | ${avg(stresses)||'—'} | ${totalKm} | ${Math.min.apply(null,Object.keys(medLbl).map(k=>medDays[k]))}/${loggedDays} | ${curMix+curProd+curCont} |
 
 ## habits
 
 | metric | result |
 | --- | --- |
 | days logged | ${loggedDays} / ${daysInMonth} |
-| lamotrigine | ${lamDays} / ${loggedDays} |
-| ritalin | ${ritDays} / ${loggedDays} |
+${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / ${loggedDays} |`).join('\n')}
 | meals | ${totalMeals} total · ${loggedE?(totalMeals/loggedE).toFixed(1):'—'} / day |
 | cold showers | ${csDays} / ${loggedDays} |
 | avg sleep | ${avg(sleeps)||'—'} h |
