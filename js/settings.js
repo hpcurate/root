@@ -56,7 +56,7 @@ const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queu
    storage report. The shell never writes to another app's keys. LEARN's decks
    are in IndexedDB, not here; renderStorage() asks the module for them. */
 const GROUPS = [
-  { name:'DO',    color:'#A78BFA', match:k => k.startsWith('do_') || k.startsWith('travel_state_') },
+  { name:'DO',    color:'#A78BFA', match:k => k.startsWith('do_') || k === 'do-stats-v1' || k.startsWith('travel_state_') },
   { name:'LOG',   color:'#5cdb7d', match:k => k.startsWith('log_') || k === 'log-scale-v2' },
   { name:'PLAN',  color:'#5e8cff', match:k => k.startsWith('plan_') },
   { name:'STORE', color:'#e8a33d', match:k => k === 'store_state_v1' || k === 'eat_state_v1' },
@@ -202,12 +202,19 @@ function themeCards(group) {
     </button>`).join('');
 }
 
-function renderLook() {
+/* The three generated panels are built as strings and assigned separately, so
+   search can render one into a detached node and read the real labels off the
+   real controls rather than off a second list that would go stale. */
+function renderLook()   { $id('panel-look').innerHTML   = lookHTML(); }
+function renderLayout() { $id('panel-layout').innerHTML = layoutHTML(); }
+function renderBehave() { $id('panel-behave').innerHTML = behaveHTML(); }
+
+function lookHTML() {
   const mode = Prefs.get('themeMode');
   const acc  = Prefs.get('accent');
   const custom = Prefs.normHex(Prefs.get('accentCustom'));
 
-  $id('panel-look').innerHTML = previewHTML() + `
+  return previewHTML() + `
 
     ${sectionHead('Theme')}
     <div class="opt-set">
@@ -278,11 +285,12 @@ function renderLook() {
 }
 
 
+
 /* ══ LAYOUT ═══════════════════════════════════════════════════════════════════ */
 
-function renderLayout() {
+function layoutHTML() {
   const pct = v => Math.round(v * 100) + '%';
-  $id('panel-layout').innerHTML = previewHTML() + `
+  return previewHTML() + `
 
     ${sectionHead('Shape')}
     ${slider('radius', 'Corner radius')}
@@ -378,8 +386,8 @@ function appsList() {
 
 /* ══ BEHAVE ═══════════════════════════════════════════════════════════════════ */
 
-function renderBehave() {
-  $id('panel-behave').innerHTML = `
+function behaveHTML() {
+  return `
     ${sectionHead('Opening')}
     ${chips('startTab', [
       { v:'last', l:'where I left off' },
@@ -390,7 +398,7 @@ function renderBehave() {
     ${sectionHead('Gestures')}
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
-    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to open settings')}
+    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search')}
     ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
 
@@ -738,6 +746,37 @@ const EDITORS = {
     read() {},
   },
 
+  /* ── PLAN · queue presets ──────────────────────────────────────────────── */
+  'plan.presets': {
+    title: 'Queue presets',
+    note: 'A queue saved under a name on PLAN, refilled with one tap. Rename or remove one here; they are made over there, from a queue that is already built.',
+    render() {
+      const list = Config.get('plan.presets') || [];
+      if (!list.length) return `<div class="set-note">None saved yet. Build a queue on PLAN and tap “save as preset”.</div>`;
+      return list.map((p, i) => `
+        <div class="ed-card" data-key="${i}">
+          <div class="ed-head">
+            <input type="text" data-field="label" value="${esc(p.label)}" placeholder="preset" aria-label="preset name">
+            <span class="ed-badge">${(p.tasks || []).length} tasks</span>
+            <button class="ed-del" data-del="${i}" aria-label="delete preset">×</button>
+          </div>
+          <div class="ed-hint">${esc((p.tasks || []).map(t => t.name).join(' · ')) || '—'}</div>
+        </div>`).join('');
+    },
+    read(box) {
+      const prev = Config.get('plan.presets') || [];
+      const out = [];
+      box.querySelectorAll('.ed-card').forEach(card => {
+        const p = prev[+card.dataset.key];
+        if (!p) return;
+        // the key is the identity the queue chips are addressed by: never rewritten
+        out.push(Object.assign({}, p, { label: card.querySelector('[data-field=label]').value.trim() || p.label }));
+      });
+      if (out.length) Config.set('plan.presets', out);
+    },
+    del(idx) { Config.set('plan.presets', (Config.get('plan.presets') || []).filter((_, i) => i !== +idx)); },
+  },
+
   /* ── PLAN · calendars ──────────────────────────────────────────────────── */
   'plan.calendars': {
     title: 'Calendars',
@@ -1008,7 +1047,7 @@ const EDITORS = {
 };
 
 const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
-                      'plan.types','plan.chips','plan.formFields','plan.calendars','plan.dayTemplates',
+                      'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings'];
 
@@ -1229,6 +1268,98 @@ async function importLook() {
 }
 
 
+/* ══ The search index ═════════════════════════════════════════════════════════
+   Every control search can jump to, read off the controls themselves rather
+   than off a second list written by hand: the three generated panels are
+   rendered into a detached node and walked, and the app panels are walked
+   where they already stand in the document. A dial added to Prefs.SCHEMA and
+   rendered with chips() / slider() / toggle() is findable the moment it exists,
+   which is the only way an index like this stays honest.
+
+   Labels come from the three shapes the builders emit:
+     slider   .slider-row  > .slider-head .lbl
+     chips    .opt-set     > .lbl
+     toggle   .setting-row > .setting-lbl
+   … and the note inside a label (<em>, <small>) is kept as the subtitle. */
+function labelParts(el) {
+  const row = el.closest('.slider-row, .opt-set, .setting-row, .f, .ed-card');
+  if (!row) return null;
+  const lab = row.querySelector('.setting-lbl, .lbl');
+  if (!lab) return null;
+  const note = lab.querySelector('em, small');
+  const title = String(lab.textContent || '').replace(note ? String(note.textContent || '') : '', '').trim();
+  return title ? { title, note: note ? String(note.textContent || '').trim() : '' } : null;
+}
+/* The section this control sits under, so "grain" reads as "Texture · grain"
+   rather than floating free: the nearest .sec heading above it, looking up
+   through at most three levels of box. Iterative and depth-capped on purpose —
+   a climb that ends at .closest() of the element's own class walks in a circle,
+   which is exactly what a recursive version did. */
+function sectionOf(el) {
+  let node = el.closest('.slider-row, .opt-set, .setting-row, .f, .ed-card') || el;
+  for (let depth = 0; node && depth < 3; depth++) {
+    for (let n = node.previousElementSibling; n; n = n.previousElementSibling) {
+      if (n.classList && n.classList.contains('sec')) {
+        return String(n.textContent || '').replace('reset to default', '').trim();
+      }
+    }
+    if (node.classList && node.classList.contains('set-panel')) break;
+    node = node.parentElement;
+  }
+  return '';
+}
+function indexPanel(root, panelName, out, seen) {
+  root.querySelectorAll('[data-pref],[data-cfg],[data-cfg-toggle],[data-slider]').forEach(el => {
+    const key = el.dataset.pref || el.dataset.cfg || el.dataset.cfgToggle || el.dataset.slider;
+    if (!key) return;
+    const id = panelName + ':' + key;
+    if (seen.has(id)) return;
+    const parts = labelParts(el);
+    if (!parts) return;
+    seen.add(id);
+    out.push({ kind:'setting', title: parts.title, sub: [SEG_NAMES[panelName] || panelName, sectionOf(el)].filter(Boolean).join(' · '),
+               words: [parts.title, parts.note, key, sectionOf(el)].join(' ').toLowerCase(), panel: panelName });
+  });
+}
+let indexCache = null;
+function searchIndex() {
+  if (indexCache) return indexCache;
+  const out = [], seen = new Set();
+  // the panels themselves, by name
+  PANELS.forEach(p => out.push({ kind:'panel', title: SEG_NAMES[p] || p,
+    sub: 'settings · ' + (CATS[catOf(p)] || {}).title,
+    words: [p, SEG_NAMES[p], APP_NAMES[p], APP_HINTS[p], (CATS[catOf(p)] || {}).title].filter(Boolean).join(' ').toLowerCase(),
+    panel: p }));
+  // the three generated ones, rendered off-document so nothing on screen moves
+  const box = document.createElement('div');
+  [['look', lookHTML], ['layout', layoutHTML], ['behave', behaveHTML]].forEach(([name, html]) => {
+    box.innerHTML = html();
+    indexPanel(box, name, out, seen);
+  });
+  box.innerHTML = '';
+  // the app panels, where they stand — their rows are static markup
+  $all('.set-panel[data-panel]').forEach(p => {
+    const name = p.dataset.panel;
+    if (['look','layout','behave'].includes(name)) return;
+    indexPanel(p, name, out, seen);
+    p.querySelectorAll('.setting-row .setting-lbl, .f > .lbl').forEach(lab => {
+      const note = lab.querySelector('em, small');
+      const title = String(lab.textContent || '').replace(note ? String(note.textContent || '') : '', '').trim();
+      const id = name + ':' + title;
+      if (!title || seen.has(id)) return;
+      seen.add(id);
+      out.push({ kind:'setting', title, sub: [SEG_NAMES[name] || name, sectionOf(lab)].filter(Boolean).join(' · '),
+                 words: [title, note ? note.textContent : '', sectionOf(lab)].join(' ').toLowerCase(), panel: name });
+    });
+  });
+  indexCache = out;
+  return out;
+}
+/* An edit can add a row (a content editor re-renders, an app panel does not
+   change shape) — the cheap correctness is to drop the cache on any change. */
+function dropIndex() { indexCache = null; }
+
+
 /* ══ Panels ═══════════════════════════════════════════════════════════════════ */
 
 const RENDERERS = {
@@ -1255,7 +1386,11 @@ function showScreen(id) {
 function renderHome() {
   const box = $id('set-home'); if (!box) return;
   const off = window.Shell && Shell.hidden ? Shell.hidden() : [];
-  box.innerHTML = (off.length ? `
+  box.innerHTML = `
+    <button class="set-search" data-act="search">
+      <svg aria-hidden="true"><use href="#ico-search"/></svg>
+      <span>search everything<small>apps, content and every setting by name · <b>/</b> on a keyboard</small></span>
+    </button>` + (off.length ? `
     <div class="sec"><span>Not in the bar</span></div>
     <div class="set-note">Switched off under appearance → layout. Their data and
       settings are untouched; tap one to open it.</div>
@@ -1524,6 +1659,7 @@ view.addEventListener('click', e => {
     if (!confirm('Discard every content edit and go back to what ROOT ships with?\n\nYour logged days, lists and history are untouched.')) return;
     Config.resetAll(); renderData(); Shell.toast('content reset');
   }
+  if (t.dataset.act === 'search') { Prefs.tap(); if (window.SEARCH) SEARCH.open(); }
   if (t.dataset.act === 'export-look') exportLook();
   if (t.dataset.act === 'import-look') importLook();
 });
@@ -1563,6 +1699,7 @@ function confirmed(msg) { return !Prefs.get('confirmDestructive') || confirm(msg
    its own Config.subscribe. This only keeps the settings screen honest about
    which sections now count as customised. */
 Config.subscribe(() => {
+  dropIndex();
   $all('[data-cfg-reset]').forEach(b => {
     const paths = RESET_BUNDLE[b.dataset.cfgReset] || [b.dataset.cfgReset];
     b.classList.toggle('hidden', !paths.some(p => Config.isCustom(p)));
@@ -1578,5 +1715,6 @@ if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub)
 
 return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
+         searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,
          reload: () => location.reload() };
 })();

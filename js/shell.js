@@ -268,9 +268,18 @@ window.Shell = (function () {
     });
     return true;
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkDay(); });
-  window.addEventListener('focus', checkDay);
-  setInterval(checkDay, 60 * 1000);
+  /* The same tick serves anything that has to notice the clock moving without
+     being on screen — LOG's alert icon, which turns on at 10:00 and at 21:00.
+     One timer, so there is one thing to keep in step rather than one per app. */
+  function minute() {
+    checkDay();
+    Object.values(apps).forEach(a => {
+      if (a.onMinute) { try { a.onMinute(); } catch (e) { console.error(e); } }
+    });
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') minute(); });
+  window.addEventListener('focus', minute);
+  setInterval(minute, 60 * 1000);
 
   /* Honours Settings → behaviour → "confirm before clearing". Every reset and
      clear button in the four apps routes here; the preference used to be read
@@ -502,6 +511,18 @@ window.Shell = (function () {
     el.textContent = n > 99 ? '99+' : String(n);
   }
 
+  /* A "!" in place of an app's icon — LOG uses it when a half of the day is
+     still unwritten past its hour. Like badge(), this is the shell's to write:
+     an app that reaches into the nav itself is an app that fights paintNav.
+     The icon goes back to the app's own the moment the reason clears. */
+  function alert(name, on, why) {
+    const b = btnOf(name); if (!b) return;
+    b.classList.toggle('has-alert', !!on);
+    const use = b.querySelector('use');
+    if (use) use.setAttribute('href', on ? '#tab-alert' : '#tab-' + name);
+    b.setAttribute('aria-label', on ? `${name.toUpperCase()} · ${why || 'needs attention'}` : name.toUpperCase());
+  }
+
   // bound by name, not position: the order is the user's to change
   Array.from(navEl.querySelectorAll('.tab-b')).forEach(b =>
     b.addEventListener('click', () => {
@@ -625,7 +646,11 @@ window.Shell = (function () {
     if (e.key === 'ArrowRight') { go(index + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { go(index - 1); e.preventDefault(); }
     else if (e.key >= '1' && e.key <= '9') { go(+e.key - 1); e.preventDefault(); }
-    else if (e.key === '/') { settings(); e.preventDefault(); }
+    /* "/" is search now. It used to open settings, which was a shortcut to a
+       menu rather than to a thing; search reaches the same panels by name, and
+       everything else besides. Without the search module it still opens
+       settings, so the key is never dead. */
+    else if (e.key === '/') { if (window.SEARCH) SEARCH.open(); else settings(); e.preventDefault(); }
   });
 
   /* Where the platform allows it (Android, installed), actually lock the
@@ -691,6 +716,20 @@ window.Shell = (function () {
     }
   });
 
-  return { toast, go, open, hidden, settings, register, badge, showChrome, TABS, APPS,
-           today, checkDay, confirm: confirmAction, hashTarget };
+  /* What each app answers when search asks. Registered through register()'s
+     `search` hook, so an app that has nothing to offer simply has none. */
+  function searchApps(q) {
+    const out = [];
+    Object.keys(apps).forEach(name => {
+      const fn = apps[name].search;
+      if (!fn) return;
+      // the app's own name is the row's kind unless the hook says otherwise
+      try { (fn(q) || []).forEach(r => out.push(Object.assign({ app: name, kind: name }, r))); }
+      catch (e) { console.error(e); }
+    });
+    return out;
+  }
+
+  return { toast, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS,
+           today, checkDay, confirm: confirmAction, hashTarget, searchApps };
 })();

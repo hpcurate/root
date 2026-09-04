@@ -26,10 +26,11 @@ const toast = msg => Shell.toast(msg);
    whenever an edit lands. They stay module-level bindings rather than a call at
    every use site, because the rest of the file reads them dozens of times per
    render. */
-let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS, SECTIONS, MEDIA_LABELS;
+let ROUTINES, TRAVEL_CATEGORIES, CATEGORY_ORDER, TABS, SECTIONS, MEDIA_LABELS, QUICK_LABEL, HISTORY;
 const MEDIA_TAB = 'media';
-const SECTION_KEYS = ['blocks', 'routines', 'today'];
-const SECTION_NAMES = { blocks:'Block tasks', routines:'Routine cards', today:'Today list' };
+const SECTION_KEYS = ['blocks', 'routines', 'quick', 'today', 'history'];
+const SECTION_NAMES = { blocks:'Block tasks', routines:'Routine cards', quick:'Quick tasks',
+                        today:'Today list', history:'Consistency strip' };
 
 function readConfig() {
   ROUTINES          = Config.get('do.routines');
@@ -44,6 +45,8 @@ function readConfig() {
      is a DO setting (td.mediaOn), not a tab edit. */
   if (!TABS.some(t => t.id === MEDIA_TAB)) TABS.splice(Math.min(1, TABS.length), 0, { id: MEDIA_TAB, label: 'media', routines: [] });
   MEDIA_LABELS = (Config.get('do.mediaLabels') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
+  QUICK_LABEL  = String(Config.get('do.quickLabel') || '').trim().replace(/^@/, '');
+  HISTORY      = Object.assign({}, Config.defaults('do.history'), Config.get('do.history') || {});
   const want = (Config.get('do.sections') || []).filter(k => SECTION_KEYS.includes(k));
   SECTIONS = want.concat(SECTION_KEYS.filter(k => !want.includes(k)));   // anything missing goes last
 }
@@ -54,7 +57,8 @@ readConfig();
    the real elements, so nothing else has to know about it. The today list and
    the block tasks show only on the first tab — "other" is for the odd
    routines, not for today. */
-const SECTION_EL = { blocks:'td-blocks', routines:'home-grid', today:'td-today' };
+const SECTION_EL = { blocks:'td-blocks', routines:'home-grid', quick:'td-quick',
+                     today:'td-today', history:'do-hist' };
 function applySectionOrder() {
   const home = $id('s-home'); if (!home) return;
   SECTIONS.forEach(k => { const el = $id(SECTION_EL[k]); if (el) home.appendChild(el); });
@@ -124,11 +128,124 @@ function loadState() {
       // TD_KEY is do_-prefixed but is settings, not a day: sweeping it away here
       // cleared the Todoist token on the first load of every new day.
       Object.keys(localStorage).filter(k => k.startsWith('do_') && k !== SK && k !== TD_KEY)
-        .forEach(k => localStorage.removeItem(k));
+        .forEach(k => { foldDay(k); localStorage.removeItem(k); });
       state = blankState();
     }
   } catch { state = blankState(); }
   loadTravel();
+}
+
+/* ── The history the sweep used to throw away ──────────────────────────────────
+   Every `do_<date>` record was deleted on the first load of a new day, so DO
+   knew nothing about yesterday. Each one is folded into a rolling tally first —
+   per routine, done and total — which is what the strip on the home screen and
+   the routines row in LOG's reports read.
+
+   The key is `do-stats-v1`, hyphenated deliberately: the sweep above matches
+   `do_`, and a summary that the sweep can reach is a summary that lasts one
+   day. Same reasoning as LOG's `log-scale-v2`.
+
+   `total` is the routine's length *as it is now*, not as it was on the day —
+   the ticks are all that survive, and a routine that has since grown makes an
+   old day look worse than it was. A day whose routine has been deleted keeps
+   its ticks under the old key and is simply not counted. */
+const STATS_KEY = 'do-stats-v1';
+const STATS_MAX = 400;                      // days, ~13 months
+function readStats() {
+  try { const s = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+        return (s && s.days && typeof s.days === 'object') ? s : { v:1, days:{} }; }
+  catch { return { v:1, days:{} }; }
+}
+function saveStats(s) {
+  const keys = Object.keys(s.days).sort();
+  while (keys.length > STATS_MAX) delete s.days[keys.shift()];
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {}
+}
+/* One swept record → one day's row. Called with the storage key, before it is
+   removed. A day already folded is left alone: the fold is idempotent so a
+   re-import of an old backup cannot double it. */
+function foldDay(key) {
+  const iso = key.slice(3);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+  let rec = null;
+  try { rec = JSON.parse(localStorage.getItem(key) || 'null'); } catch {}
+  if (!rec || typeof rec !== 'object') return;
+  const row = dayRow(rec);
+  if (!row) return;
+  const s = readStats();
+  s.days[iso] = row;
+  saveStats(s);
+}
+/* { routineKey: [done, total] }, and nothing for a day with no tick at all —
+   an empty row is indistinguishable from a day the app was never opened, and
+   the strip says something different about each. */
+function dayRow(rec) {
+  const row = {};
+  let any = 0;
+  Object.keys(ROUTINES).forEach(k => {
+    const items = ROUTINES[k].items || [];
+    if (!items.length) return;
+    const done = items.filter(i => rec[k] && rec[k][i]).length;
+    if (done) any++;
+    row[k] = [done, items.length];
+  });
+  return any ? row : null;
+}
+/* Today is not in the tally yet — it is folded when it is swept — so it is
+   derived live from the state in hand, and falls back to a folded row where
+   there is one: a day restored from a backup has a tally and no record. */
+function statsFor(iso) {
+  const row = (iso === TODAY ? dayRow(state) : null) || readStats().days[iso];
+  if (!row) return null;
+  let done = 0, total = 0;
+  Object.keys(row).forEach(k => { done += row[k][0] || 0; total += row[k][1] || 0; });
+  return { done, total, pct: total ? Math.round(done / total * 100) : 0, routines: row };
+}
+/* For LOG's weekly and monthly reports: the days that have a record, summed. */
+function statsRange(days) {
+  let done = 0, total = 0, logged = 0;
+  (days || []).forEach(iso => {
+    const s = statsFor(iso);
+    if (!s || !s.total) return;
+    done += s.done; total += s.total; logged++;
+  });
+  return { done, total, days: logged, pct: total ? Math.round(done / total * 100) : 0 };
+}
+
+/* The strip itself: one cell per day, oldest left, today last. It is a fixed
+   number of flexed cells rather than a scroller — a row built from Config with
+   no fixed width is exactly what lost DO's tabs off the right edge in 2.0. */
+function renderHistory() {
+  const box = $id('do-hist'); if (!box) return;
+  const show = HISTORY.on !== false && onFirstTab();
+  box.classList.toggle('hidden', !show);
+  if (!show) { box.innerHTML = ''; return; }
+  const n = Math.max(3, Math.min(60, +HISTORY.days || 14));
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) days.push(dayOffset(TODAY, -i));
+  const rows = days.map(iso => ({ iso, s: statsFor(iso) }));
+  const seen = rows.filter(r => r.s && r.s.total);
+  const full = seen.filter(r => r.s.done === r.s.total).length;
+  const avg = seen.length ? Math.round(seen.reduce((a, r) => a + r.s.pct, 0) / seen.length) : 0;
+  const label = iso => Prefs.formatDate(iso, 'short');
+  box.innerHTML = `<div class="tt-head"><span>routines<em>${seen.length ? `${avg}% · ${full} full` : 'no history yet'}</em></span></div>
+    <div class="dh-strip">${rows.map(r => {
+      const pct = r.s ? r.s.pct : 0;
+      const cls = !r.s ? ' none' : r.s.done === r.s.total ? ' full' : '';
+      const title = r.s ? `${label(r.iso)} · ${r.s.done}/${r.s.total}` : `${label(r.iso)} · nothing`;
+      return `<span class="dh-cell${cls}" title="${esc(title)}" aria-label="${esc(title)}"
+        ><i style="height:${Math.max(pct, r.s ? 6 : 0)}%"></i></span>`;
+    }).join('')}</div>
+    <div class="dh-legend"><span>${esc(label(days[0]))}</span><span>${esc(label(days[days.length - 1]))}</span></div>`;
+}
+function dayOffset(iso, n) {
+  const p = String(iso).split('-').map(Number);
+  const d = new Date(p[0], (p[1] || 1) - 1, (p[2] || 1) + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function toggleHistory() {
+  const h = Object.assign({}, HISTORY, { on: HISTORY.on === false });
+  Config.set('do.history', h);            // the subscriber re-reads and re-renders
 }
 
 function saveState() { localStorage.setItem(SK, JSON.stringify(state)); }
@@ -266,7 +383,9 @@ function renderHome() {
   applySectionOrder();
   renderToday();
   renderBlocks();
+  renderQuick();
   renderMedia();
+  renderHistory();
   markFirstSection();
 }
 
@@ -649,7 +768,9 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       // block tasks: every task due today carrying one of PLAN's block labels
                       blocksOn:true, blocksHideDone:false, blocks:{ date:null, tasks:[], fetched:0 },
                       // the media tab: every open task carrying one of do.mediaLabels, any date
-                      mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 } };
+                      mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 },
+                      // the quick cards: every open task carrying do.quickLabel, with its subtasks
+                      quickOn:true, quickHideDone:false, quick:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
 
@@ -669,6 +790,9 @@ function loadTodoist() {
      is over) */
   if (!td.media || !Array.isArray(td.media.tasks)) td.media = { date:today, tasks:[], fetched:0 };
   else if (td.media.date !== today) td.media = { date:today, tasks:td.media.tasks.filter(t => !t.done), fetched:td.media.fetched || 0 };
+  // the quick list is a backlog too — same rule, and a parent drops with its subtasks
+  if (!td.quick || !Array.isArray(td.quick.tasks)) td.quick = { date:today, tasks:[], fetched:0 };
+  else if (td.quick.date !== today) td.quick = { date:today, tasks:td.quick.tasks.filter(t => !t.done), fetched:td.quick.fetched || 0 };
 }
 /* The key itself lives in Creds now. It is still written back into this app's
    own record on every save so the standalone complete/ app keeps working. */
@@ -929,6 +1053,26 @@ function renderTodoistSettings() {
   const bo = $id('td-blocks-on'); if (bo) bo.textContent = td.blocksOn ? 'on' : 'off';
   const mo = $id('td-media-on'); if (mo) mo.textContent = td.mediaOn ? 'on' : 'off';
   const ml = $id('td-media-labels'); if (ml) ml.textContent = MEDIA_LABELS.map(l => '@' + l).join(' ') || 'none';
+  const qo = $id('td-quick-on'); if (qo) qo.textContent = td.quickOn ? 'on' : 'off';
+  /* Same rule as the token field and the today filter: refill it only when it
+     holds nothing unsaved, or leaving the tab and coming back would wipe what
+     was half typed. It commits straight to Config as you type (data-cfg). */
+  const ql = $id('td-quick-label');
+  if (ql && document.activeElement !== ql && ql.value.trim().replace(/^@/, '') !== QUICK_LABEL) ql.value = QUICK_LABEL;
+  const qs = $id('td-quick-status');
+  if (qs) {
+    const q = tdQuick();
+    qs.textContent = !td.quickOn ? 'off' : !QUICK_LABEL ? 'no label set'
+      : q.fetched ? `${q.tasks.filter(t => !t.done).length} open · ${q.tasks.reduce((a, t) => a + (t.subs || []).length, 0)} subtasks · fetched ` +
+                    new Date(q.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
+      : 'not fetched yet';
+  }
+  const ho = $id('do-hist-on'); if (ho) ho.textContent = HISTORY.on === false ? 'off' : 'on';
+  const hd = $id('do-hist-days');
+  if (hd && document.activeElement !== hd) hd.value = HISTORY.days;
+  const hs = $id('do-hist-status');
+  if (hs) { const n = Object.keys(readStats().days).length;
+            hs.textContent = n ? `${n} day${n === 1 ? '' : 's'} folded in` : 'nothing folded in yet — a day is added when it is swept'; }
   renderSectionOrder();
   const f = $id('td-today-filter');
   if (f && document.activeElement !== f && f.value === '') f.value = td.todayFilter || '';
@@ -1180,6 +1324,166 @@ function toggleMedia() {
   if (td.mediaOn && !tdMedia().fetched) refreshToday(true);
 }
 
+/* ── Quick tasks ──────────────────────────────────────────────────────────────
+   Every open task carrying `do.quickLabel` (@quick), drawn as cards under the
+   routine cards and read the same way: a name, how much of it is done, a bar.
+   Two shapes, because a quick task is one of two things:
+
+     no subtasks    one card, and the whole card is the tick. 0 / 1.
+     subtasks       the parent names the card and its subtasks are the rows
+                    inside it, each its own tick. The parent is closed for you
+                    when the last row is ticked (Todoist does not do it), and
+                    reopened if one is unticked again — which is what makes the
+                    card behave like a routine rather than like a list that has
+                    to be finished twice.
+
+   Subtasks do not carry the label themselves, and Todoist has no "children of"
+   filter worth relying on, so they are found by fetching each distinct project
+   the quick tasks live in — one call, nearly always, since they live together.
+
+   Cache-per-day rule, like the media tiles: a task closed here stays on the
+   list, ticked, until midnight, and that is the only way unticking can exist. */
+function tdQuick() {
+  const today = tdLocalDate();
+  if (!td.quick || !Array.isArray(td.quick.tasks)) td.quick = { date:today, tasks:[], fetched:0 };
+  else if (td.quick.date !== today) td.quick = { date:today, tasks:td.quick.tasks.filter(t => !t.done), fetched:td.quick.fetched || 0 };
+  return td.quick;
+}
+async function fetchQuick() {
+  if (!QUICK_LABEL) return;
+  const labels = await tdGetAll('/labels');
+  Todoist.cacheLabels(labels);
+  const lab = labels.find(x => tdName(x.name) === tdName(QUICK_LABEL));
+  const color = (lab && TD_COLORS[lab.color]) || '#A78BFA';
+  const parents = await tdGetAll('/tasks', { label: QUICK_LABEL });
+
+  /* The children: every project a quick task sits in, fetched once. A task in
+     the inbox has a project id like any other, so there is no special case. */
+  const kids = {};
+  const projectIds = [...new Set(parents.map(t => t.project_id).filter(Boolean).map(String))];
+  for (const pid of projectIds) {
+    const all = await tdGetAll('/tasks', { project_id: pid });
+    all.forEach(t => {
+      const parent = t.parent_id == null ? null : String(t.parent_id);
+      if (!parent) return;
+      (kids[parent] = kids[parent] || []).push(t);
+    });
+  }
+
+  const prev = tdQuick(), seen = new Set(), next = [];
+  parents.forEach(t => {
+    const id = String(t.id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    const was = prev.tasks.find(x => x.id === id);
+    const subs = (kids[id] || []).map(s => {
+      const sid = String(s.id);
+      const oldSub = was && (was.subs || []).find(x => x.id === sid);
+      return { id:sid, content:String(s.content || ''), done: oldSub ? !!oldSub.done : false };
+    });
+    /* A subtask closed here today is not returned by the API any more, so it
+       is carried over rather than dropped — otherwise a card would shrink as
+       you tick it and "3 / 5" would never be true. */
+    if (was) (was.subs || []).forEach(x => { if (x.done && !subs.some(y => y.id === x.id)) subs.push(x); });
+    next.push({ id, content:String(t.content || ''), color, priority:+t.priority || 1,
+                projectId: t.project_id == null ? null : String(t.project_id),
+                subs, done: was ? !!was.done : false });
+  });
+  // closed here today and no longer returned: keep it, ticked, so it can be unticked
+  prev.tasks.forEach(t => { if (t.done && !seen.has(t.id)) next.push(t); });
+  next.sort((a, b) => (b.priority - a.priority) || a.content.localeCompare(b.content));
+  td.quick = { date:tdLocalDate(), tasks:next, fetched:Date.now(), color };
+}
+
+const quickStat = t => {
+  const subs = t.subs || [];
+  if (!subs.length) return { done: t.done ? 1 : 0, total: 1 };
+  return { done: subs.filter(s => s.done).length, total: subs.length };
+};
+
+function renderQuick() {
+  const box = $id('td-quick'); if (!box) return;
+  const q = tdQuick();
+  const show = td.quickOn && q.tasks.length > 0 && onFirstTab();
+  box.classList.toggle('hidden', !show);
+  // hidden is also emptied: a stale card in a hidden box still counts to anything counting cards
+  if (!show) { box.innerHTML = ''; return; }
+  const open = q.tasks.filter(t => !t.done).length;
+  const shown = td.quickHideDone ? q.tasks.filter(t => !t.done) : q.tasks;
+  const when = q.fetched ? new Date(q.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
+  const card = t => {
+    const st = quickStat(t), pct = st.total ? Math.round(st.done / st.total * 100) : 0;
+    const subs = t.subs || [];
+    return `<div class="qk${t.done ? ' done' : ''}${subs.length ? ' has-sub' : ''}" style="--bk-c:${esc(t.color || '#A78BFA')}">
+      <button class="qk-head" onclick="DO.toggleQuickTask('${esc(t.id)}')" aria-pressed="${t.done}">
+        <span class="qk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="qk-body"><span class="qk-name">${esc(t.content)}</span>
+          <span class="qk-sub">${subs.length ? `${st.done} / ${st.total} done` : '@' + esc(QUICK_LABEL)}</span></span>
+      </button>
+      ${subs.length ? `<div class="qk-bar"><div class="qk-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>
+      <div class="qk-list">${subs.map(s => `<button class="qk-item${s.done ? ' checked' : ''}"
+          onclick="DO.toggleQuickSub('${esc(t.id)}','${esc(s.id)}')" aria-pressed="${s.done}">
+          <span>${esc(s.content)}</span>
+          <span class="qk-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>`).join('')}</div>` : ''}
+    </div>`;
+  };
+  box.innerHTML = `<div class="tt-head"><span>quick<em>${open} open</em></span><span class="tt-acts">
+      <button class="tt-refresh" onclick="DO.toggleQuickHideDone()">${td.quickHideDone ? 'show done' : 'hide done'}</button>
+      <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button></span></div>
+    ${shown.length ? `<div class="qk-grid">${shown.map(card).join('')}</div>` : '<div class="tt-empty">all done</div>'}
+    <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>`;
+}
+
+/* Optimistic, like every other tick here: the card flips at once and a failed
+   request puts it back. A parent with subtasks cannot be ticked directly —
+   its rows are the tick — so the head only closes a childless one. */
+async function toggleQuickTask(id) {
+  const q = tdQuick();
+  const t = q.tasks.find(x => x.id === id); if (!t) return;
+  if ((t.subs || []).length) { toast('tick its subtasks'); return; }
+  const was = t.done;
+  t.done = !was; tdPersist(); renderQuick(); Prefs.tap();
+  try {
+    await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
+    toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
+  } catch (e) {
+    t.done = was; tdPersist(); renderQuick();
+    toast('todoist: ' + e.message);
+  }
+}
+
+/* Ticking the last subtask closes the parent too, and unticking one reopens
+   it: Todoist leaves a parent open under finished children, which would mean
+   finishing the same quick task twice. */
+async function toggleQuickSub(parentId, subId) {
+  const q = tdQuick();
+  const t = q.tasks.find(x => x.id === parentId); if (!t) return;
+  const s = (t.subs || []).find(x => x.id === subId); if (!s) return;
+  const was = s.done;
+  s.done = !was;
+  const all = t.subs.every(x => x.done);
+  const parentWas = t.done;
+  t.done = all;
+  tdPersist(); renderQuick(); Prefs.tap();
+  try {
+    await tdFetch(`/tasks/${subId}/${was ? 'reopen' : 'close'}`, { method:'POST' });
+    if (t.done !== parentWas) {
+      await tdFetch(`/tasks/${parentId}/${t.done ? 'close' : 'reopen'}`, { method:'POST' });
+      toast(t.done ? '✓ ' + t.content + ' closed in todoist' : '↺ reopened in todoist');
+    }
+  } catch (e) {
+    s.done = was; t.done = parentWas; tdPersist(); renderQuick();
+    toast('todoist: ' + e.message);
+  }
+}
+function quickTasks() { return td.quickOn ? tdQuick().tasks.slice() : []; }
+function toggleQuickHideDone() { td.quickHideDone = !td.quickHideDone; tdPersist(); renderQuick(); }
+function toggleQuick() {
+  td.quickOn = !td.quickOn; tdPersist(); renderTodoistSettings(); renderHome();
+  if (td.quickOn && !tdQuick().fetched) refreshToday(true);
+}
+
 /* Progress bars run from the foreground colour at nothing done to green at
    everything done — a glance says how far along a list is, not just whether
    it is finished. The foreground rather than literal white so the bar is
@@ -1195,7 +1499,8 @@ async function refreshToday(quiet) {
   const wantToday = td.todayOn && ttRules().length > 0;
   const wantBlocks = td.blocksOn && blockLabels().length > 0;
   const wantMedia = td.mediaOn && MEDIA_LABELS.length > 0;
-  if (!wantToday && !wantBlocks && !wantMedia) {
+  const wantQuick = td.quickOn && !!QUICK_LABEL;
+  if (!wantToday && !wantBlocks && !wantMedia && !wantQuick) {
     if (!quiet && td.todayOn) { toast('choose a project under settings → do'); Shell.settings('do'); }
     return;
   }
@@ -1206,8 +1511,9 @@ async function refreshToday(quiet) {
     if (wantToday) await fetchTodayTasks(today);
     if (wantBlocks) await fetchBlocks(today);
     if (wantMedia) await fetchMedia();
+    if (wantQuick) await fetchQuick();
     tdPersist();
-    renderToday(); renderBlocks(); renderMedia(); ttStatus();
+    renderToday(); renderBlocks(); renderQuick(); renderMedia(); ttStatus();
     if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
     const open = todayRows().filter(t => !t.done).length + (wantBlocks ? tdBlocks().tasks.filter(t => !t.done).length : 0);
     if (!quiet) toast(open ? `${open} task${open === 1 ? '' : 's'} due today` : 'nothing due today');
@@ -1365,9 +1671,10 @@ function maybeRefreshToday() {
   const wantToday = td.todayOn && ttRules().length > 0;
   const wantBlocks = td.blocksOn && blockLabels().length > 0;
   const wantMedia = td.mediaOn && MEDIA_LABELS.length > 0;
-  if ((!wantToday && !wantBlocks && !wantMedia) || !Creds.token()) return;
+  const wantQuick = td.quickOn && !!QUICK_LABEL;
+  if ((!wantToday && !wantBlocks && !wantMedia && !wantQuick) || !Creds.token()) return;
   const last = Math.min(wantToday ? (ttToday().fetched || 0) : Infinity, wantBlocks ? (tdBlocks().fetched || 0) : Infinity,
-                        wantMedia ? (tdMedia().fetched || 0) : Infinity);
+                        wantMedia ? (tdMedia().fetched || 0) : Infinity, wantQuick ? (tdQuick().fetched || 0) : Infinity);
   if (Date.now() - last < TT_STALE) return;
   refreshToday(true);
 }
@@ -1409,12 +1716,21 @@ Shell.register('do', {
   onShow: () => { renderTabs(); positionGlider(); renderToday(); maybeRefreshToday(); },
   onDayChange: rollDay,
   home: () => go('home'),        // the DO tab tapped while on DO
+  /* What search can find in here that Config does not already hold: the travel
+     checklists, which live in travel_state_v2 and are named by hand. */
+  search: q => travel.order.map(id => travel.lists[id])
+    .filter(l => l && String(l.name || '').toLowerCase().includes(q))
+    .map(l => { const s = listStats(l);
+      return { title: l.name, sub: `travel · ${s.done} / ${s.total} packed`,
+               go: () => { Shell.go('do'); openList(l.id); } }; }),
 });
 // the date label follows Settings → behaviour → dates without a reload
 Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 maybeRefreshToday();
 
 return { go, renderSettings: renderTodoistSettings,
+         renderQuick, toggleQuickTask, toggleQuickSub, toggleQuick, toggleQuickHideDone, quickTasks,
+         renderHistory, toggleHistory, statsFor, statsRange,
          toggle, toggleAll, openRoutine, setTab, resetDay,
          openList, deleteList, toggleCat, createList, toggleTravel,
          bumpCount, decCount, removeItem, openTravelEdit, addEditItem,

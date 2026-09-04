@@ -16,14 +16,15 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
-| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. |
-| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. |
-| **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. Picked rows of the sent history export back out as one day's schedule — see §8. |
+| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards and the consistency strip. |
+| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its tab wears a `!` while a half of the day is unwritten. |
+| **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter, premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **Settings** | A home menu (the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
+| **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
+| **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
 Which of the seven get a tab, and in what order, is itself a setting
 (appearance → layout → apps in the bar). Settings is always last. An app
@@ -92,7 +93,8 @@ root/
     ├── config.js      the content layer
     ├── shell.js       Creds, Shell, the slide track, swipe, keyboard
     ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js
-    └── settings.js    the settings view
+    ├── settings.js    the settings view
+    └── search.js      the search sheet — reads SET's index and every module's hook
 ```
 
 ### Load order — this is load-bearing
@@ -105,6 +107,7 @@ root/
          shell.js          defines Creds + Shell.toast, used by every module
          do / log / plan / store / tend / track / learn
          settings.js       needs every module to exist to render its panels
+         search.js         reads SET.searchIndex() and the modules' search hooks
 ```
 
 LEARN's three libraries (JSZip, sql.js, fzstd) are **not** in this list. They
@@ -150,7 +153,9 @@ Shell.toast(msg)                       // the one toast
 Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
 Shell.confirm(msg)                     // window.confirm, unless "confirm before clearing" is off
 Shell.settings(panel)                  // jump to a settings panel ('general' still maps to 'data')
-Shell.register(name, { onShow, onDayChange, home })
+Shell.badge(name, n)                   // a count on a tab button
+Shell.alert(name, on, why)             // the app's icon replaced by a "!" — LOG uses it
+Shell.register(name, { onShow, onDayChange, onMinute, home, search })
 ```
 
 `onShow` fires on every visit to the tab. `home` fires when the app's own tab
@@ -161,6 +166,34 @@ calendar day changes while the app is open — the shell checks on
 DO moves to the new day's record; LOG moves its selected day only if it was
 "today" and no form is open (an evening written at 00:10 belongs to the day
 that just ended). Nothing else captures "today" at boot any more.
+
+`onMinute` rides the same tick as that day check — one timer, not one per app —
+for anything that has to notice the clock moving without being on screen. LOG's
+alert is the only user: it turns on as 10:00 and 21:00 pass, whichever tab you
+are on. `search(q)` answers with what that app holds outside Config, as
+`{ title, sub, go }` rows; `q` arrives folded (lower case, accents dropped).
+
+### Search
+
+`js/search.js` — a `.sheet-back` sheet, a sibling of `#views`, opened with `/`
+or from the row at the top of the settings menu. Four sources, in the order
+they are offered:
+
+| Source | Comes from | Tapping it |
+| --- | --- | --- |
+| the apps | `Shell.APPS` | opens the tab, or `Shell.open()` if it is out of the bar |
+| each app's own data | the modules' `search` hooks — DO's travel lists, TEND's plants, LEARN's decks | opens that thing |
+| content | `CONTENT` in search.js, one line per Config path | the panel whose editor owns that path |
+| settings | `SET.searchIndex()` | `Shell.settings(panel)` |
+
+**Nothing in it is a second list of what exists.** The settings index is built
+by rendering the three generated panels into a detached node and reading the
+labels off the controls themselves (`lookHTML()` / `layoutHTML()` /
+`behaveHTML()` exist for that reason), and walking the app panels where they
+stand; content comes out of `Config.get()` on the spot. A dial added to
+`Prefs.SCHEMA` and a routine renamed this morning are both findable without a
+line being added here — which is the only way an index like this survives
+contact with the next six months.
 
 Routes: `#do` … `#settings` pick a tab; `#settings/<panel>` lands on one
 settings panel and is kept in the address bar as you switch panels.
@@ -331,8 +364,9 @@ versions still work off the same data.
 
 | Key | Owner | Holds |
 | --- | --- | --- |
-| `do_<YYYY-MM-DD>` | DO | one day's routine ticks (older days are swept on the first load of a new day) |
-| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list |
+| `do_<YYYY-MM-DD>` | DO | one day's routine ticks (older days are swept on the first load of a new day — folded into `do-stats-v1` first) |
+| `do-stats-v1` | DO | the rolling routine tally, `{ days: { iso: { routineKey: [done, total] } } }`, capped at 400 days. **Deliberately hyphenated**: the day sweep matches `do_`, and a summary the sweep can reach lasts one day. Same reasoning as `log-scale-v2` |
+| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list, since 2.19 the quick cards' switch and their cached tasks with subtasks |
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
 | `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
@@ -607,6 +641,60 @@ both say so, and a new device needs the `.apkg` imported again.
   `resetDate()` call `paintDate()` rather than `renderProjects()` — a full
   redraw would run a FLIP on the whole grid for a one-word change. `paintForm()`
   calls it too, so a Config edit landing under the open form keeps the day.
+- **DO's day sweep is where the history comes from, so it folds before it
+  deletes.** `loadState()` calls `foldDay()` on every `do_` key it is about to
+  remove. The fold uses the routine's length *as it is now* — the ticks are all
+  that survive a sweep — so a routine that has since grown makes an old day look
+  worse than it was, and a routine that has been deleted drops out of the tally
+  entirely. `statsFor()` prefers the live record for today and falls back to a
+  folded row, which is what makes a restored backup show up on the strip.
+- **A DO key that is not a day must not be `do_`-prefixed.** `do-stats-v1` is
+  hyphenated for exactly that reason; `do_todoist_v1` is the exception, and it
+  is the exception because it is named in the sweep's filter by hand. Anything
+  new goes the hyphenated way.
+- **A quick task's subtasks are fetched by project, not by parent.** Subtasks do
+  not carry `@quick` themselves, so `fetchQuick()` asks each distinct project a
+  quick task sits in for all its tasks and files the children by `parent_id`.
+  One call in practice. A quick task with no `project_id` at all gets no
+  children — nothing in the v1 API returns them without one.
+- **A subtask closed here is not returned by the API again, and is carried over
+  by hand.** Without that, a card would shrink as it was ticked and `3 / 5`
+  would never be reachable. Same rule as the media tiles, one level deeper.
+- **Ticking the last subtask closes the parent.** Todoist does not, so a quick
+  task would otherwise have to be finished twice; unticking one reopens it.
+  Two requests, and the second only when the parent's state actually changed.
+- **The quick cards are one column.** A card with subtasks is a checklist and a
+  checklist at half width wraps every row, so the two shapes share a single
+  column rather than the routine grid's two.
+- **The quick cards do not feed the tab badge.** It counts what is due today —
+  the today list and the block tiles. Quick is a backlog with no date, like the
+  media tab, and a badge that counted it would never reach zero.
+- **`Shell.alert()` is the only writer of a tab's icon**, the way `Shell.badge()`
+  is the only writer of `.tb-badge`. It swaps the `<use href>` to `#tab-alert`
+  and back to `#tab-<app>`; nothing else may write that attribute for an app
+  button, and `paintNav()` deliberately only ever touches the settings button's.
+  An app opened transiently from settings wears its icon on the settings button,
+  where the alert does not follow it.
+- **LOG's alert is derived on a tick, never stored.** `alertReason()` is
+  recomputed from the real today's record, the clock and PLAN — so there is no
+  state to go stale, and no "dismiss". The one thing that can make it lie is
+  `alertTest`, the settings preview, which stays pinned until it is switched off
+  and says so in the panel.
+- **"Planned for tomorrow" means PLAN's own queue and history.** `plannedOn()`
+  counts tasks carrying a block and filed under that day. A block moved to
+  tomorrow from DO's "→ tomorrow" is a Todoist edit ROOT keeps no local record
+  of, so it does not count — which is worth knowing before wondering why the
+  flag is still up.
+- **A preset carries tasks, never a day.** `plan.presets` is a shape of day:
+  `applyPreset()` dates every task from the form's own floor and re-resolves the
+  project id from the current mapping, so a preset saved in September still
+  lands correctly in March.
+- **A control search can find is a control search can render.** `SET.searchIndex()`
+  renders `lookHTML()` / `layoutHTML()` / `behaveHTML()` into a detached node, so
+  those three must stay pure string builders — the moment one of them writes to
+  the document again, indexing it moves the page. `sectionOf()` is iterative and
+  depth-capped: the recursive version walked in a circle on `.set-panel` and blew
+  the stack.
 - **A hidden app opened from settings is a transient slide.** `Shell.open()`
   splices it into `TABS` before settings and re-parks the track before
   animating, because settings' index moves by one; `retire()` does the same
@@ -644,13 +732,21 @@ in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
+**Make something findable in search** — nothing, if it is in Config: add its
+path to `CONTENT` in `search.js` (one line: the path, the app, and how a row
+reads) and it is found from then on. For data an app keeps in its own key,
+register a `search(q)` hook with `Shell.register` returning `{ title, sub, go }`
+rows. Settings controls need nothing at all.
+
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 287 checks covering boot, every theme and panel, the
+through DOM events: 328 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects, form, sent history, day export and due dates of 2.5–2.18. jsdom has no
+in-place projects, form, sent history, day export and due dates of 2.5–2.18,
+and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
+alert in 2.19. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -766,6 +862,119 @@ silence when the description is written:
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.19 — 2026-09-04 — one field over the lot, the quick cards, the history the sweep ate, and a tab that says something
+
+**Search, and `/` finally means something.** The key used to open settings —
+a shortcut to a menu rather than to a thing. It opens one field now, over a
+sheet, that reaches the apps, everything Config holds (routines and their
+items, packing lists, aisles and groceries, meals, PLAN's projects and
+sections, its presets and calendars, TEND's plant types, all 54 TRACK topics),
+whatever each app keeps in its own storage (DO's travel checklists, TEND's
+plants by name, species *or* room, LEARN's decks) and **every settings dial by
+the label it actually wears**. Eleven panels and about forty dials had made
+"where do I change X" the longest walk in the app.
+
+Nothing in it is a second list of what exists, which is the whole design: the
+settings index is built by rendering the three generated panels into a detached
+node and reading the labels off the real controls, and content comes straight
+out of `Config.get()`. A routine renamed a second ago is findable a second
+later — there is a check for exactly that. `lookHTML()` / `layoutHTML()` /
+`behaveHTML()` were split out of their `render*` functions so this is possible
+without drawing anything; apps answer for their own data through a `search`
+hook on `Shell.register`. The sheet is a sibling of `#views`, not a child of
+`#track` — the old rule — and being a `.sheet-back` sheet it gets Escape and
+the suppression of the shell's own shortcuts for free, which is what lets you
+type "b" in it without landing on another tab. It is reached from a row at the
+top of the settings menu on a phone, where there is no `/` to press.
+
+**DO: `@quick`.** A refresh now also fetches every open task carrying
+`do.quickLabel`, and draws them as cards under the routine cards — read like a
+routine card, because that is what they are. Two shapes, and the second is the
+point: a task with no subtasks is one card and the card is the tick; a task
+*with* subtasks becomes a checklist, its rows ticked one at a time, the head
+counting `2 / 5` over a progress bar. One column rather than the routine grid's
+two — a checklist at half width wraps every row.
+
+Ticking the last row closes the parent in Todoist as well, and unticking one
+reopens it. Todoist leaves a parent open under finished children, so without
+that a quick task would have to be finished twice. The subtasks are found by
+project, not by parent: they do not carry the label themselves, and one call
+per distinct project (nearly always one) is more honest than leaning on a
+filter the v1 API does not really offer. Same cache rule as the media tiles —
+a task closed here stays, ticked, until midnight, and a *subtask* closed here
+is carried over by hand, or a card would shrink as it was ticked and `3 / 5`
+would never be reachable.
+
+**DO kept no history at all, and threw one away every morning.** `loadState()`
+deleted every `do_<date>` record on the first load of a new day. Each one is
+folded into a rolling tally first — per routine, done and total — and the home
+screen grows a strip of the last fourteen days, one flexed cell each, filled by
+how much of that day got ticked, with the average and the number of full days
+on its head. LOG's weekly and monthly reports grow a `routines` row out of the
+same tally.
+
+The key is **`do-stats-v1`, hyphenated**: the sweep matches `do_`, and a summary
+the sweep can reach is a summary that lasts one day. That is the same reasoning
+`log-scale-v2` was named under, and the third time this file has recorded that
+trap. Today is read live out of the record being written and falls back to the
+folded row, so a restored backup still draws. `total` is the routine's length
+as it is now — the ticks are all that survive a sweep — so a routine that has
+since grown makes an old day look slightly worse than it was. It starts empty
+and fills in from here; nothing before today can be recovered, and the panel
+says so.
+
+**PLAN: queue presets.** A day that is the same five tasks every week was five
+trips through the form every week. "save as preset" on the queue row keeps them
+under a name in `plan.presets`, and a chip on the queue refills it with one tap.
+A preset carries tasks and never a day — it is a shape of day, so applying one
+dates every task from the form's own floor and re-resolves the project id from
+the current mapping. Rename or delete one in settings → apps → plan, like every
+other piece of content.
+
+**LOG's tab says something now.** Its icon becomes a `!` when the morning is
+still unwritten past 10:00, when the evening is past 21:00, or when nothing is
+planned for tomorrow past 21:00 — all three hours editable, and an empty one
+switches that rule off. The state is derived on the shell's own minute tick
+(`onMinute`, one timer for the app rather than one per module), never stored,
+so there is nothing to dismiss and nothing to go stale: write the morning and
+the flag moves to the evening on its own. "Planned" means a task PLAN has
+queued or sent for tomorrow carrying a block — `plannedOn()`. A block moved to
+tomorrow from DO's "→ tomorrow" is a Todoist edit ROOT keeps no record of, and
+deliberately does not count.
+
+The nav belongs to the shell, so this is `Shell.alert(app, on, why)` next to
+`Shell.badge()` — an app that reaches into the tab bar itself is an app that
+fights `paintNav()`. And because an alert you cannot see is an alert you cannot
+judge, settings → apps → log has four buttons that pin it to one rule: the tab
+really does change, and stays changed until it is switched back off.
+
+**Verified** — `test/harness.mjs`, 328 checks, all green, 41 of them new: `/`
+opening search rather than settings and the sheet holding the keyboard while it
+is up; a grocery item found through its aisle, a PLAN section through its
+project, a dial by its rendered label, an app by its name, and a routine
+renamed one line earlier; a plant found by its room and labelled with the app
+it came from; picking a dial landing on its panel; Escape closing it; the sheet
+sitting outside `#track`. Two quick tasks fetched from one label,
+the childless one ticking itself and the one with subtasks refusing to, its
+rows closing the subtask alone and then the parent with the last of them,
+unticking reopening both, and a refetch keeping both the closed card and the
+closed subtask. Today's ticks read live, the strip drawing one cell per day
+asked for, the day surviving its own sweep as a folded row under a key `do_`
+cannot reach, and the weekly report growing the row. A queue saved with no day
+on it, its chip naming the count, one tap refilling it dated from today, the
+editor rendering it and deleting it taking the chip with it. And the alert
+walking morning → evening → plan as each is answered, going out when a block is
+queued for tomorrow, the preview pinning and unpinning it, and the switch
+holding it off whatever the hour.
+
+**Not verified**: nothing in a browser — the Chrome extension is still
+unreachable from here, which makes this the sixth entry in a row that has not
+been looked at. On the phone: whether a quick card with five subtasks reads as
+one card or as a wall, whether the fourteen-cell strip is legible at the
+default density (the cells are about 18px wide on a phone), whether the search
+sheet's field clears the keyboard on iOS with results under it, and whether a
+`!` in the tab bar reads as urgent or merely as broken.
 
 ### 2.18 — 2026-09-03 — a task has a day, and it is picked with two arrows
 

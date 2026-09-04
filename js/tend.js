@@ -868,6 +868,13 @@ Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') render(); });
 Shell.register('tend', {
   onShow: () => { render(); maybeSync(); },
   onDayChange: () => { ttPrune(); ttPersist(); render(); notifyDo(); },
+  /* The plants themselves are in tend.v3, not in Config, so search asks for
+     them here. A hit opens that plant's own sheet — the room and the species
+     match too, since "kitchen" and "pilea" are how a plant is looked for. */
+  search: q => DB.plants
+    .filter(p => [p.name, p.species, p.room].some(v => String(v || '').toLowerCase().includes(q)))
+    .map(p => ({ title: p.name, sub: `plant · ${p.room || 'unsorted'}${p.species ? ' · ' + p.species : ''}`,
+                 go: () => { Shell.TABS.includes('tend') ? Shell.go('tend') : Shell.open('tend'); openDetail(p.id); } })),
 });
 
 return { render, renderSettings, openDetail, openEditor, closeSheet, undoLast,

@@ -188,6 +188,12 @@ body{
   min-width:15px;height:15px;padding:0 4px;border-radius:var(--r-pill);
   background:var(--y);color:var(--on-y);font:700 8px/15px var(--mono);text-align:center;
   box-shadow:0 0 0 2px var(--bg)}
+/* the alert (Shell.alert): the app's icon is swapped for a "!" and the whole
+   button takes the warning colour — on the active tab the pill is already the
+   accent, so there the "!" simply reads in the inverted colour like the icon
+   it replaced */
+.tab-b.has-alert{color:var(--or)}
+.tab-b.on.has-alert{color:var(--on-y)}
 /* on the active tab the count takes the icon's place: the pill is already the
    accent, so a badge on top of it only ever looked like a hole */
 .tab-b.on.has-badge svg{display:none}
@@ -241,6 +247,34 @@ body{
 .sheet-dot{width:8px;height:8px;border-radius:50%;background:var(--sheet-color,var(--y));flex-shrink:0}
 .sheet-close{background:none;border:none;color:var(--y);font:400 11px/1 var(--mono);
              letter-spacing:.06em;cursor:pointer;padding:4px 0}
+
+/* ── Search ──
+   The same sheet, with a field at the top and its results under it. Shell
+   chrome rather than an app's, so it lives here: every app is reachable from
+   it and none of them owns it. */
+/* the results are the scroller, not the sheet: two nested scrollers on a phone
+   means the wrong one moves under a finger */
+#search{max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+#search .sr-ico{width:13px;height:13px;color:var(--y)}
+#search-q{width:100%;flex:0 0 auto;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);font:400 14px/1.2 var(--mono);letter-spacing:.02em;
+  padding:calc(13px * var(--dens)) calc(14px * var(--dens));outline:none;
+  -webkit-appearance:none;appearance:none}
+#search-q:focus{border-color:var(--y)}
+#search-out{flex:1;min-height:0;overflow-y:auto;margin-top:calc(10px * var(--dens));
+  -webkit-overflow-scrolling:touch}
+.sr{display:flex;align-items:center;gap:calc(11px * var(--dens));width:100%;text-align:left;
+  background:none;border:none;border-bottom:var(--bw) solid var(--bd);cursor:pointer;color:var(--tx);
+  padding:calc(11px * var(--dens)) calc(4px * var(--dens))}
+.sr:last-child{border-bottom:none}
+.sr:active{background:var(--s2)}
+/* the kind sits in a fixed column so the titles line up down the list */
+.sr-k{flex:0 0 52px;font:700 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
+.sr-b{flex:1;min-width:0}
+.sr-t{display:block;font:400 12.5px/1.35 var(--mono);overflow-wrap:anywhere}
+.sr-s{display:block;font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.06em;margin-top:3px}
+.sr-empty{font:400 10.5px/1.7 var(--mono);color:var(--mu);letter-spacing:.04em;text-align:center;
+  padding:calc(22px * var(--dens)) calc(10px * var(--dens))}
 
 /* The settings view lives in css/settings.css — it grew past what belonged in
    the frame's stylesheet when the panel count went from five to nine. */

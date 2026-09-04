@@ -283,14 +283,23 @@ async function handleFile(file) {
 }
 
 /* ── Home ──────────────────────────────────────────────────────────────────── */
+/* What search can see. The decks are in IndexedDB and every read of them is
+   async, so the home screen — which runs at boot and on every visit — leaves
+   the names behind for a synchronous reader. Empty until it has run once, and
+   empty for good where there is no IndexedDB at all. */
+let deckNames = [];
+function deckList() { return deckNames.slice(); }
+
 async function renderHome() {
   const list = $id('deck-list'); if (!list) return;
   let decks;
   try { decks = await getAll('decks'); }
   catch (e) {
     list.innerHTML = `<div class="empty-state">Decks cannot be stored here.<br>${esc(e.message || 'IndexedDB unavailable')}</div>`;
+    deckNames = [];
     return;
   }
+  deckNames = decks.map(d => ({ id: d.id, name: d.name }));
   if (!decks.length) {
     list.innerHTML = '<div class="empty-state">No decks yet.<br>Tap <em>import</em> above to bring your Anki deck in.</div>';
     return;
@@ -670,9 +679,12 @@ Shell.register('learn', {
   onShow: () => { if ($id('s-home').classList.contains('on')) renderHome(); },
   // the LEARN tab tapped while on LEARN: a study session is left properly
   home: () => { if ($id('s-study').classList.contains('on')) exitStudy(); else go('home'); },
+  search: q => deckList().filter(d => String(d.name || '').toLowerCase().includes(q))
+    .map(d => ({ title: d.name, sub:'anki deck',
+                 go: () => { Shell.TABS.includes('learn') ? Shell.go('learn') : Shell.open('learn'); goDeck(d.id); } })),
 });
 
 return { go, goDeck, backToDeck, startStudy, reveal, answer, skipCard, exitStudy,
          resetDeckProgress, renameDeck, deleteCurrentDeck, resetAllProgress, wipeAll,
-         renderSettings, toggleShuffle, deckStats, handleFile, dailyStats, recordRating };
+         renderSettings, toggleShuffle, deckStats, handleFile, dailyStats, recordRating, deckList };
 })();

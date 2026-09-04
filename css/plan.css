@@ -43,6 +43,24 @@
 .ns-plan .row-lbl .muted-act:active{color:var(--re)}
 .ns-plan .row-lbl em{color:var(--mu);font-style:normal;font:400 10px/1 var(--mono);
   letter-spacing:.06em;text-transform:none}
+/* saving a preset is not a clear: the shared act turns red on tap, this one
+   does not */
+.ns-plan #queue-save:active{color:var(--y)}
+
+/* ── Queue presets ──
+   A saved queue, refilled with one tap. A wrapping row, never a strip: the
+   list is built from Config and has no width it can be relied on to fit. */
+.ns-plan .presets{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens));margin-bottom:calc(12px * var(--dens))}
+.ns-plan .pre-chip{display:inline-flex;align-items:stretch;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);overflow:hidden}
+.ns-plan .pre-b{display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;
+  color:var(--tx);font:400 10px/1 var(--mono);letter-spacing:.06em;
+  padding:calc(8px * var(--dens)) calc(6px * var(--dens)) calc(8px * var(--dens)) calc(12px * var(--dens))}
+.ns-plan .pre-b em{font-style:normal;color:var(--mu);font-size:9px}
+.ns-plan .pre-b:active{color:var(--y)}
+.ns-plan .pre-x{background:none;border:none;cursor:pointer;color:var(--mu);font:400 10px/1 var(--mono);
+  padding:0 calc(10px * var(--dens)) 0 calc(4px * var(--dens))}
+.ns-plan .pre-x:active{color:var(--re)}
 
 /* ── Project tiles ── */
 .ns-plan .projects{padding:0 calc(18px * var(--dens));margin-bottom:26px}

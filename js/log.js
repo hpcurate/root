@@ -243,6 +243,111 @@ function refreshHome() {
   const s = calcStreak();
   const el = $id('h-streak');
   el.innerHTML = s >= 2 ? `streak · <em>${s} days</em>` : '';
+  refreshAlert();
+}
+
+/* ── The tab alert ─────────────────────────────────────────────────────────────
+   A log is only worth anything if it is written, and the two halves of the day
+   have an hour by which they should be. Past that hour with the half still
+   empty, LOG's tab icon becomes a "!" — the shell owns the nav, so this only
+   ever asks it (Shell.alert), never touches a button itself.
+
+   Three rules, each with its own hour under settings → apps → log:
+
+     morning   nothing recorded in the morning half, past 10:00
+     evening   nothing recorded in the evening half, past 21:00
+     plan      nothing planned for tomorrow, past 21:00 — PLAN's queue and its
+               sent history, counting only tasks that carry a block, because
+               "planned" here means the blocks the day is built out of
+
+   The state is derived, never stored: it is recomputed on the shell's minute
+   tick, on every save, and whenever the day rolls. `alertTest` pins it to one
+   rule for the preview in settings, and is the only thing that can make it
+   lie — deliberately, so the icon can be seen without waiting for 21:00. */
+const alertCfg = () => Object.assign({}, Config.defaults('log.alerts'), Config.get('log.alerts') || {});
+const HHMM = /^(\d{1,2}):([0-5]\d)$/;
+let alertTest = null;
+
+/* Minutes since local midnight for "HH:MM", or null when the rule is off. */
+function hourOf(v) {
+  const m = HHMM.exec(String(v || '').trim());
+  return m ? +m[1] * 60 + +m[2] : null;
+}
+const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
+/* How much is planned for a day, from PLAN. Zero when PLAN is not there — a
+   missing app is not a reason to nag. */
+function plannedBlocks(iso) {
+  const p = window.PLAN && PLAN.plannedOn ? PLAN.plannedOn(iso) : null;
+  return p ? p.blocks : 1;
+}
+
+/* Which rule is firing, or null. The real today, always: the alert is about
+   now, not about whichever day the history is being read on. */
+function alertReason() {
+  if (alertTest) return alertTest;
+  const a = alertCfg();
+  if (a.on === false) return null;
+  const now = nowMin(), rec = readDay(REAL_TODAY);
+  const m = hourOf(a.morning), e = hourOf(a.evening), p = hourOf(a.plan);
+  if (m !== null && now >= m && !morningLogged(rec)) return 'morning';
+  if (e !== null && now >= e && !eveningLogged(rec)) return 'evening';
+  if (p !== null && now >= p && !plannedBlocks(dateOffset(REAL_TODAY, 1))) return 'plan';
+  return null;
+}
+const ALERT_SAYS = { morning: 'morning log not written', evening: 'evening log not written',
+                     plan: 'nothing planned for tomorrow' };
+function refreshAlert() {
+  const why = alertReason();
+  if (window.Shell && Shell.alert) Shell.alert('log', !!why, why ? ALERT_SAYS[why] : '');
+  renderAlertSettings();
+  return why;
+}
+
+/* ── Settings ── */
+function renderAlertSettings() {
+  if (!$id('al-on')) return;
+  const a = alertCfg();
+  $id('al-on').textContent = a.on === false ? 'off' : 'on';
+  [['al-morning','morning'], ['al-evening','evening'], ['al-plan','plan']].forEach(([id, k]) => {
+    const el = $id(id);
+    if (el && document.activeElement !== el) el.value = a[k] || '';
+  });
+  const why = alertTest || alertReason();
+  const st = $id('al-status');
+  if (st) {
+    st.textContent = alertTest ? `preview · ${ALERT_SAYS[alertTest]} — the tab is showing a "!"`
+                   : why ? `right now: ${ALERT_SAYS[why]}` : 'right now: nothing to flag';
+    st.className = 'td-status' + (alertTest ? ' busy' : why ? ' bad' : ' good');
+  }
+  $all('[data-al-test]').forEach(b => b.classList.toggle('on', b.dataset.alTest === (alertTest || '')));
+}
+function toggleAlerts() {
+  const a = alertCfg();
+  Config.set('log.alerts', Object.assign(a, { on: a.on === false }));
+  refreshAlert();
+}
+/* The hours are three text fields rather than <input type=time>: the native
+   picker is a wheel for something typed in four keystrokes, and an empty field
+   has to mean "never" — which a time input cannot express on every platform. */
+function saveAlerts() {
+  const a = alertCfg();
+  ['morning','evening','plan'].forEach(k => {
+    const el = $id('al-' + k); if (!el) return;
+    const v = el.value.trim();
+    a[k] = (v === '' || HHMM.test(v)) ? v : a[k];
+  });
+  Config.set('log.alerts', a);
+  refreshAlert();
+  toast('alert hours saved');
+}
+/* The preview: pins the icon to one rule so it can be looked at now. It stays
+   pinned until it is switched off, and says so in the panel — an alert that
+   silently un-pinned itself would be worse than one that has to be cleared. */
+function testAlert(which) {
+  alertTest = ['morning','evening','plan'].includes(which) ? which : null;
+  const why = refreshAlert();
+  toast(alertTest ? `previewing · ${ALERT_SAYS[alertTest]}` : why ? 'preview off · ' + ALERT_SAYS[why] : 'preview off');
 }
 
 // ── Scale / toggles ───────────────────────────────────────────────────────────
@@ -1213,6 +1318,16 @@ function studyTotals(days, dd) {
   return { topics: per.reduce((a, s) => a + s.topics, 0), cards: per.reduce((a, s) => a + s.cards, 0),
            acquired: per.reduce((a, s) => a + s.acquired, 0), titles: per.flatMap(s => s.titles) };
 }
+/* Routines over a report's days, from DO's own folded history — the ticks are
+   not in the note, so a report built from pasted Obsidian notes on another
+   device has nothing to show here and says so rather than guessing. */
+function routineTotals(days) {
+  const r = window.DO && DO.statsRange ? DO.statsRange(days) : null;
+  return (r && r.days) ? r : null;
+}
+const routineRow = r => r ? `| routines | ${r.pct}% ticked · ${r.days} day${r.days === 1 ? '' : 's'} |`
+                          : '| routines | — |';
+
 /* Media over a report's days: how many titles per label, and the titles. */
 function mediaTotals(dd) {
   const items = dd.flatMap(d => mediaOf(d.e));
@@ -1282,6 +1397,7 @@ function buildWeeklyReport(days, getDay) {
   const entryLines=allEntries.map(en=>` > ${en.time} - ${en.text}`).join('\n\n')||'—';
   const study=studyTotals(days,dd);
   const media=mediaTotals(dd);
+  const routines=routineTotals(days);
 
   return (
 `*weekly review — week ${wk} · ${y}*
@@ -1309,6 +1425,7 @@ ${days.map((d,i)=>dayRow(dd[i],i)).join('\n')}
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
+${routineRow(routines)}
 
 ## workouts
 
@@ -1381,6 +1498,7 @@ function buildMonthlyReport(days, getDay) {
   const blockRows=Object.entries(blockCounts).map(([b,c])=>`| ${b} | ${c} |`).join('\n')||'| — | — |';
   const study=studyTotals(days,dd);
   const media=mediaTotals(dd);
+  const routines=routineTotals(days);
 
   const weekRows=Object.entries(weeks).map(([wk,wdays])=>{
     const wdd=wdays.map(x=>x.data);
@@ -1419,6 +1537,7 @@ ${weekRows}
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
+${routineRow(routines)}
 
 ## workouts
 
@@ -1475,6 +1594,7 @@ function renderDataScreen() {
   $id('ds-days').textContent    = keys.length;
   $id('ds-entries').textContent = totalEntries;
   $id('ds-earliest').textContent = earliest;
+  renderAlertSettings();
 }
 
 // ── Backup: export / import all days ──────────────────────────────────────────
@@ -1581,6 +1701,7 @@ Config.subscribe(path => {
   const open = $all('.scr.on')[0];
   const id = open ? open.id.replace('s-', '') : 'home';
   ({ morning: popM, evening: popE, home: refreshHome })[id]?.();
+  refreshAlert();          // an edited hour takes effect without waiting a minute
 });
 
 /* The date format and the week start are preferences; the home date and the
@@ -1593,7 +1714,12 @@ Prefs.subscribe(k => {
 });
 
 // `home`: the tab button tapped while on LOG — same as ← back, unsaved-input check included
-Shell.register('log', { onDayChange: rollDay, home: goBack });
+/* onMinute is the shell's own minute tick, the one that already watches for
+   midnight: the alert wants re-deriving as 10:00 and 21:00 pass, and a second
+   timer for it would be a second thing to keep in step. */
+Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
+                        onMinute: refreshAlert, home: goBack });
+refreshAlert();
 
 return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
@@ -1601,5 +1727,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
-         setMedia };
+         setMedia, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason };
 })();

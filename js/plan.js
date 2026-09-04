@@ -331,6 +331,7 @@ function renderQueue() {
   // an empty queue says so on its own title row — there is no placeholder block
   $id('queue-count').textContent = n ? `${n} task${n!==1?'s':''}` : 'empty';
   $id('queue-clear').classList.toggle('hidden', !n);
+  renderPresets();
   syncSend();
 
   if (!n) { list.innerHTML = ''; return; }
@@ -367,6 +368,81 @@ function syncSend() {
   wrap.classList.toggle('hidden', !n || openSub !== null || expOpen);
   const b = $id('btn-send');
   if (b && n) b.textContent = `send ${n} task${n !== 1 ? 's' : ''} to todoist`;
+}
+
+/* ── Queue presets ────────────────────────────────────────────────────────────
+   A week that is the same five tasks every Monday was five trips through the
+   form every Monday. Saving the queue keeps its tasks — minus the day — under
+   a name in Config (plan.presets), and one tap puts them back.
+
+   Deliberately not dated: a preset is a shape of day, not a day. Applying one
+   dates every task from the same floor the form uses (today, or the day the
+   last task was queued for), so a Monday saved in September still lands on
+   whichever day you are planning now.
+
+   Config rather than a key of its own, so a preset can be renamed and deleted
+   in settings like every other piece of content, and rides in the backup. */
+const presets = () => (Config.get('plan.presets') || []).filter(p => p && Array.isArray(p.tasks));
+
+function renderPresets() {
+  const box = $id('queue-presets'); if (!box) return;
+  const list = presets();
+  box.classList.toggle('hidden', !list.length);
+  box.innerHTML = list.map(p => `<span class="pre-chip">
+      <button class="pre-b" onclick="PLAN.applyPreset('${attr(p.key)}')">${esc(p.label)}<em>${p.tasks.length}</em></button>
+      <button class="pre-x" onclick="PLAN.deletePreset('${attr(p.key)}')" aria-label="delete ${esc(p.label)}">✕</button>
+    </span>`).join('');
+  const save = $id('queue-save');
+  if (save) save.classList.toggle('hidden', !queue.length);
+}
+
+function savePreset() {
+  if (!queue.length) return;
+  const name = String(prompt('Name this preset', '') || '').trim().slice(0, 40);
+  if (!name) return;
+  const list = presets();
+  const key = 'p' + Date.now().toString(36);
+  /* Everything the queue row carries except the day and the project id: the id
+     is resolved from the mapping when the preset is applied, so a preset built
+     before a project was re-mapped still goes to the right place. */
+  const tasks = queue.map(t => ({ name:t.name, typeKey:t.typeKey, subType:t.subType, section:t.section,
+                                  projectLabel:t.projectLabel, block:t.block || null, time:t.time || null,
+                                  priority:t.priority, subtasks:[...(t.subtasks || [])] }));
+  Config.set('plan.presets', list.concat({ key, label:name, tasks }));
+  toast(`saved · ${name} · ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
+}
+
+function applyPreset(key) {
+  const p = presets().find(x => x.key === key);
+  if (!p) return;
+  const day = lastDate && dayGap(Shell.today(), lastDate) > 0 ? lastDate : Shell.today();
+  p.tasks.forEach(t => {
+    const map = mappings[t.typeKey] || {};
+    queue.push(Object.assign({}, t, { date: day, projectId: map.projectId || null,
+                                      subtasks: [...(t.subtasks || [])] }));
+  });
+  saveQueue();
+  renderQueue(); renderProjects();
+  toast(`${p.label} · ${p.tasks.length} task${p.tasks.length !== 1 ? 's' : ''} queued`);
+}
+
+function deletePreset(key) {
+  const p = presets().find(x => x.key === key);
+  if (!p) return;
+  if (!Shell.confirm(`Delete the preset “${p.label}”?`)) return;
+  Config.set('plan.presets', presets().filter(x => x.key !== key));
+  toast('preset deleted');
+}
+
+/* ── What is planned for a day ────────────────────────────────────────────────
+   LOG's tab alert asks this at 21:00 about tomorrow. The queue counts: it is
+   what is about to be sent. `blocks` is what the alert reads — a day is
+   planned when its blocks are, not merely when something has a date. */
+function plannedOn(iso) {
+  const today = Shell.today();
+  const rows = queue.filter(t => (t.date || today) === iso)
+    .concat(sentLog.filter(t => t.date === iso));
+  return { tasks: rows.length, blocks: rows.filter(t => t.block).length };
 }
 
 function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
@@ -1295,6 +1371,7 @@ Shell.register('plan', {
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
          stepDate, resetDate, dateWord,
+         savePreset, applyPreset, deletePreset, plannedOn,
          renderSent, toggleSent, clearSent,
          openExport, closeExport, pickSlot, setTemplate, setMode, expField, doExport,
          exportDescription, previewRows, resolved,

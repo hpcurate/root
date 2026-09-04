@@ -71,6 +71,15 @@
     <circle cx="12" cy="12" r="3.4"/>
     <path d="M12 2.6v2.4M12 19v2.4M21.4 12H19M5 12H2.6M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7M18.6 18.6l-1.7-1.7M7.1 7.1 5.4 5.4"/>
   </symbol>
+  <!-- the "!" a tab wears in place of its own icon while something is overdue
+       (Shell.alert) — one stroke and its dot, at the icon's own weight -->
+  <symbol id="tab-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="4" x2="12" y2="14"/><line x1="12" y1="19" x2="12" y2="19"/>
+  </symbol>
+  <!-- search: the one field that reaches every app, its content and every dial -->
+  <symbol id="ico-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/>
+  </symbol>
   <symbol id="ico-chev-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <polyline points="15 5 8 12 15 19"/>
   </symbol>
@@ -232,6 +241,11 @@
     <div class="tt hidden" id="td-today"></div>
     <!-- the @b1 / @b2 / @b3 tasks due today, as colour-coded blocks — DO.renderBlocks() -->
     <div class="tt hidden" id="td-blocks"></div>
+    <!-- the @quick tasks: a card each, a checklist where the task has subtasks
+         — DO.renderQuick() -->
+    <div class="tt hidden" id="td-quick"></div>
+    <!-- how much of each day's routines got ticked, last N days — DO.renderHistory() -->
+    <div class="tt hidden" id="do-hist"></div>
     <!-- the media tab: every open @movie / @show / @podcast / @music task, grouped
          under its label in the label's colour — DO.renderMedia() -->
     <div class="tt hidden" id="td-media"></div>
@@ -582,8 +596,13 @@
     <div class="queue" data-flip="queue">
       <div class="row-lbl">
         <span>queue <em id="queue-count">empty</em></span>
-        <button class="muted-act hidden" id="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
+        <span class="row-acts">
+          <button class="muted-act hidden" id="queue-save" onclick="PLAN.savePreset()">save as preset</button>
+          <button class="muted-act hidden" id="queue-clear" onclick="PLAN.clearQueue()">clear all</button>
+        </span>
       </div>
+      <!-- a saved queue, refilled with one tap — PLAN.renderPresets() -->
+      <div class="presets hidden" id="queue-presets"></div>
       <div id="queue-list"></div>
     </div>
 
@@ -1134,6 +1153,45 @@
         <span class="setting-lbl">Show the media tab<small>labels: <span id="td-media-labels">—</span> · edit them under content below</small></span>
         <button class="setting-btn" id="td-media-on" onclick="DO.toggleMedia()">on</button>
       </div>
+
+      <div class="sec">Quick tasks</div>
+      <div class="data-warn">
+        Cards under the routine cards, one per open Todoist task carrying this
+        label. A task with no subtasks is the tick itself; a task with subtasks
+        becomes a checklist, and ticking its last row closes the parent in
+        Todoist too — unticking one reopens it. Any date, or none: this is a
+        backlog, not a day's list.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show quick tasks</span>
+        <button class="setting-btn" id="td-quick-on" onclick="DO.toggleQuick()">on</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Label <em>without the @</em></label>
+        <input type="text" id="td-quick-label" data-cfg="do.quickLabel" placeholder="quick"
+               autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="td-acts">
+        <button class="setting-btn" data-td-btn="fetch now" onclick="DO.refreshToday()">fetch now</button>
+      </div>
+      <div class="td-status" id="td-quick-status">off</div>
+
+      <div class="sec">Consistency</div>
+      <div class="data-warn">
+        A strip of the last few days, one cell each, filled by how much of that
+        day's routines was ticked. Each day is folded into a small tally as it
+        is swept, so the strip starts empty and fills in from here — nothing
+        before today can be recovered.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Show the strip</span>
+        <button class="setting-btn" id="do-hist-on" onclick="DO.toggleHistory()">on</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Days shown</label>
+        <input type="number" id="do-hist-days" data-cfg="do.history" data-sub="days" min="3" max="60" step="1">
+      </div>
+      <div class="td-status" id="do-hist-status">—</div>
       <div class="set-content" data-content-for="do"></div>
     </div>
 
@@ -1157,6 +1215,42 @@
         device and Import there to restore history, streaks and trends. Importing
         merges the days in; any day with the same date is overwritten by the file.
       </div>
+
+      <div class="sec">Alerts</div>
+      <div class="data-warn">
+        LOG's tab icon becomes a <strong>!</strong> when a half of the day is
+        still unwritten past its hour, or when nothing is planned for tomorrow
+        past the third one. "Planned" means a task PLAN has queued or sent for
+        tomorrow carrying a block. Leave an hour empty to switch that rule off.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Flag on the tab</span>
+        <button class="setting-btn" id="al-on" onclick="LOG.toggleAlerts()">on</button>
+      </div>
+      <div class="f">
+        <label class="lbl">Morning log by</label>
+        <input type="text" id="al-morning" placeholder="10:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Evening log by</label>
+        <input type="text" id="al-evening" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label class="lbl">Tomorrow planned by</label>
+        <input type="text" id="al-plan" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+      </div>
+      <button class="btn btn-2" onclick="LOG.saveAlerts()">save hours</button>
+      <div class="data-warn" style="margin-top:14px">
+        Preview one without waiting for the hour: the tab really does change,
+        and stays changed until it is switched back off.
+      </div>
+      <div class="td-acts" id="al-test">
+        <button class="setting-btn" data-al-test="morning" onclick="LOG.testAlert('morning')">morning</button>
+        <button class="setting-btn" data-al-test="evening" onclick="LOG.testAlert('evening')">evening</button>
+        <button class="setting-btn" data-al-test="plan" onclick="LOG.testAlert('plan')">plan</button>
+        <button class="setting-btn" data-al-test="" onclick="LOG.testAlert('')">off</button>
+      </div>
+      <div class="td-status" id="al-status">—</div>
 
       <div class="sec">Danger</div>
       <button class="btn btn-danger" onclick="LOG.openDeleteModal()">Delete all logged days</button>
@@ -1512,6 +1606,20 @@
 
 <div id="toast"></div>
 
+<!-- SEARCH — one field over every app, its content and every setting.
+     A .sheet-back sheet, so Escape closes it and the shell's own shortcuts step
+     aside while it is up (js/search.js). -->
+<div class="sheet-back" id="search-back"></div>
+<div class="sheet" id="search" role="dialog" aria-label="Search ROOT">
+  <div class="sheet-head">
+    <span class="sheet-ttl"><svg class="sr-ico" aria-hidden="true"><use href="#ico-search"/></svg>search</span>
+    <button class="sheet-close" id="search-close">close</button>
+  </div>
+  <input type="search" id="search-q" placeholder="an app, an item, a setting…"
+         autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="search ROOT">
+  <div id="search-out"></div>
+</div>
+
 <!-- the portrait curtain: shown by shell.css in landscape on a phone while
      Settings → behaviour → "stay in portrait" is on -->
 <div id="rotate" aria-hidden="true">
@@ -1661,6 +1769,7 @@
      shell   defines Creds and Shell.toast, which the modules use while booting
      apps    each registers itself with Shell and subscribes to Config
      settings owns the settings view and needs every module to exist first
+     search   reads SET's index and every module's search hook, so it is last
      (js/prefs.js is already loaded, from <head>, before the stylesheets) -->
 <script src="js/config.js"></script>
 <script src="js/shell.js"></script>
@@ -1672,5 +1781,6 @@
 <script src="js/track.js"></script>
 <script src="js/learn.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/search.js"></script>
 </body>
 </html>

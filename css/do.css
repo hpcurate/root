@@ -238,6 +238,63 @@
   padding:3px 6px;transition:opacity var(--dur-2) var(--ease)}
 .ns-do .bk.done .bk-sub{opacity:.22}
 
+/* ── Quick tasks ──
+   Card-shaped like a routine card, because that is what they are read as. One
+   column, not two: a card with subtasks is a checklist and a checklist at half
+   width wraps every row. A childless card is the same box with no list under
+   it, so the two shapes sit in one column without either looking like a
+   mistake. */
+.ns-do .qk-grid{display:flex;flex-direction:column;gap:calc(8px * var(--dens))}
+.ns-do .qk{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  overflow:hidden;transition:border-color .12s}
+.ns-do .qk.has-sub{border-color:color-mix(in srgb,var(--bk-c) 38%,var(--bd))}
+.ns-do .qk.done{border-color:var(--bk-c)}
+.ns-do .qk-head{display:flex;align-items:flex-start;gap:calc(11px * var(--dens));width:100%;text-align:left;
+  background:none;border:none;color:var(--tx);cursor:pointer;
+  padding:calc(14px * var(--dens)) calc(14px * var(--dens)) calc(12px * var(--dens))}
+.ns-do .qk-head:active{background:var(--s2)}
+.ns-do .qk-check{flex:0 0 auto;width:18px;height:18px;margin-top:1px;border:1.5px solid var(--mu);border-radius:var(--r1);
+  display:flex;align-items:center;justify-content:center;color:transparent;transition:background .12s,border-color .12s,color .12s}
+.ns-do .qk-check svg{width:10px;height:10px}
+.ns-do .qk.done .qk-check{background:var(--bk-c);border-color:var(--bk-c);color:var(--on-y)}
+/* a card with subtasks is ticked by its rows: its head shows the count, not a box */
+.ns-do .qk.has-sub .qk-check{border-style:dashed;opacity:.5}
+.ns-do .qk.has-sub.done .qk-check{opacity:1;border-style:solid}
+.ns-do .qk-body{flex:1;min-width:0}
+.ns-do .qk-name{display:block;font:700 12.5px/1.35 var(--head);letter-spacing:.04em;
+  text-transform:var(--caps);overflow-wrap:anywhere}
+.ns-do .qk.done .qk-name{color:var(--tx-2);text-decoration:line-through;text-decoration-color:var(--mu)}
+.ns-do .qk-sub{display:block;font:400 9.5px/1.4 var(--mono);color:var(--mu);letter-spacing:.06em;margin-top:5px}
+.ns-do .qk-bar{height:2px;background:var(--bd);margin:0 calc(14px * var(--dens))}
+.ns-do .qk-bar-fill{height:100%;transition:width .25s ease}
+.ns-do .qk-list{padding:calc(6px * var(--dens)) calc(8px * var(--dens)) calc(8px * var(--dens))}
+.ns-do .qk-item{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  width:100%;text-align:left;background:none;border:none;cursor:pointer;color:var(--tx);
+  font:400 12px/1.4 var(--mono);padding:calc(9px * var(--dens)) calc(6px * var(--dens));
+  border-radius:var(--r1);overflow-wrap:anywhere}
+.ns-do .qk-item:active{background:var(--s2)}
+.ns-do .qk-item.checked{color:var(--tx-2)}
+.ns-do .qk-item.checked span:first-child{text-decoration:line-through;text-decoration-color:var(--mu)}
+.ns-do .qk-tick{flex:0 0 auto;width:16px;height:16px;border:1.5px solid var(--mu);border-radius:var(--r1);
+  display:flex;align-items:center;justify-content:center;color:transparent;transition:background .12s,border-color .12s,color .12s}
+.ns-do .qk-tick svg{width:9px;height:9px}
+.ns-do .qk-item.checked .qk-tick{background:var(--bk-c);border-color:var(--bk-c);color:var(--on-y)}
+
+/* ── The consistency strip ──
+   One flexed cell per day, so however many days are asked for it is exactly as
+   wide as the section — a fixed-width row here is what took DO's tabs off the
+   right edge in 2.0. */
+.ns-do .dh-strip{display:flex;align-items:flex-end;gap:2px;height:44px;
+  padding:calc(8px * var(--dens)) calc(10px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
+.ns-do .dh-cell{flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;
+  background:color-mix(in srgb,var(--bd) 45%,transparent);border-radius:1px;overflow:hidden}
+.ns-do .dh-cell i{display:block;width:100%;background:var(--y);border-radius:1px;transition:height .25s ease}
+.ns-do .dh-cell.full i{background:var(--gr)}
+.ns-do .dh-cell.none{background:none;border:var(--bw) dashed var(--bd)}
+.ns-do .dh-legend{display:flex;justify-content:space-between;margin-top:5px;
+  font:400 8.5px/1 var(--mono);color:var(--mu);letter-spacing:.06em;text-transform:var(--caps)}
+
 .ns-do .tt-empty{font:400 11px/1.6 var(--mono);color:var(--mu);text-align:center;
   padding:calc(18px * var(--dens));background:var(--s1);border:var(--bw) dashed var(--bd);border-radius:var(--r1)}
 .ns-do .tt-status{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em;margin-top:6px}

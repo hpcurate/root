@@ -61,6 +61,15 @@ const DEFAULTS = {
        drawn. Each group takes the label's own Todoist colour; any second label
        on a task (@album, @set, @track under @music) is shown on the tile. */
     mediaLabels: ['movie', 'show', 'podcast', 'music'],
+    /* The one Todoist label the quick section fetches. A task carrying it is a
+       card under the routine cards — on its own if it has no subtasks, as a
+       checklist if it has. One label, not a list: "quick" is a shape of task,
+       not a category of them. */
+    quickLabel: 'quick',
+    /* The consistency strip: how many days of routine history it draws. The
+       ticks themselves are folded into `do-stats-v1` as each day is swept —
+       see js/do.js. */
+    history: { on: true, days: 14 },
     /* Master packing categories. A new travel checklist is built by picking
        which of these to include; every item starts as a counter at 1. */
     travelCategories: {
@@ -74,9 +83,12 @@ const DEFAULTS = {
       festival:    ['tent','sardines','party tent','chairs','table','matress','pillows','duvet','bedsheet','cart','cart screws','key','tarp','elastic cables','camelback','water pouch','boots','electric pump','wet wipes','toilet paper','trash bags','lighter','duct tape','rubber mallet'],
     },
     categoryOrder: ['clothes','toiletries','meds','electronics','kamo','essentials','rave','festival'],
-    /* The order of the three sections on DO's first tab: the block tasks from
-       Todoist, the routine cards, the today list. Settings → do moves them. */
-    sections: ['blocks', 'routines', 'today'],
+    /* The order of the sections on DO's first tab: the block tasks from
+       Todoist, the routine cards, the @quick cards, the today list and the
+       consistency strip. Settings → do moves them. A section this list does
+       not name goes last, which is where `quick` and `history` land for an
+       override written before they existed. */
+    sections: ['blocks', 'routines', 'quick', 'today', 'history'],
   },
 
   /* ── LOG ────────────────────────────────────────────────────────────────── */
@@ -129,6 +141,11 @@ const DEFAULTS = {
     },
     /* What a day needs before it counts towards the streak on the home screen. */
     streakRequires: 'both',   // 'both' | 'morning' | 'evening'
+    /* The LOG tab's icon becomes a "!" while one of these is true: the morning
+       is still unlogged past `morning`, the evening past `evening`, or nothing
+       is planned for tomorrow past `plan`. Hours are local wall-clock "HH:MM";
+       an empty string switches that one rule off on its own. */
+    alerts: { on: true, morning: '10:00', evening: '21:00', plan: '21:00' },
   },
 
   /* ── PLAN ───────────────────────────────────────────────────────────────── */
@@ -194,6 +211,15 @@ const DEFAULTS = {
        stepper: on by default, and PLAN reads this record through the shipped
        one, so an override written before the row existed still shows it. */
     formFields: { date: true, block: true, time: false, priority: true, subtasks: true },
+
+    /* ── Queue presets ──────────────────────────────────────────────────────
+       A day that is the same five tasks every week, saved once and refilled
+       with one tap. Each preset is a name and the tasks as they were queued,
+       minus the day: a preset is a shape of day, not a dated one, so applying
+       it dates every task from the form's own floor (today, or the day the
+       last task was queued for). Nothing ships — a preset is by definition
+       personal — so the shipped value is an empty list. */
+    presets: [],
 
     /* ── The export ─────────────────────────────────────────────────────────
        Which Google Calendar a project's events belong on. A *name*, never an

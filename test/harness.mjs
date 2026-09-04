@@ -1401,6 +1401,248 @@ check('… and re-marks it when a tab hides the sections above it',
   fv.marked.length === 1 && fv.marked[0] === fv.shown, (fv.marked[0] || {}).id + ' vs ' + (fv.shown || {}).id);
 w.DO.setTab('daily');
 
+// ── 29. 2.19 — search, DO's quick cards and its history, PLAN presets, LOG's alert ─
+
+/* ── search ── */
+w.Shell.go('do');
+key('/');
+check('"/" opens search rather than settings',
+  $('#search').classList.contains('on') && $('#search-back').classList.contains('on'));
+key('3');
+check('… and the sheet owns the keyboard while it is up: no tab change',
+  $('.tab-b.on').getAttribute('aria-label') === 'DO', $('.tab-b.on').getAttribute('aria-label'));
+const sq = $('#search-q');
+const type = v => { sq.value = v; sq.dispatchEvent(new w.Event('input', { bubbles: true })); };
+type('tomat');
+check('search finds a grocery item by its aisle content',
+  [...d.querySelectorAll('#search-out .sr')].some(r => /tomato/.test(r.textContent) && /STORE/.test(r.textContent)),
+  [...d.querySelectorAll('#search-out .sr')].slice(0, 3).map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+type('corner');
+const cornerHit = w.SEARCH.results('corner')[0];
+check('… and a settings dial by the label it actually wears',
+  !!cornerHit && /corner radius/i.test(cornerHit.title) && cornerHit.sub.includes('layout'),
+  cornerHit ? cornerHit.title + ' / ' + cornerHit.sub : 'no hit');
+type('mixing');
+check('… a PLAN section, named for its project',
+  w.SEARCH.results('mixing').some(r => /mixing/i.test(r.title) && /PLAN/.test(r.sub)),
+  JSON.stringify(w.SEARCH.results('mixing').slice(0, 2).map(r => r.title + ' / ' + r.sub)));
+/* The index is derived, never a second list: rename a routine and it is
+   findable at once. */
+const rts = w.Config.get('do.routines');
+rts.routinep1.label = 'zzz morning ritual';
+w.Config.set('do.routines', rts);
+check('… and a routine renamed a second ago, because nothing here is a copy',
+  w.SEARCH.results('zzz morning').some(r => /zzz morning ritual/.test(r.title)),
+  JSON.stringify(w.SEARCH.results('zzz morning').map(r => r.title)));
+w.Config.reset('do.routines'); w.Config.reset('do.tabs');
+type('learn');
+const appHit = w.SEARCH.results('learn').find(r => r.kind === 'app');
+check('an app is its own first result', !!appHit && appHit.title === 'LEARN');
+/* A module's rows are labelled with the app they came from, never left blank. */
+w.Shell.go('tend');
+check('a plant is found by its room, and the row says which app it is in',
+  w.SEARCH.results('kitchen').some(r => r.kind === 'tend' && /basil/i.test(r.title)),
+  JSON.stringify(w.SEARCH.results('kitchen').map(r => r.kind + ':' + r.title).slice(0, 3)));
+/* Picking a settings hit lands on that panel, with the sheet gone. */
+type('corner');
+click([...d.querySelectorAll('#search-out .sr')][0]);
+await tick();
+check('picking a dial closes search and lands on its panel',
+  !$('#search').classList.contains('on') && $('.ns-set .set-panel.on')?.dataset.panel === 'layout',
+  $('.ns-set .set-panel.on')?.dataset.panel);
+w.SEARCH.open(); key('Escape', $('#search-q'));
+check('Escape closes it', !$('#search').classList.contains('on'));
+check('the search sheet is a sibling of #views, never inside #track',
+  $('#search').parentElement === d.body && $('#search-back').parentElement === d.body);
+
+/* ── DO · @quick ── */
+const qkOpen = new Map([
+  ['q1', { id:'q1', content:'change the filter', labels:['quick'], project_id:'P1', parent_id:null, open:true }],
+  ['q2', { id:'q2', content:'desk reset',        labels:['quick'], project_id:'P1', parent_id:null, open:true }],
+  ['q2a',{ id:'q2a',content:'clear the cables',  labels:[],        project_id:'P1', parent_id:'q2',  open:true }],
+  ['q2b',{ id:'q2b',content:'wipe it down',      labels:[],        project_id:'P1', parent_id:'q2',  open:true }],
+]);
+const closed = [];
+fetchScript = async (url, opts) => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  const m = url.match(/\/tasks\/(\w+)\/(close|reopen)/);
+  if (m) { const t = qkOpen.get(m[1]); if (t) t.open = m[2] === 'reopen'; closed.push(m[2] + ':' + m[1]);
+           return { ok: true, status: 204, json: async () => null, text: async () => '' }; }
+  if (url.includes('/labels')) return ok([{ id:'l9', name:'quick', color:'lime_green' }]);
+  if (url.includes('/tasks?')) {
+    const p = new URL(url).searchParams;
+    const lab = p.get('label'), proj = p.get('project_id');
+    const rows = [...qkOpen.values()].filter(t => t.open &&
+      (lab ? t.labels.includes(lab) : proj ? t.project_id === proj : false));
+    return ok(rows.map(t => ({ id:t.id, content:t.content, labels:t.labels, priority:1, due:null,
+                               project_id:t.project_id, parent_id:t.parent_id })));
+  }
+  return ok([]);
+};
+w.Config.set('do.mediaLabels', []);            // keep this refresh to the quick fetch alone
+await w.DO.refreshToday(true);
+w.Shell.go('do'); w.DO.setTab('daily');
+const qkBox = () => $('.ns-do #td-quick');
+const qkCards = () => [...qkBox().querySelectorAll('.qk')];
+check('a @quick task is a card under the routine cards', !qkBox().classList.contains('hidden') &&
+  qkCards().length === 2 && $('.ns-do #s-home').children[0]?.id !== 'td-quick', qkCards().length + ' cards');
+const withSub = () => qkCards().find(c => /desk reset/.test(c.textContent));
+check('… and one with subtasks is a checklist, counted on its head',
+  withSub().classList.contains('has-sub') && withSub().querySelectorAll('.qk-item').length === 2 &&
+  /0 \/ 2 done/.test(withSub().querySelector('.qk-sub').textContent),
+  withSub().querySelector('.qk-sub').textContent);
+check('… while one without is the tick itself',
+  !qkCards().find(c => /change the filter/.test(c.textContent)).classList.contains('has-sub'));
+w.DO.toggleQuickTask('q2'); await tick(30);
+check('the head of a card with subtasks does not close it — its rows do',
+  qkOpen.get('q2').open === true && !closed.length, closed.join(','));
+w.DO.toggleQuickSub('q2', 'q2a'); await tick(40);
+check('ticking one subtask closes that subtask and leaves the parent open',
+  qkOpen.get('q2a').open === false && qkOpen.get('q2').open === true &&
+  /1 \/ 2 done/.test(withSub().querySelector('.qk-sub').textContent),
+  closed.join(',') + ' | ' + withSub().querySelector('.qk-sub').textContent);
+w.DO.toggleQuickSub('q2', 'q2b'); await tick(40);
+check('… and ticking the last one closes the parent too, which Todoist will not do',
+  qkOpen.get('q2b').open === false && qkOpen.get('q2').open === false &&
+  withSub().classList.contains('done'), closed.join(','));
+w.DO.toggleQuickSub('q2', 'q2b'); await tick(40);
+check('unticking a row reopens the row and the parent with it',
+  qkOpen.get('q2b').open === true && qkOpen.get('q2').open === true && !withSub().classList.contains('done'),
+  closed.join(','));
+w.DO.toggleQuickTask('q1'); await tick(40);
+check('a childless quick task closes on its own tick',
+  qkOpen.get('q1').open === false &&
+  qkCards().find(c => /change the filter/.test(c.textContent)).classList.contains('done'));
+/* A closed task is kept for the day so it can be unticked, and the refetch
+   does not lose the subtask that is no longer returned. */
+await w.DO.refreshToday(true);
+check('a task closed here stays on the list, ticked, until midnight',
+  qkCards().length === 2 && qkCards().find(c => /change the filter/.test(c.textContent)).classList.contains('done'),
+  qkCards().length + ' cards');
+check('… and a subtask closed here is carried over rather than dropped',
+  withSub().querySelectorAll('.qk-item').length === 2 &&
+  /1 \/ 2 done/.test(withSub().querySelector('.qk-sub').textContent),
+  withSub().querySelector('.qk-sub').textContent);
+w.SET.panel('do');
+check('the label is a Config field on DO\'s panel, not a constant',
+  $('.ns-set #td-quick-label')?.dataset.cfg === 'do.quickLabel' && $('.ns-set #td-quick-label').value === 'quick',
+  $('.ns-set #td-quick-label')?.value);
+w.Shell.go('do');
+w.DO.toggleQuick();
+check('switching the section off empties it as well as hiding it',
+  qkBox().classList.contains('hidden') && qkBox().innerHTML === '');
+w.DO.toggleQuick();
+w.Config.reset('do.mediaLabels');
+
+/* ── DO · the history the sweep used to throw away ── */
+w.DO.go('home');
+w.DO.openRoutine('routinep1');
+const rItems = [...d.querySelectorAll('.ns-do .item-btn')];
+click(rItems[0]); click(rItems[1]);
+w.DO.go('home');
+const liveNow = w.DO.statsFor(today);
+check('today reads live out of the record being written',
+  !!liveNow && liveNow.done === 2 && liveNow.total > 2, JSON.stringify(liveNow));
+const cells = () => [...d.querySelectorAll('.ns-do #do-hist .dh-cell')];
+check('the strip draws one cell per day asked for, flexed rather than fixed',
+  cells().length === w.Config.get('do.history').days && !!$('.ns-do #do-hist .dh-legend'),
+  cells().length + ' cells');
+const RealDate2 = w.Date;
+w.Date = class extends RealDate2 {
+  constructor(...a) { a.length ? super(...a) : super(RealDate2.now() + 86400000); }
+  static now() { return RealDate2.now() + 86400000; }
+};
+w.Shell.checkDay();
+const folded = w.DO.statsFor(today);
+check('the swept day is folded into a tally instead of being thrown away',
+  !!folded && folded.done === 2 && w.localStorage.getItem('do_' + today) === null, JSON.stringify(folded));
+check('… under a key the do_ sweep cannot reach', w.localStorage.getItem('do-stats-v1') !== null &&
+  !('do-stats-v1'.startsWith('do_')));
+w.Date = RealDate2;
+w.Shell.checkDay();
+check('and it survives the roll back, when the record itself is long gone',
+  (w.DO.statsFor(today) || {}).done === 2, JSON.stringify(w.DO.statsFor(today)));
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('reports'); w.LOG.loadReportLocal('weekly');
+check('the weekly report grows a routines row out of it',
+  /\| routines \| \d+% ticked · \d+ day/.test($('.ns-log #rep-pre').textContent),
+  ($('.ns-log #rep-pre').textContent.match(/\| routines \|.*/) || ['no row'])[0]);
+
+/* ── PLAN · queue presets ── */
+w.Shell.go('plan');
+confirmAnswer = true;
+w.PLAN.clearQueue();
+for (const nm of ['mix the intro', 'bounce the stems']) {
+  w.PLAN.openProj('curate'); w.PLAN.pickSub('curate', 0);
+  $('.ns-plan #task-name').value = nm;
+  $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+  w.PLAN.addToQueue();
+}
+w.prompt = () => 'studio monday';
+w.PLAN.savePreset();
+const saved = w.Config.get('plan.presets');
+check('a queue saves as a preset — its tasks, never its day',
+  saved.length === 1 && saved[0].label === 'studio monday' && saved[0].tasks.length === 2 &&
+  saved[0].tasks.every(t => t.date === undefined), JSON.stringify(saved[0] && saved[0].tasks.map(t => t.name)));
+check('… and it shows on the queue row as a chip naming the count',
+  /studio monday/.test($('.ns-plan #queue-presets').textContent) &&
+  /2/.test($('.ns-plan #queue-presets .pre-b em').textContent));
+w.PLAN.clearQueue();
+w.PLAN.applyPreset(saved[0].key);
+const requeued = JSON.parse(w.localStorage.getItem('plan_queue'));
+check('one tap refills the queue, dated from today rather than from the day it was saved',
+  requeued.length === 2 && requeued[0].name === 'mix the intro' && requeued.every(t => t.date === today),
+  JSON.stringify(requeued.map(t => [t.name, t.date])));
+w.SET.panel('plan');
+check('a preset is editable content like everything else',
+  !!$('.ns-set [data-group="plan.presets"] input[data-field="label"]'));
+w.Shell.go('plan');
+w.PLAN.deletePreset(saved[0].key);
+check('deleting one takes its chip with it',
+  (w.Config.get('plan.presets') || []).length === 0 && $('.ns-plan #queue-presets').classList.contains('hidden'));
+w.PLAN.clearQueue();
+
+/* ── LOG · the tab alert ── */
+const logIcon = () => $('.tab-b[data-app="log"] use').getAttribute('href');
+const logBtn = () => $('.tab-b[data-app="log"]');
+w.localStorage.removeItem('log_' + today);
+w.LOG.resetDate();
+w.Config.set('log.alerts', { on: true, morning: '00:00', evening: '00:00', plan: '00:00' });
+check('an unwritten morning past its hour turns the LOG tab into a "!"',
+  w.LOG.alertReason() === 'morning' && logIcon() === '#tab-alert' && logBtn().classList.contains('has-alert'),
+  w.LOG.alertReason() + ' / ' + logIcon());
+w.Shell.go('log'); w.LOG.go('morning');
+$('.ns-log #m-sl').value = '7'; w.LOG.saveMorning();
+check('writing it moves the flag on to the evening rather than clearing it',
+  w.LOG.alertReason() === 'evening' && logIcon() === '#tab-alert', w.LOG.alertReason());
+w.LOG.go('evening'); $('.ns-log #e-kme').value = '2'; w.LOG.saveEvening();
+check('… and with both halves written it is tomorrow that is unplanned',
+  w.LOG.alertReason() === 'plan' && logIcon() === '#tab-alert', w.LOG.alertReason());
+w.Shell.go('plan');
+w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
+$('.ns-plan #task-name').value = 'clear the desk';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+w.PLAN.optPick($('.ns-plan #opts-block .opt-b'), 'block', 'b1');
+w.PLAN.stepDate(1);
+w.PLAN.addToQueue();
+check('planning one block for tomorrow answers it: the icon goes back',
+  w.PLAN.plannedOn(offset(1)).blocks === 1 && w.LOG.refreshAlert() === null &&
+  logIcon() === '#tab-log' && !logBtn().classList.contains('has-alert'),
+  JSON.stringify(w.PLAN.plannedOn(offset(1))) + ' / ' + logIcon());
+w.LOG.testAlert('evening');
+check('the settings preview really changes the tab, and says which rule it is showing',
+  logIcon() === '#tab-alert' && /preview/.test($('.ns-log #al-status').textContent),
+  $('.ns-log #al-status').textContent);
+w.LOG.testAlert('');
+check('… and switching the preview off puts the real state back',
+  logIcon() === '#tab-log' && /nothing to flag/.test($('.ns-log #al-status').textContent),
+  $('.ns-log #al-status').textContent);
+w.Config.set('log.alerts', { on: false, morning: '00:00', evening: '00:00', plan: '00:00' });
+w.localStorage.removeItem('log_' + today); w.LOG.resetDate();
+check('switched off it never flags, whatever the hour',
+  w.LOG.alertReason() === null && logIcon() === '#tab-log');
+w.Config.reset('log.alerts');
+w.PLAN.clearQueue();
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 console.log(results.join('\n'));
