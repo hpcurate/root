@@ -169,7 +169,7 @@
 .card,.cat-card,.tv-list-card,.hist-card,.hist-day,.meal-card,.proj-tile,
 .kmc,.cw,.jump,.q-item,.e-item,.data-stat,.setting-row,.theme-card,.opt-card{
   box-shadow:var(--shadow)}
-.pad,.sheet,.modal-box{box-shadow:var(--shadow-lift)}
+.pad,.npad,.sheet,.modal-box{box-shadow:var(--shadow-lift)}
 #nav,.nav-arrow{box-shadow:var(--shadow-chrome)}
 [data-depth="flat"] .card,[data-depth="flat"] .cat-card,[data-depth="flat"] .tv-list-card,
 [data-depth="flat"] .hist-card,[data-depth="flat"] .hist-day,[data-depth="flat"] .meal-card,

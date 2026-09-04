@@ -219,6 +219,9 @@
    small chip in the corner */
 .ns-do .tt-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
 .ns-do .tt-defer{color:var(--y)}
+/* clearing the finished quick cards is a discard, so it reads like one */
+.ns-do .tt-clear{color:var(--bd-2)}
+.ns-do .tt-clear:active{color:var(--re)}
 /* today → tomorrow: the same select-then-move gesture the blocks use, so a
    picked row reads the same way a picked tile does */
 .ns-do .tt-row.sel{border-color:var(--y);background:var(--y-fade)}
@@ -249,10 +252,15 @@
    it, so the two shapes sit in one column without either looking like a
    mistake. */
 .ns-do .qk-grid{display:flex;flex-direction:column;gap:calc(8px * var(--dens))}
-.ns-do .qk{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-  overflow:hidden;transition:border-color .12s}
-.ns-do .qk.has-sub{border-color:color-mix(in srgb,var(--bk-c) 38%,var(--bd))}
-.ns-do .qk.done{border-color:var(--bk-c)}
+/* The card is in its label's colour, the way a block tile is — a tinted ground
+   and a border, not a coloured line inside a grey box. The colour is the
+   *other* label on the task where there is one (do.js, fetchQuick): @quick is
+   on every one of these by definition, so colouring by it says nothing. */
+.ns-do .qk{background:color-mix(in srgb,var(--bk-c) 9%,var(--s1));
+  border:var(--bw) solid color-mix(in srgb,var(--bk-c) 48%,var(--bd));border-radius:var(--r1);
+  overflow:hidden;transition:border-color .12s,background .12s}
+.ns-do .qk.has-sub{border-color:color-mix(in srgb,var(--bk-c) 48%,var(--bd))}
+.ns-do .qk.done{background:color-mix(in srgb,var(--bk-c) 5%,var(--s1));border-color:var(--bk-c)}
 .ns-do .qk-head{display:flex;align-items:flex-start;gap:calc(11px * var(--dens));width:100%;text-align:left;
   background:none;border:none;color:var(--tx);cursor:pointer;
   padding:calc(14px * var(--dens)) calc(14px * var(--dens)) calc(12px * var(--dens))}
@@ -269,8 +277,9 @@
   text-transform:var(--caps);overflow-wrap:anywhere}
 .ns-do .qk.done .qk-name{color:var(--tx-2);text-decoration:line-through;text-decoration-color:var(--mu)}
 /* the second line reads in the card's own colour, the way a block tile's tag
-   does — it names the label the card came from, so it belongs to the box */
-.ns-do .qk-sub{display:block;font:400 9.5px/1.4 var(--mono);color:var(--bk-c,var(--mu));letter-spacing:.06em;margin-top:5px}
+   does — it names the label the card is coloured by, so it belongs to the box */
+.ns-do .qk-sub{display:block;font:700 8px/1.4 var(--mono);color:var(--bk-c,var(--mu));
+  letter-spacing:.1em;text-transform:var(--caps);margin-top:5px}
 .ns-do .qk.done .qk-sub{color:var(--mu)}
 .ns-do .qk-bar{height:2px;background:var(--bd);margin:0 calc(14px * var(--dens))}
 .ns-do .qk-bar-fill{height:100%;transition:width .25s ease}

@@ -118,6 +118,17 @@ const DEFAULTS = {
        is additive: older notes simply have no row for it, and the parser looks
        rows up by name. `m3` arrived in 2.21. */
     meds: { lam: 'lamotrigine', rit: 'ritalin', m3: 'medication' },
+    /* Which slots the evening form actually asks about. A fixed set of
+       booleans, read through the shipped record the way plan.formFields is —
+       a missing key is "not asked", not "off". Switching one off only hides
+       the button: the record keeps what it has, the .md still exports a row
+       per key, and turning it back on shows yesterday's answer exactly where
+       it was. `m3` ships off, so the third slot is opt-in. */
+    medsOn: { lam: true, rit: true, m3: false },
+    /* One colour per slot, so a slot reads as itself at a glance. Not a
+       hardcoded pair of CSS selectors any more: log.js writes --med-c and an
+       unlisted slot falls back to the accent, so a fourth slot costs nothing. */
+    medColors: { lam: '#6ec5e0', rit: '#e0a060', m3: '#5cdb7d' },
     mealCount: 4,
     mealLabel: 'meal',
     caffeine: { c: 'coffee', ed: 'energy drink' },

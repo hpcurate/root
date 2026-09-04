@@ -28,18 +28,84 @@
 .ns-log .h-streak{font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);padding:0 calc(18px * var(--dens)) calc(24px * var(--dens));min-height:20px}
 .ns-log .h-streak em{color:var(--y);font-style:normal}
 
+/* ── The home, on one screen ──────────────────────────────────────────────────
+   The month and the fortnight take whatever is left after the doors, and the
+   home does not scroll: everything LOG's home is for is legible in one look,
+   which is the whole point of putting a calendar on it. The layout is
+   height-driven rather than content-driven, so it holds at any density, any
+   interface scale and any phone.
+
+   Below 560px of height — a laptop window, a phone in landscape with the
+   curtain switched off — it goes back to flowing and scrolling. "One screen"
+   is a promise about a phone held upright, not a rule worth clipping content
+   for. */
+@media (min-height:560px){
+  .ns-log #s-home.on{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  .ns-log #s-home .lc{flex:1 1 auto;min-height:0}
+  .ns-log #s-home .grid{flex:0 0 auto}
+}
+
+/* ── The month ── */
+.ns-log .lc{padding:0 calc(18px * var(--dens)) calc(14px * var(--dens));
+  display:flex;flex-direction:column;min-height:0}
+.ns-log .lc-head{display:flex;align-items:center;justify-content:space-between;
+  gap:calc(8px * var(--dens));margin-bottom:calc(8px * var(--dens));flex:0 0 auto}
+.ns-log .lc-month{font:700 10px/1 var(--head);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu)}
+.ns-log .lc-arr{background:none;border:none;color:var(--mu);cursor:pointer;padding:calc(4px * var(--dens));
+  line-height:0;transition:color var(--dur-1)}
+.ns-log .lc-arr svg{width:13px;height:13px;display:block}
+.ns-log .lc-arr:active{color:var(--y)}
+.ns-log .lc-arr:disabled{opacity:.25;pointer-events:none}
+
+.ns-log .lc-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);
+  grid-auto-rows:minmax(0,1fr);gap:calc(3px * var(--dens))}
+.ns-log .lc-h{display:flex;align-items:center;justify-content:center;
+  font:400 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--bd-2);
+  max-height:14px}
+/* a cell says how much of that day was written: nothing, one half, both */
+.ns-log .lc-c{display:flex;align-items:center;justify-content:center;min-width:0;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--mu);font:400 9.5px/1 var(--mono);cursor:pointer;padding:0;
+  transition:background .12s,border-color .12s,color .12s}
+.ns-log .lc-c.pad{background:none;border-color:transparent;pointer-events:none}
+.ns-log .lc-c.f1{background:color-mix(in srgb,var(--y) 16%,var(--s1));color:var(--tx)}
+.ns-log .lc-c.f2{background:var(--y);border-color:var(--y);color:var(--on-y)}
+.ns-log .lc-c.future{opacity:.3;pointer-events:none}
+.ns-log .lc-c.today{border-color:var(--y)}
+/* the selected day is the one the two arrows in the band are pointing at */
+.ns-log .lc-c.sel{box-shadow:0 0 0 2px var(--y);border-color:var(--y)}
+.ns-log .lc-c:active{background:var(--s2)}
+
+/* ── The fortnight ── */
+.ns-log .lc-trend{flex:0 0 auto;margin-top:calc(10px * var(--dens))}
+.ns-log .lc-trend.empty{font:400 9px/1.5 var(--mono);color:var(--bd-2);letter-spacing:.04em;text-align:center;
+  padding:calc(10px * var(--dens)) 0 0}
+.ns-log .lc-spark{display:block;width:100%;height:30px;overflow:visible}
+.ns-log .lc-l{fill:none;stroke-width:1.4;vector-effect:non-scaling-stroke;
+  stroke-linecap:round;stroke-linejoin:round}
+.ns-log .lc-l.nrg{stroke:var(--y)}
+.ns-log .lc-l.mood{stroke:var(--bd-2)}
+.ns-log .lc-key{display:flex;align-items:baseline;gap:calc(10px * var(--dens));margin-top:calc(5px * var(--dens))}
+.ns-log .lc-kk{font:400 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
+.ns-log .lc-kk b{font-weight:700;margin-left:3px}
+.ns-log .lc-kk.nrg b{color:var(--y)}
+.ns-log .lc-kk.mood b{color:var(--tx)}
+.ns-log .lc-kn{margin-left:auto;font:400 8px/1 var(--mono);letter-spacing:.1em;
+  text-transform:var(--caps);color:var(--bd-2)}
+
 /* ── Grid ── */
-.ns-log .grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens));padding:0 calc(18px * var(--dens))}
-.ns-log .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(16px * var(--dens));
+.ns-log .grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(6px * var(--dens));padding:0 calc(18px * var(--dens))}
+.ns-log .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(13px * var(--dens)) calc(13px * var(--dens)) calc(12px * var(--dens));
       cursor:pointer;position:relative;transition:border-color .12s;user-select:none}
 .ns-log .card:active{background:var(--s2)}
 .ns-log .card.done{border-color:var(--y)}
 .ns-log .card.done::after{content:'✓';position:absolute;top:11px;right:13px;font:11px/1 var(--mono);color:var(--y)}
-.ns-log .card-t{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:5px}
-.ns-log .card-s{font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em}
+.ns-log .card-t{font:700 12px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);margin-bottom:4px}
+.ns-log .card-s{font:400 9px/1.35 var(--mono);color:var(--mu);letter-spacing:.04em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ns-log .full{grid-column:1/-1}
-.ns-log .muted{border-color:transparent!important;padding:calc(10px * var(--dens)) calc(15px * var(--dens))}
-.ns-log .muted .card-t{font:400 11px/1 var(--mono);color:var(--mu);letter-spacing:.06em;text-transform:none}
+.ns-log .muted{border-color:transparent!important;padding:calc(9px * var(--dens)) calc(13px * var(--dens))}
+.ns-log .muted .card-t{font:400 10px/1 var(--mono);color:var(--mu);letter-spacing:.06em;text-transform:none;margin-bottom:0}
 
 /* ── Content ── */
 .ns-log .cnt{padding:calc(18px * var(--dens))}
@@ -84,8 +150,11 @@
        display:flex;flex-direction:column;align-items:center;gap:calc(5px * var(--dens))}
 .ns-log .med-name{font:400 11px/1 var(--mono);letter-spacing:.05em}
 .ns-log .med-state{font:400 8px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);opacity:.6}
-.ns-log .med-b.on.lam{background:rgba(110,197,224,.12);border-color:#6ec5e0;color:#6ec5e0}
-.ns-log .med-b.on.rit{background:rgba(224,160,96,.12);border-color:#e0a060;color:#e0a060}
+/* One rule, not one per key: log.js writes --med-c from log.medColors, so every
+   slot — including a fourth one added later — is highlighted in its own colour
+   without a selector being added here. */
+.ns-log .med-b.on{background:color-mix(in srgb,var(--med-c,var(--y)) 12%,transparent);
+       border-color:var(--med-c,var(--y));color:var(--med-c,var(--y))}
 
 /* ── Meals: same yes/no behaviour, one per meal ── */
 .ns-log .meal-g{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(5px * var(--dens))}

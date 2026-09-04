@@ -47,6 +47,7 @@ const CONTENT = [
       .concat((v[k] || []).map(i => ({ name: i, sub: 'packing · ' + k })))) },
   { path:'do.mediaLabels',     app:'do',    rows: v => (v || []).map(l => ({ name:'@' + l, sub:'media label' })) },
   { path:'log.blocks',         app:'log',   rows: v => (v || []).map(b => ({ name: b.name, sub:'focus block' })) },
+  { path:'log.meds',           app:'log',   rows: v => Object.keys(v || {}).map(k => ({ name: v[k], sub:'medication slot' })) },
   { path:'log.workouts',       app:'log',   rows: v => (v || []).map(x => ({ name: x, sub:'workout type' })) },
   { path:'plan.types',         app:'plan',
     rows: v => (v || []).flatMap(t => [{ name: t.label, sub:'plan project' }]

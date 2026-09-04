@@ -78,7 +78,9 @@
   padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;text-align:left;user-select:none;
   display:flex;flex-direction:row;align-items:center;justify-content:space-between;
   gap:calc(10px * var(--dens));min-height:var(--tile-h);
-  transition:border-color .14s,background .14s}
+  /* the CSS transition has to be at least as quick as the FLIP's own border
+     fade (plan.js, ~22% of the move) or it becomes the slow one */
+  transition:border-color .12s,background .12s}
 .ns-plan .proj-tile:active{background:color-mix(in srgb,var(--proj-color,var(--bd)) 20%,var(--s1))}
 .ns-plan .proj-tile.has{background:color-mix(in srgb,var(--proj-color,var(--bd)) 22%,var(--s1))}
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens));min-width:0}

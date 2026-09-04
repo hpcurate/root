@@ -40,10 +40,30 @@
 .ns-store input[type=number]::-webkit-inner-spin-button,
 .ns-store input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
-/* ── Counter widget ── */
+/* ── Counter widget ──
+   Pinned, it sticks to the top of the page and the list scrolls under it — the
+   running total is the number you keep glancing at in a shop, and the list is
+   long enough to scroll it away. **sticky, not fixed**: position:fixed inside
+   #track takes a transformed ancestor as its containing block (§3, §6), and
+   the title morph animates one. Sticky has no such problem, but it does need
+   an opaque background and a shadow, since content now passes behind it. */
 .ns-store .cw{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));margin-bottom:22px}
+.ns-store .cw.pinned{position:sticky;top:calc(-1 * var(--bw));z-index:6;
+  background:var(--s1);box-shadow:var(--shadow-lift)}
+/* a pinned counter is a heads-up display, not a control panel: the ± rows fold
+   away so it costs a couple of lines rather than half the screen */
+.ns-store .cw.pinned .cw-btns,.ns-store .cw.pinned .cw-foot{display:none}
+.ns-store .cw.pinned{padding-bottom:calc(10px * var(--dens))}
+.ns-store .cw.pinned .cw-bar{margin-bottom:0}
 .ns-store .cw-top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:calc(10px * var(--dens))}
-.ns-store .cw-total{font:800 32px/1 var(--head);letter-spacing:-.02em;color:var(--tx)}
+/* the pin lives on the widget, so it is where the thing it pins is */
+.ns-store .cw-pin{flex:0 0 auto;align-self:flex-start;background:none;border:none;padding:calc(2px * var(--dens));
+  color:var(--bd-2);cursor:pointer;line-height:0;transition:color var(--dur-1),transform var(--dur-1)}
+.ns-store .cw-pin svg{width:15px;height:15px;display:block}
+.ns-store .cw-pin.on{color:var(--y);transform:rotate(0)}
+.ns-store .cw-pin:not(.on){transform:rotate(28deg)}
+.ns-store .cw-pin:active{color:var(--y)}
+.ns-store .cw-total{flex:1;min-width:0;font:800 32px/1 var(--head);letter-spacing:-.02em;color:var(--tx)}
 .ns-store .cw-total .cu{font:700 14px/1 var(--head);color:var(--mu);margin-left:3px}
 .ns-store .cw-budget{font:400 10px/1.5 var(--mono);color:var(--mu);letter-spacing:.05em;text-align:right;flex-shrink:0;padding-bottom:calc(4px * var(--dens))}
 .ns-store .cw-budget em{color:var(--tx);font-style:normal}

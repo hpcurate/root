@@ -31,6 +31,10 @@ vc.on('error', (...a) => errors.push('console.error: ' + a.map(String).join(' ')
 
 let fetchScript = async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '' });
 let confirmCalls = 0, confirmAnswer = true;
+/* Since 2.22 nothing in ROOT may reach a system dialog: confirm and prompt are
+   the app's own overlay. These count anything that slips through, and the very
+   last check in this file fails if the count is not zero. */
+let systemDialogs = 0;
 
 const dom = new JSDOM(html, {
   url: 'http://localhost/root/index.html',
@@ -43,7 +47,8 @@ const dom = new JSDOM(html, {
     w.requestAnimationFrame = fn => setTimeout(fn, 0);
     w.Element.prototype.scrollIntoView = function () {};
     w.HTMLElement.prototype.scrollIntoView = function () {};
-    w.confirm = () => { confirmCalls++; return confirmAnswer; };
+    w.confirm = () => { systemDialogs++; return true; };
+    w.prompt  = () => { systemDialogs++; return ''; };
     w.fetch = (...a) => fetchScript(...a);
     w.navigator.vibrate = () => true;
   },
@@ -71,6 +76,21 @@ const today = iso(new w.Date());
 const offset = (n) => { const x = new w.Date(); x.setDate(x.getDate() + n); return iso(x); };
 const tick = (ms = 20) => new Promise(r => setTimeout(r, ms));
 const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+/* ── Answering the app's own confirm ──────────────────────────────────────────
+   Shell.confirm opens #ask and waits for a tap, so an action that asks does not
+   finish on the call any more. settle() answers whatever question is up the way
+   confirmAnswer says and counts it; with no question up it does nothing at all,
+   which is what makes it safe to put after any action that *might* ask. */
+const askOpen = () => { const el = $('#ask'); return !!el && !el.classList.contains('hidden'); };
+function settle(answer = confirmAnswer) {
+  if (!askOpen()) return false;
+  confirmCalls++;
+  click($(answer ? '#ask-yes' : '#ask-no'));
+  return true;
+}
+// the same, for an async action: the question is up by the time it yields
+const settled = async fn => { const p = fn(); settle(); return p; };
 const key = (k, target = d) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
 
 // ── 1. boot ──────────────────────────────────────────────────────────────────
@@ -106,14 +126,30 @@ check('Escape closes the cart log', !$('.ns-store #clog').classList.contains('on
 $('.ns-store #manual-input').value = 'milk'; w.STORE.addManual();
 w.Prefs.set('confirmDestructive', false);
 confirmCalls = 0;
-w.STORE.confirmClearList();
+w.STORE.confirmClearList(); settle();
 check('STORE clear list skips confirm() when the pref is off', confirmCalls === 0 &&
   JSON.parse(w.localStorage.getItem('store_state_v1')).list.length === 0, 'confirm calls ' + confirmCalls);
 w.Prefs.set('confirmDestructive', true);
 confirmCalls = 0; confirmAnswer = false;
+w.Shell.go('do');
+const firstRoutine = Object.keys(w.Config.get('do.routines'))[0];
+w.DO.openRoutine(firstRoutine);
+const ticks = () => d.querySelectorAll('.ns-do .item-btn.checked').length;
+click($('.ns-do .item-btn'));                             // something to lose
+check('a routine item ticks', ticks() === 1, ticks() + ' ticked');
 w.DO.resetDay();
-check('DO resetDay asks when the pref is on', confirmCalls === 1);
+check('DO resetDay asks in the app, not through the browser', askOpen() && systemDialogs === 0);
+check('… the question names itself and offers a way out',
+  /reset all items/i.test($('#ask-title').textContent) && !!$('#ask-no.modal-cancel'),
+  $('#ask-title').textContent);
+settle();                                                 // answers "cancel"
+check('… and cancelling does nothing at all', confirmCalls === 1 && !askOpen() && ticks() === 1,
+  'ticks left: ' + ticks());
 confirmAnswer = true;
+w.DO.openRoutine(firstRoutine);
+w.DO.resetDay(); settle();
+w.DO.openRoutine(firstRoutine);
+check('… while confirming clears the day', ticks() === 0, ticks() + ' ticked');
 
 // ── 5. STORE classifier follows aisle edits ─────────────────────────────────
 const cats = w.Config.get('store.categories');
@@ -137,7 +173,7 @@ fetchScript = async (url, opts) => {
 w.Shell.go('plan');
 for (const name of ['a', 'b', 'c']) {          // through the real form: unmapped → confirm() → queued
   w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
-  $('.ns-plan #task-name').value = name; w.PLAN.addToQueue();
+  $('.ns-plan #task-name').value = name; w.PLAN.addToQueue(); settle();
 }
 check('three tasks queued through the form', JSON.parse(w.localStorage.getItem('plan_queue')).length === 3);
 w.PLAN.go('sending');
@@ -402,7 +438,7 @@ check('switching the block off hides it', $('.ns-do #td-today').classList.contai
 
 // PLAN → LOG: a planned task is offered as a block
 w.Shell.go('plan'); w.PLAN.openProj('edu'); w.PLAN.pickSub('edu', 0);
-$('.ns-plan #task-name').value = 'read NF C 15-100'; w.PLAN.addToQueue();
+$('.ns-plan #task-name').value = 'read NF C 15-100'; w.PLAN.addToQueue(); settle();
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
 // the earlier partial-send test left "a" and "c" sent today and "b" queued, so
 // all four are planned; find ours by name
@@ -412,7 +448,7 @@ check('a queued PLAN task is offered under the blocks', !!planChip && !$('.ns-lo
 click(planChip);
 w.LOG.saveEvening();
 check('ticking it records the task as a block', JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('read NF C 15-100'));
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 
 // TRACK + LEARN → the note's study section
 w.TRACK.toggle('t02');
@@ -696,8 +732,14 @@ if (!tdState().todayOn) w.DO.toggleToday();
 $('.ns-do #td-today-filter').value = '04 | life'; w.DO.saveTodaySettings(); await tick(150);
 const openRows = () => [...d.querySelectorAll('.ns-do #td-today .tt-row:not(.done)')].filter(r => !r.querySelector('.tt-src'));
 check('two tasks due today are listed', openRows().length === 2, openRows().length + ' rows');
-check('the "→ tomorrow" button shows from 20:00 only', !!$('.ns-do .tt-defer') === (new w.Date().getHours() >= 20));
-await w.DO.deferToday();
+/* The button used to be gated on the hour, because it moved *everything* open
+   and that only made sense late in the evening. It has picked its tasks since
+   2.19, so it is offered whenever there is something open — the check was left
+   behind by that change and passed only because it is false before 20:00. */
+check('the "→ tomorrow" button is offered whenever something is open, at any hour',
+  !!$('.ns-do .tt-acts') && /tomorrow/.test($('.ns-do #td-today .tt-acts').textContent),
+  $('.ns-do #td-today .tt-acts')?.textContent);
+await settled(() => w.DO.deferToday());
 check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMoved.d1 === 'tomorrow' && tmMoved.d2 === 'tomorrow', JSON.stringify(tmMoved));
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
@@ -839,13 +881,13 @@ w.PLAN.pickSub('curate', 1);
 $('.ns-plan #task-name').value = 'master the mix';
 $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
 const qBefore = JSON.parse(w.localStorage.getItem('plan_queue') || '[]').length;
-w.PLAN.addToQueue();
+w.PLAN.addToQueue(); settle();
 const qAfter = JSON.parse(w.localStorage.getItem('plan_queue') || '[]');
 check('adding to the queue files it under that section and folds the grid all the way back',
   qAfter.length === qBefore + 1 && qAfter[qAfter.length - 1].name === 'master the mix' &&
   qAfter[qAfter.length - 1].subType === 'production' && !$('.ns-plan .proj-form') && !$('.ns-plan .proj-tile.open'),
   JSON.stringify(qAfter[qAfter.length - 1] || {}).slice(0, 120));
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 
 // the send button, and the block row with no "none" chip
 check('the send button is absent while the queue is empty, not a faded one',
@@ -853,7 +895,7 @@ check('the send button is absent while the queue is empty, not a faded one',
 w.PLAN.pickSub('curate', 0);
 $('.ns-plan #task-name').value = 'a task';
 $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
-w.PLAN.addToQueue();
+w.PLAN.addToQueue(); settle();
 check('… and appears, named for the count, once something is queued',
   !$('.ns-plan #send-wrap').classList.contains('hidden') && /send 1 task to todoist/.test($('.ns-plan #btn-send').textContent));
 w.PLAN.pickSub('curate', 0);
@@ -865,7 +907,7 @@ w.PLAN.optPick(blockChips[0], 'block', 'b1');
 check('picking a block selects it', !!$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.optPick($('.ns-plan #opts-block .opt-b.on'), 'block', 'b1');
 check('… and tapping it again clears the row, since there is no none chip', !$('.ns-plan #opts-block .opt-b.on'));
-w.PLAN.closeForm(); w.PLAN.clearQueue();
+w.PLAN.closeForm(); w.PLAN.clearQueue(); settle();
 
 /* ── PLAN's transition, driven by a scripted layout ──
    jsdom has neither layout nor Web Animations, so flip() is otherwise a
@@ -945,7 +987,7 @@ w.PLAN.closeForm(); w.PLAN.clearQueue();
 // section 6 already pushed two tasks through; clear both the key and the
 // module's copy of it, and note what today's own record already holds
 confirmAnswer = true;
-w.PLAN.clearSent();
+w.PLAN.clearSent(); settle();
 const sentBase = JSON.parse(w.localStorage.getItem('plan_sent_v1') || '{"tasks":[]}').tasks.length;
 w.PLAN.go('home');
 check('the sent list starts empty and says so on its title row',
@@ -965,7 +1007,7 @@ const queueOne = (proj, section, name, block) => {
   $('.ns-plan #task-name').value = name;
   $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
   if (block) w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === block), 'block', block);
-  w.PLAN.addToQueue();
+  w.PLAN.addToQueue(); settle();
 };
 queueOne('curate', 0, 'mix the track', 'b1');       // curate > mixing
 queueOne('curate', 1, 'master it', 'b1');           // curate > production
@@ -1231,14 +1273,14 @@ w.PLAN.closeExport();
 check('cancelling puts the project tiles back', !panel() && !!d.querySelector('.ns-plan .proj-tile'));
 
 confirmAnswer = true;
-w.PLAN.clearSent();
+w.PLAN.clearSent(); settle();
 check('clear empties the list, the key and the selection',
   !sentRows().length && JSON.parse(w.localStorage.getItem('plan_history_v1')).length === 0 &&
   expBtn().classList.contains('hidden'));
 check("clearing the history leaves today's own sent record alone — LOG reads that one",
   JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length === sentBase + 7,
   JSON.parse(w.localStorage.getItem('plan_sent_v1')).tasks.length + ' vs ' + (sentBase + 7));
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 
 /* The two new branches are editable in settings, like every other content
    branch — and the templates round-trip through their text form. */
@@ -1316,7 +1358,7 @@ check('a re-render keeps the day picked, the way it keeps what was typed',
 w.PLAN.setSub(true);
 $('.ns-plan #sub-text').value = 'fill the can';
 w.PLAN.addSubtask();
-w.PLAN.addToQueue();
+w.PLAN.addToQueue(); settle();
 const qDated = JSON.parse(w.localStorage.getItem('plan_queue'));
 check('the queued task carries the day it was given, not the day it was queued',
   qDated.length === 1 && qDated[0].date === offset(1), JSON.stringify(qDated.map(t => [t.name, t.date])));
@@ -1327,7 +1369,7 @@ check('the next task starts on the same day: a day is queued in one gesture', dW
 click($('.ns-plan #date-now'));
 $('.ns-plan #task-name').value = 'take the bins out';
 $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
-w.PLAN.addToQueue();
+w.PLAN.addToQueue(); settle();
 check('… and one put back on today wears no pill',
   !/tomorrow/.test([...d.querySelectorAll('.ns-plan #queue-list .q-item')][1].textContent),
   [...d.querySelectorAll('.ns-plan #queue-list .q-item')].map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
@@ -1370,7 +1412,7 @@ check('… and the row names that day',
     .find(r => /water the plants/.test(r.textContent))?.textContent
     .includes(w.Prefs.formatDate(offset(1), 'short')));
 confirmAnswer = true;
-w.PLAN.clearSent(); w.PLAN.clearQueue();
+w.PLAN.clearSent(); settle(); w.PLAN.clearQueue(); settle();
 
 /* An override written before the row existed has no key for it, and a missing
    key is not "off" — it is "not asked". */
@@ -1591,15 +1633,18 @@ check('the weekly report grows a routines row out of it',
 /* ── PLAN · queue presets ── */
 w.Shell.go('plan');
 confirmAnswer = true;
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 for (const nm of ['mix the intro', 'bounce the stems']) {
   w.PLAN.openProj('curate'); w.PLAN.pickSub('curate', 0);
   $('.ns-plan #task-name').value = nm;
   $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
-  w.PLAN.addToQueue();
+  w.PLAN.addToQueue(); settle();
 }
-w.prompt = () => 'studio monday';
+/* Naming a preset is the app's own dialog with a field in it, not window.prompt */
 w.PLAN.savePreset();
+check('naming a preset asks in the app, with a field', askOpen() && !$('#ask-field').classList.contains('hidden'));
+$('#ask-input').value = 'studio monday';
+click($('#ask-yes'));
 const saved = w.Config.get('plan.presets');
 check('a queue saves as a preset — its tasks, never its day',
   saved.length === 1 && saved[0].label === 'studio monday' && saved[0].tasks.length === 2 &&
@@ -1607,7 +1652,7 @@ check('a queue saves as a preset — its tasks, never its day',
 check('… and it shows on the queue row as a chip naming the count',
   /studio monday/.test($('.ns-plan #queue-presets').textContent) &&
   /2/.test($('.ns-plan #queue-presets .pre-b em').textContent));
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 w.PLAN.applyPreset(saved[0].key);
 const requeued = JSON.parse(w.localStorage.getItem('plan_queue'));
 check('one tap refills the queue, dated from today rather than from the day it was saved',
@@ -1617,10 +1662,10 @@ w.SET.panel('plan');
 check('a preset is editable content like everything else',
   !!$('.ns-set [data-group="plan.presets"] input[data-field="label"]'));
 w.Shell.go('plan');
-w.PLAN.deletePreset(saved[0].key);
+w.PLAN.deletePreset(saved[0].key); settle();
 check('deleting one takes its chip with it',
   (w.Config.get('plan.presets') || []).length === 0 && $('.ns-plan #queue-presets').classList.contains('hidden'));
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 
 /* ── LOG · the tab alert ── */
 const logIcon = () => $('.tab-b[data-app="log"] use').getAttribute('href');
@@ -1652,7 +1697,7 @@ $('.ns-plan #task-name').value = 'clear the desk';
 $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
 w.PLAN.optPick($('.ns-plan #opts-block .opt-b'), 'block', 'b1');
 w.PLAN.stepDate(1);
-w.PLAN.addToQueue();
+w.PLAN.addToQueue(); settle();
 check('planning one block for tomorrow answers it: PLAN\'s icon goes back',
   w.PLAN.plannedOn(offset(1)).blocks === 1 && w.LOG.refreshAlert() === null &&
   planIcon() === '#tab-plan' && !planBtn().classList.contains('has-alert') &&
@@ -1678,7 +1723,7 @@ w.localStorage.removeItem('log_' + today); w.LOG.resetDate();
 check('switched off it never flags, whatever the hour',
   w.LOG.alertReason() === null && logIcon() === '#tab-log');
 w.Config.reset('log.alerts');
-w.PLAN.clearQueue();
+w.PLAN.clearQueue(); settle();
 
 // ── 30. 2.20 — the exported day, drawn as a calendar ───────────────────────
 w.Prefs.reset('apps');
@@ -1699,7 +1744,7 @@ check('CAL is a module with a tab, a slide and a settings panel',
 check('the export back in §27 landed here without CAL being asked',
   w.CAL.days().length > 0, w.CAL.days().join(','));
 confirmAnswer = true;
-w.CAL.clearAll();
+w.CAL.clearAll(); settle();
 check('clearing empties the key and puts the empty state back',
   !w.CAL.days().length && !!$('.ns-cal .cal-empty') && /nothing planned/.test($('.ns-cal .cal-empty').textContent),
   $('.ns-cal #cal-body').textContent.trim().slice(0, 60));
@@ -1707,7 +1752,7 @@ check('clearing empties the key and puts the empty state back',
 /* Two tasks, two projects, exported for tomorrow. */
 w.Shell.go('plan');
 confirmAnswer = true;
-w.PLAN.clearSent();
+w.PLAN.clearSent(); settle();
 let calSent = 0;
 fetchScript = async (url, opts) => {
   if (opts && opts.method === 'POST') { calSent++; return { ok: true, status: 200, json: async () => ({ id: 'c' + calSent }), text: async () => '{}' }; }
@@ -2029,7 +2074,7 @@ fetchScript = async (url, opts) => {
   return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
 };
 confirmAnswer = true;
-await w.DO.deferToday();
+await settled(() => w.DO.deferToday());
 await tick(80);
 check('only the picked task is moved, and it leaves the list',
   deferPosts.length === 1 && deferPosts[0].includes('/tasks/' + openIds[0]) &&
@@ -2065,9 +2110,18 @@ check('log.meds ships a third slot — keys are the contract, labels are yours',
   Object.keys(w.Config.defaults('log.meds')).join(',') === 'lam,rit,m3',
   Object.keys(w.Config.defaults('log.meds')).join(','));
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
-check('… the evening form drawing one button per slot rather than two by name',
-  d.querySelectorAll('.ns-log #med-g .med-b').length === 3 && !!$('.ns-log #med-m3'),
-  d.querySelectorAll('.ns-log #med-g .med-b').length + ' buttons');
+const medBtns = () => d.querySelectorAll('.ns-log #med-g .med-b').length;
+/* Since 2.22 the third slot ships *off*: it exists, the record and the .md
+   still carry it, and the form simply does not ask until you say so. */
+check('the third slot is opt-in — configured, and not on the form until asked',
+  medBtns() === 2 && !$('.ns-log #med-m3') &&
+  w.Config.defaults('log.medsOn').m3 === false, medBtns() + ' buttons');
+w.Config.set('log.medsOn', Object.assign({}, w.Config.defaults('log.medsOn'), { m3: true }));
+check('… switching it on draws one button per slot rather than two by name',
+  medBtns() === 3 && !!$('.ns-log #med-m3'), medBtns() + ' buttons');
+check('… each in its own colour, from Config rather than from a selector per key',
+  $('.ns-log #med-m3').style.getPropertyValue('--med-c') === w.Config.get('log.medColors').m3,
+  $('.ns-log #med-m3').getAttribute('style'));
 w.LOG.toggleMed('m3');
 $('.ns-log #e-kme').value = '3';
 w.LOG.saveEvening();
@@ -2163,6 +2217,195 @@ check('… drawn from the sprite like the nav\'s own arrows, never typed as char
     === '#ico-chev-l,#ico-chev-r' &&
   ![...d.querySelectorAll('#cal-steps .cal-arrow')].some(b => /[←→]/.test(b.textContent)),
   [...d.querySelectorAll('#cal-steps .cal-arrow svg use')].map(u => u.getAttribute('href')).join(','));
+
+
+// ── 33. 2.22 — the app asks its own questions, and answers its own numbers ───
+const shellCss3 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const logCss2  = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+const storeCss2 = fs.readFileSync(path.join(ROOT, 'css/store.css'), 'utf8');
+const calCss3  = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
+const planJs2  = fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8');
+
+/* Nothing may reach a system dialog. This is the check the whole of 2.22's
+   confirm work exists for, and it counts the ones every section above would
+   have triggered. */
+check('not one system dialog was raised by anything above', systemDialogs === 0,
+  systemDialogs + ' raised');
+check('… and no module calls confirm() or prompt() directly any more',
+  ['do','log','plan','store','tend','track','learn','cal','settings','search']
+    .every(m => !/(^|[^.\w])(confirm|prompt)\s*\(/.test(
+      fs.readFileSync(path.join(ROOT, 'js/' + m + '.js'), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, ''))),
+  ['do','log','plan','store','tend','track','learn','cal','settings','search']
+    .filter(m => /(^|[^.\w])(confirm|prompt)\s*\(/.test(
+      fs.readFileSync(path.join(ROOT, 'js/' + m + '.js'), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, ''))).join(','));
+/* The dialog is a .modal-overlay with a .modal-cancel in it, which is what
+   earns it Escape and the shell's keyboard suppression without new wiring. */
+w.Shell.confirm('Throw it away? It cannot be undone.', () => {});
+check('the dialog splits one message into a question and its detail',
+  $('#ask-title').textContent === 'Throw it away?' &&
+  /cannot be undone/.test($('#ask-body').textContent),
+  $('#ask-title').textContent + ' | ' + $('#ask-body').textContent);
+check('… and Escape closes it, because it is an overlay the shell already knows',
+  askOpen() && (key('Escape'), !askOpen()));
+let asked = 'nothing';
+w.Shell.confirm('Sure?', () => { asked = 'ran'; });
+click($('#ask-no'));
+check('cancelling never runs the action', asked === 'nothing');
+click($('#ask-yes'));
+check('… and a cancelled question cannot be answered afterwards', asked === 'nothing');
+w.Shell.confirm('Sure?', () => { asked = 'ran'; });
+click($('#ask-yes'));
+check('confirming runs it exactly once', asked === 'ran' && !askOpen());
+w.Prefs.set('confirmDestructive', false);
+asked = 'nothing';
+w.Shell.confirm('Sure?', () => { asked = 'ran'; });
+check('with "confirm before clearing" off it runs at once and asks nothing',
+  asked === 'ran' && !askOpen());
+w.Prefs.set('confirmDestructive', true);
+
+/* The numpad: which fields it claims, and what a digit means in each. */
+const kind = sel => w.Shell.numpad.kindOf($(sel));
+check('the pad claims a decimal field, an integer field and nothing else',
+  kind('.ns-log #m-km') === 'decimal' && kind('.ns-log #m-tkg') === 'int' &&
+  kind('.ns-log #m-wt') === null && kind('.ns-store #manual-input') === null,
+  [kind('.ns-log #m-km'), kind('.ns-log #m-tkg'), kind('.ns-log #m-wt'), kind('.ns-store #manual-input')].join(','));
+check('… and reads data-pad for the two shapes it cannot infer',
+  kind('.ns-log #m-sl') === 'duration' && kind('.ns-set #al-morning') === 'clock',
+  kind('.ns-log #m-sl') + ',' + kind('.ns-set #al-morning'));
+check('… a fractional step means decimal, not integer',
+  kind('.ns-set [data-cfg="tend.round"][data-sub="soonAt"]') === 'decimal',
+  String(kind('.ns-set [data-cfg="tend.round"][data-sub="soonAt"]')));
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('morning');
+const sleep = $('.ns-log #m-sl');
+w.Shell.numpad.open(sleep, 'duration');
+'720'.split('').forEach(c => w.Shell.numpad.key(c));
+check('720 in the sleep field is seven hours twenty, stored as 7.33',
+  sleep.value === '7.33' && /7h20m/.test($('#npad-val').textContent),
+  sleep.value + ' · ' + $('#npad-val').textContent);
+check('… and it says what it is about to store', /7\.33/.test($('#npad-note').textContent),
+  $('#npad-note').textContent);
+w.Shell.numpad.key('back'); w.Shell.numpad.key('back');
+check('backspace walks it back to seven hours flat', sleep.value === '7',
+  sleep.value + ' · ' + $('#npad-val').textContent);
+w.Shell.numpad.key('clear');
+check('clear empties the field rather than leaving the old number in it', sleep.value === '');
+w.Shell.numpad.close();
+const alarm = $('.ns-set #al-morning');
+w.Shell.numpad.open(alarm, 'clock');
+'930'.split('').forEach(c => w.Shell.numpad.key(c));
+check('930 in an alert hour is 09:30', alarm.value === '09:30', alarm.value);
+w.Shell.numpad.key('9');
+check('… and 9309 is refused rather than written as a time that is not one',
+  alarm.value === '09:30' && $('#npad-val').classList.contains('bad'),
+  alarm.value + ' · ' + $('#npad-note').textContent);
+w.Shell.numpad.close();
+const km = $('.ns-log #m-km');
+w.Shell.numpad.open(km, 'decimal');
+['3', '.', '5'].forEach(c => w.Shell.numpad.key(c));
+check('a decimal field takes a decimal point; an integer field is not offered one',
+  km.value === '3.5', km.value);
+w.Shell.numpad.close();
+w.Shell.numpad.open($('.ns-log #m-tkg'), 'int');
+w.Shell.numpad.key('.');
+check('… the dot key is disabled on an integer field',
+  $('#npad [data-npad="."]').disabled && $('.ns-log #m-tkg').value === '');
+w.Shell.numpad.close();
+check('the pad is a sheet, so it steps the shell\'s shortcuts aside like every other one',
+  /\.npad\{[\s\S]*?position:fixed/.test(shellCss3) && !!$('#npad-back.sheet-back'));
+
+/* LOG's home: a month, a fortnight, and no scrolling. Two known days first —
+   one written in full, one not written at all — so the cells and the lines have
+   something to be about. */
+w.localStorage.setItem('log_' + offset(-1),
+  day({ wt:'07:00', nrg:4, mood:4 }, { kme:'2', nrg:3, mood:5 }));
+w.localStorage.setItem('log_' + offset(-2),
+  day({ wt:'07:30', nrg:2, mood:3 }, { kme:'1', nrg:2, mood:2 }));
+w.localStorage.removeItem('log_' + offset(-3));
+w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
+check('LOG\'s home draws the month it is on', !!$('.ns-log #log-cal .lc-grid') &&
+  d.querySelectorAll('.ns-log .lc-grid .lc-c:not(.pad)').length >= 28,
+  d.querySelectorAll('.ns-log .lc-grid .lc-c:not(.pad)').length + ' days');
+check('… with today marked and the selected day the same day', !!$('.ns-log .lc-c.today.sel'),
+  $('.ns-log .lc-c.sel')?.getAttribute('aria-label'));
+check('… a day that has both halves written drawn fuller than one that has neither',
+  !!$(`.ns-log .lc-c[aria-label="${offset(-1)}"].f2`) &&
+  !!$(`.ns-log .lc-c[aria-label="${offset(-3)}"].f0`),
+  $(`.ns-log .lc-c[aria-label="${offset(-1)}"]`)?.className + ' / ' +
+  $(`.ns-log .lc-c[aria-label="${offset(-3)}"]`)?.className);
+check('… and tomorrow is offered as neither', (() => {
+  const t = $(`.ns-log .lc-c[aria-label="${offset(1)}"]`);
+  return !t || (t.disabled && t.classList.contains('future'));
+})());
+click($(`.ns-log .lc-c[aria-label="${offset(-1)}"]`));
+check('tapping a day selects it, the way the two arrows in the band do',
+  $('.ns-log #home-date').textContent === w.Prefs.formatDate(offset(-1)) &&
+  $('.ns-log .lc-c.sel')?.getAttribute('aria-label') === offset(-1),
+  $('.ns-log #home-date').textContent);
+w.LOG.resetDate();
+check('the fortnight draws energy and mood, and nothing straight through a gap',
+  !!$('.ns-log .lc-spark') && d.querySelectorAll('.ns-log .lc-l').length === 2,
+  d.querySelectorAll('.ns-log .lc-l').length + ' lines');
+check('the home is a column that does not scroll, above a phone-sized screen',
+  /@media \(min-height:560px\)\{[\s\S]*?\.ns-log #s-home\.on\{[^}]*overflow:hidden/.test(logCss2) &&
+  /\.ns-log #s-home \.lc\{flex:1 1 auto/.test(logCss2));
+check('… and the two utility cards share a row rather than taking one each',
+  !/class="card full muted"/.test(html.slice(html.indexOf('ns-log'), html.indexOf('ns-plan'))));
+
+/* DAY. */
+check('DAY opens on today, planned or not', (() => {
+  w.Shell.go('cal'); w.CAL.render();
+  return w.CAL.selected() === today;
+})(), w.CAL.selected());
+check('the stepper spans the screen rather than floating over the middle of it',
+  /\.cal-steps\{[\s\S]*?left:max\(10px/.test(calCss3) &&
+  /\.cal-steps \.cal-arrow\{flex:1 1 0/.test(calCss3));
+check('… and steps aside once it has been idle, on a dial rather than a literal',
+  /\.cal-steps\.idle\{[^}]*opacity:0/.test(calCss3) && w.Prefs.SCHEMA.calStepsHide.def === 5 &&
+  /calStepsHide/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
+check('the empty day\'s one action is upper case — the exception DAY makes for it',
+  /\.ns-cal \.ce-go\{[\s\S]*?text-transform:uppercase/.test(calCss3));
+w.CAL.write({ day: today, start: '08:00', template: 'normal', mode: 'blocks', notes: [],
+  events: [{ from: '08:00', to: '09:00', dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#fff' }] });
+check('a drawn day offers a way to clear itself', !!$('.ns-cal .ch-clear'));
+confirmAnswer = false;
+click($('.ns-cal .ch-clear')); settle();
+check('… and cancelling keeps it', !!w.CAL.day(today));
+confirmAnswer = true;
+click($('.ns-cal .ch-clear')); settle();
+check('… while confirming clears that day and no other',
+  !w.CAL.day(today) && !!$('.ns-cal .cal-empty'), w.CAL.days().join(','));
+
+/* DO's quick cards. */
+check('a quick card is drawn in its label\'s colour, like a block tile',
+  /\.ns-do \.qk\{background:color-mix\(in srgb,var\(--bk-c\)/.test(doCss) &&
+  /\.ns-do \.qk\.done\{background:color-mix/.test(doCss));
+check('… and it is the *other* label that colours it — @quick is on all of them',
+  /const other = \(t\.labels \|\| \[\]\)[\s\S]*?tdName\(QUICK_LABEL\)/.test(
+    fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8')));
+
+/* PLAN's border fade. */
+const fadeFrac = (planJs2.match(/Math\.max\(70, Math\.round\(ms \* \.(\d+)\)\)/) || [])[1];
+check('PLAN\'s border fade is a fifth of the move, not nearly half of it',
+  fadeFrac === '22', 'ms * .' + fadeFrac);
+check('… and the tile\'s own CSS transition is not the slow one instead',
+  /\.ns-plan \.proj-tile\{[\s\S]*?transition:border-color \.12s/.test(
+    fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')));
+
+/* STORE's pinned counter. */
+w.Shell.go('store'); w.STORE.go('home');
+check('the counter carries its own pin', !!$('.ns-store #cw-pin'));
+click($('.ns-store #cw-pin'));
+check('… which pins it, and remembers that it is pinned',
+  $('.ns-store #cw').classList.contains('pinned') &&
+  JSON.parse(w.localStorage.getItem('store_state_v1')).cwPin === true);
+check('… as sticky, never fixed — nothing fixed may live inside #track',
+  /\.ns-store \.cw\.pinned\{position:sticky/.test(storeCss2) &&
+  !/\.ns-store \.cw\.pinned\{[^}]*position:fixed/.test(storeCss2));
+click($('.ns-store #cw-pin'));
+check('… and unpins again', !$('.ns-store #cw').classList.contains('pinned') &&
+  JSON.parse(w.localStorage.getItem('store_state_v1')).cwPin === false);
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

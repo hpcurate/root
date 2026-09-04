@@ -493,10 +493,11 @@ function toggleAll() {
 }
 
 function resetDay() {
-  if (!Shell.confirm('Reset all items for today?')) return;
-  state = blankState();
-  saveState();
-  go('home');
+  Shell.confirm('Reset all items for today?', () => {
+    state = blankState();
+    saveState();
+    go('home');
+  });
 }
 
 // ── Travel ────────────────────────────────────────────────────────────────────
@@ -537,13 +538,14 @@ function openList(id) { currentList = id; go('travel-cl'); }
 
 function deleteList(id) {
   const list = travel.lists[id];
-  if (!Shell.confirm('Delete “' + (list ? list.name : 'this list') + '”?')) return;
-  delete travel.lists[id];
-  travel.order = travel.order.filter(x => x !== id);
-  if (currentList === id) currentList = null;
-  saveTravel();
-  renderTravelList();
-  renderHome();
+  Shell.confirm('Delete “' + (list ? list.name : 'this list') + '”?', () => {
+    delete travel.lists[id];
+    travel.order = travel.order.filter(x => x !== id);
+    if (currentList === id) currentList = null;
+    saveTravel();
+    renderTravelList();
+    renderHome();
+  });
 }
 
 // new-checklist setup: name + category selector
@@ -711,14 +713,15 @@ function saveTravelEdit() {
 }
 
 function resetTravel() {
-  if (!Shell.confirm('Delete ALL travel checklists? This cannot be undone.')) return;
-  localStorage.removeItem(TRAVEL_KEY);
-  localStorage.removeItem('travel_state_v1');
-  travel = { lists:{}, order:[] };
-  saveTravel();
-  currentList = null;
-  toast('travel reset');
-  go('home');
+  Shell.confirm('Delete ALL travel checklists? This cannot be undone.', () => {
+    localStorage.removeItem(TRAVEL_KEY);
+    localStorage.removeItem('travel_state_v1');
+    travel = { lists:{}, order:[] };
+    saveTravel();
+    currentList = null;
+    toast('travel reset');
+    go('home');
+  });
 }
 
 function exportTravelMd() {
@@ -1355,6 +1358,17 @@ async function fetchQuick() {
   Todoist.cacheLabels(labels);
   const lab = labels.find(x => tdName(x.name) === tdName(QUICK_LABEL));
   const color = (lab && TD_COLORS[lab.color]) || '#A78BFA';
+  /* Every label's colour, so a card can wear a colour that is not @quick's.
+     @quick is the *filter* — it is on every card by definition, so colouring
+     by it says nothing. Whatever else the task carries is what distinguishes
+     it, and that is what the card takes its accent from. A task with no second
+     label falls back to @quick's own colour. */
+  const hex = {};
+  labels.forEach(l => { const c = TD_COLORS[l && l.color]; if (c && l.name) hex[tdName(l.name)] = c; });
+  const accentOf = t => {
+    const other = (t.labels || []).map(String).find(n => tdName(n) !== tdName(QUICK_LABEL));
+    return other ? { color: hex[tdName(other)] || color, tag: other } : { color, tag: QUICK_LABEL };
+  };
   const parents = await tdGetAll('/tasks', { label: QUICK_LABEL });
 
   /* The children: every project a quick task sits in, fetched once. A task in
@@ -1385,7 +1399,8 @@ async function fetchQuick() {
        is carried over rather than dropped — otherwise a card would shrink as
        you tick it and "3 / 5" would never be true. */
     if (was) (was.subs || []).forEach(x => { if (x.done && !subs.some(y => y.id === x.id)) subs.push(x); });
-    next.push({ id, content:String(t.content || ''), color, priority:+t.priority || 1,
+    const acc = accentOf(t);
+    next.push({ id, content:String(t.content || ''), color: acc.color, tag: acc.tag, priority:+t.priority || 1,
                 projectId: t.project_id == null ? null : String(t.project_id),
                 subs, done: was ? !!was.done : false });
   });
@@ -1418,7 +1433,7 @@ function renderQuick() {
       <button class="qk-head" onclick="DO.toggleQuickTask('${esc(t.id)}')" aria-pressed="${t.done}">
         <span class="qk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span class="qk-body"><span class="qk-name">${esc(t.content)}</span>
-          <span class="qk-sub">${subs.length ? `${st.done} / ${st.total} done` : '@' + esc(QUICK_LABEL)}</span></span>
+          <span class="qk-sub">${subs.length ? `${st.done} / ${st.total} done` : '@' + esc(t.tag || QUICK_LABEL)}</span></span>
       </button>
       ${subs.length ? `<div class="qk-bar"><div class="qk-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>
       <div class="qk-list">${subs.map(s => `<button class="qk-item${s.done ? ' checked' : ''}"
@@ -1428,11 +1443,32 @@ function renderQuick() {
         </button>`).join('')}</div>` : ''}
     </div>`;
   };
+  const done = q.tasks.length - open;
   box.innerHTML = `<div class="tt-head"><span>quick<em>${open} open</em></span><span class="tt-acts">
+      ${done ? `<button class="tt-refresh tt-clear" onclick="DO.clearQuickDone()">clear ${done}</button>` : ''}
       <button class="tt-refresh" onclick="DO.toggleQuickHideDone()">${td.quickHideDone ? 'show done' : 'hide done'}</button>
       <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button></span></div>
     ${shown.length ? `<div class="qk-grid">${shown.map(card).join('')}</div>` : '<div class="tt-empty">all done</div>'}
     <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>`;
+}
+
+/* ── Clearing what is finished ─────────────────────────────────────────────────
+   A quick task closed here stays on the list, ticked, until midnight — that is
+   the only way unticking it can exist (the API never returns a closed task
+   again). Which is right for the minute after you tick it and wrong for the
+   four hours after that, where it is a finished card taking up the screen.
+   This drops the ticked cards early, the way PLAN's sent list can be cleared:
+   local only, nothing is reopened, and the next refresh does not bring them
+   back because Todoist has them closed. */
+function clearQuickDone() {
+  const q = tdQuick();
+  const done = q.tasks.filter(t => t.done).length;
+  if (!done) { toast('nothing finished yet'); return; }
+  Shell.confirm(`Clear ${done} finished card${done === 1 ? '' : 's'}? They stay closed in Todoist.`, () => {
+    q.tasks = q.tasks.filter(t => !t.done);
+    tdPersist(); renderQuick();
+    toast(`${done} cleared`);
+  });
 }
 
 /* Optimistic, like every other tick here: the card flips at once and a failed
@@ -1686,7 +1722,8 @@ async function deferToday() {
   const open = (td.todayOn ? ttToday().tasks : []).filter(t => !t.done);
   const picked = ttSel.size ? open.filter(t => ttSel.has(t.id)) : open;
   if (!picked.length) { toast('nothing open'); return; }
-  if (!Shell.confirm(`Move ${picked.length} open task${picked.length === 1 ? '' : 's'} to tomorrow?`)) return;
+  // already async, so it awaits the answer rather than being turned inside out
+  if (!await Shell.confirm(`Move ${picked.length} open task${picked.length === 1 ? '' : 's'} to tomorrow?`)) return;
   tdBusy = true; renderTdButtons();
   let moved = 0, failed = 0;
   try {
@@ -1767,7 +1804,8 @@ Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
 maybeRefreshToday();
 
 return { go, renderSettings: renderTodoistSettings,
-         renderQuick, toggleQuickTask, toggleQuickSub, toggleQuick, toggleQuickHideDone, quickTasks,
+         renderQuick, toggleQuickTask, toggleQuickSub, toggleQuick, toggleQuickHideDone,
+         clearQuickDone, quickTasks,
          renderHistory, toggleHistory, statsFor, statsRange,
          toggle, toggleAll, openRoutine, setTab, resetDay,
          openList, deleteList, toggleCat, createList, toggleTravel,

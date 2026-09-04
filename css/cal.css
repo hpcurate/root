@@ -7,9 +7,10 @@
    theme system (see §4 of ROOT.md). The one deliberate literal is the block
    height, which comes from --cal-hour: it is a dial, not a shape. */
 
-/* the stepper floats above the nav, so the day has to clear both of them */
+/* the stepper floats above the nav, so the day has to clear both of them —
+   and the stepper is a 48px bar now, not a 32px pill */
 .ns-cal .scr{display:none;min-height:100%;
-  padding-bottom:calc(var(--scr-pad-b) + var(--nav-fh) * .8)}
+  padding-bottom:calc(var(--scr-pad-b) + var(--nav-fh) * .8 + 16px)}
 .ns-cal .scr.on{display:block}
 
 /* the band's box is shell.css's, shared by every app */
@@ -42,37 +43,50 @@
    nav, shares the nav's chrome treatment, and follows it out of the way when
    the chrome hides.
 
-   An arrow with nowhere to go is dimmed in place, never removed: a control
-   that disappears at the edge moves the one beside it. */
+   **It spans the screen.** It was a 80px pill floating over the middle of the
+   day, which is the one place on a phone neither thumb naturally lands and the
+   one place where a mis-tap costs you the day you were reading. The two arrows
+   are half the width each now, so stepping is a tap anywhere on that side.
+
+   Being that wide it covers the bottom of the day, so it fades out on its own
+   once it has been idle (`calStepsHide`, cal.js) and comes back on the first
+   touch anywhere on DAY. An arrow with nowhere to go is dimmed in place, never
+   removed: a control that disappears at the edge moves the one beside it. */
 .cal-steps{
   display:none;position:fixed;z-index:59;
-  left:50%;transform:translateX(-50%);
+  left:max(10px, env(safe-area-inset-left));right:max(10px, env(safe-area-inset-right));
   bottom:calc(max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + var(--nav-fh) + 8px);
-  align-items:center;gap:calc(4px * var(--dens));padding:4px;
+  align-items:stretch;gap:0;padding:4px;
   background:var(--chrome-bg);
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
   border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
   box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease}
 body:has(#view-cal.cur) .cal-steps{display:flex}
-body:has(#nav.chrome-off) .cal-steps{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
+body:has(#nav.chrome-off) .cal-steps,
+.cal-steps.idle{opacity:0;transform:translateY(22px);pointer-events:none}
 
-/* the sprite's chevrons at the size the nav's own arrows use, so the three
-   read as one family rather than as two arrows and a pair of characters */
-.cal-steps .cal-arrow{flex:0 0 auto;width:38px;height:32px;background:none;
+/* the sprite's chevrons, larger than the nav's — this is a bar you aim at with
+   a thumb rather than a control you look at */
+.cal-steps .cal-arrow{flex:1 1 0;min-width:0;height:40px;background:none;
   border:none;border-radius:var(--r-pill);color:var(--tx);cursor:pointer;
   display:flex;align-items:center;justify-content:center;padding:0;
   transition:color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
-.cal-steps .cal-arrow svg{width:17px;height:17px;display:block}
+.cal-steps .cal-arrow svg{width:22px;height:22px;display:block}
 .cal-steps .cal-arrow:active{background:var(--y-fade);color:var(--y)}
 .cal-steps .cal-arrow.off{opacity:.28;cursor:default;color:var(--bd-2)}
 .cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}
-.cal-steps .cal-steps-sep{width:var(--bw);height:16px;background:var(--bd);flex:0 0 auto}
+.cal-steps .cal-steps-sep{width:var(--bw);align-self:center;height:20px;background:var(--bd);flex:0 0 auto}
 
 /* ── the day's head ── */
-.ns-cal .cal-head{margin:0 0 calc(12px * var(--dens))}
+.ns-cal .cal-head{margin:0 0 calc(12px * var(--dens));display:flex;align-items:baseline;
+  justify-content:space-between;gap:calc(10px * var(--dens))}
 .ns-cal .ch-meta{font:400 9.5px/1.5 var(--mono);letter-spacing:.8px;color:var(--tx-2);
-  text-transform:none;text-align:center}
+  text-transform:none;flex:1;min-width:0}
+.ns-cal .ch-clear{flex:0 0 auto;background:none;border:none;cursor:pointer;padding:0;
+  font:400 9px/1.5 var(--mono);letter-spacing:.8px;color:var(--bd-2);text-transform:none;
+  transition:color var(--dur-1)}
+.ns-cal .ch-clear:active{color:var(--re)}
 
 /* ── the day itself ───────────────────────────────────────────────────────────
    One row per event, its height the duration, so an hour looks like an hour.
@@ -128,11 +142,14 @@ body:has(#nav.chrome-off) .cal-steps{opacity:0;transform:translateX(-50%) transl
 .ns-cal .ce-note{font:400 11px/1.6 var(--mono);color:var(--tx-2);
   margin:calc(9px * var(--dens)) auto calc(16px * var(--dens));max-width:34em}
 /* the app's own control, not a form button: a full-width .btn stretched across
-   a card read as a screen borrowed from somewhere else */
+   a card read as a screen borrowed from somewhere else.
+   Its label is UPPER CASE, and it is the one thing on this screen that is: DAY
+   reads lower case throughout (§9), which is right for a date and wrong for the
+   only action on an otherwise empty card — it needs to be found, not read. */
 .ns-cal .ce-go{display:inline-flex;align-items:center;gap:calc(8px * var(--dens));
   background:var(--y-fade);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
-  color:var(--y);font:700 10px/1 var(--mono);letter-spacing:.12em;text-transform:none;
-  padding:calc(10px * var(--dens)) calc(16px * var(--dens));cursor:pointer;
+  color:var(--y);font:700 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  padding:calc(11px * var(--dens)) calc(18px * var(--dens));cursor:pointer;
   transition:background var(--dur-1)}
 .ns-cal .ce-go:active{background:color-mix(in srgb,var(--y) 24%,transparent)}
 

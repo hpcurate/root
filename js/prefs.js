@@ -201,6 +201,10 @@ const SCHEMA = {
   autoHideChrome:{kind:'bool',   def:true },
   haptics:      { kind:'bool',   def:false },
   confirmDestructive:{ kind:'bool', def:true },
+  /* The in-app numpad on fields that only take a number. `auto` means "where
+     the keyboard is a virtual one" — a laptop's number field is fine as it is,
+     and a pad sheet over every settings dial there would be in the way. */
+  numpad:       { kind:'enum',   def:'auto', values:['auto','always','off'] },
   toastMs:      { kind:'range',  def:1800, min:800, max:5000, step:100 },
   keyboardNav:  { kind:'bool',   def:true },
   lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
@@ -218,6 +222,10 @@ const SCHEMA = {
   calCalNames:  { kind:'bool',   def:false },
   calAhead:     { kind:'range',  def:7,   min:1,  max:21,  step:1, unit:' days' },
   calKeep:      { kind:'range',  def:60,  min:7,  max:365, step:1, unit:' days' },
+  /* The stepper is a wide bar across the bottom now, so it covers more of the
+     day than the pill did: it steps aside on its own once you stop using it.
+     0 pins it. */
+  calStepsHide: { kind:'range',  def:5,   min:0,  max:30,  step:1, unit:'s idle' },
 };
 
 /* ── State ────────────────────────────────────────────────────────────────── */

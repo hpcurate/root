@@ -123,14 +123,12 @@ function strip() {
   return out;
 }
 
-function pickDefault() {
-  const today = Shell.today(), have = strip();
-  if (DB.days[today]) return today;
-  const next = have.find(k => k > today && DB.days[k]);
-  if (next) return next;
-  const past = have.filter(k => k < today && DB.days[k]).pop();
-  return past || today;
-}
+/* **Today, always.** DAY used to open on the nearest day that had something on
+   it, which meant that on a morning with nothing planned the app answered a
+   question nobody asked — "here is Thursday" — and you had to step back to find
+   out that today was empty. An app called DAY opens on the day it is. The
+   stepper is one tap away from whatever else is planned. */
+function pickDefault() { return Shell.today(); }
 
 function pick(iso) {
   if (!isoRe.test(String(iso || ''))) return;
@@ -198,6 +196,24 @@ function paintBand() {
 function paintSteps() {
   const el = document.getElementById('cal-steps');
   if (el) el.innerHTML = stepsHTML();
+  wakeSteps();
+}
+
+/* ── The stepper steps aside ───────────────────────────────────────────────────
+   It is a bar the width of the screen now rather than a small pill: two targets
+   you can hit with either thumb without looking, sitting above the tab bar. The
+   price of that width is that it covers the bottom of the day, so it fades out
+   once you have stopped using it and comes back on the first touch. The delay
+   is a dial (`calStepsHide`, 0 pins it) rather than a literal five seconds. */
+let stepsTimer = null;
+function wakeSteps() {
+  const el = document.getElementById('cal-steps');
+  if (!el) return;
+  el.classList.remove('idle');
+  clearTimeout(stepsTimer);
+  const secs = +Prefs.get('calStepsHide');
+  if (!isFinite(secs) || secs <= 0) return;
+  stepsTimer = setTimeout(() => el.classList.add('idle'), secs * 1000);
 }
 
 /* One row per event, its height the duration — so an hour looks like an hour
@@ -251,6 +267,7 @@ function dayHead(rec) {
   return `<div class="cal-head">
     <div class="ch-meta">${esc(lower(rec.template))} · from ${esc(rec.start)} · ${tasks} task${tasks === 1 ? '' : 's'}${
       rec.mode === 'blocks' ? ' · blocks only' : ' · full schedule'}</div>
+    <button class="ch-clear" data-act="clear-day">clear this day</button>
   </div>`;
 }
 
@@ -288,10 +305,25 @@ function renderSettings() {
 
 function clearAll() {
   if (!allDays().length) { Shell.toast('nothing to clear'); return; }
-  if (!Shell.confirm('Clear every stored day? The tasks themselves stay in Todoist.')) return;
-  DB = { days:{} }; sel = null;
-  save(); render(); renderSettings();
-  Shell.toast('calendar cleared');
+  Shell.confirm('Clear every stored day? The tasks themselves stay in Todoist.', () => {
+    DB = { days:{} }; sel = null;
+    save(); render(); renderSettings();
+    Shell.toast('calendar cleared');
+  });
+}
+
+/* One day, from the day it is drawn on. Re-exporting is how a day is corrected;
+   this is how a day that should not be there at all goes away — a plan that was
+   abandoned, or a day exported to the wrong date. The Todoist task it wrote is
+   not ROOT's to withdraw, and the message says so. */
+function clearDay() {
+  if (!sel || !DB.days[sel]) { Shell.toast('nothing to clear'); return; }
+  const name = lower(Prefs.formatDate(sel, 'short'));
+  Shell.confirm(`Clear ${name}? The tasks themselves stay in Todoist.`, () => {
+    delete DB.days[sel];
+    save(); render(); renderSettings();
+    Shell.toast('day cleared');
+  });
 }
 
 /* ── Wiring ────────────────────────────────────────────────────────────────────
@@ -303,10 +335,19 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (!t || !t.closest('.ns-cal')) return;
   const act = t.dataset.act;
-  if (act === 'pick')    { pick(t.dataset.day); return; }
-  if (act === 'to-plan') { Prefs.tap(); Shell.TABS.includes('plan') ? Shell.go('plan') : Shell.open('plan'); return; }
-  if (act === 'clear')   { clearAll(); return; }
+  if (act === 'pick')      { pick(t.dataset.day); return; }
+  if (act === 'to-plan')   { Prefs.tap(); Shell.TABS.includes('plan') ? Shell.go('plan') : Shell.open('plan'); return; }
+  if (act === 'clear')     { clearAll(); return; }
+  if (act === 'clear-day') { clearDay(); return; }
 });
+
+/* Any touch on DAY brings the stepper back — including one on the stepper
+   itself, which is what stops it fading out mid-tap while you step through. */
+['pointerdown', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, e => {
+    if (!document.getElementById('view-cal')?.classList.contains('cur')) return;
+    if (e.target.closest && (e.target.closest('#view-cal') || e.target.closest('#cal-steps'))) wakeSteps();
+  }, { passive: true }));
 
 Config.subscribe(path => {
   if (path !== '*' && !String(path).startsWith('cal.')) return;
@@ -316,6 +357,7 @@ Prefs.subscribe(k => {
   if (k === '*' || k === 'calHour' || k === 'calShowFixed' || k === 'calShowIdle' ||
       k === 'calCalNames' || k === 'calAhead' || k === 'dateFormat') render();
   if (k === '*' || k === 'calKeep') { if (prune()) { save(); render(); renderSettings(); } }
+  if (k === '*' || k === 'calStepsHide') wakeSteps();
 });
 
 render();
@@ -341,6 +383,6 @@ Shell.register('cal', {
   },
 });
 
-return { write, render, renderSettings, clearAll, pick,
+return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
          days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel };
 })();

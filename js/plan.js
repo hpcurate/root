@@ -309,13 +309,18 @@ function flip(before) {
     if (resized) {
       let bd = '', bg = '';
       try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
-      /* The fade runs at under half the move's length and is out of the way
-         early. Matching the move made the box look like it was still settling
-         after it had stopped — the border is the thing you notice last, so it
-         has to finish first for the whole gesture to read as fluid. */
+      /* The fade is a *fifth* of the move, not half of it. 2.20.1 matched the
+         two and the box looked like it was still settling after it had
+         stopped; 2.21 took it to 42%, which was still long enough to see the
+         border resolving separately from the box arriving. The border is the
+         thing you notice last, so it has to be finished well before the move
+         is — by the time the box lands there is nothing left to watch, and
+         that is what makes the whole gesture read as one motion.
+         ~150ms against a 680ms move, floored so a Motion=reduced setting
+         cannot shorten it into a flicker. */
       el.animate([{ borderColor:a.bd || 'transparent', backgroundColor:a.bg || 'transparent' },
                   { borderColor:bd || 'transparent',   backgroundColor:bg || 'transparent' }],
-        { duration:Math.max(90, Math.round(ms * .42)), easing:'ease-out' });
+        { duration:Math.max(70, Math.round(ms * .22)), easing:'ease-out' });
     }
   });
 }
@@ -441,18 +446,20 @@ function renderPresets() {
 
 function savePreset() {
   if (!queue.length) return;
-  const name = String(prompt('Name this preset', '') || '').trim().slice(0, 40);
-  if (!name) return;
-  const list = presets();
-  const key = 'p' + Date.now().toString(36);
-  /* Everything the queue row carries except the day and the project id: the id
-     is resolved from the mapping when the preset is applied, so a preset built
-     before a project was re-mapped still goes to the right place. */
-  const tasks = queue.map(t => ({ name:t.name, typeKey:t.typeKey, subType:t.subType, section:t.section,
-                                  projectLabel:t.projectLabel, block:t.block || null, time:t.time || null,
-                                  priority:t.priority, subtasks:[...(t.subtasks || [])] }));
-  Config.set('plan.presets', list.concat({ key, label:name, tasks }));
-  toast(`saved · ${name} · ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
+  Shell.prompt('Name this preset?', '', raw => {
+    const name = String(raw || '').trim().slice(0, 40);
+    if (!name) return;
+    const list = presets();
+    const key = 'p' + Date.now().toString(36);
+    /* Everything the queue row carries except the day and the project id: the id
+       is resolved from the mapping when the preset is applied, so a preset built
+       before a project was re-mapped still goes to the right place. */
+    const tasks = queue.map(t => ({ name:t.name, typeKey:t.typeKey, subType:t.subType, section:t.section,
+                                    projectLabel:t.projectLabel, block:t.block || null, time:t.time || null,
+                                    priority:t.priority, subtasks:[...(t.subtasks || [])] }));
+    Config.set('plan.presets', list.concat({ key, label:name, tasks }));
+    toast(`saved · ${name} · ${tasks.length} task${tasks.length !== 1 ? 's' : ''}`);
+  });
 }
 
 function applyPreset(key) {
@@ -472,9 +479,10 @@ function applyPreset(key) {
 function deletePreset(key) {
   const p = presets().find(x => x.key === key);
   if (!p) return;
-  if (!Shell.confirm(`Delete the preset “${p.label}”?`)) return;
-  Config.set('plan.presets', presets().filter(x => x.key !== key));
-  toast('preset deleted');
+  Shell.confirm(`Delete the preset “${p.label}”?`, () => {
+    Config.set('plan.presets', presets().filter(x => x.key !== key));
+    toast('preset deleted');
+  });
 }
 
 /* ── What is planned for a day ────────────────────────────────────────────────
@@ -490,8 +498,9 @@ function plannedOn(iso) {
 
 function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
 function clearQueue() {
-  if(!Shell.confirm('Clear all queued tasks?')) return;
-  queue=[]; saveQueue(); renderQueue(); renderProjects(); toast('Queue cleared');
+  Shell.confirm('Clear all queued tasks?', () => {
+    queue=[]; saveQueue(); renderQueue(); renderProjects(); toast('Queue cleared');
+  });
 }
 
 // ── Form ──────────────────────────────────────────────────────────────────────
@@ -727,11 +736,23 @@ function addToQueue() {
   const raw = (el ? el.value : formState.name || '').trim();
   const tt = typeOf(formState.typeKey);
   if (!tt) return;
+  const map = mappings[formState.typeKey] || {};
+  /* Not a destructive question, so it does not route through Shell.confirm —
+     it must be asked whatever "confirm before clearing" says — but it is still
+     the app's own dialog rather than the browser's. */
+  if (!map.projectId) {
+    Shell.ask({ title: `No project mapped for ${formState.typeKey}.`,
+                body: 'Add it anyway? It will go to your Todoist inbox.',
+                yes: 'add anyway', danger: false,
+                done: a => { if (a) queueTask(raw, tt); } });
+    return;
+  }
+  queueTask(raw, tt);
+}
+
+function queueTask(raw, tt) {
   const name = raw ? raw : formState.subType;
   const map = mappings[formState.typeKey] || {};
-  if (!map.projectId) {
-    if (!confirm('No project mapped for '+formState.typeKey+'. Add anyway? It will go to inbox.')) return;
-  }
   const day = formDate();
   queue.push({ name, typeKey:formState.typeKey, subType:formState.subType, section:formState.section,
     projectLabel:tt.pLabel, projectId:map.projectId||null, block:formState.block, time:formState.time,
@@ -1335,10 +1356,11 @@ async function doExport() {
 
 function clearSent() {
   if (!sentLog.length) return;
-  if (!Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.')) return;
-  sentLog = []; sentSel.clear(); expSlots = {};
-  if (expOpen) { expOpen = false; renderProjects(); }
-  saveHistory(); renderSent(); toast('history cleared');
+  Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.', () => {
+    sentLog = []; sentSel.clear(); expSlots = {};
+    if (expOpen) { expOpen = false; renderProjects(); }
+    saveHistory(); renderSent(); toast('history cleared');
+  });
 }
 /* Queue first, then what was sent today; one entry per name, with the
    project's colour so LOG can draw it in the project's hue. A queued task

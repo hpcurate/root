@@ -281,13 +281,116 @@ window.Shell = (function () {
   window.addEventListener('focus', minute);
   setInterval(minute, 60 * 1000);
 
+  /* ── Asking, inside the app ─────────────────────────────────────────────────
+     `window.confirm` and `window.prompt` are the *system's* dialogs, not this
+     app's. They arrive in the platform's typeface at the top of the screen,
+     they ignore every dial in Settings, and on a phone they read as the
+     browser interrupting rather than as the app asking a question. One
+     overlay does both jobs now, and it is a `.modal-overlay` so Escape and the
+     keyboard suppression the shell already does for sheets reach it for free.
+
+     The cost is that asking can no longer be synchronous. `Shell.confirm` takes
+     *what to do* instead of answering:
+
+         Shell.confirm('Clear the list?', () => { … })
+
+     There is no return value to test, and every call site in every app was
+     rewritten. With "confirm before clearing" off the callback runs straight
+     away, which is exactly what that setting has always meant.
+
+     The window.* fallbacks below are for a page whose overlay markup is missing
+     — losing the action outright would be worse than a system box. */
+  const askEl    = document.getElementById('ask');
+  const askTitle = document.getElementById('ask-title');
+  const askBody  = document.getElementById('ask-body');
+  const askField = document.getElementById('ask-field');
+  const askInput = document.getElementById('ask-input');
+  const askYes   = document.getElementById('ask-yes');
+  const askNo    = document.getElementById('ask-no');
+  let askDone = null;
+
+  /* One string in, a title and a body out: the question is the title and
+     whatever follows it is the detail. Keeps every existing message readable
+     without rewriting thirty of them. */
+  function splitAsk(msg) {
+    const s = String(msg == null ? '' : msg).trim();
+    const nl = s.indexOf('\n');
+    if (nl > 0) return { title: s.slice(0, nl).trim(), body: s.slice(nl).trim() };
+    const q = s.indexOf('? ');
+    if (q > 0) return { title: s.slice(0, q + 1), body: s.slice(q + 2).trim() };
+    return { title: s, body: '' };
+  }
+
+  function askSettle(answer) {
+    const fn = askDone;
+    askDone = null;
+    if (askEl) askEl.classList.add('hidden');
+    if (fn) { try { fn(answer); } catch (e) { console.error(e); } }
+  }
+
+  function ask(o) {
+    const opt = o || {};
+    const hasInput = typeof opt.input === 'string';
+    if (!askEl || !askYes || !askNo) {                 // no markup: do not lose the action
+      const a = hasInput ? window.prompt(opt.title || '', opt.input)
+                         : (window.confirm([opt.title, opt.body].filter(Boolean).join('\n\n')) || null);
+      if (opt.done) opt.done(hasInput ? a : (a ? true : null));
+      return;
+    }
+    askSettle(null);                                   // never stack two questions
+    askDone = opt.done || null;
+    if (askTitle) askTitle.textContent = opt.title || '';
+    if (askBody)  { askBody.textContent = opt.body || ''; askBody.classList.toggle('hidden', !opt.body); }
+    if (askField) askField.classList.toggle('hidden', !hasInput);
+    if (askInput) {
+      askInput.value = hasInput ? opt.input : '';
+      askInput.placeholder = opt.placeholder || '';
+    }
+    askYes.textContent = opt.yes || (hasInput ? 'save' : 'confirm');
+    askYes.classList.toggle('danger', opt.danger !== false && !hasInput);
+    askNo.textContent = opt.no || 'cancel';
+    askEl.classList.remove('hidden');
+    // a text question wants the field; a yes/no wants neither field nor keyboard
+    setTimeout(() => { try { (hasInput ? askInput : askYes).focus(); } catch {} }, 0);
+  }
+
+  if (askYes) askYes.addEventListener('click', () =>
+    askSettle(askInput && askField && !askField.classList.contains('hidden') ? askInput.value : true));
+  if (askNo)  askNo.addEventListener('click', () => askSettle(null));
+  if (askEl)  askEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && askYes) { e.preventDefault(); askYes.click(); }
+  });
+
   /* Honours Settings → behaviour → "confirm before clearing". Every reset and
-     clear button in the four apps routes here; the preference used to be read
+     clear button in the eight apps routes here; the preference used to be read
      only by the settings view's own buttons, so turning it off did nothing
-     where it mattered. */
-  function confirmAction(msg) {
-    if (pref('confirmDestructive', true) === false) return true;
-    return window.confirm(msg);
+     where it mattered.
+
+     Two shapes, because the call sites come in two shapes:
+
+       Shell.confirm(msg, () => { … })   the common one — a button handler
+       await Shell.confirm(msg)          inside something already async
+
+     The second exists so an async function that asks part-way through does not
+     have to be turned inside out; it answers true or false and nothing else. */
+  function confirmAction(msg, onOk) {
+    if (typeof onOk !== 'function') {
+      return new Promise(resolve => {
+        if (pref('confirmDestructive', true) === false) { resolve(true); return; }
+        const { title, body } = splitAsk(msg);
+        ask({ title, body, danger: true, done: a => resolve(!!a) });
+      });
+    }
+    if (pref('confirmDestructive', true) === false) { onOk(); return; }
+    const { title, body } = splitAsk(msg);
+    ask({ title, body, danger: true, done: a => { if (a) onOk(); } });
+  }
+  /* The same overlay with a field in it — the four places that asked for a
+     name or a date through window.prompt. Cancel answers null, never ''. */
+  function promptAction(msg, value, onOk) {
+    const { title, body } = splitAsk(msg);
+    ask({ title, body, input: String(value == null ? '' : value),
+          done: a => { if (a !== null && typeof onOk === 'function') onOk(a); } });
   }
 
   // ── Toast ───────────────────────────────────────────────────────────────────
@@ -683,6 +786,233 @@ window.Shell = (function () {
     try { if (pos !== null) el.setSelectionRange(pos, pos); } catch {}
   }, true);
 
+  /* ── The numpad ────────────────────────────────────────────────────────────
+     A field that only ever takes a number has no business raising the system
+     keyboard: two thirds of it are letters, it covers half the screen, and it
+     is the platform's chrome landing in the middle of the app. Every numeric
+     field in ROOT is answered by one pad instead — a field that takes *text*
+     still gets the system keyboard, which is the whole distinction.
+
+     Which fields, and what a digit means in them:
+
+       int        a count. `type=number`, or `inputmode=numeric`.
+       decimal    a measurement. `inputmode=decimal`, or a fractional `step`.
+       duration   hours and minutes typed as digits: 720 is 7h20m, and 7.33 is
+                  what lands in the field, because that is what the .md wants.
+       clock      a wall-clock time: 930 is 09:30.
+       off        `data-pad="off"` — hands the field back to the keyboard.
+
+     `data-pad` on the element wins over all of that; the two shapes that
+     cannot be inferred (duration, clock) are declared in the markup.
+
+     Suppressing the keyboard is `inputmode="none"`, set on pointerdown —
+     before focus, which is the only moment early enough. The field's own
+     inputmode is remembered in `data-pad-im`, so switching the pad off in
+     settings gives every field its keyboard back without a reload. */
+  const npadEl    = document.getElementById('npad');
+  const npadBack  = document.getElementById('npad-back');
+  const npadLabel = document.getElementById('npad-label');
+  const npadVal   = document.getElementById('npad-val');
+  const npadNote  = document.getElementById('npad-note');
+  const PAD_KINDS = ['int', 'decimal', 'duration', 'clock'];
+
+  let padTarget = null, padKind = 'int', padBuf = '', padFresh = true;
+
+  function padKindOf(el) {
+    if (!el || el.tagName !== 'INPUT' || el.disabled || el.readOnly) return null;
+    const d = el.dataset.pad;
+    if (d === 'off') return null;
+    if (d && PAD_KINDS.includes(d)) return d;
+    // once armed the live inputmode is "none"; the original is what classifies
+    const im = el.dataset.padIm !== undefined ? el.dataset.padIm : (el.getAttribute('inputmode') || '');
+    if (el.type === 'number') {
+      const step = parseFloat(el.getAttribute('step'));
+      return im === 'decimal' || (isFinite(step) && step % 1 !== 0) ? 'decimal' : 'int';
+    }
+    if (el.type === 'text' || el.type === 'tel') {
+      if (im === 'decimal') return 'decimal';
+      if (im === 'numeric') return 'int';
+    }
+    return null;
+  }
+
+  /* auto is the honest default: the system keyboard is only in the way where
+     it is a *virtual* keyboard, and a laptop's number field is fine as it is. */
+  function padWanted() {
+    const m = pref('numpad', 'auto');
+    if (m === 'off') return false;
+    if (m === 'always') return true;
+    try { return !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); }
+    catch { return false; }
+  }
+
+  function padArm(el) {
+    const kind = padKindOf(el);
+    if (!kind) return null;
+    if (el.dataset.padIm === undefined) el.dataset.padIm = el.getAttribute('inputmode') || '';
+    if (padWanted()) el.setAttribute('inputmode', 'none');
+    else if (el.dataset.padIm) el.setAttribute('inputmode', el.dataset.padIm);
+    else el.removeAttribute('inputmode');
+    return kind;
+  }
+
+  /* What the field already holds, back as keystrokes — so opening the pad on a
+     filled field continues it rather than starting again. */
+  function padSeed(el, kind) {
+    const v = String(el.value == null ? '' : el.value).trim().replace(',', '.');
+    if (!v) return '';
+    if (kind === 'duration') {
+      const n = parseFloat(v);
+      if (!isFinite(n) || n < 0) return '';
+      const h = Math.floor(n), m = Math.round((n - h) * 60);
+      return m ? String(h) + String(m).padStart(2, '0') : String(h);
+    }
+    if (kind === 'clock') return v.replace(/\D/g, '').slice(0, 4);
+    if (kind === 'int')   return v.replace(/[^\d]/g, '').slice(0, 9);
+    return v.replace(/[^\d.]/g, '').slice(0, 12);
+  }
+
+  /* The buffer, read two ways: what goes in the field, and what the pad says
+     it means. They are the same for a plain number and deliberately different
+     for a duration — you type 720 and the note says 7h20m · 7.33. */
+  function padRead(kind, buf) {
+    if (kind === 'duration') {
+      const s = buf.replace(/\D/g, '');
+      if (!s) return { value: '', read: '', note: 'hours then minutes — 720 is 7h20m' };
+      const h = s.length <= 2 ? +s : +s.slice(0, -2);
+      const m = s.length <= 2 ? 0  : +s.slice(-2);
+      if (m > 59) return { value: '', read: s, note: 'minutes only go up to 59', bad: true };
+      const dec = Math.round((h + m / 60) * 100) / 100;
+      return { value: String(dec), read: `${h}h${String(m).padStart(2, '0')}m`,
+               note: `saved as ${dec}` };
+    }
+    if (kind === 'clock') {
+      const s = buf.replace(/\D/g, '');
+      if (!s) return { value: '', read: '', note: 'hours then minutes — 930 is 09:30' };
+      const p = s.padStart(3, '0');
+      const h = +p.slice(0, p.length - 2), m = +p.slice(-2);
+      if (h > 23 || m > 59) return { value: '', read: s, note: 'not a time of day', bad: true };
+      const t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      return { value: t, read: t, note: '' };
+    }
+    return { value: buf, read: buf, note: '' };
+  }
+
+  /* The label the field is asking under, so the pad says what it is for. */
+  function padLabelOf(el) {
+    const box = el.closest('.f,.setting-row,.slider-row,.field,.ed-toggle,.ed-grid > div,.ed-pair > div');
+    const lbl = box && box.querySelector('label,.lbl,.setting-lbl');
+    const txt = (lbl && lbl.textContent) || el.getAttribute('aria-label') || el.placeholder || 'number';
+    return String(txt).replace(/\s+/g, ' ').trim().slice(0, 42);
+  }
+
+  function padPaint() {
+    const r = padRead(padKind, padBuf);
+    if (npadVal) {
+      npadVal.textContent = r.read || '0';
+      npadVal.classList.toggle('empty', !r.read);
+      npadVal.classList.toggle('bad', !!r.bad);
+    }
+    if (npadNote) npadNote.textContent = r.note || '';
+    const dot = npadEl && npadEl.querySelector('[data-npad="."]');
+    if (dot) dot.disabled = padKind !== 'decimal';
+    return r;
+  }
+
+  function padCommit() {
+    const r = padPaint();
+    if (!padTarget || r.bad) return;
+    padTarget.value = r.value;
+    padTarget.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function padOpen(el, kind) {
+    padTarget = el; padKind = kind; padBuf = padSeed(el, kind); padFresh = true;
+    if (npadLabel) npadLabel.textContent = padLabelOf(el);
+    padPaint();
+    if (npadBack) npadBack.classList.add('on');
+    if (npadEl) npadEl.classList.add('on');
+  }
+  function padClose() {
+    if (padTarget) { padTarget.dispatchEvent(new Event('change', { bubbles: true })); padTarget = null; }
+    padBuf = '';
+    if (npadBack) npadBack.classList.remove('on');
+    if (npadEl) npadEl.classList.remove('on');
+  }
+  const padIsOpen = () => !!padTarget;
+
+  /* The first digit after the pad opens *replaces* what was there, the way
+     typing over a selected field does — you tap sleep to answer today's, not
+     to append four digits to yesterday's, and on a capped field like a clock
+     appending simply did nothing at all. Backspace and the dot are edits, not
+     answers, so they keep the seeded value and continue from it. */
+  function padKey(k) {
+    if (!padTarget) return;
+    if (k === 'back')       { padBuf = padBuf.slice(0, -1); padFresh = false; }
+    else if (k === 'clear') { padBuf = ''; padFresh = false; }
+    else if (k === '.') {
+      padFresh = false;
+      if (padKind !== 'decimal' || padBuf.includes('.')) return;
+      padBuf = (padBuf || '0') + '.';
+    } else {
+      if (padFresh) { padBuf = ''; padFresh = false; }
+      const cap = padKind === 'clock' ? 4 : padKind === 'duration' ? 4 : 9;
+      if (padBuf.replace('.', '').length >= cap) return;
+      padBuf = (padKind === 'clock' || padKind === 'duration' || padBuf !== '0') ? padBuf + k : k;
+    }
+    if (window.Prefs) Prefs.tap();
+    padCommit();
+  }
+
+  /* pointerdown, not click: preventDefault here keeps the focus on the field
+     while the pad is used, so the caret and the field's own styling stay put. */
+  if (npadEl) {
+    npadEl.addEventListener('pointerdown', e => { if (e.target.closest('[data-npad]')) e.preventDefault(); });
+    npadEl.addEventListener('click', e => {
+      const b = e.target.closest('[data-npad]');
+      if (!b || b.disabled) return;
+      if (b.dataset.npad === 'done') { const t = padTarget; padClose(); if (t) try { t.blur(); } catch {} return; }
+      padKey(b.dataset.npad);
+    });
+  }
+  if (npadBack) npadBack.addEventListener('click', padClose);
+
+  // arm before focus, so the keyboard never gets its chance to come up
+  document.addEventListener('pointerdown', e => {
+    const el = e.target;
+    if (el && el.tagName === 'INPUT') padArm(el);
+  }, true);
+  document.addEventListener('focusin', e => {
+    const el = e.target;
+    if (npadEl && el && el.closest && el.closest('#npad')) return;   // the pad's own buttons
+    const kind = padArm(el);
+    if (kind && padWanted()) padOpen(el, kind);
+    else if (padIsOpen() && el !== padTarget) padClose();
+  });
+  /* Typed into directly — a physical keyboard, or a module writing the field.
+     The buffer follows the field rather than fighting it. */
+  document.addEventListener('input', e => {
+    if (!padIsOpen() || e.target !== padTarget) return;
+    const seeded = padRead(padKind, padBuf).value;
+    if (String(padTarget.value) !== String(seeded)) { padBuf = padSeed(padTarget, padKind); padPaint(); }
+  });
+  /* Tapping something that takes no focus blurs the field without a focusin
+     anywhere, which would leave the pad up over a field it no longer edits. */
+  document.addEventListener('focusout', e => {
+    if (e.target !== padTarget) return;
+    setTimeout(() => { if (padIsOpen() && document.activeElement !== padTarget) padClose(); }, 0);
+  });
+  document.addEventListener('keydown', e => {
+    if (!padIsOpen()) return;
+    if (e.key === 'Escape') { const t = padTarget; padClose(); if (t) try { t.blur(); } catch {} }
+  });
+  // switching the pad off in settings hands every armed field its keyboard back
+  if (window.Prefs) Prefs.subscribe(k => {
+    if (k !== 'numpad' && k !== '*') return;
+    if (!padWanted()) padClose();
+    document.querySelectorAll('input[data-pad-im]').forEach(padArm);
+  });
+
   // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
   (function boot() {
     rebuild();
@@ -731,5 +1061,8 @@ window.Shell = (function () {
   }
 
   return { toast, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS,
-           today, checkDay, confirm: confirmAction, hashTarget, searchApps };
+           today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
+           hashTarget, searchApps,
+           numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,
+                     isOpen: padIsOpen, target: () => padTarget } };
 })();

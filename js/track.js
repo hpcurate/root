@@ -370,8 +370,9 @@ async function importData(e) {
   } catch { toast('could not read that file'); }
 }
 function resetAll() {
-  if (!Shell.confirm('Reset every tick and every date? This cannot be undone.')) return;
-  S = Object.assign({}, DEF, { done:{}, open:{} }); save(); render(); toast('reset');
+  Shell.confirm('Reset every tick and every date? This cannot be undone.', () => {
+    S = Object.assign({}, DEF, { done:{}, open:{} }); save(); render(); toast('reset');
+  });
 }
 
 /* ── Interaction ───────────────────────────────────────────────────────────── */
@@ -385,9 +386,10 @@ view.addEventListener('click', e => {
   if (when) {
     e.stopPropagation();
     const id = when.dataset.when;
-    const v = window.prompt('Date finished (YYYY-MM-DD):', S.done[id]);
-    if (v && isISO(v.trim())) { S.done[id] = v.trim(); save(); render(); }
-    else if (v !== null) toast('use YYYY-MM-DD');
+    Shell.prompt('Date finished? Use YYYY-MM-DD.', S.done[id], v => {
+      if (isISO(String(v).trim())) { S.done[id] = String(v).trim(); save(); render(); }
+      else toast('use YYYY-MM-DD');
+    });
     return;
   }
   const head = e.target.closest('.lvlHead');

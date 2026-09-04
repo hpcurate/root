@@ -200,7 +200,7 @@ const SK_LEGACY = 'eat_state_v1';   // pre-rename key — read once, then migrat
 const TD_DEFAULTS = { token:'', project:'04|life', section:'home|groceries',
                       projectId:null, sectionId:null, lastSync:null };
 let state = { cart:0, budget:0, cartLog:[], list:[], history:[], currentCat:null,
-              todoist: { ...TD_DEFAULTS }, learned: {} };
+              cwPin:false, todoist: { ...TD_DEFAULTS }, learned: {} };
 
 function loadState() {
   try {
@@ -260,12 +260,37 @@ function addCart(amt, note) {
 }
 function resetCart() {
   if (state.cart === 0 && !state.cartLog.length) { toast('cart already at 0'); return; }
-  if (!Shell.confirm(`Reset cart counter to ${CUR()}0.00?`)) return;
-  state.cart = 0; state.cartLog = [];
-  saveState(); renderCart();
-  toast('cart reset');
+  Shell.confirm(`Reset cart counter to ${CUR()}0.00?`, () => {
+    state.cart = 0; state.cartLog = [];
+    saveState(); renderCart();
+    toast('cart reset');
+  });
 }
+/* ── The counter, pinned ───────────────────────────────────────────────────────
+   In a shop the running total is the number you keep glancing at, and the list
+   you are ticking is long enough to scroll it off the top. Pinned, the widget
+   sticks to the top of the page (position:sticky — sticky, not fixed, because
+   fixed inside #track is forbidden, §3) and the list scrolls under it.
+
+   The pin is on the widget itself rather than in settings: it is the kind of
+   thing you switch on in the aisle and off at the till. */
+function togglePin() {
+  state.cwPin = !state.cwPin;
+  saveState(); paintPin(); Prefs.tap();
+  toast(state.cwPin ? 'counter pinned' : 'counter unpinned');
+}
+function paintPin() {
+  const cw = $id('cw'), btn = $id('cw-pin');
+  if (cw) cw.classList.toggle('pinned', !!state.cwPin);
+  if (btn) {
+    btn.classList.toggle('on', !!state.cwPin);
+    btn.setAttribute('aria-pressed', state.cwPin ? 'true' : 'false');
+    btn.setAttribute('aria-label', state.cwPin ? 'unpin the counter' : 'pin the counter to the top');
+  }
+}
+
 function renderCart() {
+  paintPin();
   $id('cw-cart').textContent = state.cart.toFixed(2);
   $all('.cu').forEach(el => { el.textContent = CUR(); });
   const logBtn = $id('cw-log-btn');
@@ -453,11 +478,12 @@ function deleteItem(idx) {
 }
 function confirmClearList() {
   if (!state.list.length) { toast('list is empty'); return; }
-  if (!Shell.confirm(`Clear all ${state.list.length} items from list?`)) return;
-  state.list = [];
-  saveState();
-  renderList();
-  toast('list cleared');
+  Shell.confirm(`Clear all ${state.list.length} items from list?`, () => {
+    state.list = [];
+    saveState();
+    renderList();
+    toast('list cleared');
+  });
 }
 /* Saving and renaming share one sheet: renameIdx === null means "save the
    current list", otherwise it means "rename history[renameIdx]". */
@@ -736,18 +762,20 @@ function restoreTrip(i) {
 }
 
 function deleteTrip(i) {
-  if (!Shell.confirm('Delete this trip from history?')) return;
-  state.history.splice(i, 1);
-  saveState();
-  renderHistory();
+  Shell.confirm('Delete this trip from history?', () => {
+    state.history.splice(i, 1);
+    saveState();
+    renderHistory();
+  });
 }
 
 function clearHistory() {
   if (!state.history.length) { toast('history is empty'); return; }
-  if (!Shell.confirm(`Clear all ${state.history.length} past trips?`)) return;
-  state.history = [];
-  saveState();
-  renderHistory();
+  Shell.confirm(`Clear all ${state.history.length} past trips?`, () => {
+    state.history = [];
+    saveState();
+    renderHistory();
+  });
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -1023,7 +1051,7 @@ Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === '*') 
 
 Shell.register('store', { home: () => go('home') });   // the STORE tab tapped while on STORE
 
-return { go, addCart, resetCart, openPad, closePad, padKey, padBack, padClear,
+return { go, addCart, resetCart, togglePin, openPad, closePad, padKey, padBack, padClear,
          padCount, padApply, openCartLog, closeCartLog,
          addManual, toggleChecked, setQty, deleteItem, confirmClearList,
          saveTrip, openTripName, closeTripName, confirmTripName,

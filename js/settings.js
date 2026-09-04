@@ -407,6 +407,13 @@ function behaveHTML() {
     ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
 
+    ${sectionHead('Typing')}
+    ${chips('numpad', [
+      { v:'auto',   l:'on a touch screen' },
+      { v:'always', l:'always' },
+      { v:'off',    l:'never' },
+    ], 'In-app numpad', 'a field that only takes a number gets ROOT’s own pad instead of the system keyboard — sleep reads 720 as 7h20m, an alert hour reads 930 as 09:30')}
+
     ${sectionHead('Safety')}
     ${toggle('confirmDestructive', 'Confirm before clearing', 'off makes reset and clear buttons act immediately')}
     ${slider('toastMs', 'Toast duration', v => (v / 1000).toFixed(1) + 's')}
@@ -585,13 +592,14 @@ const EDITORS = {
   /* ── LOG · labels ──────────────────────────────────────────────────────── */
   'log.labels': {
     title: 'Names and counts',
-    paths: ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
+    paths: ['log.meds','log.medsOn','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
             'log.kmTarget','log.streakRequires'],
     note: 'What the forms call things, plus the walking target and the streak rule. The underlying field names in the exported .md never change, so your Obsidian notes stay parseable.',
     render() {
       // read through the shipped record: an override written before a slot
       // existed has no answer for it, and a missing key is "not asked", not "gone"
       const meds = Object.assign({}, Config.defaults('log.meds'), Config.get('log.meds') || {});
+      const medsOn = Object.assign({}, Config.defaults('log.medsOn'), Config.get('log.medsOn') || {});
       const caf = Config.get('log.caffeine');
       const cur  = Config.get('log.curate'), sc = Config.get('log.scales');
       const pair = (path, a, b, la, lb) => `<div class="ed-pair">
@@ -599,10 +607,15 @@ const EDITORS = {
         <div><label class="lbl">${esc(lb)}</label><input type="text" data-cfg="${path}" data-sub="${b.k}" value="${esc(b.v)}"></div>
       </div>`;
       return `
-        <label class="lbl">Medication slots</label>
+        <label class="lbl">Medication slots<em>a slot switched off stops being asked about. The record and the exported .md keep every slot either way — nothing is deleted.</em></label>
         <div class="ed-grid">${Object.keys(meds).map((k, i) => `
           <div><label class="lbl">slot ${i + 1}</label>
             <input type="text" data-cfg="log.meds" data-sub="${esc(k)}" value="${esc(meds[k])}"></div>`).join('')}</div>
+        <div class="ed-grid">${Object.keys(meds).map(k => `
+          <div class="ed-toggle"><span>${esc(meds[k])}</span>
+            <button class="tog${medsOn[k] !== false ? ' on' : ''}" data-cfg-toggle="log.medsOn.${esc(k)}"
+                    role="switch" aria-checked="${medsOn[k] !== false}" aria-label="${esc(meds[k])} on the form"></button>
+          </div>`).join('')}</div>
 
         <label class="lbl">Caffeine counters</label>
         ${pair('log.caffeine', {k:'c',v:caf.c}, {k:'ed',v:caf.ed}, 'counter 1', 'counter 2')}
@@ -1123,7 +1136,7 @@ const RESET_BUNDLE = {
   'do.routines':          ['do.routines','do.tabs'],
   'do.travelCategories':  ['do.travelCategories','do.categoryOrder'],
   'log.blocks':           ['log.blocks','log.maxBlocks'],
-  'log.labels':           ['log.meds','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
+  'log.labels':           ['log.meds','log.medsOn','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
                            'log.kmTarget','log.streakRequires'],
   'plan.chips':           ['plan.blocks','plan.times'],
   'tend.labels':          ['tend.tasks','tend.seasons','tend.growth','tend.feedFloor'],
@@ -1263,13 +1276,18 @@ function importAll(event) {
     if (!incoming.length) { Shell.toast('nothing in that file'); return; }
     const existing = new Set(allKeys());
     const overwrite = incoming.filter(k => existing.has(k)).length;
-    const msg = `Restore ${incoming.length} key${incoming.length !== 1 ? 's' : ''}?\n\n`
-              + `${incoming.length - overwrite} new · ${overwrite} will overwrite what is here.\n\n`
-              + `The app reloads afterwards.`;
-    if (!confirm(msg)) return;
-    try { incoming.forEach(k => { if (typeof data[k] === 'string') localStorage.setItem(k, data[k]); }); }
-    catch { Shell.toast('storage full — nothing changed'); return; }
-    location.reload();
+    Shell.ask({
+      title: `Restore ${incoming.length} key${incoming.length !== 1 ? 's' : ''}?`,
+      body: `${incoming.length - overwrite} new · ${overwrite} will overwrite what is here. `
+          + `The app reloads afterwards.`,
+      yes: 'restore', danger: true,
+      done: a => {
+        if (!a) return;
+        try { incoming.forEach(k => { if (typeof data[k] === 'string') localStorage.setItem(k, data[k]); }); }
+        catch { Shell.toast('storage full — nothing changed'); return; }
+        location.reload();
+      },
+    });
   };
   reader.readAsText(file);
 }
@@ -1291,8 +1309,12 @@ async function exportLook() {
 async function importLook() {
   let text = '';
   try { text = await navigator.clipboard.readText(); } catch {}
-  if (!text) text = prompt('Paste a ROOT look') || '';
-  if (!text.trim()) return;
+  if (text.trim()) { applyLook(text); return; }
+  // no clipboard permission (or nothing in it): ask for it in the app's own field
+  Shell.prompt('Paste a ROOT look', '', v => applyLook(v));
+}
+function applyLook(text) {
+  if (!String(text || '').trim()) return;
   let p;
   try { p = JSON.parse(text); } catch { Shell.toast('that is not valid JSON'); return; }
   if (!p || p.app !== 'root') { Shell.toast('not a root look'); return; }
@@ -1649,16 +1671,17 @@ view.addEventListener('click', e => {
   // content editors
   if (t.dataset.add) { const box = groupOf(t); EDITORS[box.dataset.group].add(); renderContent(); return; }
   if (t.dataset.del !== undefined && groupOf(t)) {
-    const box = groupOf(t);
-    if (!confirmed('Remove this?')) return;
-    EDITORS[box.dataset.group].del(t.dataset.del);
-    renderContent(); return;
+    const box = groupOf(t), which = t.dataset.del;
+    confirmed('Remove this?', () => { EDITORS[box.dataset.group].del(which); renderContent(); });
+    return;
   }
   if (t.dataset.cfgReset) {
     const paths = RESET_BUNDLE[t.dataset.cfgReset] || [t.dataset.cfgReset];
-    if (!confirmed('Put this section back to what ROOT ships with?')) return;
-    paths.forEach(p => Config.reset(p));
-    renderContent(); Shell.toast('reset to default'); return;
+    confirmed('Put this section back to what ROOT ships with?', () => {
+      paths.forEach(p => Config.reset(p));
+      renderContent(); Shell.toast('reset to default');
+    });
+    return;
   }
   if (t.dataset.cfgToggle) {
     const path = t.dataset.cfgToggle;
@@ -1678,22 +1701,26 @@ view.addEventListener('click', e => {
 
   // panel-level actions
   if (t.dataset.act === 'reset-appearance') {
-    if (!confirmed('Reset every appearance setting?')) return;
-    ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
-     'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
-     'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
-     'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
-    render(); Shell.toast('appearance reset');
+    confirmed('Reset every appearance setting?', () => {
+      ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
+       'depth','texture','motion','contrast','caps','navStyle','cardStyle','accentUse','radius','border',
+       'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
+       'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
+      render(); Shell.toast('appearance reset');
+    });
   }
   if (t.dataset.act === 'reset-behaviour') {
-    if (!confirmed('Reset every behaviour setting?')) return;
-    ['startTab','swipe','swipeStrength','autoHideChrome','haptics','confirmDestructive',
-     'toastMs','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
-    render(); Shell.toast('behaviour reset');
+    confirmed('Reset every behaviour setting?', () => {
+      ['startTab','swipe','swipeStrength','autoHideChrome','haptics','confirmDestructive','numpad',
+       'toastMs','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
+      render(); Shell.toast('behaviour reset');
+    });
   }
   if (t.dataset.act === 'reset-content') {
-    if (!confirm('Discard every content edit and go back to what ROOT ships with?\n\nYour logged days, lists and history are untouched.')) return;
-    Config.resetAll(); renderData(); Shell.toast('content reset');
+    Shell.ask({ title: 'Discard every content edit?',
+                body: 'Everything goes back to what ROOT ships with. Your logged days, lists and history are untouched.',
+                yes: 'discard', danger: true,
+                done: a => { if (!a) return; Config.resetAll(); renderData(); Shell.toast('content reset'); } });
   }
   if (t.dataset.act === 'search') { Prefs.tap(); if (window.SEARCH) SEARCH.open(); }
   if (t.dataset.act === 'export-look') exportLook();
@@ -1727,9 +1754,10 @@ function readoutFor(key, v) {
   return v + (s.unit || '');
 }
 
-/* Honours the "confirm before clearing" preference — the one place that reads
-   it, so turning it off is a real change rather than a decoration. */
-function confirmed(msg) { return !Prefs.get('confirmDestructive') || confirm(msg); }
+/* The settings view's own confirms. It is Shell.confirm — which already reads
+   "confirm before clearing" — kept behind a local name because that is what
+   every call site here says. */
+const confirmed = (msg, onOk) => Shell.confirm(msg, onOk);
 
 /* A content edit changes what the apps draw; each module re-renders itself on
    its own Config.subscribe. This only keeps the settings screen honest about

@@ -347,7 +347,7 @@ function backToDeck() { if (currentDeckId) goDeck(currentDeckId); else go('home'
 
 async function resetDeckProgress() {
   if (!currentDeckId) return;
-  if (!Shell.confirm('Clear all ratings for this deck?')) return;
+  if (!await Shell.confirm('Clear all ratings for this deck?')) return;
   const cards = await getByIndex('cards', 'deck', currentDeckId);
   for (const c of cards) { c.rating = null; c.ratedAt = null; }
   await bulkPut('cards', cards);
@@ -357,16 +357,17 @@ async function resetDeckProgress() {
 async function renameDeck() {
   if (!currentDeckId) return;
   const d = await get1('decks', currentDeckId);
-  const name = window.prompt('Deck name:', d.name);
-  if (!name || !name.trim()) return;
-  d.name = name.trim();
-  await put('decks', d);
-  $id('deck-title').textContent = d.name.toUpperCase();
-  toast('renamed');
+  Shell.prompt('Deck name?', d.name, async name => {
+    if (!name.trim()) return;
+    d.name = name.trim();
+    await put('decks', d);
+    $id('deck-title').textContent = d.name.toUpperCase();
+    toast('renamed');
+  });
 }
 async function deleteCurrentDeck() {
   if (!currentDeckId) return;
-  if (!Shell.confirm('Delete this deck and all its progress? This cannot be undone.')) return;
+  if (!await Shell.confirm('Delete this deck and all its progress? This cannot be undone.')) return;
   await delByIndex('cards', 'deck', currentDeckId);
   const media = await getAll('media');
   const prefix = currentDeckId + '/';
@@ -584,7 +585,7 @@ function sessionDone() {
 
 /* ── Bulk data actions (Settings → learn) ──────────────────────────────────── */
 async function resetAllProgress() {
-  if (!Shell.confirm('Clear all ratings for ALL decks?')) return;
+  if (!await Shell.confirm('Clear all ratings for ALL decks?')) return;
   try {
     const all = await getAll('cards');
     for (const c of all) { c.rating = null; c.ratedAt = null; }
@@ -594,7 +595,7 @@ async function resetAllProgress() {
   go('home'); renderSettings();
 }
 async function wipeAll() {
-  if (!Shell.confirm('Delete ALL decks and progress? This cannot be undone.')) return;
+  if (!await Shell.confirm('Delete ALL decks and progress? This cannot be undone.')) return;
   try {
     const decks = await getAll('decks');
     for (const d of decks) {

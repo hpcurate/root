@@ -490,11 +490,13 @@ function saveEditor() {
 }
 function deletePlant() {
   if (!editingId) return;
-  if (!Shell.confirm('Delete this plant and its whole history?')) return;
-  DB.plants = DB.plants.filter(x => x.id !== editingId);
-  DB.events = DB.events.filter(e => e.plant !== editingId);
-  save(); render(); closeSheet('edit'); closeSheet('detail');
-  toast('deleted');
+  const id = editingId;
+  Shell.confirm('Delete this plant and its whole history?', () => {
+    DB.plants = DB.plants.filter(x => x.id !== id);
+    DB.events = DB.events.filter(e => e.plant !== id);
+    save(); render(); closeSheet('edit'); closeSheet('detail');
+    toast('deleted');
+  });
 }
 
 /* ── Settings panel ─────────────────────────────────────────────────────────
@@ -816,12 +818,16 @@ document.addEventListener('click', ev => {
     applyImport(v); return;
   }
   if (act === 'reseed') {
-    if (!Shell.confirm('Replace every plant and the whole care history with the starter plants?')) return;
-    DB = blank(); DB.plants = seedPlants(); save(); render(); renderSettings(); toast('reset to starter plants'); return;
+    Shell.confirm('Replace every plant and the whole care history with the starter plants?', () => {
+      DB = blank(); DB.plants = seedPlants(); save(); render(); renderSettings(); toast('reset to starter plants');
+    });
+    return;
   }
   if (act === 'wipe') {
-    if (!Shell.confirm('Delete every plant and the whole care history?')) return;
-    DB = blank(); save(); render(); renderSettings(); toast('all plants deleted'); return;
+    Shell.confirm('Delete every plant and the whole care history?', () => {
+      DB = blank(); save(); render(); renderSettings(); toast('all plants deleted');
+    });
+    return;
   }
 });
 

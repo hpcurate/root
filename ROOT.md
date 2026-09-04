@@ -17,9 +17,9 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards and the consistency strip. |
-| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its tab wears a `!` while a half of the day is unwritten. |
+| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy and mood, then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
-| **STORE** | Grocery list with auto-categorisation, an in-store spend counter, premade meals, trip history. |
+| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
@@ -159,12 +159,26 @@ on the evening form.
 ```js
 Shell.toast(msg)                       // the one toast
 Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
-Shell.confirm(msg)                     // window.confirm, unless "confirm before clearing" is off
+Shell.confirm(msg, onOk)               // the app's own dialog; honours "confirm before clearing"
+Shell.confirm(msg)                     // …the same question as a promise, for async callers
+Shell.prompt(msg, value, onOk)         // the same dialog with a field in it
+Shell.ask({ title, body, input, yes, no, danger, done })   // the dialog itself
 Shell.settings(panel)                  // jump to a settings panel ('general' still maps to 'data')
 Shell.badge(name, n)                   // a count on a tab button
 Shell.alert(name, on, why)             // the app's icon replaced by a "!" — LOG uses it
 Shell.register(name, { onShow, onDayChange, onMinute, home, search })
 ```
+
+**Asking is not synchronous.** `Shell.confirm` opens `#ask` and returns; what to
+do next is the second argument, or the promise it answers with when there is no
+second argument. A `confirm()` or `prompt()` anywhere in a module is a bug — see
+§6 — and a harness check reads every module and fails on one.
+
+`Shell.ask` is the dialog underneath both, for the questions that are **not**
+about clearing and so must be asked whatever "confirm before clearing" says:
+LOG's "go back without saving?", its import, the data panel's restore, PLAN's
+unmapped project. `Shell.confirm` is only for the ones that setting is allowed
+to wave through.
 
 `onShow` fires on every visit to the tab. `home` fires when the app's own tab
 is tapped while it is already showing (go to the home screen; LOG checks for
@@ -445,6 +459,15 @@ both say so, and a new device needs the `.apkg` imported again.
   as false. `m3` was added that way in 2.21. Nothing may go back to naming
   `lam` and `rit` by hand: the form, the export, the parser, the history pills
   and both reports all walk `medKeys()`.
+- **`log.medsOn` hides a slot from the form and from nothing else.** Since 2.22
+  a slot can be switched off (`m3` ships off), and `medsShown()` is what the
+  evening form walks. Every other reader still walks `medKeys()` — exactly the
+  rule "turning a LOG field off never deletes data" already states. Do not be
+  tempted to filter the export by it: a `.md` whose columns come and go is a
+  `.md` the Obsidian side cannot parse.
+- **A med's colour is `log.medColors`, written as `--med-c`.** There is one CSS
+  rule for `.med-b.on`, not one per key. A slot with no colour falls back to the
+  accent, so a fourth slot needs no stylesheet change at all.
 - **The `.md` block table has a floor of six columns.** Lowering the block cap
   keeps the table identical (extra cells come out empty, as they always did on a
   light day); only deliberately raising it past six widens the table. The parser
@@ -477,10 +500,28 @@ both say so, and a new device needs the `.apkg` imported again.
   them into another module-level constant, and never build a day key from
   `new Date().toISOString()` — that is UTC, and in France it is yesterday until
   01:00 or 02:00. Use `Shell.today()`.
-- **A `confirm()` in an app module is a bug.** Route it through `Shell.confirm()`
-  so Settings → behaviour → "confirm before clearing" means something. The one
-  exception is LOG's "go back without saving?", which guards unsaved input, not
-  a clear.
+- **A `confirm()` or `prompt()` in an app module is a bug**, and since 2.22 so is
+  one anywhere else: they are the *system's* dialogs, in the platform's
+  typeface, ignoring every dial in Settings. `Shell.confirm` / `Shell.prompt` /
+  `Shell.ask` are the app's own. Two harness checks enforce it — one greps every
+  module, one counts anything that reaches `window.confirm` during the whole
+  run and fails if it is not zero.
+- **`Shell.confirm` takes what to do, it does not answer.** The dialog is an
+  overlay, so the answer arrives on a tap, not on the call. `if (!Shell.confirm(…))
+  return;` is the shape that no longer works; it is
+  `Shell.confirm(msg, () => { … })`, or `await Shell.confirm(msg)` where the
+  caller is already async (DO's defer, LEARN's four). Getting this wrong is
+  silent: the guard is falsy, the function returns, and the action simply never
+  happens.
+- **A numeric field is answered by the app's numpad, not the keyboard.** The
+  shell claims any `input` that is `type=number`, `inputmode=numeric` or
+  `inputmode=decimal` (see "The numpad" in `shell.js`), suppresses the virtual
+  keyboard with `inputmode="none"` set on *pointerdown* — before focus, the only
+  moment early enough — and remembers the field's own inputmode in
+  `data-pad-im` so switching the pad off hands it back. `data-pad` overrides the
+  inference: `duration` (720 → 7h20m → 7.33), `clock` (930 → 09:30) and `off`.
+  A field that takes text is untouched, which is the whole distinction. The
+  first digit after the pad opens *replaces* the value; backspace continues it.
 - **STORE's classifier caches its vocabulary in `VOCAB`.** It is built from
   `CATEGORIES`; the Config subscriber sets it to `null` so an aisle edit is
   picked up. Anything else that changes what the categoriser should know must
@@ -843,14 +884,16 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 417 checks covering boot, every theme and panel, the
+through DOM events: 467 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
 in-place projects, form, sent history, day export and due dates of 2.5–2.18,
 and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
-alert in 2.19, CAL and the new-app migration in 2.20, and the multi-slot
-export, the stepped day and the new transition in 2.20.1. jsdom has no
+alert in 2.19, CAL and the new-app migration in 2.20, the multi-slot
+export, the stepped day and the new transition in 2.20.1, and the app's own
+dialog, the numpad's four readings, LOG's month and fortnight, DAY's stepper and
+STORE's pin in 2.22. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -1028,17 +1071,33 @@ other app puts its date — at a declared 32px height, because anything sharing
 the wordmark's row that could grow past it makes this band the odd one out and
 the title morph stumble.
 
-The **stepper** is a fixed pill just above the nav, sharing the nav's chrome
+The **stepper** is a fixed bar just above the nav, sharing the nav's chrome
 treatment and hiding with it. Being fixed, it is a sibling of `#views` and not
 part of the slide (§3, §6). Stepping walks the days that **exist** — the
 planned ones plus today — not the calendar, so "next" never lands on a run of
 empty days to click through. An arrow with nowhere to go is dimmed and disabled
 *in place*: a control that disappears at the edge moves the one beside it.
 
+Since 2.22 it **spans the screen**: it was an 80px pill floating over the middle
+of the day, which is the one place on a phone neither thumb naturally lands and
+the one place where a mis-tap costs you what you were reading. Each arrow is
+half the width. The price of that width is that it covers the bottom of the day,
+so it fades out after `calStepsHide` seconds idle (5 by default, 0 pins it) and
+comes back on the first touch anywhere on DAY — `wakeSteps()` in `cal.js`.
+
 Both replaced a horizontal strip of day chips, which as a sideways scroller
 inside `#track` needed its own `touch-action` to work under a finger at all.
 
-### Lower case, deliberately
+**It opens on today.** `pickDefault()` used to return the nearest day that had
+something on it, so a morning with nothing planned answered a question nobody
+asked — "here is Thursday" — and you had to step back to find out that today was
+empty. An app called DAY opens on the day it is; the stepper is one tap from
+everything else. A day can also be cleared from its own head (`clearDay()`,
+behind a confirmation), for a plan that was abandoned or exported to the wrong
+date; the Todoist task it wrote is not ROOT's to withdraw and the question says
+so.
+
+### Lower case, deliberately — and the one thing that is not
 
 DAY is the one app that reads lower case throughout. `Prefs.formatDate()` is
 shared and capitalises, so it is folded in `cal.js` rather than changed there,
@@ -1046,12 +1105,18 @@ and `.cw-date`, `.cw-rel` and `.ch-meta` set `text-transform:none` **by name** �
 the one deliberate exception to the "a new label says `var(--caps)`, never
 `uppercase`" rule in §6. Written down here so it reads as a choice, not a miss.
 
+The exception to the exception is `.ce-go`, the **OPEN PLAN** button on an
+otherwise empty day: it is the only action on that screen, and the only thing
+here that has to be *found* rather than read. Upper case, deliberately, and for
+the opposite reason to everything around it.
+
 ### The dials
 
 `calHour` (how tall an hour is drawn — the one place a pixel is a setting rather
 than a token), `calShowFixed`, `calShowIdle`, `calCalNames`, `calAhead` (how far
-ahead a planned day is still offered) and `calKeep` (how long a passed day is
-kept). The keep window sweeps behind only; a day planned three weeks out is the
+ahead a planned day is still offered), `calKeep` (how long a passed day is
+kept) and `calStepsHide` (how long the stepper waits before getting out of the
+way). The keep window sweeps behind only; a day planned three weeks out is the
 point of the thing.
 
 ---
@@ -1060,6 +1125,108 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.22 — 2026-09-04 — the app asks its own questions, and answers its own numbers
+
+Two things had been quietly making ROOT feel like a web page rather than an app,
+and they turn out to be the same thing: the platform's chrome landing in the
+middle of it.
+
+**Every question is the app's own now.** `window.confirm` arrives in the
+platform's typeface at the top of the screen, ignores all thirty-nine appearance
+dials, and reads as the browser interrupting rather than as the app asking.
+There were 28 of them in ROOT and there are none any more: one `#ask` overlay
+does confirm and prompt both, built from the same tokens as everything else.
+
+The cost was real and is worth naming. **Asking cannot be synchronous** once it
+is an overlay, so `if (!Shell.confirm(…)) return;` — the shape at every one of
+those call sites — had to go. `Shell.confirm(msg, () => { … })` takes what to do
+instead; the five places that were already `async` take `await Shell.confirm(msg)`
+and read almost exactly as they did. Getting this wrong is *silent* — the guard
+is falsy, the function returns, the action never happens — which is why §6 now
+says so twice, and why one harness check greps every module for a bare
+`confirm(` and another counts anything reaching `window.confirm` across the whole
+run. Both must be zero.
+
+The questions split into two kinds on the way, which they never had been.
+`Shell.confirm` is for the ones "confirm before clearing" is allowed to wave
+through. `Shell.ask` is for the ones it is not: LOG's "go back without saving?",
+its import, the data panel's restore, PLAN's unmapped project. Those were
+already the odd ones out; now they say so.
+
+**A field that only takes a number gets a numpad, not a keyboard.** Two thirds
+of the system keyboard are letters, it covers half the screen, and for sleep it
+was not even asking the right question — the field wants 7.33 and the answer in
+your head is "seven hours twenty". So the pad reads what you type: `720` is
+7h20m and 7.33 lands in the field, `930` in an alert hour is 09:30, and
+everything else is the number you typed. It claims any `type=number`,
+`inputmode=numeric` or `inputmode=decimal` input across all eight apps and
+settings, suppresses the keyboard with `inputmode="none"` set on *pointerdown* —
+before focus, the only moment early enough — and hands the field back untouched
+if you switch the pad off. A field that takes **text** still gets the system
+keyboard, which is the whole distinction. On a laptop it stays out of the way by
+default (`numpad: auto`), because a number field with a real keyboard beside it
+was never the problem.
+
+**LOG's home is one screen, and most of it is about you rather than about
+navigation.** It was a streak line and eight cards, and the cards are the least
+interesting thing on it — they are doors, and you already know where they go.
+The doors moved down and got smaller, the two full-width utilities now share a
+row, and the space that freed up holds a month of days drawn by how much of each
+was written, and a fortnight of energy and mood as two lines. A cell is a
+control: tapping one selects that day, which used to be twenty taps on the
+band's arrow. The layout is height-driven and does not scroll — below 560px of
+viewport it goes back to flowing, because "one screen" is a promise about a
+phone held upright, not a reason to clip content on a laptop.
+
+**DAY opens on today.** It opened on the nearest day that had something on it,
+so a morning with nothing planned answered a question nobody asked — "here is
+Thursday" — and you had to step back to learn that today was empty. Its stepper
+spans the screen instead of floating over the middle of it as an 80px pill: each
+arrow is half the width, a thumb-sized target on either side. Being that wide it
+covers the bottom of the day, so it fades out after five idle seconds
+(`calStepsHide`) and comes back on the first touch. The empty day's **OPEN
+PLAN** is upper case — the one thing on that screen that has to be found rather
+than read, in the one app that is otherwise lower case throughout. And a day can
+be cleared from its own head.
+
+**The rest.** The third medication slot ships **off**: it exists, the record and
+the `.md` still carry it, the form simply does not ask until you say so — the
+same rule `log.fields` has always followed. Every slot is highlighted in its own
+colour from `log.medColors`, through one CSS rule rather than one selector per
+key, so a fourth costs nothing. A quick card is drawn in its label's colour like
+a block tile, and the label it takes is the **other** one: `@quick` is on every
+one of them by definition, so colouring by it says nothing. Finished quick cards
+can be cleared early rather than waiting for midnight, the way PLAN's sent list
+can. STORE's counter has a pin on it and sticks to the top of the page while you
+work down the list — sticky, not fixed, because nothing fixed may live inside
+`#track`. And PLAN's project border fade is a fifth of the move rather than 42%
+of it: 2.21 made it faster and it still was not fluid, because the border was
+still visibly resolving after the box had landed.
+
+**Verified** — `test/harness.mjs`, 467 checks, all green, 50 new. Not one system
+dialog raised across the whole run, and no module carrying a bare `confirm(` or
+`prompt(`. The dialog splitting one message into a question and its detail,
+Escape closing it, cancelling running nothing, a cancelled question staying
+cancelled afterwards, and the pref bypassing it entirely. The pad classifying
+five kinds of field and declining the sixth; 720 → 7.33, 930 → 09:30, 9309
+refused rather than written, the dot key disabled on an integer field. LOG's
+month drawing, marking today, refusing tomorrow, and selecting a day on tap; the
+fortnight's two lines; the home's no-scroll rule asserted in the sheet that
+holds it. DAY landing on today, the stepper's width and its idle rule, the empty
+day's upper case, and clearing one day cancelling and then confirming. The quick
+card's colour rule and the label it comes from. The fade at 22%. STORE's pin
+sticking, persisting and unpinning.
+
+One check that had nothing to do with this release was **wrong and is fixed**:
+"the → tomorrow button shows from 20:00 only" was left behind when 2.19 made
+that button pick its tasks and dropped the hour gate. It asserted the old
+behaviour and passed only by accident, at any hour before 20:00.
+
+**Still not verified by me**: how it looks. The Chrome extension is still not
+connected, so every appearance change here is verified as *specified* — the
+rules asserted in the stylesheets that hold them — and not as seen. Same caveat
+as 2.21, and it is the one thing a harness cannot buy.
 
 ### 2.21.2 — 2026-09-04 — two icons that were one icon, and arrows that were characters
 

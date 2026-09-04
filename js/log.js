@@ -27,7 +27,14 @@ function dateOffset(base, n) {
 }
 
 function shiftDate(delta) { TODAY = dateOffset(TODAY, delta); initData(); refreshHome(); }
-function resetDate()       { TODAY = REAL_TODAY; initData(); refreshHome(); }
+function resetDate()       { TODAY = REAL_TODAY; monthAnchor = null; initData(); refreshHome(); }
+/* The month grid picks a day directly — the same selection the two arrows in
+   the band move one step at a time. A day in the future is not offered. */
+function pickDate(iso) {
+  if (!iso || iso > REAL_TODAY) return;
+  Prefs.tap();
+  TODAY = iso; initData(); refreshHome();
+}
 
 /* Midnight with the app open. The selected day follows the calendar only when
    it was already "today" AND no form is open: an evening being written at
@@ -110,6 +117,15 @@ const mediaOf = (e = {}) => Array.isArray(e.media) ? e.media : [];
    express. */
 const medsCfg = () => Object.assign({}, Config.defaults('log.meds'), Config.get('log.meds') || {});
 const medKeys = () => Object.keys(medsCfg());
+/* Which slots the *form* asks about. Every other reader — the record, the .md,
+   the parser, the history pills, both reports — still walks medKeys(): a key is
+   the contract and switching a slot off is a question you stop being asked, not
+   a column that disappears. Exactly the rule §6 already states for log.fields.
+   Merged through the defaults so an override written before a slot existed has
+   no answer for it and reads as the shipped one. */
+const medsOnCfg = () => Object.assign({}, Config.defaults('log.medsOn'), Config.get('log.medsOn') || {});
+const medsShown = () => { const on = medsOnCfg(); return medKeys().filter(k => on[k] !== false); };
+const medColor  = k => (Config.get('log.medColors') || {})[k] || 'var(--y)';
 function medsOf(e = {}) {
   const keys = medKeys();
   const any = keys.some(k => e['meds_' + k] !== undefined);
@@ -214,9 +230,13 @@ function go(id) {
      output:renderOutput, history:renderHistory, reports:renderReports })[id]?.();
 }
 
+/* The one question that is not about clearing: it guards unsaved input, so it
+   is asked even with "confirm before clearing" off — Shell.ask, not
+   Shell.confirm. In the app's own dialog now like every other question. */
 function goBack() {
-  if (dirty && !confirm('Go back without saving?')) return;
-  go('home');
+  if (!dirty) { go('home'); return; }
+  Shell.ask({ title: 'Go back without saving?', body: 'What you have typed on this form is lost.',
+              yes: 'discard', danger: true, done: a => { if (a) go('home'); } });
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -267,7 +287,127 @@ function refreshHome() {
   const s = calcStreak();
   const el = $id('h-streak');
   el.innerHTML = s >= 2 ? `streak · <em>${s} days</em>` : '';
+  renderMonth();
   refreshAlert();
+}
+
+/* ── The month, and the fortnight ──────────────────────────────────────────────
+   LOG's home was six cards and a streak line, and the six cards are the least
+   interesting thing on it: they are doors, and you already know where they go.
+   What was missing was the answer to "how am I doing" — which needed opening
+   History and scrolling.
+
+   So the doors moved down and this took the space above them: a month of days,
+   each drawn by how much of it was written, and a fortnight of energy and mood
+   as two lines. Both are read straight out of the day records; nothing new is
+   stored and nothing is derived that the reports do not already derive.
+
+   A cell is also a control: tapping one selects that day, which is the same
+   selection the two arrows in the band move by one. That is what makes it a
+   calendar rather than a picture of one — a day three weeks ago used to be
+   twenty taps away. */
+let monthAnchor = null;              // the ISO day whose month is on screen
+
+function monthShift(n) {
+  const base = monthAnchor || REAL_TODAY;
+  const d = new Date(base + 'T00:00:00');
+  d.setDate(1); d.setMonth(d.getMonth() + n);
+  const next = localISO(d);
+  // never past the current month: there is nothing to look at in the future
+  if (next.slice(0, 7) > REAL_TODAY.slice(0, 7)) return;
+  monthAnchor = next;
+  Prefs.tap();
+  renderMonth();
+}
+
+/* How much of a day was written, as 0–2. Morning and evening are the two halves
+   the whole app is built around, so they are what the cell shows. */
+function dayFill(iso) {
+  const d = readDay(iso);
+  if (!d) return 0;
+  return (morningLogged(d) ? 1 : 0) + (eveningLogged(d) ? 1 : 0);
+}
+
+function renderMonth() {
+  const box = $id('log-cal');
+  if (!box) return;
+  const anchor = monthAnchor || TODAY;
+  const first = new Date(anchor + 'T00:00:00'); first.setDate(1);
+  const y = first.getFullYear(), m = first.getMonth();
+  const days = new Date(y, m + 1, 0).getDate();
+  // Monday-first unless the week-start dial says otherwise — the same dial the
+  // km chart reads, so the two never disagree about which column is which
+  const sunFirst = Prefs.get('weekStart') === 'sun';
+  const lead = (first.getDay() - (sunFirst ? 0 : 1) + 7) % 7;
+  const heads = (sunFirst ? ['s','m','t','w','t','f','s'] : ['m','t','w','t','f','s','s'])
+    .map(h => `<span class="lc-h">${h}</span>`).join('');
+
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push('<span class="lc-c pad"></span>');
+  for (let day = 1; day <= days; day++) {
+    const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const future = iso > REAL_TODAY;
+    const cls = ['lc-c', 'f' + (future ? 0 : dayFill(iso))];
+    if (future) cls.push('future');
+    if (iso === REAL_TODAY) cls.push('today');
+    if (iso === TODAY) cls.push('sel');
+    cells.push(`<button class="${cls.join(' ')}"${future ? ' disabled' : ''}
+      data-day="${iso}" aria-label="${iso}">${day}</button>`);
+  }
+
+  const label = first.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+  const atNow = `${y}-${String(m + 1).padStart(2, '0')}` >= REAL_TODAY.slice(0, 7);
+  box.innerHTML = `
+    <div class="lc-head">
+      <button class="lc-arr" data-month="-1" aria-label="previous month">
+        <svg aria-hidden="true"><use href="#ico-chev-l"/></svg></button>
+      <span class="lc-month">${esc(label)}</span>
+      <button class="lc-arr" data-month="1"${atNow ? ' disabled' : ''} aria-label="next month">
+        <svg aria-hidden="true"><use href="#ico-chev-r"/></svg></button>
+    </div>
+    <div class="lc-grid">${heads}${cells.join('')}</div>
+    ${trendHTML()}`;
+}
+
+/* Fourteen days of energy and mood, as two lines over the same box. Not a
+   third metric: three lines in 48px is a texture, not a reading. Stress is in
+   the reports, where there is room to say what it means. */
+function trendHTML() {
+  const N = 14;
+  const days = Array.from({ length: N }, (_, i) => readDay(dateOffset(REAL_TODAY, -(N - 1 - i))));
+  const series = k => days.map(d => (d && d.m && +d.m[k]) || null);
+  const nrg = series('nrg'), mood = series('mood');
+  const has = v => v.some(x => x);
+  if (!has(nrg) && !has(mood)) {
+    return `<div class="lc-trend empty">two weeks of energy and mood appear here once there is something to draw</div>`;
+  }
+  /* 0–5 up the box, one step per day across it. The points are joined only
+     where consecutive days both have a value; a gap in the data is drawn as a
+     gap, never as a line straight through it. */
+  const W = 100, H = 30;
+  const x = i => (i / (N - 1)) * W;
+  const y = v => H - (Math.max(1, Math.min(5, v)) - 1) / 4 * H;
+  const path = vals => {
+    let d = '', pen = false;
+    vals.forEach((v, i) => {
+      if (!v) { pen = false; return; }
+      d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
+      pen = true;
+    });
+    return d.trim();
+  };
+  const avg = v => { const f = v.filter(Boolean); return f.length ? (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1) : '—'; };
+  return `<div class="lc-trend">
+    <svg class="lc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <path class="lc-l mood" d="${path(mood)}"/>
+      <path class="lc-l nrg"  d="${path(nrg)}"/>
+    </svg>
+    <div class="lc-key">
+      <span class="lc-kk nrg">energy <b>${avg(nrg)}</b></span>
+      <span class="lc-kk mood">mood <b>${avg(mood)}</b></span>
+      <span class="lc-kn">14 days</span>
+    </div>
+  </div>`;
 }
 
 /* ── The tab alert ─────────────────────────────────────────────────────────────
@@ -632,10 +772,13 @@ function renderForms() {
   if (wo) wo.innerHTML = cfg.workouts.map(w =>
     `<button class="wo4-b" onclick="LOG.setWo(this,'${attr(w)}')">${esc(w)}</button>`).join('');
 
-  // meds — fixed keys, free labels, as many as Config holds
+  /* meds — fixed keys, free labels, as many as Config holds, and only the ones
+     switched on. Its colour rides on --med-c rather than on a selector per key,
+     so a slot added later reads as itself without a line of CSS. */
   const medG = $id('med-g');
-  if (medG) medG.innerHTML = Object.keys(cfg.meds).map(k =>
-    `<button class="med-b ${esc(k)}" id="med-${esc(k)}" onclick="LOG.toggleMed('${attr(k)}')">
+  if (medG) medG.innerHTML = medsShown().map(k =>
+    `<button class="med-b ${esc(k)}" id="med-${esc(k)}" style="--med-c:${esc(medColor(k))}"
+             onclick="LOG.toggleMed('${attr(k)}')">
        <span class="med-name">${esc(cfg.meds[k])}</span>
        <span class="med-state" id="med-${esc(k)}-s">no</span>
      </button>`).join('');
@@ -1691,18 +1834,24 @@ function importAllData(event) {
     const msg = `Import ${incoming.length} day${incoming.length!==1?'s':''}?\n\n`
               + `${added} new · ${overlap} will overwrite existing day${overlap!==1?'s':''}.`
               + (needsRescale ? '\n\nOlder backup — ratings will be rescaled to 1–5.' : '');
-    if (!confirm(msg)) return;
-
-    incoming.forEach(d => {
-      try {
-        if (needsRescale) rescaleDay(days[d]);
-        localStorage.setItem('log_'+d, JSON.stringify(days[d]));
-      } catch {}
-    });
-    initData();           // refresh the currently-viewed day in case it changed
-    renderDataScreen();
-    refreshHome();
-    toast(`Imported ${incoming.length} day${incoming.length!==1?'s':''}`);
+    /* Not routed through Shell.confirm: overwriting days is exactly the kind of
+       thing "confirm before clearing" must not be able to wave through. It is
+       the app's own dialog either way. */
+    Shell.ask({ title: `Import ${incoming.length} day${incoming.length!==1?'s':''}?`,
+                body: msg.split('\n\n').slice(1).join(' '), yes: 'import', danger: true,
+                done: a => {
+      if (!a) return;
+      incoming.forEach(d => {
+        try {
+          if (needsRescale) rescaleDay(days[d]);
+          localStorage.setItem('log_'+d, JSON.stringify(days[d]));
+        } catch {}
+      });
+      initData();           // refresh the currently-viewed day in case it changed
+      renderDataScreen();
+      refreshHome();
+      toast(`Imported ${incoming.length} day${incoming.length!==1?'s':''}`);
+    } });
   };
   reader.readAsText(file);
 }
@@ -1727,8 +1876,9 @@ function confirmDeleteAll() {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function clearDay() {
-  if (!Shell.confirm('Clear all data for selected day?')) return;
-  data=fresh(); save(); refreshHome(); toast('Cleared');
+  Shell.confirm('Clear all data for selected day?', () => {
+    data=fresh(); save(); refreshHome(); toast('Cleared');
+  });
 }
 
 function esc(s) {
@@ -1763,6 +1913,17 @@ Prefs.subscribe(k => {
   ({ home: refreshHome, history: renderHistory })[id]?.();
 });
 
+/* The month grid is generated, so it is wired by delegation rather than by an
+   inline handler per cell — 31 interpolated dates is 31 chances to get attr()
+   escaping wrong, and a date needs none of it. */
+const calBox = document.querySelector('.ns-log #log-cal');
+if (calBox) calBox.addEventListener('click', e => {
+  const arr = e.target.closest('[data-month]');
+  if (arr) { if (!arr.disabled) monthShift(+arr.dataset.month); return; }
+  const cell = e.target.closest('[data-day]');
+  if (cell && !cell.disabled) pickDate(cell.dataset.day);
+});
+
 // `home`: the tab button tapped while on LOG — same as ← back, unsaved-input check included
 /* onMinute is the shell's own minute tick, the one that already watches for
    midnight: the alert wants re-deriving as 10:00 and 21:00 pass, and a second
@@ -1771,7 +1932,8 @@ Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
                         onMinute: refreshAlert, home: goBack });
 refreshAlert();
 
-return { go, goBack, markDirty, shiftDate, resetDate, sc, setColdShower, setWo,
+return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
+         sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,

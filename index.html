@@ -125,6 +125,12 @@
   <symbol id="ico-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
   </symbol>
+  <!-- a drawing pin, head-on: the head, the shaft, and the two shoulders.
+       STORE's counter uses it to stay at the top of the page. -->
+  <symbol id="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="15" x2="12" y2="22"/>
+    <path d="M8 3h8l-1.2 6.2 3 3.3a1 1 0 0 1-.74 1.7H6.94a1 1 0 0 1-.74-1.7l3-3.3L8 3z"/>
+  </symbol>
   <symbol id="ico-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
   </symbol>
@@ -361,7 +367,11 @@
       </div>
       <div class="h-logo">LOG<em>.</em></div>
     </div>
+    <!-- The home is one screen and does not scroll (log.css): the month and the
+         fortnight take whatever height is left over, and the six doors below
+         them are a fixed block at the bottom. LOG.renderMonth() fills this. -->
     <div class="h-streak" id="h-streak"></div>
+    <div id="log-cal" class="lc"></div>
     <div class="grid">
       <div class="card" id="card-m" onclick="LOG.go('morning')">
         <div class="card-t"><svg class="ico"><use href="#ico-sun"/></svg>Morning</div>
@@ -387,11 +397,13 @@
         <div class="card-t"><svg class="ico"><use href="#ico-chart"/></svg>Reports</div>
         <div class="card-s">weekly · monthly</div>
       </div>
-      <div class="card full muted" onclick="Shell.settings('log')">
-        <div class="card-t"><svg class="ico"><use href="#ico-sliders"/></svg>data management</div>
+      <!-- the two utilities share a row rather than taking one each: on a phone
+           they were two full-width bars pushing the whole grid off the screen -->
+      <div class="card muted" onclick="Shell.settings('log')">
+        <div class="card-t"><svg class="ico"><use href="#ico-sliders"/></svg>data</div>
       </div>
-      <div class="card full muted" onclick="LOG.clearDay()">
-        <div class="card-t"><svg class="ico"><use href="#ico-trash"/></svg>clear selected day's data</div>
+      <div class="card muted" onclick="LOG.clearDay()">
+        <div class="card-t"><svg class="ico"><use href="#ico-trash"/></svg>clear day</div>
       </div>
     </div>
   </div>
@@ -405,8 +417,10 @@
     <div class="cnt">
       <div class="f" data-field="wakeTime"><label class="lbl">Wakeup time</label><input type="time" id="m-wt" oninput="LOG.markDirty()"></div>
       <!-- decimal fields are type=text: iOS rejects a comma in type=number and the
-           French keypad offers nothing else. The shell turns "," into "." as you type. -->
-      <div class="f" data-field="sleepHours"><label class="lbl">Sleep hours</label><input type="text" inputmode="decimal" autocomplete="off" id="m-sl" placeholder="7.5" oninput="LOG.markDirty()"></div>
+           French keypad offers nothing else. The shell turns "," into "." as you type.
+           data-pad="duration": the numpad reads 720 as 7h20m and stores 7.33, which
+           is what sleep_hours has always been in the .md. -->
+      <div class="f" data-field="sleepHours"><label class="lbl">Sleep hours</label><input type="text" inputmode="decimal" data-pad="duration" autocomplete="off" id="m-sl" placeholder="7.5" oninput="LOG.markDirty()"></div>
       <div class="f" data-field="energyM"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-m">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-m')">1</button>
@@ -675,11 +689,17 @@
     </div>
 
     <div class="cnt">
-      <!-- COUNTER WIDGET -->
-      <div class="cw">
+      <!-- COUNTER WIDGET
+           The pin sits on the widget itself: pinned, it sticks to the top of
+           the page so the running total stays in view while you scroll the
+           list. STORE.togglePin() — the state is in store_state_v1. -->
+      <div class="cw" id="cw">
         <div class="cw-top">
           <div class="cw-total"><span id="cw-cart">0.00</span><span class="cu">€</span></div>
           <div class="cw-budget" id="cw-budget">no budget set</div>
+          <button class="cw-pin" id="cw-pin" onclick="STORE.togglePin()" aria-pressed="false" aria-label="pin the counter to the top">
+            <svg aria-hidden="true"><use href="#ico-pin"/></svg>
+          </button>
         </div>
         <div class="cw-bar"><div class="cw-bar-fill" id="cw-fill"></div></div>
         <div class="cw-btns">
@@ -1273,15 +1293,15 @@
       </div>
       <div class="f">
         <label class="lbl">Morning log by</label>
-        <input type="text" id="al-morning" placeholder="10:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+        <input type="text" id="al-morning" data-pad="clock" placeholder="10:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
       </div>
       <div class="f">
         <label class="lbl">Evening log by</label>
-        <input type="text" id="al-evening" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+        <input type="text" id="al-evening" data-pad="clock" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
       </div>
       <div class="f">
         <label class="lbl">Tomorrow planned by</label>
-        <input type="text" id="al-plan" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
+        <input type="text" id="al-plan" data-pad="clock" placeholder="21:00" inputmode="numeric" autocapitalize="off" spellcheck="false">
       </div>
       <button class="btn btn-2" onclick="LOG.saveAlerts()">save hours</button>
       <div class="data-warn" style="margin-top:14px">
@@ -1634,6 +1654,11 @@
           <span class="slider-val">60 days</span></div>
         <input type="range" class="sl" data-pref="calKeep" min="7" max="365" step="1" value="60">
       </div>
+      <div class="slider-row" data-slider="calStepsHide">
+        <div class="slider-head"><label class="lbl">Arrows step aside after<em>the bar spans the screen, so it gets out of the way — 0 pins it</em></label>
+          <span class="slider-val">5s idle</span></div>
+        <input type="range" class="sl" data-pref="calStepsHide" min="0" max="30" step="1" value="5">
+      </div>
 
       <div class="sec"><span>Stored</span></div>
       <div class="settings-status idle" id="cal-status">nothing stored yet — export a day from PLAN</div>
@@ -1714,6 +1739,57 @@
      app's namespace class, so the scoped CSS and $id lookups still find it. -->
 
 <div id="toast"></div>
+
+<!-- ASK — the app's own confirm and prompt.
+     window.confirm arrives in the platform's typeface, ignores every dial in
+     Settings, and on a phone reads as the browser interrupting rather than as
+     the app asking. This is a .modal-overlay with a .modal-cancel in it, so
+     Escape closes it and the shell's shortcuts step aside while it is up,
+     exactly as they do for a sheet — see Shell.confirm / Shell.prompt. -->
+<div id="ask" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+  <div class="ask-box modal-box">
+    <div class="ask-title" id="ask-title"></div>
+    <div class="ask-body hidden" id="ask-body"></div>
+    <div class="ask-field hidden" id="ask-field">
+      <input type="text" id="ask-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="answer">
+    </div>
+    <div class="ask-acts">
+      <button class="ask-no modal-cancel" id="ask-no">cancel</button>
+      <button class="ask-yes danger" id="ask-yes">confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUMPAD — one pad for every field in every app that only takes a number.
+     Shell-level and namespace-free: the shell owns which fields it answers
+     for (js/shell.js, "The numpad"), and a field that takes text still gets
+     the system keyboard. -->
+<div class="sheet-back" id="npad-back"></div>
+<div class="npad" id="npad" role="dialog" aria-label="number pad">
+  <div class="npad-head">
+    <span class="npad-lbl" id="npad-label">number</span>
+    <button class="npad-done" data-npad="done">done</button>
+  </div>
+  <div class="npad-disp">
+    <div class="npad-val empty" id="npad-val">0</div>
+    <div class="npad-note" id="npad-note"></div>
+  </div>
+  <div class="npad-grid">
+    <button class="npad-k" data-npad="7">7</button>
+    <button class="npad-k" data-npad="8">8</button>
+    <button class="npad-k" data-npad="9">9</button>
+    <button class="npad-k" data-npad="4">4</button>
+    <button class="npad-k" data-npad="5">5</button>
+    <button class="npad-k" data-npad="6">6</button>
+    <button class="npad-k" data-npad="1">1</button>
+    <button class="npad-k" data-npad="2">2</button>
+    <button class="npad-k" data-npad="3">3</button>
+    <button class="npad-k alt" data-npad=".">.</button>
+    <button class="npad-k" data-npad="0">0</button>
+    <button class="npad-k alt" data-npad="back" aria-label="backspace">⌫</button>
+  </div>
+  <button class="npad-clear" data-npad="clear">clear</button>
+</div>
 
 <!-- SEARCH — one field over every app, its content and every setting.
      A .sheet-back sheet, so Escape closes it and the shell's own shortcuts step
