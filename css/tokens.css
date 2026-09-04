@@ -94,12 +94,6 @@
   --chrome-rgb:14,14,14;
   --chrome-bg:rgba(var(--chrome-rgb), var(--chrome-alpha));
   --chrome-blur:saturate(140%) blur(18px);
-/* Settings → appearance → "blur behind the bar". Off is a real preference and
-   not only a taste one: the blur is the most expensive thing the chrome does,
-   and on a tired phone it is what makes the bar smear as the page moves. */
-}
-:root[data-chrome-blur="off"]{
-  --chrome-blur:none;
 
   /* ── Shell metrics ───────────────────────────────────────────────────── */
   --nav-fh:58px;
@@ -148,6 +142,18 @@ html{height:100%;zoom:var(--ui-scale)}
    nothing on most of the app). A new label must use the token, never the
    literal `uppercase`. */
 [data-caps="off"]{--caps:none}
+
+/* Settings → appearance → layout → "blur behind the bar". Off is a real
+   preference and not only a taste one: the blur is the most expensive thing
+   the chrome does, and on a tired phone it is what makes the bar smear as the
+   page moves.
+
+   A one-property override, and it belongs HERE — beside the other attribute
+   overrides, after :root has closed. Adding it inside :root by opening a new
+   selector mid-block is how 2.21 left every token below --chrome-blur
+   (including --title-base and --caps) applying only while blur was off, which
+   made the whole app lower case and its wordmarks tiny. */
+[data-chrome-blur="off"]{--chrome-blur:none}
 
 /* Icon weight. CSS beats the stroke-width presentation attribute on the sprite
    symbols, so one rule retunes every icon in the app.

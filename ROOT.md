@@ -451,6 +451,14 @@ both say so, and a new device needs the `.apkg` imported again.
   already reads a variable column count, so it round-trips.
 - **Turning a LOG field off never deletes data.** The input keeps its value, save
   still reads it, the export still writes the column.
+- **Never open a selector inside the `:root` block.** An override of a token
+  goes after the block closes, beside `[data-caps="off"]`. 2.21 added the blur
+  override inside it, which closed `:root` early and left every token below
+  `--chrome-blur` — `--title-base` and `--caps` among them — applying only
+  while blur was off; the whole app went lower case with miniscule wordmarks.
+  **jsdom does not cascade**, so all 411 checks passed against it. The three
+  checks that catch this read the file's shape: every shell token inside the
+  `:root` block, an override being a rule of its own, and the braces balancing.
 - **`color-mix()` and `zoom` are both used unpolyfilled.** Baseline in every
   browser that matters since 2023/2024. Where `zoom` is unsupported the page
   simply renders at 100%.
@@ -825,7 +833,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 411 checks covering boot, every theme and panel, the
+through DOM events: 414 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1042,6 +1050,27 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.21.1 — 2026-09-04 — the :root block 2.21 split in half
+
+The blur override was added by opening its selector *inside* `:root`, which
+closed the block early: every token below `--chrome-blur` — the shell metrics,
+`--title-base`, `--caps`, the motion durations — ended up in a rule that only
+matches while blur is off. With blur on, which is the default, they were
+undefined, so `text-transform:var(--caps)` resolved to nothing and the wordmarks
+had no base size. The whole app went lower case with miniscule titles.
+
+`:root` is whole again and the override is a standalone rule beside
+`[data-caps="off"]`. No font, size or caps declaration was touched — none ever
+had been.
+
+**All 411 checks passed against the broken file**, which is the lesson worth
+keeping: jsdom does not cascade, so a structurally broken stylesheet is
+invisible to every behavioural check in the harness. Three new ones read the
+file's shape instead — every shell token inside the `:root` block, an override
+of one of them being a rule of its own, and the braces balancing — and they
+fail against the broken version. 414 checks, all green. The other eleven
+stylesheets were checked for the same fault and balance.
 
 ### 2.21 — 2026-09-04 — twelve fixes, three of which were not fixes
 

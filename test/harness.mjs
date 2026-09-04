@@ -2100,6 +2100,25 @@ check('the blur behind the bar is a setting, and off really removes it',
 w.Prefs.set('chromeBlur', true);
 check('… and back on again', d.documentElement.dataset.chromeBlur === 'on');
 
+/* jsdom does not cascade, so a broken stylesheet is invisible to every other
+   check here. 2.21 added the blur override by opening a new selector *inside*
+   :root, which closed the block early and left every token below it — including
+   --title-base and --caps — applying only while blur was off. The whole app
+   went lower case with miniscule wordmarks and 411 checks stayed green. This
+   reads the file's shape instead. */
+const tokensCss = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const rootBlock = (tokensCss.match(/:root\s*\{[\s\S]*?\n\}/) || [''])[0];
+const rootTokens = ['--title-base','--caps','--nav-fh','--scr-pad-b','--t-fade','--readable','--chrome-blur'];
+check('every shell token is declared inside :root, not stranded in an override',
+  !!rootBlock && rootTokens.every(t => rootBlock.includes(t + ':')),
+  rootTokens.filter(t => !rootBlock.includes(t + ':')).join(',') || 'all present');
+check('… and an override of one of them is a rule of its own, after :root closes',
+  /\[data-chrome-blur="off"\]\{--chrome-blur:none\}/.test(tokensCss) &&
+  !/:root\[data-chrome-blur/.test(tokensCss));
+check('… with the file\'s braces balanced',
+  (tokensCss.match(/\{/g) || []).length === (tokensCss.match(/\}/g) || []).length,
+  (tokensCss.match(/\{/g) || []).length + ' open / ' + (tokensCss.match(/\}/g) || []).length + ' close');
+
 /* The gaps, the colour, the icon — appearance, asserted where it lives. */
 check('a status box has a gap above it as well as below',
   /\.ns-set \.td-status\{[^}]*margin:calc\(12px \* var\(--dens\)\) 0 8px/.test(setCss));
