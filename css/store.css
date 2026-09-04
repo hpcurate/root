@@ -46,15 +46,15 @@
    long enough to scroll it away. **sticky, not fixed**: position:fixed inside
    #track takes a transformed ancestor as its containing block (§3, §6), and
    the title morph animates one. Sticky has no such problem, but it does need
-   an opaque background and a shadow, since content now passes behind it. */
+   an opaque background and a shadow, since content now passes behind it.
+
+   The **whole** calculator pins, buttons and all. 2.22 folded the ± rows away
+   while pinned, on the theory that a pinned counter is a readout; it is not —
+   the buttons are the reason you wanted it in view, and half a calculator
+   stuck to the top is not a calculator. */
 .ns-store .cw{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));margin-bottom:22px}
 .ns-store .cw.pinned{position:sticky;top:calc(-1 * var(--bw));z-index:6;
   background:var(--s1);box-shadow:var(--shadow-lift)}
-/* a pinned counter is a heads-up display, not a control panel: the ± rows fold
-   away so it costs a couple of lines rather than half the screen */
-.ns-store .cw.pinned .cw-btns,.ns-store .cw.pinned .cw-foot{display:none}
-.ns-store .cw.pinned{padding-bottom:calc(10px * var(--dens))}
-.ns-store .cw.pinned .cw-bar{margin-bottom:0}
 .ns-store .cw-top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:calc(10px * var(--dens))}
 /* the pin lives on the widget, so it is where the thing it pins is */
 .ns-store .cw-pin{flex:0 0 auto;align-self:flex-start;background:none;border:none;padding:calc(2px * var(--dens));

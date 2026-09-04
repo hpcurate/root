@@ -392,6 +392,7 @@ versions still work off the same data.
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
 | `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
+| `log-alert-seen-v1` | LOG | `{ plan: <iso> }` — the day PLAN's "nothing planned for tomorrow" prompt was last dismissed by opening PLAN. The only alert state that is stored rather than derived; hyphenated for the same reason as `log-scale-v2` |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
 | `plan_sent_v1` | PLAN | what was sent **for today** (name, project, block, time) — LOG offers these as blocks; a new day starts it empty. Since 2.18 a task sent for another day is deliberately absent |
 | `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200, each filed under the day it is *due*. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
@@ -515,13 +516,26 @@ both say so, and a new device needs the `.apkg` imported again.
   happens.
 - **A numeric field is answered by the app's numpad, not the keyboard.** The
   shell claims any `input` that is `type=number`, `inputmode=numeric` or
-  `inputmode=decimal` (see "The numpad" in `shell.js`), suppresses the virtual
-  keyboard with `inputmode="none"` set on *pointerdown* — before focus, the only
-  moment early enough — and remembers the field's own inputmode in
-  `data-pad-im` so switching the pad off hands it back. `data-pad` overrides the
+  `inputmode=decimal` (see "The numpad" in `shell.js`). `data-pad` overrides the
   inference: `duration` (720 → 7h20m → 7.33), `clock` (930 → 09:30) and `off`.
   A field that takes text is untouched, which is the whole distinction. The
   first digit after the pad opens *replaces* the value; backspace continues it.
+- **The field the pad owns is never focused, and that is load-bearing.** 2.22
+  focused it and suppressed the keyboard with `inputmode="none"` — a *hint*,
+  which iOS honours for drawing the keyboard and not for the rest of what it
+  does about a focused field: it still scrolls the field into view and still
+  shrinks the visual viewport for a keyboard that never comes. A
+  `position:fixed` pad drawn against a viewport that has moved under it has its
+  keys somewhere other than where they look, and 2.22 shipped exactly that — you
+  tapped a key and got the one above it. The tap that opens the pad is
+  `preventDefault`ed instead: no focus, no keyboard, no scroll, nothing moves.
+  `inputmode="none"` is still set for a field reached by Tab, and the original
+  lives in `data-pad-im` so switching the pad off hands it back.
+- **The pad's keys fire on `pointerdown`, not on `click`.** A click on touch is
+  synthesised, can be suppressed by anything that prevented a default earlier in
+  the sequence, and arrives late. The `click` handler is kept only for a
+  keyboard user pressing Enter on a focused key and is de-duplicated against the
+  pointerdown by timestamp.
 - **STORE's classifier caches its vocabulary in `VOCAB`.** It is built from
   `CATEGORIES`; the Config subscriber sets it to `null` so an aisle edit is
   picked up. Anything else that changes what the categoriser should know must
@@ -640,6 +654,19 @@ both say so, and a new device needs the `.apkg` imported again.
   runs.
 - **PLAN's expanded project is not state.** `openKey` and `openSub` live in
   the module and are deliberately not persisted or put in Config.
+- **flip() only walks what is on screen, so what *leaves* has to be put back.**
+  Opening a project replaces the grid's `innerHTML`: seven tiles are detached
+  before `flip()` runs, so they were never animated at all — most of the screen
+  cut on the first frame while one heading glided for two thirds of a second,
+  and that mismatch is what read as a stutter. It is why retuning the border
+  fade fixed nothing in 2.21 or 2.22. `snap()` keeps the nodes (a detached node
+  is still a node) and `ghostOut()` re-appends each as an absolutely positioned
+  ghost at the rect it had, then fades it. A ghost has its `data-flip` stripped
+  — its own and every descendant's — or the next `snap()` finds two elements
+  claiming one key.
+- **`.proj-grid` is `position:relative` and must never be transformed.** The
+  ghosts are positioned against it. A transform there would make it the
+  containing block for anything `position:fixed` inside the track (§3).
 - **A `data-flip` key is an identity, and sharing one across two different
   elements is a bug.** The section rows once borrowed the keys of the tiles
   they replaced, to make the tiles look like they became the rows; what it
@@ -775,11 +802,21 @@ both say so, and a new device needs the `.apkg` imported again.
   only calls to `Shell.alert`; `alertReasons()` returns every rule that is
   firing (they are independent now) and `alertReason()` is the first of them,
   which is what the settings line reports.
-- **LOG's alert is derived on a tick, never stored.** `alertReason()` is
-  recomputed from the real today's record, the clock and PLAN — so there is no
-  state to go stale, and no "dismiss". The one thing that can make it lie is
-  `alertTest`, the settings preview, which stays pinned until it is switched off
-  and says so in the panel.
+- **LOG's alert is derived on a tick, never stored — with one exception.**
+  `alertReason()` is recomputed from the real today's record, the clock and
+  PLAN, so there is no state to go stale. `alertTest`, the settings preview, is
+  the one thing that can make it lie, and it stays pinned until it is switched
+  off and says so in the panel.
+  The exception is **`plan`, which can be dismissed**. LOG's two rules clear
+  themselves — writing the morning is what makes "morning not written" false —
+  but "nothing planned for tomorrow" is a *prompt*, and the honest answer is
+  often "I looked, and there is nothing to plan". So PLAN's `onShow` calls
+  `LOG.dismissAlert('plan')` and the flag goes out for that day. It is the only
+  stored alert state, it is keyed by the day it was dismissed on (so tomorrow's
+  prompt is a new prompt), and it lives in **`log-alert-seen-v1`** —
+  hyphenated, for the same reason `log-scale-v2` is: `allLogKeys()` matches
+  `log_`. `alertReasons()` still answers whether a rule is *true*;
+  `alertShown()` is what the tabs wear, and only that one is filtered.
 - **"Planned for tomorrow" means PLAN's own queue and history.** `plannedOn()`
   counts tasks carrying a block and filed under that day. A block moved to
   tomorrow from DO's "→ tomorrow" is a Todoist edit ROOT keeps no local record
@@ -884,7 +921,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 467 checks covering boot, every theme and panel, the
+through DOM events: 494 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1078,12 +1115,14 @@ planned ones plus today — not the calendar, so "next" never lands on a run of
 empty days to click through. An arrow with nowhere to go is dimmed and disabled
 *in place*: a control that disappears at the edge moves the one beside it.
 
-Since 2.22 it **spans the screen**: it was an 80px pill floating over the middle
-of the day, which is the one place on a phone neither thumb naturally lands and
-the one place where a mis-tap costs you what you were reading. Each arrow is
-half the width. The price of that width is that it covers the bottom of the day,
-so it fades out after `calStepsHide` seconds idle (5 by default, 0 pins it) and
-comes back on the first touch anywhere on DAY — `wakeSteps()` in `cal.js`.
+It fades out after `calStepsHide` seconds idle (5 by default, 0 pins it) and
+comes back on the first touch anywhere on DAY — `wakeSteps()` in `cal.js`. 2.22
+also made it span the screen with two half-width arrows; 2.22.1 put it back to
+the size it was, because that is a great deal of chrome for two controls and an
+arrow whose edges you cannot see does not read as a button. It is **square**
+now rather than a pill — `--r2`, the radius every other box in the app uses.
+It is chrome, so it looked like the nav; it is a pair of controls, so it should
+look like a pair of controls.
 
 Both replaced a horizontal strip of day chips, which as a sideways scroller
 inside `#track` needed its own `touch-action` to work under a finger at all.
@@ -1125,6 +1164,80 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.22.1 — 2026-09-04 — what the first look on a real screen turned up
+
+Seven things, reported directly rather than through the template. Two of them
+are 2.22 shipping something that could not have worked, and both are worth
+reading as cautionary notes rather than as tweaks.
+
+**The numpad's keys were not where they were drawn.** Tapping a key registered
+the one above it. The cause is the thing 2.22 was pleased with: the field was
+focused and the keyboard suppressed with `inputmode="none"`. That is a *hint*,
+and iOS honours it for drawing the keyboard and for nothing else it does about a
+focused field — it still scrolls the field into view, and it still shrinks the
+visual viewport for a keyboard that never arrives. A `position:fixed` pad drawn
+against a viewport that has moved under it has its hit boxes somewhere other
+than its pixels. **The field is never focused now**: the tap that opens the pad
+is `preventDefault`ed, so there is no focus, no keyboard, no scroll and nothing
+to move. The field says which one it is with a class instead of a caret. The
+keys also fire on `pointerdown` rather than on `click` — a click on touch is
+synthesised, arrives late, and can be suppressed by anything that prevented a
+default earlier in the sequence.
+
+**PLAN's transition, diagnosed properly at the third attempt.** 2.21 and 2.22
+both made the border fade faster and neither fixed it, because the border was
+never the problem. `flip()` walks what is on screen *now*, and opening a project
+replaces the grid's `innerHTML` — so the seven tiles you did not tap were
+already detached and were **never animated at all**. Most of the screen cut on
+the first frame while one heading glided for two thirds of a second, and that
+mismatch is what reads as a stutter. `snap()` keeps the nodes now (a detached
+node is still a node) and `ghostOut()` puts each back as an absolutely
+positioned ghost at the rect it had and fades it, gone by a third of the move.
+The rows arriving were retimed to match: they used to start at 30% and run 60%
+with 45ms between them, so the fourth row was still arriving 110ms *after* the
+heading had settled. They now land just inside the move, which is what makes
+them read as the consequence of the tap rather than as an afterthought.
+
+**PLAN's flag can be answered by looking.** LOG's two alert rules clear
+themselves — writing the morning is what makes "morning not written" false. The
+third does not: "nothing planned for tomorrow" is a prompt, and the honest
+answer is often "I know, I looked". Opening PLAN dismisses it for that day. It
+is the only piece of alert state that is stored rather than derived, keyed by
+the day so tomorrow's prompt is a new one.
+
+**The rest.** The pinned calculator keeps its buttons — 2.22 folded the ± rows
+away on the theory that a pinned counter is a readout, and it is not; the
+buttons are why you pinned it. DAY's stepper is back to the size it was, square
+with `--r2` rather than a pill: a full-width bar is a lot of chrome for two
+controls. A written day in LOG's month is a **tint** rather than a fill — a
+solid accent block was the brightest thing on the screen and a month of them
+read as a warning. And the fortnight grew: **stress joins energy and mood**, the
+graph is nearly twice as tall, and every day with a value carries a dot in its
+series' colour. The dots are not decoration — a bare line says which way it
+went, a line of dots also says how often you actually answered, and a fortnight
+with four readings draws the same line as one with fourteen. Each dot is a
+zero-length path with a round cap, because the box is stretched to fill the
+width and a `<circle>` in it would be drawn as an ellipse.
+
+**Verified** — `test/harness.mjs`, 494 checks, all green, 27 new. The pad
+opening without focus and its keys registering on pointerdown, once and not
+twice; `auto` still leaving a fine pointer alone. `snap()` keeping the nodes,
+`ghostOut()` existing and being called, a ghost's `data-flip` stripped from
+itself and its descendants, and the arithmetic that the last row lands inside
+the move. The pinned calculator's ± rows still in the DOM. The stepper's square
+radius. The month's tint. Three lines, three dot colours, the round-cap dots,
+the taller box, and a key naming all three. PLAN's flag clearing on arrival,
+staying cleared, and coming back when the day does.
+
+One harness check was **wrong in the other direction** and is fixed: the
+stepper's shape check used an unbounded lazy `[\s\S]*?` between a selector and a
+declaration, which matches into the *next* rule and so asserts nothing about the
+one it names. Bounded with `[^}]*` now.
+
+**Still not verified by me**: how it looks. The Chrome extension is still not
+connected. Everything above is a fix to something seen on a real screen, so the
+report is real; the fix is verified as specified.
 
 ### 2.22 — 2026-09-04 — the app asks its own questions, and answers its own numbers
 

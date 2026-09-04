@@ -68,7 +68,11 @@
    single row now — half the height it used to be — so the open project and a
    section row are one tile each and the form is eight, which is the same
    absolute height those three had before the tile was halved. */
-.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;
+/* position:relative because the tiles that leave are put back over it as
+   absolutely-positioned ghosts while they fade — see ghostOut() in plan.js.
+   Relative, never transformed: a transform here would become the containing
+   block for anything fixed inside the track (§3). */
+.ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;position:relative;
   --tile-h:46px;--tile-gap:calc(8px * var(--dens));gap:var(--tile-gap)}
 /* Filled exactly like DO's block tiles: a 10% wash of the label's colour with
    the colour itself on the border. Queued lifts the wash. */

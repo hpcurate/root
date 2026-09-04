@@ -7,10 +7,9 @@
    theme system (see §4 of ROOT.md). The one deliberate literal is the block
    height, which comes from --cal-hour: it is a dial, not a shape. */
 
-/* the stepper floats above the nav, so the day has to clear both of them —
-   and the stepper is a 48px bar now, not a 32px pill */
+/* the stepper floats above the nav, so the day has to clear both of them */
 .ns-cal .scr{display:none;min-height:100%;
-  padding-bottom:calc(var(--scr-pad-b) + var(--nav-fh) * .8 + 16px)}
+  padding-bottom:calc(var(--scr-pad-b) + var(--nav-fh) * .8 + 8px)}
 .ns-cal .scr.on{display:block}
 
 /* the band's box is shell.css's, shared by every app */
@@ -43,40 +42,43 @@
    nav, shares the nav's chrome treatment, and follows it out of the way when
    the chrome hides.
 
-   **It spans the screen.** It was a 80px pill floating over the middle of the
-   day, which is the one place on a phone neither thumb naturally lands and the
-   one place where a mis-tap costs you the day you were reading. The two arrows
-   are half the width each now, so stepping is a tap anywhere on that side.
+   **Square, and the size it always was.** 2.22 made it a bar the width of the
+   screen with two half-width arrows; that is a lot of chrome for two controls,
+   and an arrow you cannot see the edges of does not read as a button. It is
+   back to a compact centred stepper — but square rather than a pill, with
+   `--r2`, which is the radius every other box in the app uses. It is chrome,
+   so it looked like the nav's pill; it is a pair of controls, so it should look
+   like a pair of controls.
 
-   Being that wide it covers the bottom of the day, so it fades out on its own
-   once it has been idle (`calStepsHide`, cal.js) and comes back on the first
-   touch anywhere on DAY. An arrow with nowhere to go is dimmed in place, never
-   removed: a control that disappears at the edge moves the one beside it. */
+   It still fades out once it has been idle (`calStepsHide`, cal.js) and comes
+   back on the first touch anywhere on DAY. An arrow with nowhere to go is
+   dimmed in place, never removed: a control that disappears at the edge moves
+   the one beside it. */
 .cal-steps{
   display:none;position:fixed;z-index:59;
-  left:max(10px, env(safe-area-inset-left));right:max(10px, env(safe-area-inset-right));
+  left:50%;transform:translateX(-50%);
   bottom:calc(max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + var(--nav-fh) + 8px);
-  align-items:stretch;gap:0;padding:4px;
+  align-items:center;gap:calc(4px * var(--dens));padding:4px;
   background:var(--chrome-bg);
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
-  border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);
   box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease}
 body:has(#view-cal.cur) .cal-steps{display:flex}
 body:has(#nav.chrome-off) .cal-steps,
-.cal-steps.idle{opacity:0;transform:translateY(22px);pointer-events:none}
+.cal-steps.idle{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
 
-/* the sprite's chevrons, larger than the nav's — this is a bar you aim at with
-   a thumb rather than a control you look at */
-.cal-steps .cal-arrow{flex:1 1 0;min-width:0;height:40px;background:none;
-  border:none;border-radius:var(--r-pill);color:var(--tx);cursor:pointer;
+/* the sprite's chevrons at the size the nav's own arrows use, so the three read
+   as one family — in a square box with the app's own corner, not a lozenge */
+.cal-steps .cal-arrow{flex:0 0 auto;width:38px;height:34px;background:none;
+  border:none;border-radius:var(--r2);color:var(--tx);cursor:pointer;
   display:flex;align-items:center;justify-content:center;padding:0;
   transition:color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
-.cal-steps .cal-arrow svg{width:22px;height:22px;display:block}
+.cal-steps .cal-arrow svg{width:17px;height:17px;display:block}
 .cal-steps .cal-arrow:active{background:var(--y-fade);color:var(--y)}
 .cal-steps .cal-arrow.off{opacity:.28;cursor:default;color:var(--bd-2)}
 .cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}
-.cal-steps .cal-steps-sep{width:var(--bw);align-self:center;height:20px;background:var(--bd);flex:0 0 auto}
+.cal-steps .cal-steps-sep{width:var(--bw);align-self:center;height:16px;background:var(--bd);flex:0 0 auto}
 
 /* ── the day's head ── */
 .ns-cal .cal-head{margin:0 0 calc(12px * var(--dens));display:flex;align-items:baseline;

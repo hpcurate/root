@@ -238,14 +238,65 @@ const FLIP_EASE = 'cubic-bezier(.2,.8,.2,1)';
 /* The border and background are recorded with the box, because a box that
    changes shape now fades between the two treatments instead of being scaled
    into them — see flip(). */
+/* The node itself is kept too, because most of what happens here is elements
+   *leaving*: the grid's innerHTML is replaced, so seven tiles are detached
+   before flip() ever runs. A detached node is still a node — see ghostOut(). */
 function snap() {
   const m = new Map();
   $all('[data-flip]').forEach(el => {
     let bd = '', bg = '';
     try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
-    m.set(el.dataset.flip, { r: el.getBoundingClientRect(), bd, bg });
+    m.set(el.dataset.flip, { el, r: el.getBoundingClientRect(), bd, bg });
   });
   return m;
+}
+
+/* ── What leaves ──────────────────────────────────────────────────────────────
+   The reason opening a project never read as one motion: **nothing that left
+   was ever animated.** flip() walks what is on screen *now*, and opening a
+   project replaces the whole grid — so the seven tiles you did not tap were
+   already gone from the DOM, cut on the first frame, while the one heading you
+   did tap glided on for two thirds of a second. Most of the screen changed
+   instantly and one element moved slowly: that mismatch is what reads as a
+   stutter, and no amount of retuning the border fade could touch it, which is
+   why 2.21 and 2.22 both failed to fix this.
+
+   snap() holds the nodes, and a detached node is still a node. Each one goes
+   back as a ghost — absolutely positioned at the rect it had, out of the flow
+   and out of the way of hit testing — and fades. They are gone by a third of
+   the move, so the rows arriving read as the next thing that happens rather
+   than as a second, unrelated change. */
+function ghostOut(before, now, ms) {
+  const host = $id('proj-list');
+  if (!host || !host.getBoundingClientRect) return;
+  const hr = host.getBoundingClientRect();
+  if (!hr.width) return;                                   // no layout (jsdom)
+  before.forEach((a, key) => {
+    if (now.has(key) || !a.el || !a.r.width || !a.r.height) return;
+    if (a.el.dataset.flipText) return;                     // text rides its own box out
+    const g = a.el;
+    if (g.isConnected) return;                             // still on screen: not a leaver
+    // a ghost is scenery: it must not be found by the next snap(), and it must
+    // not be clickable on the way out
+    g.removeAttribute('data-flip');
+    g.querySelectorAll('[data-flip]').forEach(c => c.removeAttribute('data-flip'));
+    g.removeAttribute('id');
+    g.setAttribute('aria-hidden', 'true');
+    g.style.position = 'absolute';
+    g.style.margin = '0';
+    g.style.pointerEvents = 'none';
+    g.style.left = (a.r.left - hr.left) + 'px';
+    g.style.top = (a.r.top - hr.top) + 'px';
+    g.style.width = a.r.width + 'px';
+    g.style.height = a.r.height + 'px';
+    host.appendChild(g);
+    if (!g.animate) { g.remove(); return; }
+    const anim = g.animate([{ opacity: 1 }, { opacity: 0 }],
+      { duration: Math.max(90, Math.round(ms * .3)), easing: 'ease-out', fill: 'forwards' });
+    const drop = () => g.remove();
+    if (anim.finished && anim.finished.then) anim.finished.then(drop, drop);
+    else anim.onfinish = drop;
+  });
 }
 /* ── Two kinds of moving element, animated differently ───────────────────────
    **A box is never scaled.** Scaling a box scales its border, its radius and
@@ -271,6 +322,7 @@ function flip(before) {
 
   const now = new Map();
   $all('[data-flip]').forEach(el => now.set(el.dataset.flip, { el, r: el.getBoundingClientRect() }));
+  ghostOut(before, now, ms);
   const deltaOf = key => {
     const a = before.get(key), n = now.get(key);
     if (!a || !n || !a.r.width || !a.r.height || !n.r.width || !n.r.height) return null;
@@ -283,9 +335,16 @@ function flip(before) {
     if (!el.animate || !r.width || !r.height) return;
     const a = before.get(key);
 
+    /* New: reveal it, as a wave that **finishes with the move** rather than
+       after it. It used to start at 30% and run for 60% with 45ms between
+       rows, so the fourth row was still arriving 110ms after the heading had
+       settled — the gesture had visibly ended and the screen was still
+       changing. Tighter and earlier: the last row lands just before the move
+       does, which is what makes the rows read as the consequence of the tap
+       rather than as an afterthought. */
     if (!a || !a.r.width || !a.r.height) {                   // new: reveal it
       el.animate([{ opacity:0, transform:'translateY(-7px)' }, { opacity:1, transform:'none' }],
-        { duration:Math.round(ms * .6), delay:Math.round(ms * .3) + (fresh++ * 45),
+        { duration:Math.round(ms * .42), delay:Math.round(ms * .18) + (fresh++ * 26),
           easing:FLIP_EASE, fill:'backwards' });
       return;
     }
@@ -1494,7 +1553,17 @@ Shell.register('plan', {
      form's chips; the form lives in the grid now and paintForm() puts every
      control back from formState on each draw, so it is safe — and arriving
      on PLAN with a stale palette was the real bug. */
-  onShow: () => { if (window.Todoist) Todoist.labels().then(renderProjects); },
+  /* Arriving here answers the "!" this tab wears. The rule is LOG's and stays
+     LOG's — this only tells it the prompt has been seen, and LOG decides
+     whether that means anything (it does, for `plan`, and for nothing else).
+     "Nothing planned for tomorrow" is a prompt rather than a task, and you can
+     answer it by looking: opening PLAN, seeing an empty queue and deciding
+     there is nothing to plan is a complete answer, and a "!" that survives it
+     is telling you something you have just checked. */
+  onShow: () => {
+    if (window.Todoist) Todoist.labels().then(renderProjects);
+    if (window.LOG && LOG.dismissAlert) LOG.dismissAlert('plan');
+  },
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,

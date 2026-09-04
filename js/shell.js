@@ -805,10 +805,27 @@ window.Shell = (function () {
      `data-pad` on the element wins over all of that; the two shapes that
      cannot be inferred (duration, clock) are declared in the markup.
 
-     Suppressing the keyboard is `inputmode="none"`, set on pointerdown —
-     before focus, which is the only moment early enough. The field's own
-     inputmode is remembered in `data-pad-im`, so switching the pad off in
-     settings gives every field its keyboard back without a reload. */
+     **The field never takes focus while the pad owns it**, and that is the
+     whole trick. 2.22 focused it and suppressed the keyboard with
+     `inputmode="none"` — a hint, which iOS honours for *drawing* the keyboard
+     and not for the rest of what it does about a focused field: it still
+     scrolls the field into view and still shrinks the visual viewport for a
+     keyboard that never arrives. A `position:fixed` pad drawn against a
+     viewport that has moved under it is a pad whose keys are not where they
+     look, which is exactly how it behaved — you tapped a key and got the one
+     above it.
+
+     So the tap that opens the pad is `preventDefault`ed: no focus, no
+     keyboard, no scroll, nothing moves. `inputmode="none"` is still set as a
+     second line of defence for a field reached some other way (Tab), and the
+     field's own inputmode is remembered in `data-pad-im` so switching the pad
+     off in settings gives every field its keyboard back without a reload.
+
+     The keys themselves fire on **pointerdown**, not click. A click on touch is
+     synthesised, can be suppressed by anything that prevents a default earlier
+     in the sequence, and arrives late; pointerdown is the event that actually
+     names what was under the finger. The click handler is kept for a keyboard
+     user pressing Enter on a focused key, and de-duplicated against it. */
   const npadEl    = document.getElementById('npad');
   const npadBack  = document.getElementById('npad-back');
   const npadLabel = document.getElementById('npad-label');
@@ -927,14 +944,21 @@ window.Shell = (function () {
   }
 
   function padOpen(el, kind) {
+    if (padTarget && padTarget !== el) padClose();
     padTarget = el; padKind = kind; padBuf = padSeed(el, kind); padFresh = true;
+    // the field is not focused, so it says which one is being edited itself
+    el.classList.add('pad-on');
     if (npadLabel) npadLabel.textContent = padLabelOf(el);
     padPaint();
     if (npadBack) npadBack.classList.add('on');
     if (npadEl) npadEl.classList.add('on');
   }
   function padClose() {
-    if (padTarget) { padTarget.dispatchEvent(new Event('change', { bubbles: true })); padTarget = null; }
+    if (padTarget) {
+      padTarget.classList.remove('pad-on');
+      padTarget.dispatchEvent(new Event('change', { bubbles: true }));
+      padTarget = null;
+    }
     padBuf = '';
     if (npadBack) npadBack.classList.remove('on');
     if (npadEl) npadEl.classList.remove('on');
@@ -964,29 +988,49 @@ window.Shell = (function () {
     padCommit();
   }
 
-  /* pointerdown, not click: preventDefault here keeps the focus on the field
-     while the pad is used, so the caret and the field's own styling stay put. */
+  function padHit(b) {
+    if (b.dataset.npad === 'done') { padClose(); return; }
+    padKey(b.dataset.npad);
+  }
+  let padDownAt = 0;
   if (npadEl) {
-    npadEl.addEventListener('pointerdown', e => { if (e.target.closest('[data-npad]')) e.preventDefault(); });
-    npadEl.addEventListener('click', e => {
+    npadEl.addEventListener('pointerdown', e => {
       const b = e.target.closest('[data-npad]');
       if (!b || b.disabled) return;
-      if (b.dataset.npad === 'done') { const t = padTarget; padClose(); if (t) try { t.blur(); } catch {} return; }
-      padKey(b.dataset.npad);
+      padDownAt = Date.now();
+      padHit(b);
+    });
+    // a keyboard user pressing Enter on a key: click with no pointerdown before it
+    npadEl.addEventListener('click', e => {
+      const b = e.target.closest('[data-npad]');
+      if (!b || b.disabled || Date.now() - padDownAt < 700) return;
+      padHit(b);
     });
   }
   if (npadBack) npadBack.addEventListener('click', padClose);
 
-  // arm before focus, so the keyboard never gets its chance to come up
+  /* The tap that opens the pad, refused: no focus means no keyboard, no
+     scroll-into-view and no viewport resize — see the note above. */
   document.addEventListener('pointerdown', e => {
     const el = e.target;
-    if (el && el.tagName === 'INPUT') padArm(el);
+    if (!el || el.tagName !== 'INPUT') {
+      // a tap anywhere else that is not the pad closes it
+      if (padIsOpen() && el && el.closest && !el.closest('#npad')) padClose();
+      return;
+    }
+    const kind = padArm(el);
+    if (!kind || !padWanted()) { if (padIsOpen() && el !== padTarget) padClose(); return; }
+    e.preventDefault();
+    padOpen(el, kind);
   }, true);
+  /* Reached without a pointer — Tab, or a module calling focus(). The pad opens
+     anyway; the field keeps its focus here, which is right for a keyboard user
+     and is the case `inputmode="none"` is still set for. */
   document.addEventListener('focusin', e => {
     const el = e.target;
     if (npadEl && el && el.closest && el.closest('#npad')) return;   // the pad's own buttons
     const kind = padArm(el);
-    if (kind && padWanted()) padOpen(el, kind);
+    if (kind && padWanted()) { if (el !== padTarget) padOpen(el, kind); }
     else if (padIsOpen() && el !== padTarget) padClose();
   });
   /* Typed into directly — a physical keyboard, or a module writing the field.
@@ -995,12 +1039,6 @@ window.Shell = (function () {
     if (!padIsOpen() || e.target !== padTarget) return;
     const seeded = padRead(padKind, padBuf).value;
     if (String(padTarget.value) !== String(seeded)) { padBuf = padSeed(padTarget, padKind); padPaint(); }
-  });
-  /* Tapping something that takes no focus blurs the field without a focusin
-     anywhere, which would leave the pad up over a field it no longer edits. */
-  document.addEventListener('focusout', e => {
-    if (e.target !== padTarget) return;
-    setTimeout(() => { if (padIsOpen() && document.activeElement !== padTarget) padClose(); }, 0);
   });
   document.addEventListener('keydown', e => {
     if (!padIsOpen()) return;

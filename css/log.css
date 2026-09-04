@@ -68,28 +68,55 @@
   color:var(--mu);font:400 9.5px/1 var(--mono);cursor:pointer;padding:0;
   transition:background .12s,border-color .12s,color .12s}
 .ns-log .lc-c.pad{background:none;border-color:transparent;pointer-events:none}
-.ns-log .lc-c.f1{background:color-mix(in srgb,var(--y) 16%,var(--s1));color:var(--tx)}
-.ns-log .lc-c.f2{background:var(--y);border-color:var(--y);color:var(--on-y)}
+/* A written day is a **tint**, not a fill. A solid accent block was the
+   brightest thing on the screen by a distance, and a month of them read as a
+   warning rather than as a record. The border carries the state; the wash only
+   grades it, so a full day is a step up from a half day rather than a different
+   material. */
+.ns-log .lc-c.f1{background:color-mix(in srgb,var(--y) 12%,var(--s1));
+  border-color:color-mix(in srgb,var(--y) 40%,var(--bd));color:var(--tx)}
+.ns-log .lc-c.f2{background:color-mix(in srgb,var(--y) 26%,var(--s1));
+  border-color:color-mix(in srgb,var(--y) 70%,var(--bd));color:var(--tx)}
 .ns-log .lc-c.future{opacity:.3;pointer-events:none}
 .ns-log .lc-c.today{border-color:var(--y)}
 /* the selected day is the one the two arrows in the band are pointing at */
 .ns-log .lc-c.sel{box-shadow:0 0 0 2px var(--y);border-color:var(--y)}
 .ns-log .lc-c:active{background:var(--s2)}
 
-/* ── The fortnight ── */
-.ns-log .lc-trend{flex:0 0 auto;margin-top:calc(10px * var(--dens))}
+/* ── The fortnight ───────────────────────────────────────────────────────────
+   Three series, each in its own colour, with a dot on every day that has a
+   value. The dots are the point: a bare line says which way it went, a line of
+   dots says *how often you actually answered* — a fortnight with four readings
+   and a fortnight with fourteen draw the same line and are not the same thing.
+
+   The colours are fixed rather than accent-derived. Three series need three
+   hues that stay apart from each other in every one of the fifteen themes, and
+   an accent-relative palette cannot promise that; these are the same three the
+   app already uses for the med slots. */
+.ns-log .lc-trend{flex:0 0 auto;margin-top:calc(12px * var(--dens));
+  --lc-nrg:#6ec5e0;--lc-mood:#5cdb7d;--lc-stress:#e0806b}
 .ns-log .lc-trend.empty{font:400 9px/1.5 var(--mono);color:var(--bd-2);letter-spacing:.04em;text-align:center;
   padding:calc(10px * var(--dens)) 0 0}
-.ns-log .lc-spark{display:block;width:100%;height:30px;overflow:visible}
+.ns-log .lc-spark{display:block;width:100%;height:58px;overflow:visible}
 .ns-log .lc-l{fill:none;stroke-width:1.4;vector-effect:non-scaling-stroke;
-  stroke-linecap:round;stroke-linejoin:round}
-.ns-log .lc-l.nrg{stroke:var(--y)}
-.ns-log .lc-l.mood{stroke:var(--bd-2)}
-.ns-log .lc-key{display:flex;align-items:baseline;gap:calc(10px * var(--dens));margin-top:calc(5px * var(--dens))}
-.ns-log .lc-kk{font:400 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
-.ns-log .lc-kk b{font-weight:700;margin-left:3px}
-.ns-log .lc-kk.nrg b{color:var(--y)}
-.ns-log .lc-kk.mood b{color:var(--tx)}
+  stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+/* a dot is a zero-length path with a round cap — a circle whose size is the
+   stroke width in screen pixels, so the stretched viewBox cannot flatten it */
+.ns-log .lc-d,.ns-log .lc-dh{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.ns-log .lc-dh{stroke:var(--s1);stroke-width:6.5}
+.ns-log .lc-d{stroke-width:4.5}
+.ns-log .lc-l.nrg{stroke:var(--lc-nrg)}      .ns-log .lc-d.nrg{stroke:var(--lc-nrg)}
+.ns-log .lc-l.mood{stroke:var(--lc-mood)}    .ns-log .lc-d.mood{stroke:var(--lc-mood)}
+.ns-log .lc-l.stress{stroke:var(--lc-stress)}.ns-log .lc-d.stress{stroke:var(--lc-stress)}
+.ns-log .lc-key{display:flex;align-items:baseline;gap:calc(9px * var(--dens));margin-top:calc(6px * var(--dens))}
+.ns-log .lc-kk{display:flex;align-items:center;gap:4px;
+  font:400 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
+/* the key's swatch is the same dot the chart draws, so the two are read together */
+.ns-log .lc-kk::before{content:'';width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.ns-log .lc-kk.nrg::before{background:var(--lc-nrg)}
+.ns-log .lc-kk.mood::before{background:var(--lc-mood)}
+.ns-log .lc-kk.stress::before{background:var(--lc-stress)}
+.ns-log .lc-kk b{font-weight:700;color:var(--tx)}
 .ns-log .lc-kn{margin-left:auto;font:400 8px/1 var(--mono);letter-spacing:.1em;
   text-transform:var(--caps);color:var(--bd-2)}
 

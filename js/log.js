@@ -369,22 +369,38 @@ function renderMonth() {
     ${trendHTML()}`;
 }
 
-/* Fourteen days of energy and mood, as two lines over the same box. Not a
-   third metric: three lines in 48px is a texture, not a reading. Stress is in
-   the reports, where there is room to say what it means. */
+/* Fourteen days of energy, mood and stress, as three lines with a dot on every
+   day that has a value. Stress is the third: it is recorded in the evening
+   beside the other two, and reading the three together is most of what a
+   fortnight is *for* — a good mood at high stress is a different fortnight from
+   a good mood at low stress, and the two lines alone could not say so.
+
+   The dots matter as much as the lines. A bare line says which way it went; a
+   line of dots also says how often you actually answered, and a fortnight with
+   four readings draws the same line as one with fourteen. */
 function trendHTML() {
   const N = 14;
   const days = Array.from({ length: N }, (_, i) => readDay(dateOffset(REAL_TODAY, -(N - 1 - i))));
-  const series = k => days.map(d => (d && d.m && +d.m[k]) || null);
-  const nrg = series('nrg'), mood = series('mood');
+  // energy and mood are morning fields, stress is an evening one
+  const series = (half, k) => days.map(d => (d && d[half] && +d[half][k]) || null);
+  const nrg = series('m', 'nrg'), mood = series('m', 'mood'), stress = series('e', 'stress');
   const has = v => v.some(x => x);
-  if (!has(nrg) && !has(mood)) {
-    return `<div class="lc-trend empty">two weeks of energy and mood appear here once there is something to draw</div>`;
+  if (!has(nrg) && !has(mood) && !has(stress)) {
+    return `<div class="lc-trend empty">two weeks of energy, mood and stress appear here once there is something to draw</div>`;
   }
-  /* 0–5 up the box, one step per day across it. The points are joined only
-     where consecutive days both have a value; a gap in the data is drawn as a
-     gap, never as a line straight through it. */
-  const W = 100, H = 30;
+  /* 1–5 up the box, one step per day across it. The line is joined only where
+     consecutive days both have a value; a gap in the data is drawn as a gap,
+     never as a line straight through it.
+
+     The box is stretched (`preserveAspectRatio="none"`) so a fortnight always
+     fills the width, whatever the phone — which means a `<circle>` in it would
+     be drawn as an ellipse, wider than it is tall. So a dot is a **zero-length
+     path with a round cap** and `vector-effect:non-scaling-stroke`: the cap is
+     a circle whose diameter is the stroke width in *screen* pixels, so it is
+     immune to the viewBox's scaling in both axes. Each is drawn twice, a
+     surface-coloured halo under the colour, so three series crossing on the
+     same day still read as three dots. */
+  const W = 100, H = 40;
   const x = i => (i / (N - 1)) * W;
   const y = v => H - (Math.max(1, Math.min(5, v)) - 1) / 4 * H;
   const path = vals => {
@@ -396,16 +412,23 @@ function trendHTML() {
     });
     return d.trim();
   };
+  const dots = (vals, cls) => vals.map((v, i) => {
+    if (!v) return '';
+    const d = `M${x(i).toFixed(1)} ${y(v).toFixed(1)}l.01 0`;
+    return `<path class="lc-dh" d="${d}"/><path class="lc-d ${cls}" d="${d}"/>`;
+  }).join('');
   const avg = v => { const f = v.filter(Boolean); return f.length ? (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1) : '—'; };
+  const line = (vals, cls) => has(vals)
+    ? `<path class="lc-l ${cls}" d="${path(vals)}"/>${dots(vals, cls)}` : '';
   return `<div class="lc-trend">
     <svg class="lc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-      <path class="lc-l mood" d="${path(mood)}"/>
-      <path class="lc-l nrg"  d="${path(nrg)}"/>
+      ${line(stress, 'stress')}${line(mood, 'mood')}${line(nrg, 'nrg')}
     </svg>
     <div class="lc-key">
       <span class="lc-kk nrg">energy <b>${avg(nrg)}</b></span>
       <span class="lc-kk mood">mood <b>${avg(mood)}</b></span>
-      <span class="lc-kn">14 days</span>
+      <span class="lc-kk stress">stress <b>${avg(stress)}</b></span>
+      <span class="lc-kn">14d</span>
     </div>
   </div>`;
 }
@@ -431,6 +454,34 @@ function trendHTML() {
 const alertCfg = () => Object.assign({}, Config.defaults('log.alerts'), Config.get('log.alerts') || {});
 const HHMM = /^(\d{1,2}):([0-5]\d)$/;
 let alertTest = null;
+
+/* ── The one flag that can be answered by looking ─────────────────────────────
+   LOG's two rules clear themselves: writing the morning is what makes "morning
+   not written" stop being true, so the flag going out *is* the work being done.
+   PLAN's does not. "Nothing planned for tomorrow" is a prompt, and the honest
+   answer to it is often "I know — I looked, and there is nothing to plan": you
+   open PLAN, you see the empty queue, and the "!" is still there telling you
+   something you have just checked.
+
+   So opening PLAN while it is flagged dismisses it, for that day only. Stored
+   rather than derived — the one piece of alert state that is — because "I have
+   seen this" is a fact about you and cannot be recomputed from the record. It
+   is keyed by the day it was dismissed on, so tomorrow's prompt is a new
+   prompt; the key is hyphenated so `allLogKeys()` never mistakes it for a day,
+   the same reason `log-scale-v2` is. */
+const SEEN_KEY = 'log-alert-seen-v1';
+function alertSeen() {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; }
+}
+function dismissAlert(rule) {
+  if (rule !== 'plan') return;                       // only the prompt is dismissible
+  if (alertTest) return;                             // the settings preview outranks it
+  if (!alertReasons().includes(rule)) return;        // nothing to dismiss
+  const seen = alertSeen();
+  seen[rule] = REAL_TODAY;
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch {}
+  refreshAlert();
+}
 
 /* Minutes since local midnight for "HH:MM", or null when the rule is off. */
 function hourOf(v) {
@@ -463,6 +514,15 @@ function alertReasons() {
   if (p !== null && now >= p && !plannedBlocks(dateOffset(REAL_TODAY, 1))) out.push('plan');
   return out;
 }
+/* What the tabs actually wear: every firing rule, less any that has been seen
+   and dismissed today. Kept out of alertReasons() on purpose — dismissAlert()
+   asks that one whether the rule is *true*, which is a different question from
+   whether it is still worth showing. */
+function alertShown() {
+  if (alertTest) return alertReasons();              // the preview is meant to lie
+  const seen = alertSeen();
+  return alertReasons().filter(r => seen[r] !== REAL_TODAY);
+}
 function alertReason() { return alertReasons()[0] || null; }
 
 const ALERT_SAYS = { morning: 'morning log not written', evening: 'evening log not written',
@@ -478,7 +538,7 @@ const ALERT_SAYS = { morning: 'morning log not written', evening: 'evening log n
    independent now — a morning can be unwritten while tomorrow is planned, and
    both tabs answer for themselves. */
 function refreshAlert() {
-  const all = alertReasons();
+  const all = alertShown();
   const logWhy  = all.find(r => r === 'morning' || r === 'evening') || null;
   const planWhy = all.includes('plan') ? 'plan' : null;
   if (window.Shell && Shell.alert) {
@@ -1939,5 +1999,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
-         setMedia, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason };
+         setMedia, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
+         alertShown, dismissAlert };
 })();

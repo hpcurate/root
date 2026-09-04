@@ -292,8 +292,14 @@ body{
 .npad{position:fixed;left:0;right:0;bottom:0;z-index:105;background:var(--s1);
   border-top:var(--bw) solid var(--bd);border-radius:var(--r3) var(--r3) 0 0;
   padding:14px 14px calc(14px + env(safe-area-inset-bottom));
-  transform:translateY(105%);transition:transform .22s ease;max-width:520px;margin:0 auto}
+  transform:translateY(105%);transition:transform .22s ease;max-width:520px;margin:0 auto;
+  /* the keys fire on pointerdown, so the browser must not hold the tap back
+     waiting to see whether it is a double-tap zoom or the start of a gesture */
+  touch-action:manipulation}
 .npad.on{transform:translateY(0)}
+/* the field the pad is editing is not focused — it has no caret and no focus
+   ring — so it says which one it is itself */
+input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 .npad-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .npad-lbl{font:700 10px/1.3 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -310,8 +316,8 @@ body{
   margin-top:6px;min-height:14px}
 .npad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(5px * var(--dens));margin-bottom:8px}
 .npad-k{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
-  font:400 19px/1 var(--mono);padding:calc(15px * var(--dens)) 0;cursor:pointer;
-  transition:all .1s;user-select:none}
+  font:400 19px/1 var(--mono);padding:calc(16px * var(--dens)) 0;cursor:pointer;
+  transition:all .1s;user-select:none;touch-action:manipulation}
 .npad-k:active{background:var(--yd);border-color:var(--y)}
 .npad-k.alt{color:var(--mu);font-size:15px}
 .npad-k.alt:active{color:var(--re);border-color:var(--re);background:rgba(224,96,96,.1)}

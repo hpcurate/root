@@ -1686,11 +1686,29 @@ w.LOG.go('evening'); $('.ns-log #e-kme').value = '2'; w.LOG.saveEvening();
    still owns the rule, the hours and the preview. */
 const planIcon = () => $('.tab-b[data-app="plan"] svg use').getAttribute('href');
 const planBtn  = () => $('.tab-b[data-app="plan"]');
+/* Arriving on PLAN dismisses that flag for the day (2.22.1), and earlier
+   sections have been on PLAN a great deal — so clear the record before asking
+   whether the rule flags the right tab. */
+w.localStorage.removeItem('log-alert-seen-v1');
+w.LOG.refreshAlert();
 check('… and with both halves written it is tomorrow that is unplanned — flagged on PLAN, not LOG',
   w.LOG.alertReason() === 'plan' && planIcon() === '#tab-alert' &&
   planBtn().classList.contains('has-alert') && logIcon() === '#tab-log' &&
   !logBtn().classList.contains('has-alert'),
   w.LOG.alertReason() + ' log=' + logIcon() + ' plan=' + planIcon());
+/* …and opening PLAN answers it. "Nothing planned for tomorrow" is a prompt you
+   can answer by looking, unlike the two LOG rules, which clear by being done. */
+w.Shell.go('plan');
+check('opening PLAN clears the flag it was wearing',
+  planIcon() === '#tab-plan' && !planBtn().classList.contains('has-alert') &&
+  w.LOG.alertReason() === 'plan' && !w.LOG.alertShown().includes('plan'),
+  planIcon() + ' / still true: ' + w.LOG.alertReason());
+check('… the rule itself is untouched — it is the prompt that was answered, not the day',
+  w.LOG.alertReasons ? true : w.LOG.alertReason() === 'plan');
+w.localStorage.removeItem('log-alert-seen-v1');
+w.LOG.refreshAlert();
+check('… and it is back tomorrow, because the dismissal is filed under the day',
+  planIcon() === '#tab-alert', planIcon());
 w.Shell.go('plan');
 w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
 $('.ns-plan #task-name').value = 'clear the desk';
@@ -2319,9 +2337,9 @@ check('the pad is a sheet, so it steps the shell\'s shortcuts aside like every o
    one written in full, one not written at all — so the cells and the lines have
    something to be about. */
 w.localStorage.setItem('log_' + offset(-1),
-  day({ wt:'07:00', nrg:4, mood:4 }, { kme:'2', nrg:3, mood:5 }));
+  day({ wt:'07:00', nrg:4, mood:4 }, { kme:'2', nrg:3, mood:5, stress:2 }));
 w.localStorage.setItem('log_' + offset(-2),
-  day({ wt:'07:30', nrg:2, mood:3 }, { kme:'1', nrg:2, mood:2 }));
+  day({ wt:'07:30', nrg:2, mood:3 }, { kme:'1', nrg:2, mood:2, stress:4 }));
 w.localStorage.removeItem('log_' + offset(-3));
 w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
 check('LOG\'s home draws the month it is on', !!$('.ns-log #log-cal .lc-grid') &&
@@ -2344,8 +2362,9 @@ check('tapping a day selects it, the way the two arrows in the band do',
   $('.ns-log .lc-c.sel')?.getAttribute('aria-label') === offset(-1),
   $('.ns-log #home-date').textContent);
 w.LOG.resetDate();
-check('the fortnight draws energy and mood, and nothing straight through a gap',
-  !!$('.ns-log .lc-spark') && d.querySelectorAll('.ns-log .lc-l').length === 2,
+check('the fortnight draws its series, and nothing straight through a gap',
+  !!$('.ns-log .lc-spark') && d.querySelectorAll('.ns-log .lc-l').length === 3 &&
+  ![...d.querySelectorAll('.ns-log .lc-l')].some(p => /NaN|undefined/.test(p.getAttribute('d'))),
   d.querySelectorAll('.ns-log .lc-l').length + ' lines');
 check('the home is a column that does not scroll, above a phone-sized screen',
   /@media \(min-height:560px\)\{[\s\S]*?\.ns-log #s-home\.on\{[^}]*overflow:hidden/.test(logCss2) &&
@@ -2358,9 +2377,16 @@ check('DAY opens on today, planned or not', (() => {
   w.Shell.go('cal'); w.CAL.render();
   return w.CAL.selected() === today;
 })(), w.CAL.selected());
-check('the stepper spans the screen rather than floating over the middle of it',
-  /\.cal-steps\{[\s\S]*?left:max\(10px/.test(calCss3) &&
-  /\.cal-steps \.cal-arrow\{flex:1 1 0/.test(calCss3));
+/* 2.22 made the stepper a full-width bar with two half-width arrows; 2.22.1
+   put it back to the size it was, square, with the radius every other box in
+   the app uses rather than the nav's pill. */
+/* Bounded with [^}] rather than [\s\S]: a lazy match across the whole file
+   finds the next rule's declaration and asserts nothing about this one. */
+check('the stepper is compact again, and its arrows are square boxes not lozenges',
+  /\.cal-steps\{[^}]*border-radius:var\(--r2\)/.test(calCss3) &&
+  /\.cal-steps \.cal-arrow\{flex:0 0 auto;width:38px/.test(calCss3) &&
+  /\.cal-steps \.cal-arrow\{[^}]*border-radius:var\(--r2\)/.test(calCss3) &&
+  !/\.cal-steps[^{]*\{[^}]*border-radius:var\(--r-pill\)/.test(calCss3));
 check('… and steps aside once it has been idle, on a dial rather than a literal',
   /\.cal-steps\.idle\{[^}]*opacity:0/.test(calCss3) && w.Prefs.SCHEMA.calStepsHide.def === 5 &&
   /calStepsHide/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
@@ -2406,6 +2432,127 @@ check('… as sticky, never fixed — nothing fixed may live inside #track',
 click($('.ns-store #cw-pin'));
 check('… and unpins again', !$('.ns-store #cw').classList.contains('pinned') &&
   JSON.parse(w.localStorage.getItem('store_state_v1')).cwPin === false);
+
+
+// ── 34. 2.22.1 — what the first look on a real screen turned up ─────────────
+/* The pinned calculator keeps its buttons. 2.22 folded the ± rows away while
+   pinned, on the theory that a pinned counter is a readout — it is not, the
+   buttons are the reason you pinned it. */
+check('a pinned calculator is the whole calculator, buttons and all',
+  !/\.cw\.pinned \.cw-btns/.test(storeCss2) && !/\.cw\.pinned \.cw-foot/.test(storeCss2) &&
+  /\.ns-store \.cw\.pinned\{position:sticky/.test(storeCss2));
+w.Shell.go('store'); w.STORE.go('home');
+if (!JSON.parse(w.localStorage.getItem('store_state_v1')).cwPin) click($('.ns-store #cw-pin'));
+check('… and its ± rows are still in the DOM while it is pinned',
+  $('.ns-store #cw').classList.contains('pinned') &&
+  d.querySelectorAll('.ns-store #cw .cw-btns').length === 2 && !!$('.ns-store #cw .cw-foot'));
+click($('.ns-store #cw-pin'));
+
+/* The numpad's keys were landing on the wrong row. The field was focused and
+   iOS moves the viewport for a focused field whatever inputmode says, which
+   puts a fixed pad's keys somewhere other than where they are drawn. The field
+   is never focused now, and the keys fire on pointerdown rather than on a
+   synthesised click. */
+const shellJs = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
+check('opening the pad refuses the tap that would focus the field',
+  /if \(!kind \|\| !padWanted\(\)\)[\s\S]{0,140}?e\.preventDefault\(\);\s*\n\s*padOpen/.test(shellJs));
+check('… and the keys fire on pointerdown, with click kept only for the keyboard',
+  /npadEl\.addEventListener\('pointerdown'[\s\S]{0,220}?padHit\(b\)/.test(shellJs) &&
+  /Date\.now\(\) - padDownAt < 700/.test(shellJs));
+check('… with the pad and its keys claiming the touch outright',
+  /\.npad\{[^}]*touch-action:manipulation/.test(shellCss3) &&
+  /\.npad-k\{[^}]*touch-action:manipulation/.test(shellCss3));
+/* `auto` reads matchMedia, which is stubbed to "not a touch screen" here, so
+   the pad would never open on a tap. `always` is the same code path with the
+   question already answered. */
+w.Prefs.set('numpad', 'always');
+w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('morning');
+const kmField = $('.ns-log #m-km');
+kmField.value = '';
+kmField.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+check('a tap on a numeric field opens the pad without focusing it',
+  w.Shell.numpad.isOpen() && w.Shell.numpad.target() === kmField &&
+  d.activeElement !== kmField && kmField.classList.contains('pad-on'),
+  (d.activeElement && d.activeElement.id) + ' / ' + kmField.className);
+const key5 = $('#npad [data-npad="5"]');
+key5.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+check('… and a key pressed on pointerdown reaches the field it is drawn over',
+  kmField.value === '5', kmField.value);
+click(key5);                                        // the click that follows must not double it
+check('… without the click behind it counting a second time', kmField.value === '5', kmField.value);
+w.Shell.numpad.close();
+check('closing it takes the marker off the field',
+  !kmField.classList.contains('pad-on') && !w.Shell.numpad.isOpen());
+w.Prefs.set('numpad', 'auto');
+check('… and on a pointer that is not coarse, `auto` leaves the field alone entirely', (() => {
+  kmField.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+  return !w.Shell.numpad.isOpen();
+})());
+
+/* PLAN's transition: what leaves is animated now. Nothing that left ever was —
+   the grid's innerHTML is replaced, so seven tiles were cut on the first frame
+   while one heading glided for two thirds of a second. */
+const planJs3 = fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8');
+check('snap() keeps the nodes, so what leaves can still be animated',
+  /m\.set\(el\.dataset\.flip, \{ el, r: el\.getBoundingClientRect\(\)/.test(planJs3));
+check('… and flip() ghosts them out instead of cutting them',
+  /function ghostOut\(before, now, ms\)/.test(planJs3) &&
+  /ghostOut\(before, now, ms\);/.test(planJs3));
+check('… a ghost is not findable by the next snap(), and not clickable on the way out',
+  /g\.removeAttribute\('data-flip'\)/.test(planJs3) &&
+  /g\.querySelectorAll\('\[data-flip\]'\)\.forEach\(c => c\.removeAttribute\('data-flip'\)\)/.test(planJs3) &&
+  /g\.style\.pointerEvents = 'none'/.test(planJs3));
+check('… over a grid that is positioned but never transformed',
+  /\.ns-plan \.proj-grid\{[^}]*position:relative/.test(
+    fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')) &&
+  !/\.ns-plan \.proj-grid\{[^}]*transform:/.test(
+    fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')));
+const revealDelay = (planJs3.match(/delay:Math\.round\(ms \* \.(\d+)\) \+ \(fresh\+\+ \* (\d+)\)/) || []);
+check('… and the rows arrive as a wave that finishes with the move, not after it',
+  revealDelay[1] === '18' && revealDelay[2] === '26' &&
+  /duration:Math\.round\(ms \* \.42\)/.test(planJs3),
+  revealDelay.slice(1).join('/'));
+// the last row must land before the move does, whatever those numbers become
+const flipTotal = 680;
+const rowsWorst = Math.round(flipTotal * (+('0.' + revealDelay[1]))) + 5 * (+revealDelay[2]) + Math.round(flipTotal * .42);
+check('… proved by the arithmetic: six rows in, all of them landed inside the move',
+  rowsWorst <= flipTotal, rowsWorst + 'ms of ' + flipTotal + 'ms');
+w.Shell.go('plan'); w.PLAN.closeProj();
+w.PLAN.openProj('curate');
+check('opening a project still leaves exactly one tile and its sections on screen',
+  d.querySelectorAll('.ns-plan .proj-tile').length === 1 &&
+  d.querySelectorAll('.ns-plan .proj-sec').length > 0 &&
+  !d.querySelector('.ns-plan .proj-list [aria-hidden="true"][data-flip]'),
+  d.querySelectorAll('.ns-plan .proj-tile').length + ' tiles');
+w.PLAN.closeProj();
+
+/* LOG's month and its fortnight. */
+check('a written day is a tint rather than a fill — the border carries the state',
+  /\.ns-log \.lc-c\.f2\{background:color-mix/.test(logCss2) &&
+  !/\.ns-log \.lc-c\.f2\{background:var\(--y\)/.test(logCss2));
+w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
+check('the fortnight draws three series now, stress beside energy and mood',
+  d.querySelectorAll('.ns-log .lc-l').length === 3 &&
+  ['nrg','mood','stress'].every(c => !!$('.ns-log .lc-l.' + c)),
+  d.querySelectorAll('.ns-log .lc-l').length + ' lines');
+const dotsOf = c => d.querySelectorAll('.ns-log .lc-d.' + c).length;
+check('… with a dot on every day that has a value, and none on the days that do not',
+  dotsOf('nrg') >= 2 && dotsOf('mood') >= 2 && dotsOf('stress') >= 2 &&
+  dotsOf('nrg') + dotsOf('mood') + dotsOf('stress') === d.querySelectorAll('.ns-log .lc-dh').length &&
+  d.querySelectorAll('.ns-log .lc-d').length < 14 * 3,   // not one per day: the gaps are real
+  [dotsOf('nrg'), dotsOf('mood'), dotsOf('stress')].join('/') + ' dots, ' +
+  d.querySelectorAll('.ns-log .lc-dh').length + ' halos');
+check('… drawn as round caps, so the stretched viewBox cannot flatten them into ellipses',
+  [...d.querySelectorAll('.ns-log .lc-d')].every(p => /l\.01 0$/.test(p.getAttribute('d'))) &&
+  /\.lc-d,\.ns-log \.lc-dh\{[^}]*stroke-linecap:round/.test(logCss2) &&
+  /\.lc-d,\.ns-log \.lc-dh\{[^}]*vector-effect:non-scaling-stroke/.test(logCss2));
+check('… each series in its own fixed hue, which an accent-relative palette could not promise',
+  /--lc-nrg:#/.test(logCss2) && /--lc-mood:#/.test(logCss2) && /--lc-stress:#/.test(logCss2));
+check('… and the graph is taller than the 30px it was',
+  /\.ns-log \.lc-spark\{[^}]*height:58px/.test(logCss2));
+check('the key names all three, each with the dot the chart draws',
+  d.querySelectorAll('.ns-log .lc-kk').length === 3 &&
+  /stress/.test($('.ns-log .lc-key').textContent), $('.ns-log .lc-key')?.textContent.trim());
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
