@@ -62,9 +62,16 @@
 .ns-log .lc-h{display:flex;align-items:center;justify-content:center;
   font:400 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--bd-2);
   max-height:14px}
-/* a cell says how much of that day was written: nothing, one half, both */
+/* A cell says how much of that day was written: nothing, one half, both.
+   Its border is a **hairline** — half the app's border weight, floored at
+   .5px, which is one physical pixel on any phone. Forty-two boxes at the full
+   weight is a lattice, and the lattice was the loudest thing on the screen;
+   at half of it the grid reads as ruling rather than as a grid of buttons.
+   Still a ratio of --bw, not a literal, so the Border weight dial reaches it
+   like everything else (§4). */
 .ns-log .lc-c{display:flex;align-items:center;justify-content:center;min-width:0;
-  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  background:var(--s1);border:max(.5px, calc(var(--bw) * .5)) solid var(--bd);
+  border-radius:var(--r1);
   color:var(--mu);font:400 9.5px/1 var(--mono);cursor:pointer;padding:0;
   transition:background .12s,border-color .12s,color .12s}
 .ns-log .lc-c.pad{background:none;border-color:transparent;pointer-events:none}
@@ -79,8 +86,10 @@
   border-color:color-mix(in srgb,var(--y) 70%,var(--bd));color:var(--tx)}
 .ns-log .lc-c.future{opacity:.3;pointer-events:none}
 .ns-log .lc-c.today{border-color:var(--y)}
-/* the selected day is the one the two arrows in the band are pointing at */
-.ns-log .lc-c.sel{box-shadow:0 0 0 2px var(--y);border-color:var(--y)}
+/* The selected day is the one the two arrows in the band are pointing at. Its
+   ring is the one heavy line in the grid, and it can be, because there is
+   exactly one of it. */
+.ns-log .lc-c.sel{box-shadow:0 0 0 1.5px var(--y);border-color:var(--y)}
 .ns-log .lc-c:active{background:var(--s2)}
 
 /* ── The fortnight ───────────────────────────────────────────────────────────

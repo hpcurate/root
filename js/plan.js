@@ -235,94 +235,54 @@ function fitTitle(el) {
    project's own tile, growing. A no-op without layout (jsdom) or Web
    Animations. */
 const FLIP_EASE = 'cubic-bezier(.2,.8,.2,1)';
-/* The border and background are recorded with the box, because a box that
-   changes shape now fades between the two treatments instead of being scaled
-   into them — see flip(). */
-/* The node itself is kept too, because most of what happens here is elements
-   *leaving*: the grid's innerHTML is replaced, so seven tiles are detached
-   before flip() ever runs. A detached node is still a node — see ghostOut(). */
+/* The border and background are recorded with the box, so a box that is held
+   back through the move can be painted in afterwards from what it actually
+   was, rather than from a guess. */
 function snap() {
   const m = new Map();
   $all('[data-flip]').forEach(el => {
     let bd = '', bg = '';
     try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
-    m.set(el.dataset.flip, { el, r: el.getBoundingClientRect(), bd, bg });
+    m.set(el.dataset.flip, { r: el.getBoundingClientRect(), bd, bg });
   });
   return m;
 }
 
-/* ── What leaves ──────────────────────────────────────────────────────────────
-   The reason opening a project never read as one motion: **nothing that left
-   was ever animated.** flip() walks what is on screen *now*, and opening a
-   project replaces the whole grid — so the seven tiles you did not tap were
-   already gone from the DOM, cut on the first frame, while the one heading you
-   did tap glided on for two thirds of a second. Most of the screen changed
-   instantly and one element moved slowly: that mismatch is what reads as a
-   stutter, and no amount of retuning the border fade could touch it, which is
-   why 2.21 and 2.22 both failed to fix this.
+/* ── One thing moves, and it is the thing you tapped ──────────────────────────
+   Three releases were spent making this smoother by animating *more* of it —
+   faster border fades, staggered rows, ghosts of the tiles that left. Every one
+   of them was the same mistake in a different place: a screen where eight
+   things move at once has no subject, and a gesture with no subject reads as a
+   stutter however well each part is timed.
 
-   snap() holds the nodes, and a detached node is still a node. Each one goes
-   back as a ghost — absolutely positioned at the rect it had, out of the flow
-   and out of the way of hit testing — and fades. They are gone by a third of
-   the move, so the rows arriving read as the next thing that happens rather
-   than as a second, unrelated change. */
-function ghostOut(before, now, ms) {
-  const host = $id('proj-list');
-  if (!host || !host.getBoundingClientRect) return;
-  const hr = host.getBoundingClientRect();
-  if (!hr.width) return;                                   // no layout (jsdom)
-  before.forEach((a, key) => {
-    if (now.has(key) || !a.el || !a.r.width || !a.r.height) return;
-    if (a.el.dataset.flipText) return;                     // text rides its own box out
-    const g = a.el;
-    if (g.isConnected) return;                             // still on screen: not a leaver
-    // a ghost is scenery: it must not be found by the next snap(), and it must
-    // not be clickable on the way out
-    g.removeAttribute('data-flip');
-    g.querySelectorAll('[data-flip]').forEach(c => c.removeAttribute('data-flip'));
-    g.removeAttribute('id');
-    g.setAttribute('aria-hidden', 'true');
-    g.style.position = 'absolute';
-    g.style.margin = '0';
-    g.style.pointerEvents = 'none';
-    g.style.left = (a.r.left - hr.left) + 'px';
-    g.style.top = (a.r.top - hr.top) + 'px';
-    g.style.width = a.r.width + 'px';
-    g.style.height = a.r.height + 'px';
-    host.appendChild(g);
-    if (!g.animate) { g.remove(); return; }
-    const anim = g.animate([{ opacity: 1 }, { opacity: 0 }],
-      { duration: Math.max(90, Math.round(ms * .3)), easing: 'ease-out', fill: 'forwards' });
-    const drop = () => g.remove();
-    if (anim.finished && anim.finished.then) anim.finished.then(drop, drop);
-    else anim.onfinish = drop;
-  });
-}
-/* ── Two kinds of moving element, animated differently ───────────────────────
-   **A box is never scaled.** Scaling a box scales its border, its radius and
-   its padding with it, which is what made opening a project read as a zoom —
-   and it was only because the box was being stretched that its contents had to
-   be hidden on the way. A box that changes shape is drawn at its new size,
-   slid from where it was, and its border and background *fade* between the two
-   treatments. Nothing is distorted, so nothing has to be hidden.
+   So nothing else moves. The grid clears to **the project's name and its colour
+   dot** — the two things you actually tapped — those travel and grow from where
+   they were to where they are going, and only then does the new content appear
+   under them. Everything the eye can follow is one object going one place.
 
-   **Text moves and grows, and never fades.** `.proj-name` and its dot carry
-   their own flip keys and are FLIPped properly — translated and scaled from
-   where they were to where they are — with `data-flip-text` naming the box
-   they sit in, so the box's own slide can be subtracted from theirs rather
-   than compounding with it. The name you tapped stays on screen the whole way
-   and simply becomes the heading; losing sight of it mid-flight was the one
-   thing that made the two states feel like different screens.
+   Three groups, and every element on screen is in exactly one:
 
-   (This reverses the note §6 used to carry about counter-scaling. It could not
-   work while the box itself was scaled; it works now because it is not.) */
+     the movers    `.proj-name` and `.proj-dot` — the elements carrying
+                   `data-flip-text`. Translated and scaled by their **full**
+                   delta, because their box no longer slides underneath them
+                   (which is what that attribute used to subtract).
+     the carrier   the box the movers live in. It cannot be faded — opacity on
+                   a parent takes its children with it — so its *paint* is held
+                   transparent instead, and its other children are faded like
+                   anything else.
+     everything else   held at opacity 0 for the whole move by `fill:backwards`
+                   on a delayed reveal, then brought in as a short wave.
+
+   What leaves is simply gone on the first frame. That is not an oversight this
+   time: everything that stays is invisible on that frame too, so the screen
+   clears in one go rather than half-cutting and half-fading. */
 function flip(before) {
   const ms = flipMs();
   if (!before.size || !ms) return;
 
   const now = new Map();
   $all('[data-flip]').forEach(el => now.set(el.dataset.flip, { el, r: el.getBoundingClientRect() }));
-  ghostOut(before, now, ms);
+
   const deltaOf = key => {
     const a = before.get(key), n = now.get(key);
     if (!a || !n || !a.r.width || !a.r.height || !n.r.width || !n.r.height) return null;
@@ -330,57 +290,80 @@ function flip(before) {
              sw: a.r.width / n.r.width, sh: a.r.height / n.r.height };
   };
 
+  const grid = $id('proj-list');
+
+  /* The movers, and the box each one rides in. A text element only moves when
+     both it and its box were on screen before — otherwise there is nothing to
+     move it from and it is simply new. */
+  const movers = new Set(), carriers = new Set();
+  now.forEach(({ el }, key) => {
+    const box = el.dataset.flipText;
+    if (!box || !before.has(key) || !before.has(box) || !now.has(box)) return;
+    if (grid && !grid.contains(el)) return;
+    movers.add(el);
+    carriers.add(now.get(box).el);
+  });
+  const holdsMover = el => [...movers].some(m => el === m || el.contains(m));
+
+  /* There is only a move if the name actually goes somewhere. Opening a
+     section's form leaves the heading exactly where it is, and holding the
+     screen blank for 400ms while nothing travels is a pause, not a transition —
+     there the reveal starts at once. */
+  const travels = [...movers].some(el => {
+    const d = deltaOf(el.dataset.flip);
+    return d && (Math.abs(d.dx) > .5 || Math.abs(d.dy) > .5 || Math.abs(d.sh - 1) > .01);
+  });
+  /* The move owns most of the budget and the reveal follows inside it, so the
+     whole gesture still lasts exactly as long as a tab change does. */
+  const moveMs   = travels ? Math.round(ms * .58) : 0;
+  const revealMs = Math.round(ms * .40);
+
   let fresh = 0;
+  const hold = el => {
+    if (!el || !el.animate) return;
+    // nothing to hold back if it has no box: a hidden child would take a place
+    // in the wave and leave a gap in it
+    try { if (!el.getBoundingClientRect().width) return; } catch {}
+    el.animate([{ opacity:0, transform:'translateY(-6px)' }, { opacity:1, transform:'none' }],
+      { duration:revealMs, delay:moveMs + (fresh++ * 22), easing:FLIP_EASE, fill:'backwards' });
+  };
+
+  // 1. the movers: from where they were, at the size they were
+  movers.forEach(el => {
+    const d = deltaOf(el.dataset.flip);
+    if (!d || !el.animate) return;
+    const s = d.sh;
+    if (Math.abs(d.dx) < .5 && Math.abs(d.dy) < .5 && Math.abs(s - 1) < .01) return;
+    el.animate([{ transformOrigin:'0 50%', transform:`translate(${d.dx}px,${d.dy}px) scale(${s})` },
+                { transformOrigin:'0 50%', transform:'none' }],
+      { duration:moveMs, easing:FLIP_EASE });
+  });
+
+  // 2. the carrier: unpainted while its text travels, painted in with the rest
+  carriers.forEach(el => {
+    if (!el.animate) return;
+    let bd = '', bg = '';
+    try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
+    el.animate([{ borderColor:'transparent', backgroundColor:'transparent' },
+                { borderColor:bd || 'transparent', backgroundColor:bg || 'transparent' }],
+      { duration:revealMs, delay:moveMs, easing:'ease-out', fill:'backwards' });
+    // its own children, minus the movers and whatever wraps them
+    Array.from(el.children).forEach(c => { if (!holdsMover(c)) hold(c); });
+  });
+
+  // 3. everything else in the grid, in the order it is drawn
+  if (grid) Array.from(grid.children).forEach(el => { if (!carriers.has(el)) hold(el); });
+
+  /* 4. outside the grid — the queue following the grid's new height. It is not
+     part of the gesture and must not blink: it slides, as it always did. */
   now.forEach(({ el, r }, key) => {
     if (!el.animate || !r.width || !r.height) return;
-    const a = before.get(key);
-
-    /* New: reveal it, as a wave that **finishes with the move** rather than
-       after it. It used to start at 30% and run for 60% with 45ms between
-       rows, so the fourth row was still arriving 110ms after the heading had
-       settled — the gesture had visibly ended and the screen was still
-       changing. Tighter and earlier: the last row lands just before the move
-       does, which is what makes the rows read as the consequence of the tap
-       rather than as an afterthought. */
-    if (!a || !a.r.width || !a.r.height) {                   // new: reveal it
-      el.animate([{ opacity:0, transform:'translateY(-7px)' }, { opacity:1, transform:'none' }],
-        { duration:Math.round(ms * .42), delay:Math.round(ms * .18) + (fresh++ * 26),
-          easing:FLIP_EASE, fill:'backwards' });
-      return;
-    }
-
+    if (grid && grid.contains(el)) return;
     const d = deltaOf(key);
     if (!d) return;
-
-    if (el.dataset.flipText) {                               // text: move + grow, no fade
-      const p = deltaOf(el.dataset.flipText) || { dx:0, dy:0 };
-      const tx = d.dx - p.dx, ty = d.dy - p.dy, s = d.sh;
-      if (Math.abs(tx) < .5 && Math.abs(ty) < .5 && Math.abs(s - 1) < .01) return;
-      el.animate([{ transformOrigin:'0 50%', transform:`translate(${tx}px,${ty}px) scale(${s})` },
-                  { transformOrigin:'0 50%', transform:'none' }], { duration:ms, easing:FLIP_EASE });
-      return;
-    }
-
-    const moved   = Math.abs(d.dx) > .5 || Math.abs(d.dy) > .5;
-    const resized = Math.abs(d.sw - 1) > .01 || Math.abs(d.sh - 1) > .01;
-    if (moved) el.animate([{ transform:`translate(${d.dx}px,${d.dy}px)` }, { transform:'none' }],
-      { duration:ms, easing:FLIP_EASE });
-    if (resized) {
-      let bd = '', bg = '';
-      try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
-      /* The fade is a *fifth* of the move, not half of it. 2.20.1 matched the
-         two and the box looked like it was still settling after it had
-         stopped; 2.21 took it to 42%, which was still long enough to see the
-         border resolving separately from the box arriving. The border is the
-         thing you notice last, so it has to be finished well before the move
-         is — by the time the box lands there is nothing left to watch, and
-         that is what makes the whole gesture read as one motion.
-         ~150ms against a 680ms move, floored so a Motion=reduced setting
-         cannot shorten it into a flicker. */
-      el.animate([{ borderColor:a.bd || 'transparent', backgroundColor:a.bg || 'transparent' },
-                  { borderColor:bd || 'transparent',   backgroundColor:bg || 'transparent' }],
-        { duration:Math.max(70, Math.round(ms * .22)), easing:'ease-out' });
-    }
+    if (Math.abs(d.dx) > .5 || Math.abs(d.dy) > .5)
+      el.animate([{ transform:`translate(${d.dx}px,${d.dy}px)` }, { transform:'none' }],
+        { duration:ms, easing:FLIP_EASE });
   });
 }
 /* The shell's own motion duration, so the FLIP keeps step with the tab

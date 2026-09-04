@@ -958,18 +958,25 @@ w.PLAN.closeForm(); w.PLAN.clearQueue(); settle();
   check('… and no text is faded on the way — the name you tapped never leaves the screen',
     !!name && !/opacity/.test(name.css) && !anims.some(a => / > child/.test(a.key)),
     anims.filter(a => /opacity/.test(a.css)).map(a => a.key).join(','));
-  /* The border is the thing you notice last, so it has to finish first for the
-     gesture to read as fluid rather than as a box still settling. */
+  /* Since 2.22.2 the tile is not painted *at all* while its name travels: the
+     box comes in with the rest of the screen once the move is over, held back
+     by fill:backwards on a delayed animation rather than crossfaded under it. */
   const fade = tileAnims.find(a => /borderColor/.test(a.css));
-  check('… the border fade finishing well before the move does',
-    !!fade && fade.opts.duration > 0 && fade.opts.duration <= 300,
-    fade ? String(fade.opts.duration) : 'no fade');
+  check('… the tile is unpainted for the whole move and painted in after it',
+    !!fade && fade.opts.delay > 0 && fade.opts.fill === 'backwards' &&
+    /"borderColor":"transparent"/.test(fade.css),
+    fade ? JSON.stringify(fade.opts) : 'no fade');
+  check('… and the name is the only thing moving while it does',
+    anims.filter(a => /transform.*(translate|scale)/.test(a.css) && a.opts.delay === undefined)
+      .every(a => ['pn:curate', 'pd:curate', 'queue'].includes(a.key)),
+    anims.filter(a => a.opts.delay === undefined).map(a => a.key).join(','));
 
   const rows = ['sec:0', 'sec:1', 'sec:2'].map(of);
-  check('the section rows are revealed, not flown in from the tiles they replaced',
-    rows.every(r => r && /translateY\(-7px\)/.test(r.css) && /"opacity":0/.test(r.css)) &&
+  check('the section rows are held back for the move, then revealed',
+    rows.every(r => r && /translateY\(-6px\)/.test(r.css) && /"opacity":0/.test(r.css) &&
+                    r.opts.fill === 'backwards' && r.opts.delay >= fade.opts.delay) &&
     !rows.some(r => /scale\(/.test(r.css)),
-    rows.map(r => r ? r.css.slice(0, 50) : 'missing').join(' | '));
+    rows.map(r => r ? r.css.slice(0, 50) + ' @' + r.opts.delay : 'missing').join(' | '));
   check('… one after another, so they read as a list opening',
     rows[0].opts.delay < rows[1].opts.delay && rows[1].opts.delay < rows[2].opts.delay,
     rows.map(r => r.opts.delay).join(','));
@@ -2411,12 +2418,14 @@ check('… and it is the *other* label that colours it — @quick is on all of t
   /const other = \(t\.labels \|\| \[\]\)[\s\S]*?tdName\(QUICK_LABEL\)/.test(
     fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8')));
 
-/* PLAN's border fade. */
-const fadeFrac = (planJs2.match(/Math\.max\(70, Math\.round\(ms \* \.(\d+)\)\)/) || [])[1];
-check('PLAN\'s border fade is a fifth of the move, not nearly half of it',
-  fadeFrac === '22', 'ms * .' + fadeFrac);
-check('… and the tile\'s own CSS transition is not the slow one instead',
-  /\.ns-plan \.proj-tile\{[\s\S]*?transition:border-color \.12s/.test(
+/* 2.22 crossfaded the tile's border under the move and 2.22.1 shortened the
+   crossfade; 2.22.2 removed it — the tile is not painted at all until the move
+   is over. There is no fade fraction left to tune, which was the point. */
+check('the tile is no longer crossfaded under the move at all',
+  !/Math\.max\(70, Math\.round\(ms \* \.\d+\)\)/.test(planJs2) &&
+  !/borderColor:a\.bd/.test(planJs2));
+check('… and the tile\'s own CSS transition cannot become the slow one instead',
+  /\.ns-plan \.proj-tile\{[^}]*transition:border-color \.12s/.test(
     fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')));
 
 /* STORE's pinned counter. */
@@ -2489,40 +2498,42 @@ check('… and on a pointer that is not coarse, `auto` leaves the field alone en
   return !w.Shell.numpad.isOpen();
 })());
 
-/* PLAN's transition: what leaves is animated now. Nothing that left ever was —
-   the grid's innerHTML is replaced, so seven tiles were cut on the first frame
-   while one heading glided for two thirds of a second. */
+/* PLAN's transition: nothing moves but the name and its dot. Three releases
+   were spent making this smoother by animating *more* of it; a screen where
+   eight things move at once has no subject, and a gesture with no subject reads
+   as a stutter however well each part is timed. */
 const planJs3 = fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8');
-check('snap() keeps the nodes, so what leaves can still be animated',
-  /m\.set\(el\.dataset\.flip, \{ el, r: el\.getBoundingClientRect\(\)/.test(planJs3));
-check('… and flip() ghosts them out instead of cutting them',
-  /function ghostOut\(before, now, ms\)/.test(planJs3) &&
-  /ghostOut\(before, now, ms\);/.test(planJs3));
-check('… a ghost is not findable by the next snap(), and not clickable on the way out',
-  /g\.removeAttribute\('data-flip'\)/.test(planJs3) &&
-  /g\.querySelectorAll\('\[data-flip\]'\)\.forEach\(c => c\.removeAttribute\('data-flip'\)\)/.test(planJs3) &&
-  /g\.style\.pointerEvents = 'none'/.test(planJs3));
-check('… over a grid that is positioned but never transformed',
-  /\.ns-plan \.proj-grid\{[^}]*position:relative/.test(
-    fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')) &&
-  !/\.ns-plan \.proj-grid\{[^}]*transform:/.test(
+check('the ghosts are gone — what leaves is hidden, like everything else that is not the name',
+  !/ghostOut/.test(planJs3) &&
+  !/\.ns-plan \.proj-grid\{[^}]*position:relative/.test(
     fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8')));
-const revealDelay = (planJs3.match(/delay:Math\.round\(ms \* \.(\d+)\) \+ \(fresh\+\+ \* (\d+)\)/) || []);
-check('… and the rows arrive as a wave that finishes with the move, not after it',
-  revealDelay[1] === '18' && revealDelay[2] === '26' &&
-  /duration:Math\.round\(ms \* \.42\)/.test(planJs3),
-  revealDelay.slice(1).join('/'));
-// the last row must land before the move does, whatever those numbers become
-const flipTotal = 680;
-const rowsWorst = Math.round(flipTotal * (+('0.' + revealDelay[1]))) + 5 * (+revealDelay[2]) + Math.round(flipTotal * .42);
-check('… proved by the arithmetic: six rows in, all of them landed inside the move',
-  rowsWorst <= flipTotal, rowsWorst + 'ms of ' + flipTotal + 'ms');
+check('the movers are the text elements, and their box is a carrier rather than a mover',
+  /const movers = new Set\(\), carriers = new Set\(\)/.test(planJs3) &&
+  /movers\.add\(el\);\s*\n\s*carriers\.add\(now\.get\(box\)\.el\)/.test(planJs3));
+check('… a mover carries its full delta now, since its box no longer slides under it',
+  /transform:`translate\(\$\{d\.dx\}px,\$\{d\.dy\}px\) scale\(\$\{s\}\)`/.test(planJs3) &&
+  !/const tx = d\.dx - p\.dx/.test(planJs3));
+check('… the carrier is held unpainted rather than faded, because opacity would take its text with it',
+  /carriers\.forEach\(el => \{[\s\S]{0,420}?borderColor:'transparent', backgroundColor:'transparent'/.test(planJs3) &&
+  /fill:'backwards'/.test(planJs3));
+check('… everything else in the grid is held at nothing for the whole move',
+  /delay:moveMs \+ \(fresh\+\+ \* 22\)/.test(planJs3) &&
+  /if \(grid\) Array\.from\(grid\.children\)\.forEach\(el => \{ if \(!carriers\.has\(el\)\) hold\(el\); \}\)/.test(planJs3));
+check('… and there is no move at all when the name does not actually go anywhere',
+  /const travels = \[\.\.\.movers\]\.some/.test(planJs3) &&
+  /const moveMs\s+= travels \? Math\.round\(ms \* \.58\) : 0/.test(planJs3));
+check('the queue outside the grid still slides, and is never blinked',
+  /if \(grid && grid\.contains\(el\)\) return;/.test(planJs3));
+// move + reveal must still fit the one motion budget the shell uses for a tab change
+const mv = +(planJs3.match(/travels \? Math\.round\(ms \* \.(\d+)\) : 0/) || [])[1];
+const rv = +(planJs3.match(/const revealMs = Math\.round\(ms \* \.(\d+)\)/) || [])[1];
+check('… and the whole gesture still fits inside one --t-flip',
+  mv + rv <= 100, mv + '% move + ' + rv + '% reveal');
 w.Shell.go('plan'); w.PLAN.closeProj();
 w.PLAN.openProj('curate');
 check('opening a project still leaves exactly one tile and its sections on screen',
   d.querySelectorAll('.ns-plan .proj-tile').length === 1 &&
-  d.querySelectorAll('.ns-plan .proj-sec').length > 0 &&
-  !d.querySelector('.ns-plan .proj-list [aria-hidden="true"][data-flip]'),
+  d.querySelectorAll('.ns-plan .proj-sec').length > 0,
   d.querySelectorAll('.ns-plan .proj-tile').length + ' tiles');
 w.PLAN.closeProj();
 
@@ -2530,6 +2541,14 @@ w.PLAN.closeProj();
 check('a written day is a tint rather than a fill — the border carries the state',
   /\.ns-log \.lc-c\.f2\{background:color-mix/.test(logCss2) &&
   !/\.ns-log \.lc-c\.f2\{background:var\(--y\)/.test(logCss2));
+/* Forty-two boxes at the full border weight is a lattice, and it was the
+   loudest thing on the screen. Half of --bw, floored at one physical pixel —
+   a ratio, so the Border weight dial still reaches it (§4). */
+check('a day\'s border is a hairline, and still derived from --bw rather than a literal',
+  /\.ns-log \.lc-c\{[^}]*border:max\(\.5px, calc\(var\(--bw\) \* \.5\)\) solid/.test(logCss2) &&
+  !/\.ns-log \.lc-c\{[^}]*border:var\(--bw\) solid/.test(logCss2));
+check('… and the one heavy line in the grid is the selected day, of which there is one',
+  /\.ns-log \.lc-c\.sel\{box-shadow:0 0 0 1\.5px var\(--y\)/.test(logCss2));
 w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
 check('the fortnight draws three series now, stress beside energy and mood',
   d.querySelectorAll('.ns-log .lc-l').length === 3 &&

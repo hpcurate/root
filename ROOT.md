@@ -654,19 +654,33 @@ both say so, and a new device needs the `.apkg` imported again.
   runs.
 - **PLAN's expanded project is not state.** `openKey` and `openSub` live in
   the module and are deliberately not persisted or put in Config.
-- **flip() only walks what is on screen, so what *leaves* has to be put back.**
-  Opening a project replaces the grid's `innerHTML`: seven tiles are detached
-  before `flip()` runs, so they were never animated at all — most of the screen
-  cut on the first frame while one heading glided for two thirds of a second,
-  and that mismatch is what read as a stutter. It is why retuning the border
-  fade fixed nothing in 2.21 or 2.22. `snap()` keeps the nodes (a detached node
-  is still a node) and `ghostOut()` re-appends each as an absolutely positioned
-  ghost at the rect it had, then fades it. A ghost has its `data-flip` stripped
-  — its own and every descendant's — or the next `snap()` finds two elements
-  claiming one key.
-- **`.proj-grid` is `position:relative` and must never be transformed.** The
-  ghosts are positioned against it. A transform there would make it the
-  containing block for anything `position:fixed` inside the track (§3).
+- **Opening a project moves exactly two elements, and hides everything else.**
+  Four releases were spent making this smoother by animating *more* of it —
+  faster border fades, staggered rows, ghosts of the tiles that left — and every
+  one was the same mistake in a different place. A screen where eight things
+  move at once has no subject, and a gesture with no subject reads as a stutter
+  however well each part is timed. The grid clears to the project's **name and
+  its colour dot**, those travel and grow, and the new content appears after
+  them. Three groups in `flip()`, and every element is in exactly one:
+  the **movers** (`[data-flip-text]`, present in both snapshots), the
+  **carrier** (the box they live in), and everything else. What leaves is simply
+  gone on the first frame — which is right *because* everything that stays is
+  invisible on that frame too, so the screen clears in one go rather than
+  half-cutting and half-fading.
+- **A mover carries its full delta; `data-flip-text` no longer subtracts.** The
+  attribute used to name the box so the box's own slide could be taken off the
+  text's. The box does not slide any more, so the text carries the whole
+  distance; the attribute still names the carrier, which is what it is read for
+  now.
+- **A carrier is held *unpainted*, never faded.** `opacity` on a parent takes
+  its children with it, and its children are the two things that must stay
+  visible. Its border and background are animated from `transparent` with
+  `fill:'backwards'` and a delay instead, so the box arrives with the rest of
+  the screen. Its other children (`.proj-meta`) are held back like anything
+  else — anything that *wraps* a mover is not.
+- **No move when nothing travels.** Opening a section's form leaves the heading
+  where it is; holding the screen blank for 400ms while nothing moves is a
+  pause, not a transition. `travels` decides, and `moveMs` is 0 when it is false.
 - **A `data-flip` key is an identity, and sharing one across two different
   elements is a bug.** The section rows once borrowed the keys of the tiles
   they replaced, to make the tiles look like they became the rows; what it
@@ -675,22 +689,16 @@ both say so, and a new device needs the `.apkg` imported again.
   element owns its key now (`p:` tiles, `sec:` rows, `form:` the panel,
   `queue`), so only genuinely persisting elements move and everything else is
   revealed. A harness check fails if a row carries a `p:` key again.
-- **A box is never scaled; its border fades instead.** This reverses what this
-  file said until 2.20.1, and the reason is worth keeping: `flip()` used to
-  scale the box and hold its children at `opacity:0` until the scale resolved,
-  because scaling a box scales its border, its radius and its padding with it
-  and stretches everything inside. Counter-scaling the children could not fix
-  that *while the box itself was scaled*. So the box is not scaled any more —
-  it is drawn at its new size, slid from its old position, and its border and
-  background are animated between the two treatments. Nothing is stretched, so
-  nothing has to be hidden.
+- **A box is never scaled.** Scaling a box scales its border, its radius and its
+  padding with it and stretches everything inside; counter-scaling the children
+  cannot fix that while the box itself is scaled. Since 2.22.2 the box is not
+  animated at all — it is drawn at its new size and simply not painted until the
+  move is over. (2.20.1–2.22.1 slid it and crossfaded its border under the move.
+  That was better than scaling it and still one thing too many on screen.)
 - **Text carries its own flip key and is never faded.** `.proj-name` and
-  `.proj-dot` are `data-flip` elements in their own right, with
-  `data-flip-text` naming the box they sit in so the box's slide can be
-  *subtracted* from theirs rather than compounding with it. They translate and
-  scale from where they were to where they are. The name you tapped stays on
-  screen the whole way, which is what stops the two states reading as two
-  different screens.
+  `.proj-dot` are `data-flip` elements in their own right and are the only
+  things that move. The name you tapped stays on screen the whole way, which is
+  what stops the two states reading as two different screens.
 - **PLAN's form has no screen of its own.** It is drawn into the tile grid by
   `formPanel()` with the ids it has always had, so every handler is
   unchanged — but each row is optional (`plan.formFields`), so nothing may
@@ -921,7 +929,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 494 checks covering boot, every theme and panel, the
+through DOM events: 499 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1164,6 +1172,53 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.22.2 — 2026-09-04 — one thing moves, and a hairline
+
+**PLAN's transition, at the fourth attempt, and this time by being told what to
+do rather than by guessing.** 2.21 made the border fade faster. 2.22 made it
+faster again. 2.22.1 found that the tiles which *left* were never animated at
+all and gave them ghosts. Each was a genuine improvement to a thing that was
+still wrong, because the diagnosis underneath all three was wrong: they all
+assumed the answer was to animate *more* of the screen better. It is not. A
+screen where eight things move at once has no subject, and a gesture with no
+subject reads as a stutter however well each part is timed.
+
+So the instruction was: hide everything except the name and the colour dot,
+move those. That is what it does. The grid clears on the first frame, the
+project's name and dot travel and grow from where you tapped to where the
+heading goes, and the section rows appear under them afterwards. Three groups
+in `flip()` and every element is in exactly one of them — the **movers**, the
+**carrier** box they live in, and everything else. The ghosts are gone: what
+leaves is hidden, which is now consistent rather than a cut, because everything
+that stays is hidden on that frame too.
+
+Two things fell out of it worth writing down. A carrier cannot be faded —
+`opacity` on a parent takes its children with it, and its children are the two
+things that must stay visible — so its *paint* is held transparent instead and
+comes back with the rest. And there is no move at all when the name does not
+actually travel: opening a section's form leaves the heading exactly where it
+is, and 400ms of blank screen while nothing moves is a pause, not a transition.
+
+**A hairline round a day in LOG's month.** Forty-two boxes at the full border
+weight is a lattice, and the lattice was the loudest thing on that screen. Half
+of `--bw`, floored at .5px — one physical pixel on any phone — so it is ruling
+rather than a grid of buttons. Still a ratio of the dial and not a literal, so
+Border weight still reaches it (§4). The selected day's ring came down from 2px
+to 1.5px with it: it can be the one heavy line in the grid, because there is
+exactly one of it.
+
+**Verified** — `test/harness.mjs`, 499 checks, all green. The scripted-layout
+transition test rewritten for the new shape: the tile unpainted for the whole
+move and painted in after it with `fill:backwards`, the name the only thing
+moving, the rows held back and revealed in order, the queue outside the grid
+still sliding. Plus the source assertions — movers and carriers separated, the
+mover carrying its full delta, no ghosts left, no move when nothing travels, and
+the arithmetic that move plus reveal still fits one `--t-flip`. The hairline
+asserted as a ratio of `--bw` and not a literal.
+
+**Still not verified by me**: how it looks. The Chrome extension is still not
+connected.
 
 ### 2.22.1 — 2026-09-04 — what the first look on a real screen turned up
 
