@@ -23,7 +23,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CAL**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A strip of the planned days ahead. Written at export time and read from nowhere else — see §9. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. Stepped left and right through the days that are planned. Written at export time and read from nowhere else — see §9. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -581,11 +581,22 @@ both say so, and a new device needs the `.apkg` imported again.
   element owns its key now (`p:` tiles, `sec:` rows, `form:` the panel,
   `queue`), so only genuinely persisting elements move and everything else is
   revealed. A harness check fails if a row carries a `p:` key again.
-- **A box that changes shape must not show its text while it does.**
-  `flip()` scales the box and holds its children at `opacity:0` until the
-  scale has nearly resolved. Counter-scaling the children instead does not
-  work here — the tile goes from a third of the width to full width, and the
-  content would overflow the box it is supposedly inside for most of the way.
+- **A box is never scaled; its border fades instead.** This reverses what this
+  file said until 2.20.1, and the reason is worth keeping: `flip()` used to
+  scale the box and hold its children at `opacity:0` until the scale resolved,
+  because scaling a box scales its border, its radius and its padding with it
+  and stretches everything inside. Counter-scaling the children could not fix
+  that *while the box itself was scaled*. So the box is not scaled any more —
+  it is drawn at its new size, slid from its old position, and its border and
+  background are animated between the two treatments. Nothing is stretched, so
+  nothing has to be hidden.
+- **Text carries its own flip key and is never faded.** `.proj-name` and
+  `.proj-dot` are `data-flip` elements in their own right, with
+  `data-flip-text` naming the box they sit in so the box's slide can be
+  *subtracted* from theirs rather than compounding with it. They translate and
+  scale from where they were to where they are. The name you tapped stays on
+  screen the whole way, which is what stops the two states reading as two
+  different screens.
 - **PLAN's form has no screen of its own.** It is drawn into the tile grid by
   `formPanel()` with the ids it has always had, so every handler is
   unchanged — but each row is optional (`plan.formFields`), so nothing may
@@ -606,6 +617,12 @@ both say so, and a new device needs the `.apkg` imported again.
   them off the template (`slotsOf`), never from a list of six written down in
   code. The two templates otherwise differ only by the hour of gym, which is
   why every offset after it is exactly an hour earlier on a rest day.
+- **A task holds a list of slots, not a slot.** Since 2.20.1 `expSlots` maps a
+  task to an *array*: a job that runs over b1a and b1b is one task given two
+  hours, and the description writes one line per slot — the same name twice.
+  Tapping a slot the task already holds gives back that hour alone. A slot is
+  still exclusive: another task is refused it, by name. Anything reading the
+  assignment takes `r.slots`, never `r.slot`.
 - **A slot is assigned, never derived.** Until 2.16 the `a`/`b` half of a
   block was inferred from the order the two tasks were sent in, and the task's
   own `@b1` label decided which block. Neither is true now: the six slots are
@@ -781,13 +798,14 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 366 checks covering boot, every theme and panel, the
+through DOM events: 388 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
 in-place projects, form, sent history, day export and due dates of 2.5–2.18,
 and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
-alert in 2.19, and CAL and the new-app migration in 2.20. jsdom has no
+alert in 2.19, CAL and the new-app migration in 2.20, and the multi-slot
+export, the stepped day and the new transition in 2.20.1. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -898,6 +916,7 @@ silence when the description is written:
 | the tap | what happens |
 | --- | --- |
 | a seventh row picked | refused — a day has six slots |
+| a slot the task already holds | given back, that hour alone |
 | a slot another task holds | refused, naming the task that holds it |
 | b3 while `rest` is picked | refused — those hours are free time |
 | switching to `rest` with b3 given out | the b3s are dropped, with a toast |
@@ -905,7 +924,17 @@ silence when the description is written:
 
 ---
 
-## 9. CAL — the day, drawn
+## 9. DAY (`cal`) — the day, drawn
+
+### Its name is not its id
+
+The tab wears **DAY**. The app's id is `cal`, and stays `cal` everywhere it is
+an identity: `cal_days_v1`, `.ns-cal`, `Prefs.APPS`, `appsSeen`,
+`data-panel="cal"`, the `p:`-style flip keys, the storage group's `match`. Only
+the *labels* changed — the wordmark, the tab caption, `APP_NAMES`, `SEG_NAMES`
+and the storage report's row. Renaming the id would have churned a storage key,
+a namespace and the app migration for a word. Same split as
+`plan.types[].key`: a label is editable, an identity is not.
 
 ### What it is, and what it is not
 
@@ -947,13 +976,31 @@ write them: the day has that shape whether or not Google is told about it.
 Each can be switched off — which is the one state where the drawing is empty
 and has to say *which dial did it* rather than "nothing planned".
 
+### Left, the day, right
+
+Stepping walks the days that **exist** — the planned ones plus today — not the
+calendar, so "next" never lands on a run of empty days to click through. An
+arrow with nowhere to go is dimmed and disabled *in place*: a control that
+disappears at the edge shifts the label beside it and the day jumps under your
+thumb. This replaced a horizontal strip of day chips, which as a sideways
+scroller inside `#track` needed its own `touch-action` to work under a finger
+at all; two buttons and a label need none of that.
+
+### Lower case, deliberately
+
+DAY is the one app that reads lower case throughout. `Prefs.formatDate()` is
+shared and capitalises, so it is folded in `cal.js` rather than changed there,
+and `.cw-date`, `.cw-rel` and `.ch-meta` set `text-transform:none` **by name** —
+the one deliberate exception to the "a new label says `var(--caps)`, never
+`uppercase`" rule in §6. Written down here so it reads as a choice, not a miss.
+
 ### The dials
 
 `calHour` (how tall an hour is drawn — the one place a pixel is a setting rather
 than a token), `calShowFixed`, `calShowIdle`, `calCalNames`, `calAhead` (how far
-the strip looks forward) and `calKeep` (how long a passed day is kept). The keep
-window sweeps behind only; a day planned three weeks out is the point of the
-strip.
+ahead a planned day is still offered) and `calKeep` (how long a passed day is
+kept). The keep window sweeps behind only; a day planned three weeks out is the
+point of the thing.
 
 ---
 
@@ -961,6 +1008,70 @@ strip.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.20.1 — 2026-09-04 — a task over several hours, a day you step through, and a transition that stops zooming
+
+Seven small things, three of which turned out not to be small.
+
+**A task can take more than one hour.** `expSlots` maps a task to a *list* of
+slots now, not one. A job that runs over b1a and b1b is one task given two
+hours instead of the same task sent and picked twice, the description writes
+one line per slot — the same name twice, in the day's order — and DAY draws it
+as two blocks in the one project's colour. Tapping a slot the task already
+holds gives back that hour alone rather than clearing the lot. A slot is still
+exclusive: another task asking for it is refused by name.
+
+**The transition stops being a zoom.** Opening a project used to scale the tile
+into its heading, which scaled its border, its radius and its padding with it —
+and it was only because the box was being stretched that its contents had to be
+held at `opacity:0` until the scale resolved. The box is not scaled any more:
+it is drawn at its new size, slid from its old position, and its border and
+background *fade* between the two treatments. The name and its dot carry their
+own flip keys and are FLIPped properly, translating and scaling from where they
+were to where they are, never faded — with `data-flip-text` naming their box so
+its slide is subtracted from theirs instead of compounding. §6 said counter-
+scaling the children could not work here; that was true while the box itself
+was scaled, and the note has been rewritten rather than deleted.
+
+**The project tiles are one row.** Half the height, the name and its dot at the
+left, "3 sections" / "2 queued" at the right end of the same row instead of
+underneath. `--tile-h` is 46px now, and the open heading, the section rows and
+the form were re-expressed in it so all three keep the exact height they had.
+
+**DAY.** The wordmark reads DAY and the tab says `day`; the id stays `cal`
+everywhere it is an identity — the storage key, the namespace, `Prefs.APPS`,
+the settings panel — because renaming that would churn all four for a word, and
+re-running the app migration for nothing. The day strip of chips is gone,
+replaced by ← and → stepping through the days that exist, each arrow dimmed and
+disabled in place when there is nowhere further to go. Dropping the strip also
+dropped a sideways scroller inside `#track`, which needed its own
+`touch-action` to be usable under a finger. And the dates read lower case:
+`Prefs.formatDate()` is folded in `cal.js` and three rules opt out of the caps
+switch by name — the one deliberate exception to that rule, written down in §9
+so it reads as a choice.
+
+**DO's today list gets the blocks section's gesture.** "→ tomorrow" turns the
+rows from tick to select, you pick what is moving, one button sends it, and
+"all" is still one tap. It is no longer gated on 20:00 — the old button moved
+*everything* open, which only made sense late in the evening; choosing what
+moves makes sense at any hour. A plant row is not selectable, TEND owns those.
+`DO.deferToday()` called with nothing selected still moves every open task,
+which is what it always did and what the ROOT.md entry promised.
+
+**Verified** — `test/harness.mjs`, 388 checks, all green, 22 of them new. A
+task taking two slots and saying so, the description writing its name twice in
+the day's order, one slot handed back without the other, another task still
+refused it, and the pair arriving on DAY as two blocks of one colour. The tile
+fading its border with no scale anywhere, the name moving and growing under its
+own key with no opacity in the frames, and no child animation left in the run
+at all. The day stepped both ways with the far arrow disabled at each end, a
+disabled arrow doing nothing, the date lower case in the DOM and the three
+`text-transform:none` rules in the sheet. DAY worn and `cal` kept, found by the
+name it wears. And DO's list turning selectable, the button armed only by a
+selection, a plant refused, and exactly the picked task moved.
+
+**Still not verified**: how any of it looks. Same reason as 2.20 — jsdom does
+not paint, and no browser was available to drive.
 
 ### 2.20 — 2026-09-04 — the day you planned, drawn where you can see it
 
@@ -1685,12 +1796,13 @@ settings home (out of the bar), the settings tab shows that app's sprite
 icon and name and lights up; tapping it goes to the settings home and
 retires the slide. `paintNav()` swaps the `<use>` href back on any other tab.
 
-**"→ tomorrow" on the today list.** From 20:00, when the list has open
-fetched tasks, a button on its head reschedules every one of them to
-tomorrow in Todoist (`POST /tasks/{id}` with `due_string: "tomorrow"`) after a
-confirm, and they drop off the list. Plants are not touched — TEND owns
-those. The hour gates only the button; `DO.deferToday()` works whenever it is
-called.
+**"→ tomorrow" on the today list.** When the list has open fetched tasks, a
+button on its head reschedules them to tomorrow in Todoist
+(`POST /tasks/{id}` with `due_string: "tomorrow"`) after a confirm, and they
+drop off the list. Plants are not touched — TEND owns those. *(Since 2.20.1
+this is a select-then-move gesture like the blocks section's, and no longer
+gated on the hour — see that entry. `DO.deferToday()` with nothing selected
+still moves every open task, which is what it always did.)*
 
 **Verified** — `test/harness.mjs`, 149 checks, all green: no media row on
 the evening form, a past day's media pill in history; the arrow plain on a

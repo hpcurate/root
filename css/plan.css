@@ -64,25 +64,32 @@
 
 /* ── Project tiles ── */
 .ns-plan .projects{padding:0 calc(18px * var(--dens));margin-bottom:26px}
-/* one tile is the unit the expanded states are measured in: the open project
-   is 1.35 of it, its section rows a half, the task form four */
+/* One tile is the unit the expanded states are measured in. The tile is a
+   single row now — half the height it used to be — so the open project and a
+   section row are one tile each and the form is eight, which is the same
+   absolute height those three had before the tile was halved. */
 .ns-plan .proj-grid{display:grid;grid-template-columns:1fr 1fr;
-  --tile-h:92px;--tile-gap:calc(8px * var(--dens));gap:var(--tile-gap)}
+  --tile-h:46px;--tile-gap:calc(8px * var(--dens));gap:var(--tile-gap)}
 /* Filled exactly like DO's block tiles: a 10% wash of the label's colour with
    the colour itself on the border. Queued lifts the wash. */
 .ns-plan .proj-tile{border-radius:var(--r2);
   background:color-mix(in srgb,var(--proj-color,var(--bd)) 10%,var(--s1));
   border:var(--bw) solid var(--proj-color,var(--bd));
-  padding:calc(15px * var(--dens)) calc(14px * var(--dens)) calc(13px * var(--dens));cursor:pointer;text-align:left;user-select:none;
-  display:flex;flex-direction:column;gap:calc(9px * var(--dens));min-height:var(--tile-h);
+  padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;text-align:left;user-select:none;
+  display:flex;flex-direction:row;align-items:center;justify-content:space-between;
+  gap:calc(10px * var(--dens));min-height:var(--tile-h);
   transition:border-color .14s,background .14s}
 .ns-plan .proj-tile:active{background:color-mix(in srgb,var(--proj-color,var(--bd)) 20%,var(--s1))}
 .ns-plan .proj-tile.has{background:color-mix(in srgb,var(--proj-color,var(--bd)) 22%,var(--s1))}
-.ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens))}
+.ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens));min-width:0}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
-.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx)}
-/* the "n sections" line reads in the tile's own colour, like its outline */
-.ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--proj-color,var(--mu));letter-spacing:.05em;margin-top:auto}
+.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* the "n sections" line reads in the tile's own colour, like its outline. It
+   sits at the right end of the row rather than under the name — the tile is
+   one row tall now, so there is no "under". */
+.ns-plan .proj-meta{font:400 9px/1.4 var(--mono);color:var(--proj-color,var(--mu));letter-spacing:.05em;
+  flex:0 0 auto;text-align:right;white-space:nowrap}
 .ns-plan .proj-meta em{color:var(--proj-color);font-style:normal}
 /* a project with nothing mapped says so here rather than failing at send time */
 .ns-plan .proj-meta .unmapped{color:var(--or)}
@@ -94,8 +101,8 @@
    a banner competing with them. The horizontal padding stays, so the name
    lines up with the section rows' own text. Under it sits one row per
    section, two tiles wide and about half a tile tall. */
-.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
-  background:none;border-color:transparent;justify-content:center;
+.ns-plan .proj-tile.open{grid-column:1 / -1;min-height:var(--tile-h);
+  background:none;border-color:transparent;justify-content:flex-start;
   padding-top:0;padding-bottom:0}
 /* both of these would otherwise paint the box back in: they are more
    specific than .open, or as specific and declared earlier */
@@ -109,7 +116,7 @@
 /* the form open under it: the same heading, unchanged — .wide is kept as the
    state marker (aria and the harness read it) but no longer grows the box */
 
-.ns-plan .proj-sec{grid-column:1 / -1;min-height:calc(var(--tile-h) / 2);
+.ns-plan .proj-sec{grid-column:1 / -1;min-height:var(--tile-h);
   display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   background:color-mix(in srgb,var(--proj-color) 10%,var(--s1));
   border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
@@ -122,7 +129,7 @@
    Two tiles wide and four tall, morphing out of the section row that was
    tapped. Which rows it carries is Config (plan.formFields). */
 .ns-plan .proj-form{grid-column:1 / -1;
-  min-height:calc(var(--tile-h) * 4 + var(--tile-gap) * 3);
+  min-height:calc(var(--tile-h) * 8 + var(--tile-gap) * 3);
   background:color-mix(in srgb,var(--proj-color) 7%,var(--s1));
   border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
   padding:calc(14px * var(--dens));display:flex;flex-direction:column}
@@ -162,6 +169,11 @@
 .ns-plan .exp-task-name{display:flex;align-items:center;gap:calc(8px * var(--dens));
   font:400 12px/1.35 var(--mono);color:var(--tx);word-break:break-word}
 .ns-plan .exp-task-name .q-dot{margin-top:0;flex-shrink:0}
+/* a task holding more than one hour says how many, so a two-slot job is not
+   mistaken for a mis-tap */
+.ns-plan .exp-span{margin-left:auto;flex-shrink:0;font-style:normal;
+  font:400 8.5px/1 var(--mono);letter-spacing:1px;text-transform:var(--caps);
+  color:var(--q-color,var(--y))}
 /* built from the templates, so it wraps rather than running off the edge */
 .ns-plan .exp-slots{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens))}
 .ns-plan .exp-slot{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);

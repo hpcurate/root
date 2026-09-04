@@ -1596,7 +1596,11 @@ function renderToday() {
   const t = ttToday();
   const rows = rowsData.map(x => {
     const pri = TT_PRI[x.priority];
-    return `<button class="tt-row${x.done ? ' done' : ''}${x.due < today && !x.done ? ' late' : ''}" onclick="DO.toggleTodayTask('${esc(x.id)}')">
+    const locked = ttMove && (x.src === 'tend' || x.done);
+    return `<button class="tt-row${x.done ? ' done' : ''}${x.due < today && !x.done ? ' late' : ''}${
+      ttMove && ttSel.has(x.id) ? ' sel' : ''}${locked ? ' locked' : ''}"
+      aria-pressed="${ttMove ? ttSel.has(x.id) : x.done}"
+      onclick="DO.${ttMove ? 'selectToday' : 'toggleTodayTask'}('${esc(x.id)}')">
       <span class="tt-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       ${x.glyph ? `<span class="tt-glyph">${esc(x.glyph)}</span>` : ''}
       <span class="tt-body"><span class="tt-name">${esc(x.content)}</span>
@@ -1607,14 +1611,42 @@ function renderToday() {
       </span></button>`;
   }).join('');
   const when = t.fetched ? new Date(t.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
-  // from 20:00, what is still open is tomorrow's: one button moves it there
+  /* "→ tomorrow" works the way the blocks section's does: the head button turns
+     the rows from tick to select, you pick what is moving, and one button sends
+     it. It is no longer gated on the hour — the old button moved *everything*
+     open, so it only made sense late in the evening; choosing what moves makes
+     sense at any hour. "all" is still one tap. */
   const apiOpen = td.todayOn ? t.tasks.filter(x => !x.done).length : 0;
-  const defer = apiOpen && lateHour()
-    ? '<button class="tt-refresh tt-defer" data-td-btn="→ tomorrow" data-td-busy="…" onclick="DO.deferToday()">→ tomorrow</button>' : '';
+  if (!apiOpen) { ttMove = false; ttSel.clear(); }
+  const defer = apiOpen
+    ? `<button class="tt-refresh${ttMove ? ' tt-defer' : ''}" onclick="DO.toggleTodayMove()">${ttMove ? 'cancel' : '→ tomorrow'}</button>` : '';
+  const moveBar = ttMove ? `<div class="bk-move" style="--bk-c:var(--y)">
+      <button class="bk-move-b" onclick="DO.deferToday()"${ttSel.size ? '' : ' disabled'}>→ tomorrow</button>
+      <button class="bk-move-b" onclick="DO.selectAllToday()">all ${apiOpen}</button>
+      <span class="bk-move-hint">${ttSel.size ? `${ttSel.size} → tomorrow` : 'tap the tasks to move'}</span></div>` : '';
   box.innerHTML = `<div class="tt-head"><span>today<em>${open} open</em></span><span class="tt-acts">${defer}
       ${td.todayOn ? '<button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button>' : ''}</span></div>
+    ${moveBar}
     ${rows || `<div class="tt-empty">${when ? 'nothing due today' : 'tap refresh to fetch today\'s tasks'}</div>`}
     <div class="tt-status">${t.missing && t.missing.length ? 'not found: ' + esc(t.missing.join(', ')) : when ? 'todoist fetched ' + when : ''}</div>`;
+}
+
+/* The selection is a gesture, not state: never persisted, and dropped whenever
+   the list stops having anything to move. A plant row is not selectable —
+   TEND owns those, and a missed watering is not something to postpone. */
+let ttMove = false;
+const ttSel = new Set();
+function toggleTodayMove() { ttMove = !ttMove; ttSel.clear(); Prefs.tap(); renderToday(); }
+function selectToday(id) {
+  if (String(id).startsWith('tend:')) { toast('plants are TEND\'s — not moved from here'); return; }
+  const t = (td.todayOn ? ttToday().tasks : []).find(x => x.id === id);
+  if (!t || t.done) return;
+  if (ttSel.has(id)) ttSel.delete(id); else ttSel.add(id);
+  Prefs.tap(); renderToday();
+}
+function selectAllToday() {
+  (td.todayOn ? ttToday().tasks : []).forEach(t => { if (!t.done) ttSel.add(t.id); });
+  Prefs.tap(); renderToday();
 }
 
 /* Optimistic: the row flips at once, the request follows, a failure flips it
@@ -1640,26 +1672,32 @@ async function toggleTodayTask(id) {
   }
 }
 /* ── Tomorrow ─────────────────────────────────────────────────────────────────
-   From 20:00 the today list offers "→ tomorrow": every open fetched task is
-   rescheduled to tomorrow in Todoist (v1: POST /tasks/{id} with a due string)
-   and drops off the list. Plants are not touched — TEND owns those, and a
-   missed watering is not something to postpone. The hour only gates the
-   button; the action itself works whenever it is called. */
-const lateHour = () => new Date().getHours() >= 20;
+   The today list's "→ tomorrow" turns the rows from tick to select, the way
+   the blocks section's does; the picked tasks are rescheduled in Todoist (v1:
+   POST /tasks/{id} with a due string) and drop off the list. Plants are not
+   touched — TEND owns those, and a missed watering is not something to
+   postpone.
+
+   Called with nothing selected it still moves every open task, which is what
+   it always did and what any other caller expects; the selection narrows it
+   rather than replacing it. */
 async function deferToday() {
   if (tdBusy) return;
   const open = (td.todayOn ? ttToday().tasks : []).filter(t => !t.done);
-  if (!open.length) { toast('nothing open'); return; }
-  if (!Shell.confirm(`Move ${open.length} open task${open.length === 1 ? '' : 's'} to tomorrow?`)) return;
+  const picked = ttSel.size ? open.filter(t => ttSel.has(t.id)) : open;
+  if (!picked.length) { toast('nothing open'); return; }
+  if (!Shell.confirm(`Move ${picked.length} open task${picked.length === 1 ? '' : 's'} to tomorrow?`)) return;
   tdBusy = true; renderTdButtons();
   let moved = 0, failed = 0;
   try {
-    for (const t of open) {
+    for (const t of picked) {
       try { await tdFetch(`/tasks/${t.id}`, { method:'POST', body: JSON.stringify({ due_string: 'tomorrow' }) }); moved++; t.deferred = true; }
       catch { failed++; }
     }
     const tt = ttToday();
     tt.tasks = tt.tasks.filter(t => !t.deferred);
+    ttSel.clear();
+    if (!tt.tasks.some(t => !t.done)) ttMove = false;   // nothing left to move: back to ticking
     tdPersist(); renderToday();
     toast(failed ? `${moved} moved · ${failed} failed` : `${moved} moved to tomorrow`);
   } finally { tdBusy = false; renderTdButtons(); }
@@ -1740,5 +1778,6 @@ return { go, renderSettings: renderTodoistSettings,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
          renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection,
          renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday,
-         toggleBlockMove, selectBlock, moveBlocks };
+         toggleBlockMove, selectBlock, moveBlocks,
+         toggleTodayMove, selectToday, selectAllToday };
 })();

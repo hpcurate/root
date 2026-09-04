@@ -41,14 +41,17 @@ const CATS = {
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
-                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'cal' };
+                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
 const lastPanel = {};           // per category: the pill you were on
 
 /* Display names for the app list and the start-tab chips. */
-const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'CAL' };
+/* Display names. `cal` is the app's id everywhere it is an identity — the
+   storage key, the namespace, Prefs.APPS, the settings panel — and DAY is only
+   what it is called. Renaming the id would churn all four for a word. */
+const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
                     tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day' };
 
@@ -61,7 +64,7 @@ const GROUPS = [
   { name:'PLAN',  color:'#5e8cff', match:k => k.startsWith('plan_') },
   { name:'STORE', color:'#e8a33d', match:k => k === 'store_state_v1' || k === 'eat_state_v1' },
   { name:'TEND',  color:'#3fc9b0', match:k => k.startsWith('tend.') || k.startsWith('tend_') },
-  { name:'CAL',   color:'#c98b3f', match:k => k === 'cal_days_v1' },
+  { name:'DAY',   color:'#c98b3f', match:k => k === 'cal_days_v1' },
   { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
   { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },

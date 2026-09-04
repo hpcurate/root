@@ -17,39 +17,37 @@
 
 .ns-cal .cnt{padding:0 calc(18px * var(--dens))}
 
-/* ── the day strip ────────────────────────────────────────────────────────────
-   It scrolls sideways inside #track, so it claims the gesture itself: the
-   track's pan-y reaches every descendant and overflow-x alone buys a scroller
-   that works with a mouse and is dead under a finger (§6 of ROOT.md). Built
-   from stored days, so it has no fixed width and must wrap or scroll — it
-   scrolls. */
-.ns-cal .cal-strip{display:flex;gap:calc(7px * var(--dens));overflow-x:auto;
-  touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;
-  padding:calc(4px * var(--dens)) 0 calc(10px * var(--dens));scrollbar-width:none}
-.ns-cal .cal-strip::-webkit-scrollbar{display:none}
+/* ── left, the day, right ─────────────────────────────────────────────────────
+   One row, and it does not scroll: the day strip it replaced was a horizontal
+   scroller inside #track, which needed its own touch-action to be usable under
+   a finger at all. Two buttons and a label need none of that.
 
-.ns-cal .cal-chip{flex:0 0 auto;min-width:46px;background:var(--s1);
-  border:var(--bw) solid var(--bd);border-radius:var(--r3);
-  padding:calc(7px * var(--dens)) calc(9px * var(--dens));
-  display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:var(--tx);cursor:pointer;transition:border-color var(--dur-1),background var(--dur-1)}
-.ns-cal .cal-chip .cc-day{font:400 8.5px/1 var(--mono);letter-spacing:1.2px;
-  text-transform:var(--caps);color:var(--tx-2)}
-.ns-cal .cal-chip .cc-num{font:800 16px/1 var(--head);color:var(--tx)}
-.ns-cal .cal-chip .cc-dot{font:400 8px/1 var(--mono);color:var(--y);min-height:8px}
-.ns-cal .cal-chip.on{border-color:var(--y);background:var(--y-fade)}
-.ns-cal .cal-chip.on .cc-num{color:var(--y)}
-.ns-cal .cal-chip.empty .cc-num{color:var(--bd-2)}
-.ns-cal .cal-chip.past{opacity:.55}
+   An arrow with nowhere to go is dimmed in place, never removed — a control
+   that disappears at the edge shifts the label beside it. */
+.ns-cal .cal-nav{display:flex;align-items:center;justify-content:space-between;
+  gap:calc(10px * var(--dens));padding:calc(4px * var(--dens)) 0 calc(12px * var(--dens))}
+.ns-cal .cal-arrow{flex:0 0 auto;width:36px;height:36px;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r3);color:var(--tx);
+  font:400 15px/1 var(--mono);cursor:pointer;
+  transition:border-color var(--dur-1),background var(--dur-1),opacity var(--dur-1)}
+.ns-cal .cal-arrow:active{background:var(--y-fade);border-color:var(--y)}
+.ns-cal .cal-arrow.off{opacity:.3;cursor:default;color:var(--bd-2)}
+.ns-cal .cal-arrow.off:active{background:var(--s1);border-color:var(--bd)}
+
+/* CAL reads lower case throughout, so these three opt out of the caps switch
+   by name rather than inheriting it — the one deliberate exception to the
+   "always var(--caps)" rule, and the reason it is written down here. */
+.ns-cal .cal-when{flex:1 1 auto;min-width:0;text-align:center}
+.ns-cal .cw-date{display:block;font:800 17px/1.2 var(--head);color:var(--tx);
+  letter-spacing:-.01em;text-transform:none;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-cal .cw-rel{display:block;font:400 8.5px/1 var(--mono);letter-spacing:1.6px;
+  color:var(--y);text-transform:none;margin-top:4px}
 
 /* ── the day's head ── */
-.ns-cal .cal-head{margin:calc(6px * var(--dens)) 0 calc(12px * var(--dens))}
-.ns-cal .ch-when{font:800 19px/1.2 var(--head);color:var(--tx);letter-spacing:-.01em;
-  display:flex;align-items:baseline;gap:8px}
-.ns-cal .ch-when em{font:400 9px/1 var(--mono);letter-spacing:1.6px;color:var(--y);
-  text-transform:var(--caps);font-style:normal}
+.ns-cal .cal-head{margin:0 0 calc(12px * var(--dens))}
 .ns-cal .ch-meta{font:400 9.5px/1.5 var(--mono);letter-spacing:.8px;color:var(--tx-2);
-  text-transform:var(--caps);margin-top:5px}
+  text-transform:none;text-align:center}
 
 /* ── the day itself ───────────────────────────────────────────────────────────
    One row per event, its height the duration, so an hour looks like an hour.

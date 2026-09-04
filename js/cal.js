@@ -140,11 +140,9 @@ function pick(iso) {
 }
 
 /* ── Rendering ─────────────────────────────────────────────────────────────── */
-const dayName = iso => {
-  const p = String(iso).split('-').map(Number);
-  return new Date(p[0], (p[1] || 1) - 1, p[2] || 1)
-    .toLocaleDateString(undefined, { weekday:'short' }).toLowerCase();
-};
+/* CAL is lower case throughout — the one app that is. `Prefs.formatDate()` is
+   shared and capitalises, so it is folded here rather than changed there. */
+const lower = s => String(s == null ? '' : s).toLowerCase();
 
 function relLabel(iso) {
   const today = Shell.today();
@@ -161,22 +159,28 @@ function visibleEvents(rec) {
     e.kind === 'task' || (e.kind === 'fixed' && showFixed) || (e.kind === 'idle' && showIdle));
 }
 
-function stripHTML() {
-  const today = Shell.today();
-  return `<div class="cal-strip" id="cal-strip">${strip().map(iso => {
-    const has = !!DB.days[iso];
-    const cls = ['cal-chip'];
-    if (iso === sel) cls.push('on');
-    if (!has) cls.push('empty');
-    if (iso < today) cls.push('past');
-    const n = has ? visibleEvents(DB.days[iso]).filter(e => e.kind === 'task').length : 0;
-    return `<button class="${cls.join(' ')}" data-act="pick" data-day="${esc(iso)}"
-                    aria-pressed="${iso === sel}" aria-label="${esc(iso)}">
-      <span class="cc-day">${esc(dayName(iso))}</span>
-      <span class="cc-num">${esc(String(iso).slice(8))}</span>
-      <span class="cc-dot">${has ? (n || '·') : ''}</span>
-    </button>`;
-  }).join('')}</div>`;
+/* ── Left and right, one day at a time ────────────────────────────────────────
+   Stepping walks the days that exist — the planned ones plus today — rather
+   than the calendar, so "next" never lands on a run of empty days you have to
+   click through. An arrow with nowhere to go is darkened and disabled rather
+   than removed: a control that vanishes at the edge moves the ones beside it,
+   and the day would jump under your thumb. */
+function navHTML() {
+  const days = strip(), i = days.indexOf(sel);
+  const prev = i > 0 ? days[i - 1] : null;
+  const next = i >= 0 && i < days.length - 1 ? days[i + 1] : null;
+  const rel = relLabel(sel);
+  const arrow = (day, glyph, label) =>
+    `<button class="cal-arrow${day ? '' : ' off'}" data-act="pick"${day ? ` data-day="${esc(day)}"` : ''}
+             ${day ? '' : 'disabled aria-disabled="true"'} aria-label="${esc(label)}">${glyph}</button>`;
+  return `<div class="cal-nav">
+    ${arrow(prev, '←', 'previous day')}
+    <div class="cal-when">
+      <span class="cw-date">${esc(lower(Prefs.formatDate(sel)))}</span>
+      ${rel ? `<span class="cw-rel">${esc(rel)}</span>` : ''}
+    </div>
+    ${arrow(next, '→', 'next day')}
+  </div>`;
 }
 
 /* One row per event, its height the duration — so an hour looks like an hour
@@ -220,12 +224,12 @@ function dayHTML() {
   }).join('')}</div>` + notesHTML(rec);
 }
 
+/* The day itself is named by the nav above; this is only what it is made of.
+   Lower case throughout, and deliberately not `var(--caps)` — see cal.css. */
 function dayHead(rec) {
-  const rel = relLabel(rec.day);
   const tasks = (rec.events || []).filter(e => e.kind === 'task').length;
   return `<div class="cal-head">
-    <div class="ch-when">${esc(Prefs.formatDate(rec.day))}${rel ? `<em>${esc(rel)}</em>` : ''}</div>
-    <div class="ch-meta">${esc(rec.template)} · from ${esc(rec.start)} · ${tasks} task${tasks === 1 ? '' : 's'}${
+    <div class="ch-meta">${esc(lower(rec.template))} · from ${esc(rec.start)} · ${tasks} task${tasks === 1 ? '' : 's'}${
       rec.mode === 'blocks' ? ' · blocks only' : ' · full schedule'}</div>
   </div>`;
 }
@@ -244,7 +248,7 @@ function render() {
   const box = $id('cal-body');
   if (!box) return;
   if (!sel || !strip().includes(sel)) sel = pickDefault();
-  box.innerHTML = stripHTML() + dayHTML();
+  box.innerHTML = navHTML() + dayHTML();
 }
 
 /* ── Settings ──────────────────────────────────────────────────────────────── */

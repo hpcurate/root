@@ -114,7 +114,8 @@ function renderProjects() {
     return `<button class="proj-tile${queued ? ' has' : ''}${big ? ' open' : ''}${big && openSub !== null ? ' wide' : ''}"
               style="--proj-color:${color}" data-flip="p:${tt.key}" aria-expanded="${!!big}"
               onclick="PLAN.openProj('${tt.key}')">
-      <span class="proj-head"><span class="proj-dot"></span><span class="proj-name">${tt.label}</span></span>
+      <span class="proj-head"><span class="proj-dot" data-flip="pd:${tt.key}" data-flip-text="p:${tt.key}"></span><span
+            class="proj-name" data-flip="pn:${tt.key}" data-flip-text="p:${tt.key}">${tt.label}</span></span>
       <span class="proj-meta">${meta}</span>
     </button>`;
   };
@@ -234,46 +235,84 @@ function fitTitle(el) {
    project's own tile, growing. A no-op without layout (jsdom) or Web
    Animations. */
 const FLIP_EASE = 'cubic-bezier(.2,.8,.2,1)';
+/* The border and background are recorded with the box, because a box that
+   changes shape now fades between the two treatments instead of being scaled
+   into them — see flip(). */
 function snap() {
   const m = new Map();
-  $all('[data-flip]').forEach(el => m.set(el.dataset.flip, el.getBoundingClientRect()));
+  $all('[data-flip]').forEach(el => {
+    let bd = '', bg = '';
+    try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
+    m.set(el.dataset.flip, { r: el.getBoundingClientRect(), bd, bg });
+  });
   return m;
 }
+/* ── Two kinds of moving element, animated differently ───────────────────────
+   **A box is never scaled.** Scaling a box scales its border, its radius and
+   its padding with it, which is what made opening a project read as a zoom —
+   and it was only because the box was being stretched that its contents had to
+   be hidden on the way. A box that changes shape is drawn at its new size,
+   slid from where it was, and its border and background *fade* between the two
+   treatments. Nothing is distorted, so nothing has to be hidden.
+
+   **Text moves and grows, and never fades.** `.proj-name` and its dot carry
+   their own flip keys and are FLIPped properly — translated and scaled from
+   where they were to where they are — with `data-flip-text` naming the box
+   they sit in, so the box's own slide can be subtracted from theirs rather
+   than compounding with it. The name you tapped stays on screen the whole way
+   and simply becomes the heading; losing sight of it mid-flight was the one
+   thing that made the two states feel like different screens.
+
+   (This reverses the note §6 used to carry about counter-scaling. It could not
+   work while the box itself was scaled; it works now because it is not.) */
 function flip(before) {
   const ms = flipMs();
   if (!before.size || !ms) return;
-  let fresh = 0;
-  $all('[data-flip]').forEach(el => {
-    if (!el.animate) return;
-    const b = el.getBoundingClientRect();
-    if (!b.width || !b.height) return;
-    const a = before.get(el.dataset.flip);
 
-    if (!a || !a.width || !a.height) {                       // new: reveal it
+  const now = new Map();
+  $all('[data-flip]').forEach(el => now.set(el.dataset.flip, { el, r: el.getBoundingClientRect() }));
+  const deltaOf = key => {
+    const a = before.get(key), n = now.get(key);
+    if (!a || !n || !a.r.width || !a.r.height || !n.r.width || !n.r.height) return null;
+    return { dx: a.r.left - n.r.left, dy: a.r.top - n.r.top,
+             sw: a.r.width / n.r.width, sh: a.r.height / n.r.height };
+  };
+
+  let fresh = 0;
+  now.forEach(({ el, r }, key) => {
+    if (!el.animate || !r.width || !r.height) return;
+    const a = before.get(key);
+
+    if (!a || !a.r.width || !a.r.height) {                   // new: reveal it
       el.animate([{ opacity:0, transform:'translateY(-7px)' }, { opacity:1, transform:'none' }],
         { duration:Math.round(ms * .6), delay:Math.round(ms * .3) + (fresh++ * 45),
           easing:FLIP_EASE, fill:'backwards' });
       return;
     }
 
-    const dx = a.left - b.left, dy = a.top - b.top;
-    const sx = a.width / b.width, sy = a.height / b.height;
-    const moved = Math.abs(dx) > .5 || Math.abs(dy) > .5;
-    const resized = Math.abs(sx - 1) > .01 || Math.abs(sy - 1) > .01;
-    if (!moved && !resized) return;
+    const d = deltaOf(key);
+    if (!d) return;
 
-    if (!resized) {                                          // same box, new place
-      el.animate([{ transform:`translate(${dx}px,${dy}px)` }, { transform:'none' }],
-        { duration:ms, easing:FLIP_EASE });
+    if (el.dataset.flipText) {                               // text: move + grow, no fade
+      const p = deltaOf(el.dataset.flipText) || { dx:0, dy:0 };
+      const tx = d.dx - p.dx, ty = d.dy - p.dy, s = d.sh;
+      if (Math.abs(tx) < .5 && Math.abs(ty) < .5 && Math.abs(s - 1) < .01) return;
+      el.animate([{ transformOrigin:'0 50%', transform:`translate(${tx}px,${ty}px) scale(${s})` },
+                  { transformOrigin:'0 50%', transform:'none' }], { duration:ms, easing:FLIP_EASE });
       return;
     }
-    el.animate([{ transformOrigin:'0 0', transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})` },
-                { transformOrigin:'0 0', transform:'none' }], { duration:ms, easing:FLIP_EASE });
-    // the contents would be stretched by that scale; keep them out of sight
-    // until it has nearly resolved, then fade them in at their true size
-    Array.from(el.children).forEach(c => { if (c.animate) c.animate(
-      [{ opacity:0 }, { opacity:0, offset:.45 }, { opacity:1 }],
-      { duration:ms, easing:'ease-out' }); });
+
+    const moved   = Math.abs(d.dx) > .5 || Math.abs(d.dy) > .5;
+    const resized = Math.abs(d.sw - 1) > .01 || Math.abs(d.sh - 1) > .01;
+    if (moved) el.animate([{ transform:`translate(${d.dx}px,${d.dy}px)` }, { transform:'none' }],
+      { duration:ms, easing:FLIP_EASE });
+    if (resized) {
+      let bd = '', bg = '';
+      try { const cs = getComputedStyle(el); bd = cs.borderTopColor; bg = cs.backgroundColor; } catch {}
+      el.animate([{ borderColor:a.bd || 'transparent', backgroundColor:a.bg || 'transparent' },
+                  { borderColor:bd || 'transparent',   backgroundColor:bg || 'transparent' }],
+        { duration:ms, easing:FLIP_EASE });
+    }
   });
 }
 /* The shell's own motion duration, so the FLIP keeps step with the tab
@@ -915,7 +954,7 @@ function syncExport() {
    been typed. */
 const EXP_KEY = 'plan_export_v1';       // the last start time used, nothing else
 let expOpen  = false;
-let expSlots = {};                      // histKey → slot id, assigned by tapping
+let expSlots = {};                      // histKey → [slot id], assigned by tapping
 const expForm = { day:null, start:'07:00', template:'normal', mode:'blocks', notes:'' };
 
 function loadExportPrefs() {
@@ -972,13 +1011,22 @@ function calKeyFor(t) {
 }
 function calNameFor(t) { return calendars()[calKeyFor(t)] || null; }
 
-/* The picked rows with the slot each has been given. A key whose row has gone
-   (a clear, or the 200 cap) takes its slot with it. */
+/* The picked rows with the slots each has been given. A key whose row has gone
+   (a clear, or the 200 cap) takes its slots with it.
+
+   **A task holds a list, not a slot.** A two-hour job that spans b1a and b1b
+   used to have to be sent twice and picked twice; it is one task with two
+   slots now. The slots are kept in the day's own order rather than tap order,
+   so the panel and the description read down the day either way. */
 function expRows() {
   const rows = selectedSent();
   const live = new Set(rows.map(histKey));
   Object.keys(expSlots).forEach(k => { if (!live.has(k)) delete expSlots[k]; });
-  return rows.map(t => ({ t, key: histKey(t), slot: expSlots[histKey(t)] || null }));
+  const order = allSlots();
+  return rows.map(t => ({
+    t, key: histKey(t),
+    slots: (expSlots[histKey(t)] || []).slice().sort((a, b) => order.indexOf(a) - order.indexOf(b)),
+  }));
 }
 
 // tomorrow, from local parts — never from an ISO string in UTC, which is
@@ -1022,13 +1070,18 @@ function pickSlot(i, slot) {
   const rows = expRows(), r = rows[i];
   if (!r) return;
   Prefs.tap();
-  if (r.slot === slot) { delete expSlots[r.key]; renderProjects(); return; }
+  // tapping one of a task's own slots gives that one hour back, not all of them
+  if (r.slots.includes(slot)) {
+    const keep = r.slots.filter(s => s !== slot);
+    if (keep.length) expSlots[r.key] = keep; else delete expSlots[r.key];
+    renderProjects(); return;
+  }
   if (!slotsOf(expForm.template).includes(slot)) {
     toast(`${expForm.template} has no ${slot} — those hours are free time`); return;
   }
-  const held = rows.find(x => x.slot === slot && x.key !== r.key);
+  const held = rows.find(x => x.key !== r.key && x.slots.includes(slot));
   if (held) { toast(`${slot} is taken — by ${held.t.name}`); return; }
-  expSlots[r.key] = slot;
+  expSlots[r.key] = r.slots.concat(slot);
   renderProjects();
 }
 
@@ -1039,11 +1092,15 @@ function setTemplate(name) {
   Prefs.tap();
   expForm.template = name;
   const have = slotsOf(name);
-  const lost = Object.keys(expSlots).filter(k => !have.includes(expSlots[k]));
-  lost.forEach(k => delete expSlots[k]);
-  if (lost.length) {
+  let lost = 0;
+  Object.keys(expSlots).forEach(k => {
+    const keep = expSlots[k].filter(s => have.includes(s));
+    if (keep.length !== expSlots[k].length) lost++;
+    if (keep.length) expSlots[k] = keep; else delete expSlots[k];
+  });
+  if (lost) {
     const gone = allSlots().filter(s => !have.includes(s)).join(' / ');
-    toast(`${name} has no ${gone} — ${lost.length} task${lost.length !== 1 ? 's' : ''} unassigned`);
+    toast(`${name} has no ${gone} — ${lost} task${lost !== 1 ? 's' : ''} unassigned`);
   }
   renderProjects();
 }
@@ -1082,9 +1139,13 @@ const noteLines = () => String(expForm.notes || '').split('\n').map(s => s.trim(
 
 function exportDescription() {
   const order = allSlots();
-  const lines = expRows().filter(r => r.slot)
-    .sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot))
-    .map(r => `${r.slot} | ${calKeyFor(r.t)} | ${r.t.name}`);
+  /* One line per slot, not per task: a task holding b1a and b1b writes two
+     lines with the same name, which is exactly what the agent needs to build
+     two events. Sorted down the day, so the description reads as the day does. */
+  const lines = expRows()
+    .flatMap(r => r.slots.map(s => ({ s, line: `${s} | ${calKeyFor(r.t)} | ${r.t.name}` })))
+    .sort((a, b) => order.indexOf(a.s) - order.indexOf(b.s))
+    .map(x => x.line);
   const notes = noteLines();
   const out = [[`day: ${expForm.day}`, `start: ${expForm.start}`,
                 `template: ${expForm.template}`, `mode: ${expForm.mode}`].join('\n')];
@@ -1099,7 +1160,7 @@ function exportDescription() {
    an unclaimed slot shown as the idle hours it will be rather than left out. */
 function previewRows() {
   const bySlot = {};
-  expRows().forEach(r => { if (r.slot) bySlot[r.slot] = r; });
+  expRows().forEach(r => r.slots.forEach(s => { bySlot[s] = r; }));
   const out = [];
   resolved(expForm.template).forEach(r => {
     if (!r.slot) { if (expForm.mode === 'full') out.push(Object.assign({}, r, { name:r.event })); return; }
@@ -1125,7 +1186,7 @@ function previewRows() {
    not a live query. */
 function calendarDay() {
   const bySlot = {};
-  expRows().forEach(r => { if (r.slot) bySlot[r.slot] = r; });
+  expRows().forEach(r => r.slots.forEach(s => { bySlot[s] = r; }));
   const events = resolved(expForm.template).map(r => {
     const base = { from:r.from, to:r.to, over:!!r.over, dur:+r.dur || 0 };
     if (!r.slot) return Object.assign(base, { kind:'fixed', name:r.event, cal:r.cal || null });
@@ -1181,11 +1242,12 @@ function exportPanel() {
 
     <div class="f"><label class="lbl">Slots</label>
       <div class="exp-tasks" id="exp-tasks">${rows.map((r, i) => `
-        <div class="exp-task${r.slot ? ' on' : ''}" style="--q-color:${resolveColor(r.t.typeKey)}">
-          <span class="exp-task-name"><span class="q-dot"></span>${esc(r.t.name)}</span>
+        <div class="exp-task${r.slots.length ? ' on' : ''}" style="--q-color:${resolveColor(r.t.typeKey)}">
+          <span class="exp-task-name"><span class="q-dot"></span>${esc(r.t.name)}${
+            r.slots.length > 1 ? `<em class="exp-span">${r.slots.length} slots</em>` : ''}</span>
           <span class="exp-slots">${slots.map(s =>
-            `<button class="exp-slot${r.slot === s ? ' on' : ''}${have.includes(s) ? '' : ' off'}"
-                     aria-pressed="${r.slot === s}"
+            `<button class="exp-slot${r.slots.includes(s) ? ' on' : ''}${have.includes(s) ? '' : ' off'}"
+                     aria-pressed="${r.slots.includes(s)}"
                      onclick="PLAN.pickSlot(${i},'${attr(s)}')">${esc(s)}</button>`).join('')}</span>
         </div>`).join('')}</div></div>
 
@@ -1220,7 +1282,7 @@ function previewHTML() {
 function goHTML() {
   const rows = expRows();
   if (!rows.length) return '';
-  const need = rows.filter(r => !r.slot).length;
+  const need = rows.filter(r => !r.slots.length).length;
   return need
     ? `<div class="exp-need">${need} task${need !== 1 ? 's' : ''} still without a slot</div>`
     : `<button class="btn" id="exp-go" onclick="PLAN.doExport()">export ${rows.length} task${rows.length !== 1 ? 's' : ''}</button>`;
@@ -1244,7 +1306,7 @@ function paintExport() {
 async function doExport() {
   const rows = expRows();
   if (!rows.length) return;
-  const need = rows.filter(r => !r.slot).length;
+  const need = rows.filter(r => !r.slots.length).length;
   if (need) { toast(`${need} task${need !== 1 ? 's' : ''} still without a slot`); return; }
   const n = rows.length, day = expForm.day;
   const btn = $id('exp-go');

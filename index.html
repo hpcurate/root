@@ -977,11 +977,14 @@
      The body is filled by CAL.render(); nothing here is written by hand
      except the band, whose box belongs to shell.css and is shared by all nine.
      ═════════════════════════════════════════════════════════════════════════ -->
-<section class="view ns-cal" id="view-cal" aria-label="CAL">
+<section class="view ns-cal" id="view-cal" aria-label="DAY">
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label">the day, as planned</div>
-      <div class="h-logo">CAL<em>.</em></div>
+      <!-- the wordmark is DAY; the app's id stays `cal` everywhere it is an
+           identity (the storage key, .ns-cal, Prefs.APPS, the settings panel).
+           A name is a label, an id is not — the same split plan.types keeps. -->
+      <div class="h-logo">DAY<em>.</em></div>
     </div>
     <div class="cnt">
       <div id="cal-body"></div>
@@ -1669,8 +1672,8 @@
   <button class="tab-b" data-app="learn" role="tab" aria-selected="false" aria-label="LEARN">
     <svg aria-hidden="true"><use href="#tab-learn"/></svg><span class="tb-l">learn</span>
   </button>
-  <button class="tab-b" data-app="cal" role="tab" aria-selected="false" aria-label="CAL">
-    <svg aria-hidden="true"><use href="#tab-cal"/></svg><span class="tb-l">cal</span>
+  <button class="tab-b" data-app="cal" role="tab" aria-selected="false" aria-label="DAY">
+    <svg aria-hidden="true"><use href="#tab-cal"/></svg><span class="tb-l">day</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>

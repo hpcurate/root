@@ -881,11 +881,15 @@ w.PLAN.closeForm(); w.PLAN.clearQueue();
                  css: JSON.stringify(frames), opts: opts || {} });
     return { cancel() {}, finish() {} };
   };
-  // before = the folded grid, after = curate open with three section rows
+  /* before = the folded grid, after = curate open with three section rows.
+     The tile is one row tall in both states now; what changes is its width,
+     and the name's size inside it. */
   const box = {
-    before: { 'p:curate': [0, 0, 155, 92], queue: [0, 300, 340, 120] },
-    after:  { 'p:curate': [0, 0, 340, 124], 'sec:0': [0, 132, 340, 46],
-              'sec:1': [0, 186, 340, 46], 'sec:2': [0, 240, 340, 46], queue: [0, 340, 340, 120] },
+    before: { 'p:curate': [0, 0, 155, 46], 'pn:curate': [24, 17, 60, 13], 'pd:curate': [11, 18, 9, 9],
+              queue: [0, 300, 340, 120] },
+    after:  { 'p:curate': [0, 0, 340, 46], 'pn:curate': [24, 10, 118, 26], 'pd:curate': [11, 17, 11, 11],
+              'sec:0': [0, 54, 340, 46], 'sec:1': [0, 108, 340, 46], 'sec:2': [0, 162, 340, 46],
+              queue: [0, 340, 340, 120] },
   };
   w.Element.prototype.getBoundingClientRect = function () {
     const open = !!d.querySelector('.ns-plan .proj-tile.open');
@@ -897,11 +901,21 @@ w.PLAN.closeForm(); w.PLAN.clearQueue();
   w.PLAN.openProj('curate');
   const of = k => anims.find(a => a.key === k);
 
-  const tile = of('p:curate');
-  check('opening a project moves and scales only the tile that persists',
-    !!tile && /scale\(0\.45\d*,\s*0\.74\d*\)/.test(tile.css), tile ? tile.css.slice(0, 110) : 'not animated');
-  check('… and holds its contents back until the scale has nearly resolved, so no text is stretched',
-    anims.some(a => a.key === 'p:curate > child' && /"opacity":0/.test(a.css) && /0\.45/.test(a.css)));
+  /* The box is never scaled any more: scaling it scaled its border, its radius
+     and its padding with it, which is what made this read as a zoom — and it
+     was only because the box was stretched that its contents had to be hidden. */
+  const tileAnims = anims.filter(a => a.key === 'p:curate');
+  check('opening a project fades the tile\'s border and background, and never scales the box',
+    tileAnims.length > 0 && tileAnims.some(a => /borderColor/.test(a.css)) &&
+    !tileAnims.some(a => /scale\(/.test(a.css)),
+    tileAnims.map(a => a.css.slice(0, 60)).join(' | ') || 'not animated');
+  const name = of('pn:curate');
+  check('… while the name moves and grows into the heading under its own key',
+    !!name && /scale\(0\.5\)/.test(name.css) && /translate\(0px,7px\)/.test(name.css),
+    name ? name.css.slice(0, 110) : 'not animated');
+  check('… and no text is faded on the way — the name you tapped never leaves the screen',
+    !!name && !/opacity/.test(name.css) && !anims.some(a => / > child/.test(a.key)),
+    anims.filter(a => /opacity/.test(a.css)).map(a => a.key).join(','));
 
   const rows = ['sec:0', 'sec:1', 'sec:2'].map(of);
   check('the section rows are revealed, not flown in from the tiles they replaced',
@@ -1371,10 +1385,11 @@ check('the date row follows the setting, like every other row',
 w.Config.reset('plan.formFields'); w.Config.reset('plan.defaultPriority');
 w.PLAN.closeProj();
 
-/* The open project tile is a heading, not a box: no wash, no border, half a
-   tile tall — and the same with the form open under it. */
-check('an open project tile drops its box and stands half a tile tall',
-  /\.ns-plan \.proj-tile\.open\{[^}]*min-height:calc\(var\(--tile-h\) \/ 2\)/.test(planCss) &&
+/* The open project tile is a heading, not a box: no wash, no border, one tile
+   tall — and the same with the form open under it. The closed tile is a single
+   row now, so a tile *is* what the heading used to be half of. */
+check('an open project tile drops its box and stands one tile tall',
+  /\.ns-plan \.proj-tile\.open\{[^}]*min-height:var\(--tile-h\)/.test(planCss) &&
   /\.ns-plan \.proj-tile\.open\{[^}]*background:none/.test(planCss) &&
   /\.ns-plan \.proj-tile\.open\{[^}]*border-color:transparent/.test(planCss));
 check('… and neither :active nor a queued project paints it back in',
@@ -1746,10 +1761,18 @@ const evRows = () => [...d.querySelectorAll('.ns-cal .cal-ev')];
 const styleOf = (el, prop) => (String(el.getAttribute('style') || '').match(new RegExp(prop + ':\\s*([^;"]+)')) || [])[1]?.trim();
 check('CAL lands on the day just exported and draws every row of it',
   w.CAL.selected() === calDay && evRows().length === evs().length, evRows().length + ' drawn');
-check('the head names the day, its template and what is on it',
+check('the nav names the day, in lower case, and says it is tomorrow',
+  $('.ns-cal .cw-date').textContent === $('.ns-cal .cw-date').textContent.toLowerCase() &&
+  /tomorrow/.test($('.ns-cal .cw-rel').textContent),
+  $('.ns-cal .cw-date').textContent + ' / ' + $('.ns-cal .cw-rel').textContent);
+check('… and the head says what the day is made of, lower case too',
   /normal/.test($('.ns-cal .ch-meta').textContent) && /07:00/.test($('.ns-cal .ch-meta').textContent) &&
-  /2 tasks/.test($('.ns-cal .ch-meta').textContent) && /tomorrow/.test($('.ns-cal .ch-when').textContent),
+  /2 tasks/.test($('.ns-cal .ch-meta').textContent) &&
+  $('.ns-cal .ch-meta').textContent === $('.ns-cal .ch-meta').textContent.toLowerCase(),
   $('.ns-cal .ch-meta').textContent);
+check('CAL opts out of the caps switch by name, the one app that does',
+  /\.ns-cal \.cw-date\{[^}]*text-transform:none/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
+  /\.ns-cal \.ch-meta\{[^}]*text-transform:none/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')));
 check('an hour is drawn an hour tall — the height is the duration, not a constant',
   styleOf(evRows()[0], '--ev-h') === '28px' &&            // 30 min at the default 56px/hour
   styleOf(evRows().find(r => r.classList.contains('task')), '--ev-h') === '84px',
@@ -1764,16 +1787,23 @@ check('an unclaimed slot is named and marked, never shown as a task',
   evRows().some(r => r.classList.contains('idle') && /free/.test(r.textContent)),
   evRows().filter(r => r.classList.contains('idle')).map(r => r.textContent.trim()).join(' | '));
 
-/* The strip: today is always a chip, and so is every planned day ahead. */
-const chips = () => [...d.querySelectorAll('.ns-cal .cal-chip')].map(c => c.dataset.day);
-check('the strip offers today even with nothing on it, and the planned day beside it',
-  chips().includes(today) && chips().includes(calDay) &&
-  $('.ns-cal .cal-chip[data-day="' + calDay + '"]').classList.contains('on'), chips().join(','));
-click($('.ns-cal .cal-chip[data-day="' + today + '"]'));
-check('picking an unplanned day says so rather than drawing yesterday\'s',
+/* Left and right, one day at a time, through the days that exist. */
+const arrows = () => [...d.querySelectorAll('.ns-cal .cal-arrow')];
+const backBtn = () => arrows()[0], fwdBtn = () => arrows()[1];
+check('the day is stepped with two arrows, not a strip of chips',
+  arrows().length === 2 && !d.querySelector('.ns-cal .cal-chip'), arrows().length + ' arrows');
+check('tomorrow is the last day there is, so forward is darkened and disabled',
+  fwdBtn().classList.contains('off') && fwdBtn().disabled && !backBtn().classList.contains('off'),
+  'fwd off=' + fwdBtn().classList.contains('off') + ' back off=' + backBtn().classList.contains('off'));
+click(backBtn());
+check('stepping back lands on today — unplanned, and it says so rather than drawing yesterday\'s',
   w.CAL.selected() === today && !!$('.ns-cal .cal-empty'), w.CAL.selected());
-click($('.ns-cal .cal-chip[data-day="' + calDay + '"]'));
-check('… and picking the planned one brings it back', !!$('.ns-cal .cal-day'));
+check('… and now it is back that has nowhere to go',
+  backBtn().classList.contains('off') && backBtn().disabled && !fwdBtn().classList.contains('off'));
+click(backBtn());
+check('a disabled arrow does nothing at all', w.CAL.selected() === today);
+click(fwdBtn());
+check('… and forward brings the planned day back', w.CAL.selected() === calDay && !!$('.ns-cal .cal-day'));
 
 // ── the dials ──
 w.Prefs.set('calShowFixed', false);
@@ -1854,8 +1884,125 @@ check('… and its event colours are editable content like every other branch',
   !!$('.ns-set [data-content-for="cal"] [data-group="cal.eventColors"] textarea'),
   [...d.querySelectorAll('.ns-set [data-content-for="cal"] [data-group]')].map(b => b.dataset.group).join(','));
 w.SET.panel('data');
-check('cal_days_v1 is filed under CAL in the storage report',
-  /CAL/.test($('.ns-set #panel-data').textContent), 'no CAL row');
+check('cal_days_v1 is filed under DAY in the storage report',
+  /DAY/.test($('.ns-set #panel-data').textContent), 'no DAY row');
+
+// ── 31. 2.20.1 — a task over several hours, the day stepped, DAY, the row tile ─
+/* A two-hour job used to have to be sent twice and picked twice. */
+w.Shell.go('plan');
+w.PLAN.toggleSent(rowFor('clear the desk'));
+w.PLAN.openExport();
+click(slotBtn('clear the desk', 'b1a'));
+click(slotBtn('clear the desk', 'b1b'));
+check('one task can hold more than one slot',
+  slotBtn('clear the desk', 'b1a').classList.contains('on') &&
+  slotBtn('clear the desk', 'b1b').classList.contains('on'),
+  [...taskRows()[rowIdx('clear the desk')].querySelectorAll('.exp-slot.on')].map(b => b.textContent).join(','));
+check('… and the row says how many hours it is taking, so it reads as deliberate',
+  /2 slots/.test(taskRows()[rowIdx('clear the desk')].textContent),
+  taskRows()[rowIdx('clear the desk')].textContent.replace(/\s+/g, ' ').trim());
+check('… writing one line per slot — the same name twice, in the day\'s order',
+  w.PLAN.exportDescription().split('\n\n')[1] === 'b1a | home | clear the desk\nb1b | home | clear the desk',
+  JSON.stringify(w.PLAN.exportDescription().split('\n\n')[1]));
+click(slotBtn('clear the desk', 'b1a'));
+check('tapping one of its own slots gives back that hour alone, not the lot',
+  !slotBtn('clear the desk', 'b1a').classList.contains('on') &&
+  slotBtn('clear the desk', 'b1b').classList.contains('on'));
+click(slotBtn('clear the desk', 'b1a'));
+w.PLAN.toggleSent(rowFor('mix the track'));
+click(slotBtn('mix the track', 'b1b'));
+check('… while another task still cannot take an hour this one holds',
+  !slotBtn('mix the track', 'b1b').classList.contains('on') &&
+  /b1b is taken — by clear the desk/.test($('#toast').textContent), $('#toast').textContent);
+click(slotBtn('mix the track', 'b2a'));
+fetchScript = async (url, opts) => (opts && opts.method === 'POST')
+  ? { ok: true, status: 200, json: async () => ({ id: 'm1' }), text: async () => '{}' }
+  : { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+await w.PLAN.doExport();
+await tick();
+const multi = JSON.parse(w.localStorage.getItem('cal_days_v1')).days[calDay];
+const deskRows = multi.events.filter(e => e.kind === 'task' && e.name === 'clear the desk');
+check('a task holding two hours becomes two blocks on the day, both in its own colour',
+  deskRows.length === 2 && deskRows.map(e => e.slot).join(',') === 'b1a,b1b' &&
+  new Set(deskRows.map(e => e.color)).size === 1 &&
+  multi.events.filter(e => e.kind === 'task').length === 3,
+  multi.events.filter(e => e.kind === 'task').map(e => e.slot + ':' + e.name).join(' | '));
+
+/* The tile is one row now, and the meta sits at its end rather than under it. */
+check('a project tile is a single row: half the height, its meta on the right',
+  /--tile-h:46px/.test(planCss) &&
+  /\.ns-plan \.proj-tile\{[^}]*flex-direction:row/.test(planCss) &&
+  /\.ns-plan \.proj-meta\{[^}]*text-align:right/.test(planCss),
+  (planCss.match(/--tile-h:[^;]*/) || ['?'])[0]);
+
+/* The wordmark is a label; `cal` is the identity, and stays one. */
+check('the tab wears DAY while everything that is an identity stays cal',
+  $('#view-cal .h-logo').textContent.replace(/\s/g, '') === 'DAY.' &&
+  $('.tab-b[data-app="cal"] .tb-l').textContent === 'day' &&
+  !!$('.ns-set .set-panel[data-panel="cal"]') && !!$('#view-cal.ns-cal') &&
+  w.Prefs.APPS.includes('cal') && !!w.localStorage.getItem('cal_days_v1'),
+  $('#view-cal .h-logo').textContent);
+check('… and it is findable by the name it wears',
+  w.SEARCH.results('day').some(r => r.kind === 'app' && r.title === 'DAY'),
+  JSON.stringify(w.SEARCH.results('day').filter(r => r.kind === 'app').map(r => r.title)));
+
+/* DO's today list gets the blocks section's gesture. */
+/* Everything section 19 fetched has since been ticked or moved, so seed the
+   list again the same way it did. */
+w.Shell.go('do'); w.DO.setTab('daily');
+fetchScript = async (url, opts) => {
+  const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+  if (opts && opts.method === 'POST') return ok({});
+  if (url.includes('/projects')) return ok([{ id: 'p1', name: '04 | life', color: 'blue' }]);
+  if (url.includes('/sections')) return ok([{ id: 's1', name: 'admin | tasks', project_id: 'p1' }]);
+  if (url.includes('/tasks?')) return ok([
+    { id: 'x1', content: 'move me one', labels: [], priority: 2, due: { date: today }, section_id: 's1' },
+    { id: 'x2', content: 'move me two', labels: [], priority: 2, due: { date: today }, section_id: 's1' },
+  ]);
+  return ok([]);
+};
+$('.ns-do #td-today-filter').value = '04 | life';      // the rule section 19 used
+w.DO.saveTodaySettings();
+if (!JSON.parse(w.localStorage.getItem('do_todoist_v1')).todayOn) w.DO.toggleToday();
+await w.DO.refreshToday();
+await tick(150);
+const openIds = JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.filter(t => !t.done).map(t => t.id);
+check('the today list has open fetched tasks to move', openIds.length > 0,
+  'on=' + JSON.parse(w.localStorage.getItem('do_todoist_v1')).todayOn +
+  ' tasks=' + JSON.stringify(JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.map(t => t.id + (t.done ? '(done)' : ''))) +
+  ' rows=' + d.querySelectorAll('.ns-do #td-today .tt-row').length);
+check('"→ tomorrow" is offered whatever the hour now, not only after 20:00',
+  [...d.querySelectorAll('.ns-do #td-today .tt-acts button')].some(b => b.textContent === '→ tomorrow'),
+  [...d.querySelectorAll('.ns-do #td-today .tt-acts button')].map(b => b.textContent).join(','));
+w.DO.toggleTodayMove();
+check('it turns the rows from tick to select, the way the blocks section does',
+  !!$('.ns-do #td-today .bk-move') &&
+  /tap the tasks to move/.test($('.ns-do #td-today .bk-move').textContent) &&
+  [...d.querySelectorAll('.ns-do #td-today .tt-row')].every(r => /selectToday/.test(r.getAttribute('onclick') || '')),
+  $('.ns-do #td-today .bk-move')?.textContent.replace(/\s+/g, ' ').trim());
+check('… with the move button disabled until something is picked',
+  d.querySelector('.ns-do #td-today .bk-move-b').disabled);
+w.DO.selectToday(openIds[0]);
+check('picking a row marks it and arms the button',
+  !!$('.ns-do #td-today .tt-row.sel') && !d.querySelector('.ns-do #td-today .bk-move-b').disabled &&
+  /1 → tomorrow/.test($('.ns-do #td-today .bk-move').textContent),
+  $('.ns-do #td-today .bk-move').textContent.replace(/\s+/g, ' ').trim());
+w.DO.selectToday('tend:zzz');
+check('a plant is not postponed from here — TEND owns those',
+  /plants are TEND/.test($('#toast').textContent), $('#toast').textContent);
+const deferPosts = [];
+fetchScript = async (url, opts) => {
+  if (opts && opts.method === 'POST') { deferPosts.push(String(url)); return { ok: true, status: 200, json: async () => ({}), text: async () => '{}' }; }
+  return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+};
+confirmAnswer = true;
+await w.DO.deferToday();
+await tick(80);
+check('only the picked task is moved, and it leaves the list',
+  deferPosts.length === 1 && deferPosts[0].includes('/tasks/' + openIds[0]) &&
+  JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks
+    .filter(t => !t.done).length === openIds.length - 1,
+  deferPosts.join(',') + ' | left ' + JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.filter(t => !t.done).length);
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

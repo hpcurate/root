@@ -219,6 +219,10 @@
    small chip in the corner */
 .ns-do .tt-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
 .ns-do .tt-defer{color:var(--y)}
+/* today → tomorrow: the same select-then-move gesture the blocks use, so a
+   picked row reads the same way a picked tile does */
+.ns-do .tt-row.sel{border-color:var(--y);background:var(--y-fade)}
+.ns-do .tt-row.locked{opacity:.45}
 /* blocks → tomorrow: the slot row under the head, and a selected tile */
 .ns-do .bk-move{display:flex;align-items:center;flex-wrap:wrap;gap:calc(6px * var(--dens));margin-bottom:calc(8px * var(--dens))}
 .ns-do .bk-move-b{font:700 10px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--bk-c);
