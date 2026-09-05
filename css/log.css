@@ -10,7 +10,7 @@
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-log .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-log .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps)}
+.ns-log .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh)}
 
 /* ── Home ──
    The band's box is shell.css's, shared by all eight apps; this is the date
@@ -286,7 +286,12 @@
 .ns-log .cnt-n{font:700 24px/1 var(--mono);color:var(--mu);transition:color .1s}
 .ns-log .caf-b.on .cnt-n{color:var(--y)}
 .ns-log .cnt-l{font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
-.ns-log .caf-b.on .cnt-l{color:rgba(167,139,250,.6)}
+/* The accent, not a literal. This was rgba(167,139,250,.6) - VOID's violet,
+   frozen in at 1.0 - so on every other preset the label under a selected coffee
+   or energy drink stayed violet while its own border and number had already
+   gone to the theme's accent. The currency counters below had always done it
+   correctly; this is the same shape as those. */
+.ns-log .caf-b.on .cnt-l{color:var(--y);opacity:.6}
 .ns-log .caf-reset{width:100%;background:transparent;border:var(--bw) solid var(--bd);border-radius:var(--r1);
            color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
            padding:calc(9px * var(--dens));cursor:pointer;transition:background .12s}

@@ -13,7 +13,7 @@
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-store .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-store .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
+.ns-store .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh);flex:1}
 .ns-store .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .hd-action:active{color:var(--y)}
 .ns-store .hd-action.danger:active{color:var(--re)}
@@ -59,13 +59,13 @@
 .ns-store .h-cost{
   flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;align-self:center;
   font-family:var(--head);font-weight:800;letter-spacing:-.02em;
-  font-size:min(calc(var(--title-px) * .6), 10.5vw);line-height:1;
+  font-size:min(var(--title-px), 14vw);line-height:1;
   font-variant-numeric:tabular-nums;
   color:var(--tx);
-  --cost-sh:var(--y);
-  text-shadow:.055em 0 0 var(--cost-sh);
+  --title-sh-c:var(--y);
+  text-shadow:var(--title-sh);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
-.ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--mu);margin-left:.12em;
+.ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--y);margin-left:.12em;
   text-shadow:none}
 .ns-store .h-cost.hidden{display:none}
 
@@ -80,8 +80,8 @@
    `will-change` is not set: this runs for half a second when a price is
    entered, not continuously, and a permanent layer for an occasional flash is
    the trade the wrong way round. */
-.ns-store .h-cost.up  {color:var(--gr);--cost-sh:var(--gr);animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
-.ns-store .h-cost.down{color:var(--re);--cost-sh:var(--re);animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
+.ns-store .h-cost.up  {color:var(--gr);--title-sh-c:var(--gr);animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
+.ns-store .h-cost.down{color:var(--re);--title-sh-c:var(--re);animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
 @keyframes cost-up  {0%{transform:none} 34%{transform:translateY(-.055em)} 100%{transform:none}}
 @keyframes cost-down{0%{transform:none} 34%{transform:translateY(.055em)}  100%{transform:none}}
 /* mounting it when the counter is pinned: it arrives from the right, the way

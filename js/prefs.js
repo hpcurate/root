@@ -204,7 +204,6 @@ const SCHEMA = {
   radius:       { kind:'range',  def:null, min:0,   max:24,  step:1,    unit:'px',  cssVar:'--r-base' },
   border:       { kind:'range',  def:null, min:0,   max:3,   step:0.5,  unit:'px',  cssVar:'--bw' },
   density:      { kind:'range',  def:1,    min:0.78,max:1.35,step:0.02,             cssVar:'--dens' },
-  uiScale:      { kind:'range',  def:1,    min:0.8, max:1.35,step:0.05,             cssVar:'--ui-scale' },
   iconStroke:   { kind:'range',  def:2,    min:1,   max:3,   step:0.1,              cssVar:'--icon-stroke' },
   chromeAlpha:  { kind:'range',  def:0.82, min:0.35,max:1,   step:0.01,             cssVar:'--chrome-alpha' },
   contentWidth: { kind:'range',  def:780,  min:560, max:1400,step:20,  unit:'px',   cssVar:'--readable' },
@@ -332,6 +331,30 @@ function load() {
     } catch {}
   }
   adoptNewApps(stored);
+  foldAwayUiScale(stored);
+}
+
+/* ── Interface scale, retired ─────────────────────────────────────────────────
+   It was `zoom` on the root element, and document zoom multiplies every length
+   in the page by a fraction — so at any value but 1 the app's whole-pixel type
+   (8, 9.5, 10, 11.5, 15, 54) became fractional and every glyph in the app was
+   resampled rather than drawn. That is what five reports of "the top of the
+   sticky title is blurred" were, and why four correct rendering fixes each
+   changed nothing: none of them was touching it. See the note in tokens.css.
+
+   An install that had moved the dial keeps roughly the size it chose: the
+   stored scale is folded into Spacing, which does the same job through
+   `--dens` and is whole-pixel by construction. Clamped to Spacing's own range,
+   and run once — the key is deleted after, so a later Spacing change is never
+   multiplied by it a second time. */
+function foldAwayUiScale(stored) {
+  const old = +stored.uiScale;
+  if (!isFinite(old) || old === 1) { delete prefs.uiScale; return; }
+  const d = SCHEMA.density;
+  const want = (+prefs.density || 1) * old;
+  prefs.density = Math.min(d.max, Math.max(d.min, Math.round(want / d.step) * d.step));
+  delete prefs.uiScale;
+  persist();
 }
 
 function persist() {
@@ -507,7 +530,6 @@ function apply() {
   st.setProperty('--r-base',     radius + 'px');
   st.setProperty('--bw',         border + 'px');
   st.setProperty('--dens',        prefs.density);
-  st.setProperty('--ui-scale',    prefs.uiScale);
   st.setProperty('--icon-stroke', prefs.iconStroke);
   // only claim the icons once the dial has actually been moved — see tokens.css
   root.setAttribute('data-icon-stroke',

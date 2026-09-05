@@ -196,7 +196,7 @@ body{
 .view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
   min-width:1.1em;height:1em;line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;color:var(--tx)}
+  font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh)}
 .view > .h-top .h-daynum span{position:absolute;right:0;top:0;display:block;line-height:1}
 .view > .h-top .h-daynum .dn-cur.shuffling{
   animation:dn-in calc(.44s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}

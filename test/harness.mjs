@@ -3357,7 +3357,7 @@ check('the date sits at the other end of the wordmark\'s row, in the same type a
   /\.view > \.h-top \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(shellCss4),
   dayNum()?.textContent);
 check('… in the title\'s own colour, not the muted one',
-  /\.view > \.h-top \.h-daynum\{[^}]*color:var\(--tx\)\}/.test(shellCss4));
+  /\.view > \.h-top \.h-daynum\{[^}]*color:var\(--tx\)/.test(shellCss4));
 check('… defined once in the shell, not once per app that carries one',
   !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8')) &&
   !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
@@ -3470,8 +3470,8 @@ check('... the count reads on the date line now, and the total has the wordmark 
   sCost().parentElement.classList.contains('h-logo-row') &&
   !d.querySelector('.ns-store .h-band-end'),
   sCount().parentElement.className + ' | ' + sCost().parentElement.className);
-check('... and the total is sized against the viewport as well as the title, so it cannot run off',
-  /\.ns-store \.h-cost\{[\s\S]*?font-size:min\(calc\(var\(--title-px\) \* \.6\), 10\.5vw\)/.test(storeCss4) &&
+check('... the total is the wordmark\'s own size, capped only where it would not fit',
+  /\.ns-store \.h-cost\{[\s\S]*?font-size:min\(var\(--title-px\), 14vw\)/.test(storeCss4) &&
   /\.ns-store \.h-cost\{[\s\S]*?min-width:0;overflow:hidden/.test(storeCss4) &&
   /\.view > \.h-top\{overflow:hidden\}/.test(shellCss4));
 check('the cost is hidden while the counter is unpinned', sCost().classList.contains('hidden'));
@@ -3482,9 +3482,11 @@ check('pinning puts the running cost in the band, at the wordmark size and in wh
   /\.ns-store \.h-cost\{[\s\S]*?color:var\(--tx\)/.test(storeCss4),
   sCost().textContent);
 check('... with a hard offset copy of its own glyphs behind it, not a soft drop shadow',
-  /--cost-sh:var\(--y\)/.test(storeCss4) &&
-  /text-shadow:\.055em 0 0 var\(--cost-sh\)/.test(storeCss4) &&
+  /--title-sh:\.055em 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
+  /\.ns-store \.h-cost\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(storeCss4) &&
   !/text-shadow:[^;]*blur/.test(storeCss4));
+check('... and the currency mark reads in the accent',
+  /\.ns-store \.h-cost \.cu\{[^}]*color:var\(--y\)/.test(storeCss4));
 check('... and the currency mark is not doubled with it',
   /\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
 check('... arriving is not a change: pinning mid-trip mounts, it does not flash',
@@ -3497,11 +3499,11 @@ check('... and the two are distinguishable: one is the date line, the other the 
 w.STORE.addCart(4.5);
 check('the total goes green when it rises',
   sCost().classList.contains('up') && !sCost().classList.contains('down') &&
-  /\.ns-store \.h-cost\.up\s*\{color:var\(--gr\);--cost-sh:var\(--gr\)/.test(storeCss4),
+  /\.ns-store \.h-cost\.up\s*\{color:var\(--gr\);--title-sh-c:var\(--gr\)/.test(storeCss4),
   sCost().className);
 check('... and the shadow goes with it, so the two never disagree',
-  /\.h-cost\.up\s*\{[^}]*--cost-sh:var\(--gr\)/.test(storeCss4) &&
-  /\.h-cost\.down\{[^}]*--cost-sh:var\(--re\)/.test(storeCss4));
+  /\.h-cost\.up\s*\{[^}]*--title-sh-c:var\(--gr\)/.test(storeCss4) &&
+  /\.h-cost\.down\{[^}]*--title-sh-c:var\(--re\)/.test(storeCss4));
 w.STORE.addCart(-2);
 check('the total goes red when it falls',
   sCost().classList.contains('down') && !sCost().classList.contains('up'), sCost().className);
@@ -3610,6 +3612,49 @@ check('… and none of the four earlier fixes was reverted to get here',
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))) &&
   /content="black"/.test(headHtml));
 
+/* == 2.26 ==================================================================== */
+
+/* -- The blur, finally: it was `zoom` --
+   Document zoom multiplies every length by a fraction, so at any scale but 1
+   the app's whole-pixel type (8, 9.5, 10, 11.5, 15, 54) became fractional and
+   every glyph was resampled rather than drawn. Smallest type worst - which is
+   why it showed on the band's 10px date line and not the 54px wordmark beside
+   it, and why four correct rendering fixes each changed nothing. */
+const tokensRaw = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+check('the root is no longer zoomed, at any scale',
+  !/zoom\s*:/.test(sheetRules('tokens')) && !/--ui-scale/.test(sheetRules('tokens')),
+  (sheetRules('tokens').match(/zoom[^;]*/g) || []).join(' '));
+check('... the dial is gone rather than tuned - no arrangement of steps is sharp',
+  !('uiScale' in w.Prefs.SCHEMA) && !d.querySelector('.ns-set [data-pref="uiScale"]') &&
+  !/'uiScale'/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+check('... and what it was for is covered by dials that are whole-pixel by construction',
+  ['density','titleSize','hdTitleSize'].every(k => k in w.Prefs.SCHEMA));
+check('... tokens.css says why, so nobody re-adds it',
+  /There is no `zoom` here any more/.test(tokensRaw));
+
+/* -- The shadow, shared -- */
+check('the title shadow is one token, not three copies of an offset',
+  /--title-sh:\.055em 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+check('... every sticky sub-screen title wears it',
+  ['do','learn','log','plan','settings','store'].every(f =>
+    /\.hd-title\{[^}]*text-shadow:var\(--title-sh\)/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))),
+  ['do','learn','log','plan','settings','store'].filter(f =>
+    !/\.hd-title\{[^}]*text-shadow:var\(--title-sh\)/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))).join(','));
+check('... and so do the big dates on LOG and DAY',
+  /\.view > \.h-top \.h-daynum\{[^}]*text-shadow:var\(--title-sh\)/.test(shellCss4));
+
+/* -- LOG's caffeine counters --
+   The label under a selected coffee or energy drink was rgba(167,139,250,.6) -
+   VOID's violet, frozen in - so on every other preset it stayed violet while
+   its own border and number had already gone to the theme's accent. */
+/* the comment above the rule names the old value, so this reads the rules only */
+check('a selected coffee or energy drink reads in the theme accent, not a frozen violet',
+  /\.ns-log \.caf-b\.on \.cnt-l\{color:var\(--y\);opacity:\.6\}/.test(logCss4) &&
+  !/rgba\(167,\s*139,\s*250/.test(sheetRules('log')),
+  (sheetRules('log').match(/rgba\(167[^)]*\)/g) || []).join(' '));
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 /* ── a ninth app has to arrive on an install that already has an app list ────
@@ -3659,6 +3704,17 @@ const w3 = await bootWith({ apps: ['do', 'log'], appsSeen: w.Prefs.APPS.slice(),
 check('an app switched off on purpose is not resurrected by the same migration',
   !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
   w3.Prefs.get('apps').join(','));
+
+// an install that had moved the retired Interface scale keeps the size it chose
+const w4 = await bootWith({ uiScale: 1.2, density: 1, theme: 'void' });
+check('a stored Interface scale is folded into Spacing rather than dropped',
+  Math.abs(w4.Prefs.get('density') - 1.2) < 0.021 && w4.Prefs.get('uiScale') === undefined,
+  w4.Prefs.get('density') + ' / ' + w4.Prefs.get('uiScale'));
+check('... and it is folded once, not on every boot',
+  JSON.parse(w4.localStorage.getItem('root_prefs_v1')).uiScale === undefined);
+const w5 = await bootWith({ uiScale: 1.35, density: 1.3, theme: 'void' });
+check('... clamped to what Spacing can actually be',
+  w5.Prefs.get('density') <= w5.Prefs.SCHEMA.density.max, String(w5.Prefs.get('density')));
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

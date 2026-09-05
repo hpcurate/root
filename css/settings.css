@@ -46,7 +46,7 @@
 .ns-set .hd{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
   padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .ns-set .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
-.ns-set .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
+.ns-set .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh);flex:1}
 /* the live preview sticks below the category header rather than under it */
 .ns-set .preview{top:calc(52px + var(--sat))}
 

@@ -18,7 +18,6 @@
      --r-base     card radius; every other radius is a ratio of it
      --bw         border weight; hairline rules across the whole app
      --dens       spacing multiplier baked into every padding/gap in the app CSS
-     --ui-scale   browser-native zoom on the root element
      --tex-mult   strength of the overlay texture
 */
 
@@ -77,7 +76,6 @@
 
   /* ── Density & scale ──────────────────────────────────────────────────── */
   --dens:1;
-  --ui-scale:1;
   --icon-stroke:2;
   --chrome-alpha:.82;
   --tex-mult:1;
@@ -168,6 +166,21 @@
   --hd-title-px:calc(var(--hd-base) * var(--hd-scale));
   --hd-pad:calc(var(--hd-title-px) * .93);
 
+  /* ── The title shadow ──
+     A second copy of the glyphs, offset right and sitting under them. Zero
+     blur: it is the letterform displaced, not depth, which is why a soft drop
+     shadow would be the wrong thing and why it works on a near-black ground
+     where a dark shadow is invisible.
+
+     It started on STORE's running total in 2.25.1 and is shared from here now,
+     because it is a *treatment* rather than one control's decoration: the
+     sticky sub-screen titles and the big dates on LOG and DAY all wear it, and
+     three copies of the same offset in three stylesheets is three chances for
+     them to drift. Measured in `em`, so it scales with whatever it is applied
+     to rather than needing a value per size. */
+  --title-sh-c:var(--y);
+  --title-sh:.055em 0 0 var(--title-sh-c);
+
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
      morph was over before the eye caught it. They follow --mo like the rest. */
@@ -180,11 +193,29 @@
   --caps:uppercase;
 }
 
-/* Interface scale. `zoom` on the root element is the one mechanism that scales
-   text, boxes, borders and fixed positioning together and re-resolves viewport
-   units, which is exactly what a UI-scale control should do. Where it is not
-   supported the page simply renders at 100%. */
-html{height:100%;zoom:var(--ui-scale)}
+/* ── There is no `zoom` here any more ─────────────────────────────────────────
+   `html{zoom:var(--ui-scale)}` is what "the top of the sticky title is blurred"
+   turned out to be, after five reports and four wrong fixes.
+
+   Document zoom multiplies every length in the page by a fraction. The app's
+   type is written in whole pixels — 8, 9, 9.5, 10, 11.5, 15, 54 — so at any
+   scale but 1 those become fractions, and a fraction of a CSS pixel is a
+   fraction of a device pixel at any DPR. The text is then resampled rather than
+   drawn. It hit the *smallest* type hardest, which is why it showed on the
+   band's 10px date line and not on the 54px wordmark beside it, and it hit
+   every theme, every screen and every build identically — which is exactly why
+   snapping the wordmark, snapping the safe-area inset, taking the scroller off
+   iOS's legacy compositing path and handing the status bar back to iOS each
+   changed nothing at all.
+
+   No arrangement of steps fixes it: for a 9.5px label to stay whole at a 3x
+   DPR the scale would have to be a multiple of 2/3, which is not a dial. So the
+   mechanism is gone rather than tuned, and what it was for is covered by three
+   dials that are already whole-pixel by construction — Spacing (`--dens`),
+   Title size and Sub-screen title size. A stored scale is folded into Spacing
+   on first load so an install that had one keeps roughly the size it chose
+   (see prefs.js). */
+html{height:100%}
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 

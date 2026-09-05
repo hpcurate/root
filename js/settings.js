@@ -326,7 +326,6 @@ function layoutHTML() {
 
     ${sectionHead('Density')}
     ${slider('density', 'Spacing', v => pct(v))}
-    ${slider('uiScale', 'Interface scale', v => pct(v))}
     ${chips('titleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Title size', 'the DO. LOG. PLAN. wordmarks')}
@@ -1761,7 +1760,7 @@ view.addEventListener('click', e => {
       ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
        'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle','cardStyle',
        'accentUse','radius','border',
-       'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
+       'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');
     });
@@ -1807,7 +1806,7 @@ function readoutFor(key, v) {
   if (key === 'toastMs')       return (v / 1000).toFixed(1) + 's';
   if (key === 'swipeStrength') return Math.round(v * 100) + '% of the width';
   if (key === 'iconStroke')    return v.toFixed(1);
-  if (['density','uiScale','textureAmount','chromeAlpha'].includes(key)) return Math.round(v * 100) + '%';
+  if (['density','textureAmount','chromeAlpha'].includes(key)) return Math.round(v * 100) + '%';
   return v + (s.unit || '');
 }
 

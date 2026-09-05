@@ -1325,6 +1325,61 @@ point of the thing.
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
 
+### 2.26 — 2026-09-05 — the blur was `zoom`, and the shadow goes on every title
+
+**It was Interface scale.** `html{zoom:var(--ui-scale)}`. Hugo found it by
+moving the dial.
+
+Document zoom multiplies every length in the page by a fraction. The app's type
+is written in whole pixels — 8, 9, 9.5, 10, 11.5, 15, 54 — so at any scale but 1
+every one of those becomes a fraction, and a fraction of a CSS pixel is a
+fraction of a device pixel at any DPR. The glyphs are then resampled rather than
+drawn, worst on the smallest type: which is exactly why it showed on the band's
+10px date line and not on the 54px wordmark beside it, and why it was identical
+on every theme, every screen and every build.
+
+That last part is what four releases failed to read. Snapping the wordmark
+(2.24.0), snapping the safe-area inset (2.24.1), taking the scroller off iOS's
+legacy compositing path (2.25.0) and handing the status bar back to iOS (2.25.1)
+each fixed a real defect and **none of them could have changed this**, because a
+document-wide zoom sits above all of them. Four fixes that changed nothing were
+four pieces of evidence pointing at a cause that applied to the whole document,
+and the search stayed local instead.
+
+**The dial is gone rather than tuned**, because no arrangement of steps is
+sharp: for a 9.5px label to land whole at 3× DPR the scale would have to be a
+multiple of ⅔, which is not a dial. What it was for is already covered by three
+controls that are whole-pixel by construction — **Spacing**, **Title size** and
+**Sub-screen title size**. An install that had moved it keeps the size it chose:
+the stored scale is folded into Spacing on first load, clamped to Spacing's
+range, and the key is deleted so it can never be applied twice. `tokens.css`
+carries the whole story so nobody re-adds it.
+
+**The title shadow is a shared treatment now.** It started on STORE's running
+total in 2.25.1 and is one token (`--title-sh`) from here on, worn by every
+sticky sub-screen title and by the big dates on LOG and DAY. Three copies of the
+same offset in three stylesheets is three chances for them to drift.
+
+**STORE's total is the wordmark's own size** — `min(--title-px, 14vw)`, so it
+matches `STORE.` exactly at the default and only gives way at the title sizes
+where it genuinely would not fit. Its currency mark reads in the accent.
+
+**LOG's caffeine counters had a frozen accent.** The label under a selected
+coffee or energy drink was `rgba(167,139,250,.6)` — VOID's violet, written in as
+a literal — so on every other preset it stayed violet while its own border and
+number had already gone to the theme's colour. It takes `var(--y)` now, the same
+shape the currency counters two rules below had always used.
+
+**Parked, not built:** the triple-tap reachability idea (`@idea`).
+
+**Verified** — `test/harness.mjs`, **710 checks, all green** (698 at 2.25.2),
+braces balanced, every touched module parsed, site served over http. New
+coverage: no zoom and no `--ui-scale` anywhere; the dial gone from the schema,
+the panel and the reset list; the three replacement dials present; a stored
+scale folded into Spacing, folded *once*, and clamped; the shadow token and
+every title and date wearing it; the total at the wordmark's size with an accent
+currency mark; and no hardcoded violet left in LOG's rules.
+
 ### 2.25.2 — 2026-09-05 — the blur was the contrast
 
 **It was never a rendering artefact.** `--mu` is `#4a4a4a` on a `#0e0e0e`
