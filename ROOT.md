@@ -19,7 +19,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
-| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost. |
+| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, going green as it rises and red as it falls. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
@@ -1324,6 +1324,75 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.25.1 — 2026-09-05 — the status bar goes back to iOS, and STORE's total gets a face
+
+**The blurred band was the status bar, and the page was asking for it.**
+`apple-mobile-web-app-status-bar-style: black-translucent` hands the page the
+whole screen, status bar included, and lets iOS draw its own material over that
+strip. Everything the band put up there was therefore *underneath* something the
+app does not control and cannot opt out of from inside the page — which is
+exactly where the title band's top row was sitting, and why it read as blurred
+while identical type twenty pixels lower did not.
+
+Three releases went looking for the cause in CSS: a fractional wordmark
+(2.24.0), a fractional status-bar inset (2.24.1), a legacy iOS compositing
+opt-in (2.25.0). **All three were real defects, all three are fixed and staying
+fixed, and none of them was this.** Four reports of an unchanged screen is
+enough evidence that the thing drawing over the band was never ours.
+
+`black` gives the strip back. iOS reserves it, paints it black, and
+`env(safe-area-inset-top)` becomes 0 — so the app starts below the bar and
+nothing of ours is under the system's material. The cost is that ROOT no longer
+runs edge-to-edge at the top: near-invisible on the dark presets, whose ground
+is `#0e0e0e`, and a black bar above a pale app on a light one. Reverting is one
+word in one meta tag; everything else is written against `env()` and follows
+either value without a change.
+
+**STORE's total moved out of the fight it was in.** 2.25 put the item count and
+the total at the same end of the same row, and two big things at one end of a
+phone-wide band is how the total ran off the edge. The count reads on the date
+line now — `SAT 5 SEP · 3/11 ITEMS`, DO's shape — and the total has the
+wordmark's row to itself. Its size is the wordmark's scaled down *and* capped
+against the viewport, so a four-figure basket at the largest title size still
+fits beside `STORE.`; `min-width:0` and the band's own `overflow:hidden` are the
+backstop.
+
+**It is white, with a hard offset copy of itself behind it.** White because it
+is the loudest number in the app while it is up and the pinned widget already
+speaks in accent — two accents arguing at the top of the screen is worse than
+one plain number. The shadow is a `text-shadow` with **zero blur**, one
+twentieth of an em to the right, so it reads as the number's own shape displaced
+rather than as depth; on a near-black ground a dark shadow is invisible, so it
+takes the accent, which is also what stops a white number looking like it came
+from the operating system.
+
+**And it says which way it went.** Green as it rises, red as it falls, easing
+back to white when it settles. The colour is the whole signal, so the movement
+under it is a nudge — five hundredths of an em up on a rise, down on a fall —
+enough to catch the direction without the number appearing to jump. The shadow
+takes the colour with it, so the two never disagree. Arriving is deliberately
+*not* a change: pinning the counter mid-trip mounts the number rather than
+flashing it green, because "you just spent forty euros" is not true of money
+that was already spent.
+
+**Parked, not built:** the triple-tap reachability idea (`@idea`), unchanged
+from 2.25.
+
+**Verified** — `test/harness.mjs`, **693 checks, all green** (679 at the end of
+2.25), braces balanced, every touched module parsed, site served over http. New
+coverage: the meta tag changed and the bottom inset still claimed; every header
+still measuring from `env()` so either status-bar value works unchanged; all
+three earlier fixes still in place; the count on the date line with the total
+alone on the wordmark row; the total sized against the viewport as well as the
+title; the shadow being hard, offset and not doubled on the currency mark;
+mounting not flashing; green on a rise, red on a fall, the shadow following, the
+nudge being a nudge, the ease back to white, and a no-op repaint not re-firing.
+
+**Not verified** — the blur, for the fourth time and the last time this way. It
+cannot be seen from jsdom. What is different is that this is no longer a guess
+at a CSS defect: it is the one candidate that was always outside CSS, and it is
+now simply not asking iOS to draw over the app any more.
 
 ### 2.25 — 2026-09-05 — the blur is found, the date shuffles, STORE's counter comes up top
 

@@ -3463,20 +3463,56 @@ const sCount = () => $('.ns-store #store-count');
 const sCost  = () => $('.ns-store #store-cost');
 check('STORE puts the list total in the band, the way the other apps put their meta there',
   !!sCount() && !!sCount().closest('.h-top'), sCount() && sCount().textContent);
-check('... and the count and the pinned cost share one flex end, so mounting the cost slides the count',
-  sCount().parentElement.classList.contains('h-band-end') &&
-  sCost().parentElement === sCount().parentElement &&
-  /\.ns-store \.h-band-end\{flex:0 0 auto;display:flex/.test(storeCss4));
+/* 2.25.1: the count moved to the date line. Two big things at one end of a
+   phone-wide band is how the total ended up running off the edge. */
+check('... the count reads on the date line now, and the total has the wordmark row to itself',
+  sCount().parentElement.classList.contains('h-label') &&
+  sCost().parentElement.classList.contains('h-logo-row') &&
+  !d.querySelector('.ns-store .h-band-end'),
+  sCount().parentElement.className + ' | ' + sCost().parentElement.className);
+check('... and the total is sized against the viewport as well as the title, so it cannot run off',
+  /\.ns-store \.h-cost\{[\s\S]*?font-size:min\(calc\(var\(--title-px\) \* \.6\), 10\.5vw\)/.test(storeCss4) &&
+  /\.ns-store \.h-cost\{[\s\S]*?min-width:0;overflow:hidden/.test(storeCss4) &&
+  /\.view > \.h-top\{overflow:hidden\}/.test(shellCss4));
 check('the cost is hidden while the counter is unpinned', sCost().classList.contains('hidden'));
 w.STORE.togglePin();
-check('pinning puts the running cost in the band, at the wordmark size and in the accent',
+check('pinning puts the running cost in the band, at the wordmark size and in white',
   !sCost().classList.contains('hidden') && /^[\d.]+/.test(sCost().textContent) &&
   !!sCost().querySelector('.cu') &&
-  /\.ns-store \.h-cost\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(storeCss4) &&
-  /\.ns-store \.h-cost\{[^}]*color:var\(--y\)/.test(storeCss4),
+  /\.ns-store \.h-cost\{[\s\S]*?color:var\(--tx\)/.test(storeCss4),
   sCost().textContent);
-check('... and the two are distinguishable: one is the band small type, the other the big number',
-  /\.ns-store \.h-count\{[^}]*font:700 10px\/1 var\(--head\)/.test(storeCss4));
+check('... with a hard offset copy of its own glyphs behind it, not a soft drop shadow',
+  /--cost-sh:var\(--y\)/.test(storeCss4) &&
+  /text-shadow:\.055em 0 0 var\(--cost-sh\)/.test(storeCss4) &&
+  !/text-shadow:[^;]*blur/.test(storeCss4));
+check('... and the currency mark is not doubled with it',
+  /\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
+check('... arriving is not a change: pinning mid-trip mounts, it does not flash',
+  sCost().classList.contains('mount') &&
+  !sCost().classList.contains('up') && !sCost().classList.contains('down'));
+check('... and the two are distinguishable: one is the date line, the other the big number',
+  /\.ns-store \.h-count\{color:var\(--y\);margin-left:10px\}/.test(storeCss4));
+
+/* The flash. Green as it rises, red as it falls, back to white when it settles. */
+w.STORE.addCart(4.5);
+check('the total goes green when it rises',
+  sCost().classList.contains('up') && !sCost().classList.contains('down') &&
+  /\.ns-store \.h-cost\.up\s*\{color:var\(--gr\);--cost-sh:var\(--gr\)/.test(storeCss4),
+  sCost().className);
+check('... and the shadow goes with it, so the two never disagree',
+  /\.h-cost\.up\s*\{[^}]*--cost-sh:var\(--gr\)/.test(storeCss4) &&
+  /\.h-cost\.down\{[^}]*--cost-sh:var\(--re\)/.test(storeCss4));
+w.STORE.addCart(-2);
+check('the total goes red when it falls',
+  sCost().classList.contains('down') && !sCost().classList.contains('up'), sCost().className);
+check('... the movement under the colour is a nudge, not a jump',
+  /@keyframes cost-up\s*\{0%\{transform:none\} 34%\{transform:translateY\(-\.055em\)\}/.test(storeCss4) &&
+  /@keyframes cost-down\{0%\{transform:none\} 34%\{transform:translateY\(\.055em\)\}/.test(storeCss4));
+check('... and it eases back to white rather than snapping',
+  /\.ns-store \.h-cost\{[\s\S]*?transition:color var\(--dur-3\) var\(--ease\), text-shadow var\(--dur-3\) var\(--ease\)/.test(storeCss4));
+const costCls = sCost().className;
+w.STORE.addCart(0);
+check('a repaint that changes nothing does not re-flash', sCost().className === costCls);
 check('the widget stops drawing the price it handed to the band, and keeps the bar',
   /\.ns-store \.cw\.pinned \.cw-total\{display:none\}/.test(storeCss4) &&
   !/\.cw\.pinned \.cw-bar\{display:none\}/.test(storeCss4) &&
@@ -3520,6 +3556,26 @@ check('both size dials are on the layout panel, findable by name',
   w.SET.searchIndex().some(r => /sub-screen title size/i.test(r.title)));
 check('... and the appearance reset knows about the new one',
   /'titleSize','hdTitleSize'/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+
+/* ── 2.25.1: the status bar goes back to iOS ──
+   `black-translucent` hands the page the whole screen, status bar included, and
+   lets iOS draw its own material over that strip — so everything the band put
+   up there sat under something the page does not control. Three CSS-side causes
+   were found and fixed across 2.24.0-2.25.0 and none of them was it. */
+const headHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').slice(0, 4000);
+check('the page no longer asks to run underneath the status bar',
+  /name="apple-mobile-web-app-status-bar-style" content="black"/.test(headHtml) &&
+  !/content="black-translucent"/.test(headHtml),
+  (headHtml.match(/apple-mobile-web-app-status-bar-style[^>]*/) || ['missing'])[0]);
+check('… while the bottom inset is still claimed, for the home indicator',
+  /viewport-fit=cover/.test(headHtml) &&
+  /env\(safe-area-inset-bottom\)/.test(tokensCss4));
+check('… and every header still measures from env(), so either value works unchanged',
+  /--sat:env\(safe-area-inset-top\)/.test(tokensCss4) &&
+  /padding:calc\(var\(--sat\) \+ 14px\)/.test(shellCss4));
+check('… the three earlier fixes are all kept — each was a real defect',
+  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4) &&
+  ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

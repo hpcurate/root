@@ -4,7 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- ── Why this is `black` and not `black-translucent` ────────────────────────
+       `black-translucent` asks iOS to hand the page the whole screen, status bar
+       included, and to draw its own material over that strip. Everything the app
+       puts up there is therefore *underneath* something the app does not
+       control and cannot opt out of — which is exactly what the title band's
+       top row was sitting in, and why it read as blurred while the identical
+       type twenty pixels lower did not.
+
+       Three releases were spent looking for the cause in CSS: a fractional
+       wordmark (2.24.0), a fractional status-bar inset (2.24.1), and a legacy
+       iOS compositing opt-in (2.25.0). All three were real defects, all three
+       are fixed and staying fixed, and none of them was this. Four reports of
+       an unchanged screen is enough evidence that the thing drawing over the
+       band was never ours to fix from inside the page.
+
+       `black` gives the status bar back to iOS. It reserves the strip, paints
+       it black, and `env(safe-area-inset-top)` becomes 0 — so the app starts
+       below the bar and nothing of ours is under the system's material. The
+       cost is that ROOT no longer runs edge-to-edge at the top; on the dark
+       presets, whose ground is #0e0e0e, that is close to invisible, and on a
+       light one it is a black bar above a pale app.
+
+       **Reverting is this one word.** Everything else — the band, the sticky
+       headers, `--sat` — is written against `env()` and follows either value
+       without a change. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ROOT">
   <meta name="theme-color" content="#0e0e0e">
   <title>ROOT</title>
@@ -693,18 +718,16 @@
   <!-- ── HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
-      <div class="h-label" id="date-label">—</div>
-      <!-- The wordmark, then the band's right end: how much of the list is
-           ticked, and — only while the counter is pinned — what the trip has
-           cost so far, in the big-number style LOG and DAY use for the date.
-           They share one flex end, so the cost mounting is what slides the item
-           count left; nothing has to be told to move. -->
+      <!-- How much of the list is ticked now reads on the date line, the way DO
+           puts "9 TO DO" beside its date. 2.25 had it sharing the wordmark's row
+           with the total, and two big things at one end of a phone-wide band is
+           how the total ended up running off the edge. -->
+      <div class="h-label"><span id="date-label">—</span><span class="h-count" id="store-count"></span></div>
+      <!-- The wordmark, then — only while the counter is pinned — what the trip
+           has cost. It has the row's right end to itself. -->
       <div class="h-logo-row">
         <div class="h-logo">STORE<em>.</em></div>
-        <div class="h-band-end">
-          <span class="h-count" id="store-count"></span>
-          <span class="h-cost hidden" id="store-cost" aria-hidden="true"></span>
-        </div>
+        <span class="h-cost hidden" id="store-cost" aria-hidden="true"></span>
       </div>
     </div>
 

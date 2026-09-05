@@ -298,6 +298,14 @@ function paintPin() {
 
    The count and the cost share one flex end, so mounting the cost is what
    slides the count leftwards. Nothing tells it to move. */
+/* What the band was last showing, so a repaint knows which way the number moved.
+   Held here rather than read back off the element: the text carries a currency
+   symbol and a fixed two decimals, and parsing a number back out of its own
+   formatting to find out what it used to be is a way to be wrong later. `null`
+   means "nothing has been shown yet", which is not a rise from zero. */
+let costWas = null;
+let costTimer = null;
+
 function paintBand() {
   const cnt = $id('store-count');
   if (cnt) {
@@ -308,12 +316,36 @@ function paintBand() {
   const cost = $id('store-cost');
   if (!cost) return;
   const on = !!state.cwPin;
+  const wasOn = !cost.classList.contains('hidden');
   cost.classList.toggle('hidden', !on);
-  if (!on) return;
-  cost.innerHTML = `${esc(state.cart.toFixed(2))}<span class="cu">${esc(CUR())}</span>`;
-  // the widget already says "over by …" in red; the band agrees rather than
-  // inventing a second way of saying it
-  cost.classList.toggle('over', state.budget > 0 && state.cart > state.budget);
+  if (!on) { costWas = null; return; }        // unpinned: the next mount is a first paint
+
+  const now = +state.cart || 0;
+  cost.innerHTML = `${esc(now.toFixed(2))}<span class="cu">${esc(CUR())}</span>`;
+
+  /* Arriving is not a change. Pinning the counter mid-trip would otherwise
+     flash green for the whole basket, which says "you just spent forty euros"
+     about money that was already spent. */
+  if (!wasOn || costWas === null) {
+    cost.classList.remove('up', 'down');
+    cost.classList.remove('mount'); void cost.offsetWidth; cost.classList.add('mount');
+    costWas = now;
+    return;
+  }
+  if (now === costWas) return;
+
+  /* Green as it rises, red as it falls. The class is dropped after the run so
+     the colour eases back to white through the transition rather than snapping,
+     and it is restarted rather than added to — keying in a price a digit at a
+     time fires this several times a second, and each one must replace the last
+     rather than queue behind it. */
+  const dir = now > costWas ? 'up' : 'down';
+  costWas = now;
+  cost.classList.remove('up', 'down', 'mount');
+  void cost.offsetWidth;
+  cost.classList.add(dir);
+  clearTimeout(costTimer);
+  costTimer = setTimeout(() => cost.classList.remove('up', 'down'), 620);
 }
 
 function renderCart() {

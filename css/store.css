@@ -25,37 +25,71 @@
 .ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-store .h-logo em{color:var(--y);font-style:normal}
 
-/* ── The band's right end ─────────────────────────────────────────────────────
-   How much of the list is ticked, and — only while the counter is pinned —
-   what the trip has cost. They share one flex end deliberately: the cost
-   mounting is what pushes the item count leftwards, so the count does not have
-   to be told to move and cannot get out of step with what is beside it.
-
-   The two are the same information at two scales, so they must not read as the
-   same kind of thing. The count is the band's small type, muted, following the
-   same line as every other app's meta; the cost is the big-number treatment
-   LOG and DAY use for the date, in the accent and carrying its currency. You
-   cannot mistake one for the other at a glance in a shop, which is the whole
-   test. */
-.ns-store .h-band-end{flex:0 0 auto;display:flex;align-items:baseline;
-  gap:calc(11px * var(--dens));min-width:0}
-.ns-store .h-count{flex:0 0 auto;font:700 10px/1 var(--head);letter-spacing:.16em;
-  text-transform:var(--caps);color:var(--y);white-space:nowrap;
-  transition:transform var(--dur-2) var(--ease),opacity var(--dur-2) var(--ease)}
+/* ── The item count, on the date line ─────────────────────────────────────────
+   `SAT 5 SEP · 3/11 ITEMS`, the same shape DO uses for "9 TO DO". It shared the
+   wordmark's row with the total until 2.25.1, and two big things at one end of
+   a phone-wide band is how the total ended up running off the edge — the count
+   is small, so the date line has room for it and the wordmark's row does not
+   have to find any. */
+.ns-store .h-count{color:var(--y);margin-left:10px}
 .ns-store .h-count:empty{display:none}
-/* the pinned cost, at the wordmark's size — measured in --title-px like the
-   wordmark and LOG's date, so all three follow the Title size dial together */
-.ns-store .h-cost{flex:0 0 auto;font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;color:var(--y);white-space:nowrap;
-  align-self:center;
-  animation:cost-in calc(.34s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
-.ns-store .h-cost .cu{font:700 .38em/1 var(--head);color:var(--mu);margin-left:.1em}
+
+/* ── The trip's total ─────────────────────────────────────────────────────────
+   Only on screen while the counter is pinned — pinning is the signal that you
+   are in a shop and this is the number you keep glancing at, and that is
+   exactly when it is worth the band's width.
+
+   **White, not the accent.** It is the loudest number in the app while it is
+   up, and it says the same thing the pinned widget says in accent; two accents
+   arguing at the top of the screen is worse than one plain one. The colour it
+   *does* carry is the change — see below.
+
+   **The shadow is a second copy of the glyphs, offset right and sitting under
+   them.** Not a soft drop shadow — a hard `text-shadow` with zero blur, so it
+   reads as the number's own shape displaced rather than as depth. On a
+   near-black ground a dark shadow is invisible, so it takes the accent, which
+   is also what makes a white number look like it belongs to this app rather
+   than to the operating system. When the number flashes green or red the
+   shadow goes with it, so the two never disagree about what is happening.
+
+   **It cannot leave the band.** The size is the wordmark's, scaled down and
+   capped against the viewport, so a four-figure total at the largest title size
+   still fits beside `STORE.`; `min-width:0` and the row's own `overflow:hidden`
+   are the backstop if it ever does not. */
+.ns-store .h-cost{
+  flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;align-self:center;
+  font-family:var(--head);font-weight:800;letter-spacing:-.02em;
+  font-size:min(calc(var(--title-px) * .6), 10.5vw);line-height:1;
+  font-variant-numeric:tabular-nums;
+  color:var(--tx);
+  --cost-sh:var(--y);
+  text-shadow:.055em 0 0 var(--cost-sh);
+  transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
+.ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--mu);margin-left:.12em;
+  text-shadow:none}
 .ns-store .h-cost.hidden{display:none}
-/* over budget is the one state worth shouting, and the counter widget already
-   says it in red — the band agrees with it rather than inventing a colour */
-.ns-store .h-cost.over{color:var(--re)}
-@keyframes cost-in{from{opacity:0;transform:translateX(.4em) scale(.9)}
+
+/* ── The change ──
+   Green as it rises, red as it falls, back to white when it settles. The colour
+   is the whole signal, so the movement under it is deliberately small: a
+   fraction of a millimetre up on a rise and down on a fall, enough for the eye
+   to catch the direction without the number appearing to jump. Long enough to
+   read (the class is dropped after ~620ms) and eased on the way out by the
+   transition above, so it fades back to white rather than snapping.
+
+   `will-change` is not set: this runs for half a second when a price is
+   entered, not continuously, and a permanent layer for an occasional flash is
+   the trade the wrong way round. */
+.ns-store .h-cost.up  {color:var(--gr);--cost-sh:var(--gr);animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
+.ns-store .h-cost.down{color:var(--re);--cost-sh:var(--re);animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
+@keyframes cost-up  {0%{transform:none} 34%{transform:translateY(-.055em)} 100%{transform:none}}
+@keyframes cost-down{0%{transform:none} 34%{transform:translateY(.055em)}  100%{transform:none}}
+/* mounting it when the counter is pinned: it arrives from the right, the way
+   the day number does, rather than appearing */
+.ns-store .h-cost.mount{animation:cost-in calc(.34s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
+@keyframes cost-in{from{opacity:0;transform:translateX(.35em)}
                    to{opacity:1;transform:none}}
+
 .ns-store .h-settings-btn{position:absolute;top:calc(var(--sat) + 28px);right:18px;
                   background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
                   cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
