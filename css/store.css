@@ -106,23 +106,42 @@
 .ns-store .h-cost.hidden{display:none}
 
 /* ── The change ──
-   Green as it rises, red as it falls, back to white when it settles. The colour
-   is the whole signal, so the movement under it is deliberately small: a
-   fraction of a millimetre up on a rise and down on a fall, enough for the eye
-   to catch the direction without the number appearing to jump. Long enough to
-   read (the class is dropped after ~620ms) and eased on the way out by the
-   transition above, so it fades back to white rather than snapping.
+   A `+` or a `−` at the head of the number, and a nudge under it. **There is no
+   colour in this any more.** It was green on a rise and red on a fall until
+   3.0.2, which asked the eye to decode a hue into a direction — on a number
+   that already carries the accent in its shadow, and against a palette the theme
+   picker can move out from under it. A sign does not need decoding, does not
+   collide with the accent, and says the same thing in one glyph.
+
+   The nudge stays: a fraction of a millimetre up on a rise and down on a fall,
+   which is direction told twice rather than direction told in a colour.
 
    `will-change` is not set: this runs for half a second when a price is
    entered, not continuously, and a permanent layer for an occasional flash is
    the trade the wrong way round. */
-.ns-store .h-cost.up  {color:var(--gr);--title-sh-c:var(--gr);animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
-.ns-store .h-cost.down{color:var(--re);--title-sh-c:var(--re);animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
-/* the whole unit goes with it — the mark and both shadows, not just the digits.
-   Half of it changing colour reads as a rendering fault rather than as a
-   signal, which is what it looked like while the mark sat at a fixed accent. */
-.ns-store .h-cost.up   .cu{color:var(--gr);--title-sh-c:var(--gr)}
-.ns-store .h-cost.down .cu{color:var(--re);--title-sh-c:var(--re)}
+.ns-store .h-cost.up  {animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
+.ns-store .h-cost.down{animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
+
+/* ── The sign ──
+   `display:none` between changes, so it reserves nothing on a band that is
+   already tight. When it appears the box grows *leftwards* — the row is
+   `space-between` and the counter has the right end to itself — so the digits
+   do not move under it.
+
+   It wears what the number wears (title colour, accent shadow) and is sized a
+   little under it, because it is a mark on the number rather than part of it.
+   One animation carries its whole life: it turns in like one of the cells,
+   holds while the total is read, then fades. JS drops the class at the end. */
+.ns-store .h-cost .cs{display:none;font-weight:800;font-size:.62em;
+  margin-right:.1em;transform-origin:50% 0;text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
+.ns-store .h-cost .cs.on{display:inline-block;
+  animation:cost-sign calc(.9s * var(--mo)) var(--ease-out) both}
+@keyframes cost-sign{
+  0%  {opacity:0;transform:rotateX(-88deg)}
+  13% {opacity:1;transform:rotateX(7deg)}
+  20% {opacity:1;transform:rotateX(0)}
+  70% {opacity:1;transform:rotateX(0)}
+  100%{opacity:0;transform:rotateX(0)}}
 @keyframes cost-up  {0%{transform:none} 34%{transform:translateY(-.055em)} 100%{transform:none}}
 @keyframes cost-down{0%{transform:none} 34%{transform:translateY(.055em)}  100%{transform:none}}
 /* mounting it when the counter is pinned: it arrives from the right, the way

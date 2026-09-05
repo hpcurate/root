@@ -326,10 +326,16 @@ function costFace(el, text) {
   let cu = el.querySelector('.cu');
   if (!cu) { cu = document.createElement('span'); cu.className = 'cu'; }
   cu.textContent = CUR();
+  /* The sign lives at the head of the row and is held across a rebuild for the
+     same reason the mark is: it is the one node whose own animation is running
+     while the number under it changes. */
+  let sg = el.querySelector('.cs');
+  if (!sg) { sg = document.createElement('span'); sg.className = 'cs'; sg.setAttribute('aria-hidden', 'true'); }
 
   const cells = [...el.querySelectorAll('.cd')];
   if (cells.length !== text.length) {
-    while (el.firstChild) el.removeChild(el.firstChild);   // keeps `cu`: it is held above
+    while (el.firstChild) el.removeChild(el.firstChild);   // keeps `sg` and `cu`: both held above
+    el.appendChild(sg);
     for (let i = 0; i < text.length; i++) {
       const c = document.createElement('span');
       c.className = 'cd';
@@ -344,8 +350,27 @@ function costFace(el, text) {
   cells.forEach((c, i) => {
     if (c.textContent !== text[i]) { c.textContent = text[i]; changed.push(c); }
   });
+  if (sg.parentNode !== el) el.insertBefore(sg, el.firstChild);
   if (cu.parentNode !== el) el.appendChild(cu);
   return changed;
+}
+
+/* ── Which way it went ────────────────────────────────────────────────────────
+   A `+` or a `−` at the head of the number, for as long as the flash used to
+   last. It replaced the green/red: colour said "something happened" and left you
+   to work out what from a hue, and on a total that is already the accent's
+   shadow that was one colour too many. A sign says it.
+
+   It grows the box leftwards — the row is `space-between` and the counter has the
+   right end to itself — so the digits do not move when it appears. Nothing is
+   reserved for it either: it is `display:none` between changes. */
+function costSign(el, dir) {
+  const sg = el.querySelector('.cs');
+  if (!sg) return;
+  sg.textContent = dir === 'up' ? '+' : '−';
+  sg.classList.remove('on');
+  void sg.offsetWidth;                       // restart rather than queue behind the last
+  sg.classList.add('on');
 }
 
 /* Only the characters that actually changed flip: 4.50 -> 4.90 turns one card
@@ -390,18 +415,23 @@ function paintBand() {
   if (now === costWas) return;
   costFlap(changed);
 
-  /* Green as it rises, red as it falls. The class is dropped after the run so
-     the colour eases back to white through the transition rather than snapping,
-     and it is restarted rather than added to — keying in a price a digit at a
-     time fires this several times a second, and each one must replace the last
-     rather than queue behind it. */
+  /* Which way it went, said with a sign rather than a colour. The class still
+     carries the direction — it drives the nudge, and it is what tells the sign
+     which glyph to wear — and is dropped after the run. Restarted rather than
+     added to: keying in a price a digit at a time fires this several times a
+     second, and each one must replace the last rather than queue behind it. */
   const dir = now > costWas ? 'up' : 'down';
   costWas = now;
   cost.classList.remove('up', 'down', 'mount');
   void cost.offsetWidth;
   cost.classList.add(dir);
+  costSign(cost, dir);
   clearTimeout(costTimer);
-  costTimer = setTimeout(() => cost.classList.remove('up', 'down'), 620);
+  costTimer = setTimeout(() => {
+    cost.classList.remove('up', 'down');
+    const sg = cost.querySelector('.cs');
+    if (sg) sg.classList.remove('on');
+  }, 900);
 }
 
 function renderCart() {

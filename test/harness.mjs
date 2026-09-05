@@ -3502,9 +3502,9 @@ check('... and the currency mark wears what the number wears, not the inverse of
   /\.ns-store \.h-cost \.cu\{[^}]*color:var\(--tx\)/.test(storeCss4) &&
   /\.ns-store \.h-cost \.cu\{[^}]*--title-sh-c:var\(--y\);text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(storeCss4) &&
   !/\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
-check('... the whole unit flashes, mark and shadows included, not just the digits',
-  /\.ns-store \.h-cost\.up   \.cu\{color:var\(--gr\);--title-sh-c:var\(--gr\)\}/.test(storeCss4) &&
-  /\.ns-store \.h-cost\.down \.cu\{color:var\(--re\);--title-sh-c:var\(--re\)\}/.test(storeCss4));
+check('... and nothing in the change is a colour any more',
+  !/\.h-cost\.(up|down)[^{]*\{[^}]*color/.test(storeCss4),
+  (storeCss4.match(/\.h-cost\.(up|down)[^{]*\{[^}]*/g) || []).join(' | ').slice(0, 90));
 check('... and the total reserves room for its own shadow rather than clipping it',
   /\.ns-store \.h-cost\{[\s\S]*?padding-right:var\(--title-sh-x\)/.test(storeCss4));
 check('... arriving is not a change: pinning mid-trip mounts, it does not flash',
@@ -3513,27 +3513,44 @@ check('... arriving is not a change: pinning mid-trip mounts, it does not flash'
 check('... and the two are distinguishable: one is the date line, the other the big number',
   /\.ns-store \.h-count\{color:var\(--y\);margin-left:10px\}/.test(storeCss4));
 
-/* The flash. Green as it rises, red as it falls, back to white when it settles. */
+/* 3.0.2 — the change is a sign, not a colour. Green and red asked the eye to
+   decode a hue into a direction, on a number that already carries the accent in
+   its shadow and against a palette the theme picker can move out from under it.
+   A `+` or a `−` says the same thing in one glyph. */
+const sSign = () => $('.ns-store #store-cost .cs');
+/* jsdom loads no stylesheets, so `display` is unreadable here: the class is the
+   state, and the sheet is asserted separately. */
+check('at rest the sign reserves nothing — the band is tight enough already',
+  !!sSign() && !sSign().classList.contains('on') &&
+  /\.ns-store \.h-cost \.cs\{display:none/.test(storeCss4),
+  sSign() ? sSign().className || '(no class)' : 'no sign element');
 w.STORE.addCart(4.5);
-check('the total goes green when it rises',
-  sCost().classList.contains('up') && !sCost().classList.contains('down') &&
-  /\.ns-store \.h-cost\.up\s*\{color:var\(--gr\);--title-sh-c:var\(--gr\)/.test(storeCss4),
-  sCost().className);
-check('... and the shadow goes with it, so the two never disagree',
-  /\.h-cost\.up\s*\{[^}]*--title-sh-c:var\(--gr\)/.test(storeCss4) &&
-  /\.h-cost\.down\{[^}]*--title-sh-c:var\(--re\)/.test(storeCss4));
+check('a rise puts a + at the head of the total',
+  sSign().textContent === '+' && sSign().classList.contains('on') &&
+  sCost().classList.contains('up') && !sCost().classList.contains('down'),
+  JSON.stringify(sSign().textContent) + ' | ' + sCost().className);
 w.STORE.addCart(-2);
-check('the total goes red when it falls',
-  sCost().classList.contains('down') && !sCost().classList.contains('up'), sCost().className);
-check('... the movement under the colour is a nudge, not a jump',
+check('a fall puts a minus there — the typographic one, which is a digit wide',
+  sSign().textContent === '−' && sSign().classList.contains('on') &&
+  sCost().classList.contains('down') && !sCost().classList.contains('up'),
+  JSON.stringify(sSign().textContent) + ' | ' + sCost().className);
+check('... and there is no green or red left anywhere in the counter',
+  !/--gr|--re/.test(storeCss4.slice(storeCss4.indexOf('.h-cost'), storeCss4.indexOf('.h-settings-btn'))),
+  'colour tokens still in the counter block');
+check('... the sign wears what the number wears, not a colour of its own',
+  /\.ns-store \.h-cost \.cs\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(storeCss4) &&
+  !/\.ns-store \.h-cost \.cs\{[^}]*color:/.test(storeCss4));
+check('... it turns in, holds while the total is read, then goes, on one animation',
+  /@keyframes cost-sign\{[\s\S]*?rotateX\(-88deg\)[\s\S]*?100%\{opacity:0/.test(storeCss4) &&
+  /\.cs\.on\{[^}]*animation:cost-sign calc\(\.9s \* var\(--mo\)\)/.test(storeCss4));
+check('... the movement under it is still a nudge, not a jump',
   /@keyframes cost-up\s*\{0%\{transform:none\} 34%\{transform:translateY\(-\.055em\)\}/.test(storeCss4) &&
   /@keyframes cost-down\{0%\{transform:none\} 34%\{transform:translateY\(\.055em\)\}/.test(storeCss4));
-check('... and it eases back to white rather than snapping',
-  /\.ns-store \.h-cost\{[\s\S]*?transition:color var\(--dur-3\) var\(--ease\), text-shadow var\(--dur-3\) var\(--ease\)/.test(storeCss4));
-/* 3.0 — the whole unit moves as one, and the digits turn over.
+/* 3.0 — the digits turn over, and every node survives a repaint.
    The mark used to be rebuilt by an `innerHTML =` on every paint, and a
-   replaced element has no previous value to transition from: it snapped to
-   green while the digits eased into it. The node has to survive a repaint. */
+   replaced element has no previous value to transition from. The sign is held
+   across a rebuild for the same reason: its animation is running while the
+   number under it changes. */
 const cuNode = () => $('.ns-store #store-cost .cu');
 const cuWas = cuNode();
 w.STORE.addCart(1.25);

@@ -19,7 +19,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
-| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, going green as it rises and red as it falls. |
+| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, and a `+` or `−` at its head for a moment when it moves (3.0.2; it went green and red until then). |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
@@ -1016,6 +1016,18 @@ both say so, and a new device needs the `.apkg` imported again.
   not fixed", stop reading the stylesheet and go and measure it** —
   `--remote-debugging-port` plus node's global `WebSocket` is about sixty lines
   and needs nothing installed.
+- **The pinned total does not fit beside `STORE.` and is clipped, badly.**
+  Measured in Chrome at 412×915: the row is 376px, the wordmark takes 326 of it
+  at the default title size, and the counter is left 36px for content that needs
+  267 — 231px of the number is cut off. It is clipped at *every* one of the five
+  title sizes (at `xs` it still needs 193 and gets 126). The 2.25.1 note claiming
+  it "still fits beside `STORE.` at the largest title size" was never true;
+  `font-size:min(var(--title-px), 14vw)` never binds, because 14vw at any phone
+  width is larger than 54px. Nothing can fix this without something getting
+  materially smaller — the wordmark while the counter is pinned, or the counter
+  itself — and that is a look, not a bug fix, so it is Hugo's call and it is
+  **still open**. Anything added to the head of the counter (3.0.2's sign) makes
+  the clipping worse while this stands.
 - **An element rebuilt on every paint cannot transition.** A replaced node has
   no previous computed value, so it arrives at its final one — instantly, while
   everything around it eases. STORE's total was one `innerHTML =` per repaint,
@@ -1379,6 +1391,46 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.0.2 — 2026-09-06 — the total says which way it went, with a sign
+
+> replace the green/red animation to a + or - that appear for increase/decrease. in "store"
+
+**The colour is gone.** The running total went green on a rise and red on a fall;
+it now puts a `+` or a `−` at its head for a moment instead. Colour asked the eye
+to decode a hue into a direction — on a number that already carries the accent in
+its shadow, and against a palette the theme picker can move out from under it. A
+sign does not need decoding and cannot collide with a theme.
+
+**Where it goes.** At the head of the number, `display:none` between changes so
+it reserves nothing on a band that has none to spare. The counter has the right
+end of the row to itself (`justify-content:space-between`), so when the sign
+appears the box grows *leftwards* and the digits stay where they are — measured:
+the box gained exactly the sign's 28.4px and the number did not move.
+
+**What it wears.** What the number wears — title colour, accent shadow. Its job
+is done by appearing, not by being another colour, and 3.0.1 had just finished
+taking the last two inversions out of this band.
+
+**Its life is one animation.** It turns in like one of the digit cells, holds
+while the total is read, and fades. `−` is U+2212, the typographic minus, which
+is a digit wide in tabular figures rather than the stubby hyphen.
+
+**The nudge stays.** A fraction of a millimetre up on a rise and down on a fall.
+It is not a colour, it says the same thing the sign says, and it was already
+there — easy to drop if it is one signal too many.
+
+**Verified** — `test/harness.mjs`, 757 checks, all green (7 rewritten from the
+green/red flash, 5 new), and driven in headless Chrome: `+` on a rise, `−` on a
+fall, gone at rest, nothing green or red left in the counter's rules.
+
+**Found on the way, and still open: the pinned total does not fit.** At 412px
+the wordmark takes 326px of a 376px row and the counter gets 36px for 267px of
+content — 231px cut off, at every title size. It is a 2.25.1 defect, not a new
+one, but it means this sign is largely unseeable until it is dealt with, and
+dealing with it means making the wordmark or the number materially smaller while
+the counter is pinned. That is a look rather than a fix, so it is Hugo's to
+choose. §6 carries the measurement.
 
 ### 3.0.1 — 2026-09-06 — the title shadow was never overridable, and both "fixes" proved it
 
