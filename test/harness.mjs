@@ -3482,7 +3482,7 @@ check('pinning puts the running cost in the band, at the wordmark size and in wh
   /\.ns-store \.h-cost\{[\s\S]*?color:var\(--tx\)/.test(storeCss4),
   sCost().textContent);
 check('... with a hard offset copy of its own glyphs behind it, not a soft drop shadow',
-  /--title-sh:\.055em 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
+  /--title-sh:max\(1px, round\(\.055em, 1px\)\) 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
   /\.ns-store \.h-cost\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(storeCss4) &&
   !/text-shadow:[^;]*blur/.test(storeCss4));
 check('... and the currency mark reads in the accent',
@@ -3633,8 +3633,16 @@ check('... tokens.css says why, so nobody re-adds it',
   /There is no `zoom` here any more/.test(tokensRaw));
 
 /* -- The shadow, shared -- */
+/* .055em is 2.97px on the 54px wordmark but 0.825px on a 15px sticky title, and
+   a glyph copied less than a pixel sideways is a smear, not a shadow — it reads
+   as blurred text, which is what 2.26.0 did to every sticky title. */
 check('the title shadow is one token, not three copies of an offset',
-  /--title-sh:\.055em 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+  /--title-sh:max\(1px, round\(\.055em, 1px\)\) 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+check('... its offset is a whole pixel at every size, with a 1px floor',
+  /--title-sh:max\(1px, round\(\.055em, 1px\)\)/.test(tokensCss4) &&
+  /--title-sh:1px 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+check('... and the wordmark wears it too, not just the sub-screen titles',
+  /\.view > \.h-top \.h-logo\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(shellCss4));
 check('... every sticky sub-screen title wears it',
   ['do','learn','log','plan','settings','store'].every(f =>
     /\.hd-title\{[^}]*text-shadow:var\(--title-sh\)/.test(
@@ -3705,16 +3713,23 @@ check('an app switched off on purpose is not resurrected by the same migration',
   !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
   w3.Prefs.get('apps').join(','));
 
-// an install that had moved the retired Interface scale keeps the size it chose
-const w4 = await bootWith({ uiScale: 1.2, density: 1, theme: 'void' });
-check('a stored Interface scale is folded into Spacing rather than dropped',
-  Math.abs(w4.Prefs.get('density') - 1.2) < 0.021 && w4.Prefs.get('uiScale') === undefined,
+/* 2.26.0 folded a stored Interface scale into Spacing, which was the same defect
+   moved to another multiplier: --dens multiplies every padding, so 1.1 turns an
+   18px pad into 19.8px and puts the text below it on a fractional baseline. The
+   scale is dropped now, and an install that was folded is repaired once. */
+const w4 = await bootWith({ uiScale: 1.2, density: 1.2, theme: 'void' });
+check('a stored Interface scale is dropped, not folded into Spacing',
+  w4.Prefs.get('uiScale') === undefined && w4.Prefs.get('density') === w4.Prefs.SCHEMA.density.def,
   w4.Prefs.get('density') + ' / ' + w4.Prefs.get('uiScale'));
-check('... and it is folded once, not on every boot',
+check('... the repair is recorded, so it runs once and not on every boot',
+  w4.Prefs.get('densRepair') === true &&
+  JSON.parse(w4.localStorage.getItem('root_prefs_v1')).densRepair === true &&
   JSON.parse(w4.localStorage.getItem('root_prefs_v1')).uiScale === undefined);
-const w5 = await bootWith({ uiScale: 1.35, density: 1.3, theme: 'void' });
-check('... clamped to what Spacing can actually be',
-  w5.Prefs.get('density') <= w5.Prefs.SCHEMA.density.max, String(w5.Prefs.get('density')));
+const w5 = await bootWith({ density: 1.25, densRepair: true, theme: 'void' });
+check('... and a Spacing chosen after the repair is left alone',
+  Math.abs(w5.Prefs.get('density') - 1.25) < 1e-9, String(w5.Prefs.get('density')));
+check('... with no control for the repair flag — it is a record, not a setting',
+  !w5.document.querySelector('.ns-set [data-pref="densRepair"]'));
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

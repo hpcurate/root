@@ -162,9 +162,14 @@ body{
 .ns-do > .h-top > .h-label{padding-right:calc(118px * var(--dens))}
 .ns-store > .h-top > .h-label{padding-right:calc(80px * var(--dens))}
 .view > .h-top > .h-logo-row{margin:0}
+/* The wordmark wears the same shadow as everything else that is a title —
+   2.26.0 put it on the sticky sub-screen headers and the big dates and left the
+   one title that is most obviously a title without it. Set here rather than in
+   eight app sheets, like the rest of the band's shared shape. */
 .view > .h-top .h-logo{
   margin:0;padding:0;line-height:1;
-  font-size:var(--title-px)}
+  font-size:var(--title-px);
+  text-shadow:var(--title-sh)}
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
 /* ── The big day-number, at the other end of the wordmark's row ───────────────

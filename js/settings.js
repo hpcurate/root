@@ -146,7 +146,9 @@ function chips(prefKey, opts, label, note) {
 
 /* `auto` sliders (radius, border) sit at null until the user touches them, at
    which point the theme stops deciding. The readout says which is true. */
-function slider(prefKey, label, fmt) {
+/* `note` renders as the same <em> hint chips() uses, so the tips switch reaches
+   it for free (`[data-tips="off"] .slider-head .lbl em`). */
+function slider(prefKey, label, fmt, note) {
   const s = Prefs.SCHEMA[prefKey];
   const raw = Prefs.get(prefKey);
   const isAuto = raw === null;
@@ -155,7 +157,7 @@ function slider(prefKey, label, fmt) {
   const read = isAuto ? `auto · ${shown}${s.unit || ''}` : (fmt ? fmt(shown) : shown + (s.unit || ''));
   return `<div class="slider-row" data-slider="${prefKey}">
     <div class="slider-head">
-      <label class="lbl">${esc(label)}</label>
+      <label class="lbl">${esc(label)}${note ? `<em>${esc(note)}</em>` : ''}</label>
       <span class="slider-val${isAuto ? ' is-auto' : ''}">${esc(read)}</span>
     </div>
     <input type="range" class="sl" data-pref="${prefKey}"
@@ -325,7 +327,7 @@ function layoutHTML() {
     ${toggle('accentGlow', 'Accent halo', 'a soft bloom around anything carrying the accent')}
 
     ${sectionHead('Density')}
-    ${slider('density', 'Spacing', v => pct(v))}
+    ${slider('density', 'Spacing', v => pct(v), 'anything but 100% puts every padding on a fraction of a pixel, which softens the text inside it — the same thing the old Interface scale did')}
     ${chips('titleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Title size', 'the DO. LOG. PLAN. wordmarks')}

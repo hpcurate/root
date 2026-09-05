@@ -1325,6 +1325,47 @@ point of the thing.
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
 
+### 2.26.1 — 2026-09-05 — the shadow was the blur, and the fold was the other one
+
+Both of 2.26.0's regressions, and the wordmark it forgot.
+
+**The shadow was a sub-pixel smear.** `--title-sh` was `.055em`, which is 2.97px
+on the 54px wordmark — a proper offset copy — and **0.825px on a 15px sticky
+title**. A glyph copied less than a pixel sideways is not a shadow; it is the
+same glyph drawn twice, half a pixel apart, which is the textbook way to make
+text look out of focus. 2.26.0 put that on every sticky title in the app and
+called it a treatment.
+
+It is `max(1px, round(.055em, 1px))` now: a whole pixel at every size it is used
+at, 1px on a sticky title and 3px on a wordmark, with a plain `1px` fallback for
+a browser without `round()`.
+
+**And the fold was the other regression.** 2.26.0 retired Interface scale
+because document zoom put the whole page on fractional pixels — then folded the
+stored scale into **Spacing**, which multiplies every padding and gap in the app
+(`calc(18px * var(--dens))`). At 1.1 an 18px padding becomes 19.8px, every box
+below it starts on a fractional offset, and the text inside it sits on a
+fractional baseline. That is *the same defect, moved from one multiplier to
+another* — and worse than the original, because the dial that could be put back
+to 100% no longer existed.
+
+The scale is dropped now rather than folded, and an install that 2.26.0 folded
+is repaired: Spacing goes back to its default once, recorded in `densRepair` so
+it happens once and never touches a Spacing chosen afterwards. The Spacing dial
+carries a note saying what it does to text at anything but 100%, because it has
+always had this property and nothing had ever said so.
+
+**The wordmarks wear the shadow.** 2.26.0 put it on the sticky sub-screen
+headers and the big dates and left out the one thing in the app most obviously a
+title — `DO.`, `STORE.`, `LOG.` Set once in shell.css with the rest of the
+band's shared shape, not in eight app sheets.
+
+**Verified** — `test/harness.mjs`, **713 checks, all green** (710 at 2.26.0).
+New coverage: the shadow offset rounded with a 1px floor and a fallback; the
+wordmark wearing it; a stored scale dropped rather than folded; the repair
+recorded so it runs once; a Spacing chosen after the repair left alone; and no
+control for the repair flag, which is a record and not a setting.
+
 ### 2.26 — 2026-09-05 — the blur was `zoom`, and the shadow goes on every title
 
 **It was Interface scale.** `html{zoom:var(--ui-scale)}`. Hugo found it by

@@ -229,6 +229,10 @@ const SCHEMA = {
      with the rest. See the note on load(): it is what tells a brand-new app
      apart from one the user switched off. */
   appsSeen:     { kind:'list',   def:APPS.slice() },
+  /* Not a setting and there is no control for it — it records that the 2.26.0
+     Spacing fold has been undone, so the repair runs once. Stored, exported and
+     restored with the rest, like `appsSeen`. */
+  densRepair:   { kind:'bool',   def:false },
 
   // behaviour
   startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
@@ -331,7 +335,7 @@ function load() {
     } catch {}
   }
   adoptNewApps(stored);
-  foldAwayUiScale(stored);
+  dropUiScale(stored);
 }
 
 /* ── Interface scale, retired ─────────────────────────────────────────────────
@@ -342,19 +346,32 @@ function load() {
    sticky title is blurred" were, and why four correct rendering fixes each
    changed nothing: none of them was touching it. See the note in tokens.css.
 
-   An install that had moved the dial keeps roughly the size it chose: the
-   stored scale is folded into Spacing, which does the same job through
-   `--dens` and is whole-pixel by construction. Clamped to Spacing's own range,
-   and run once — the key is deleted after, so a later Spacing change is never
-   multiplied by it a second time. */
-function foldAwayUiScale(stored) {
-  const old = +stored.uiScale;
-  if (!isFinite(old) || old === 1) { delete prefs.uiScale; return; }
-  const d = SCHEMA.density;
-  const want = (+prefs.density || 1) * old;
-  prefs.density = Math.min(d.max, Math.max(d.min, Math.round(want / d.step) * d.step));
+   **2.26.0 folded a stored scale into Spacing, and that was wrong.** `--dens`
+   multiplies every padding and gap in the app (`calc(18px * var(--dens))`), so
+   at 1.1 an 18px padding becomes 19.8px and every box below it starts on a
+   fractional offset — which puts the text inside it on a fractional baseline
+   and softens it. It is the *same defect the retirement was meant to remove*,
+   moved from one multiplier to another, and it was worse than the original
+   because there was no longer a dial to put back to 100%.
+
+   So the scale is now simply dropped, and an install that 2.26.0 folded is
+   repaired: Spacing goes back to its default once, recorded so it happens once
+   and never touches a later deliberate choice. Anyone who had genuinely set
+   Spacing before 2.26.0 loses that one setting a single time, which is the
+   right trade against leaving the app permanently soft. */
+function dropUiScale(stored) {
   delete prefs.uiScale;
-  persist();
+  if (stored.uiScale === undefined && prefs.densRepair) return;
+  /* 2.26.0 is the only build that wrote a folded density, and it always wrote
+     `uiScale` away in the same pass — so a stored density with no stored
+     uiScale beside it, on an install that has not been repaired yet, is either
+     that fold or a deliberate choice. Both go back to the default: a soft app
+     is not worth preserving either of them. */
+  if (!prefs.densRepair) {
+    prefs.density = SCHEMA.density.def;
+    prefs.densRepair = true;
+    persist();
+  }
 }
 
 function persist() {

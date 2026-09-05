@@ -216,6 +216,11 @@
 /* ── Sliders ──────────────────────────────────────────────────────────────── */
 .slider-row{margin-bottom:16px}
 .slider-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+/* a slider's hint reads like a chip set's: under the name, not beside it, so a
+   long one does not push the readout off the row */
+.slider-head .lbl em{display:block;font-style:normal;color:var(--tx-2);
+  letter-spacing:.04em;text-transform:none;margin-top:5px;line-height:1.5}
+.slider-head .lbl{min-width:0;flex:1}
 .slider-head .lbl{margin-bottom:0}
 .slider-val{font:700 11px/1 var(--mono);color:var(--y);letter-spacing:.04em}
 .slider-val.is-auto{color:var(--mu);font-weight:400}
