@@ -170,6 +170,14 @@ body{
   margin:0;padding:0;line-height:1;
   font-size:var(--title-px);
   text-shadow:var(--title-sh)}
+/* ── The dot is the inverse of the word ──
+   `DO<em>.</em>` — the word is title-coloured with an accent shadow, so the dot,
+   which is already the accent, would otherwise be an accent shape behind an
+   accent shape: no shadow at all, just a slightly fatter dot. Swapping the two
+   makes it read as the same treatment seen from the other side, and it is the
+   one glyph in the wordmark where that reads as deliberate rather than as a
+   mistake. `text-shadow` is inherited, so this only has to restate the colour. */
+.view > .h-top .h-logo em{--title-sh-c:var(--tx)}
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
 /* ── The big day-number, at the other end of the wordmark's row ───────────────
@@ -199,10 +207,14 @@ body{
    small element for a fifth of a second, which is the only reason a filter
    animation is acceptable here at all. */
 .view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
-  min-width:1.1em;height:1em;line-height:1;
+  min-width:calc(1.1em + var(--title-sh-x));height:1em;line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh)}
-.view > .h-top .h-daynum span{position:absolute;right:0;top:0;display:block;line-height:1}
+/* The box has to clip — that is what stops a number on its way out making the
+   row taller — so the digits are held one shadow-width off the right edge and
+   the box is that much wider. Without it the shadow, which is the one part of
+   the glyph that sticks out to the right, was the part being cut off. */
+.view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);top:0;display:block;line-height:1}
 .view > .h-top .h-daynum .dn-cur.shuffling{
   animation:dn-in calc(.44s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
 .view > .h-top .h-daynum .dn-out{

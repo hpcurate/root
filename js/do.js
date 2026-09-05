@@ -1667,7 +1667,7 @@ function renderQuick() {
   const done = q.tasks.length - open;
   const fold = !!td.quickFold;
   box.classList.toggle('folded', fold);
-  box.innerHTML = `<div class="tt-head"><button class="tt-name" onclick="DO.toggleQuickFold()"
+  box.innerHTML = `<div class="tt-head"><button class="tt-fold" onclick="DO.toggleQuickFold()"
         aria-expanded="${!fold}" aria-controls="td-quick-body">quick<em>${open} open</em>
         <svg class="tt-caret" aria-hidden="true"><use href="#ico-chev-r"/></svg></button><span class="tt-acts">
       ${fold ? '' : `${done ? `<button class="tt-refresh tt-clear" onclick="DO.clearQuickDone()">clear ${done}</button>` : ''}

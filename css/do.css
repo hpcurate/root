@@ -197,11 +197,18 @@
 .ns-do .tt-head em{color:var(--mu);font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:none;margin-left:8px}
 /* The section's own title is the fold switch. It has to look like the plain
    heading it replaced — a heading that is a button is only obvious once, and
-   after that it is just the heading — so the only tell is the caret. */
-.ns-do .tt-name{display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;
+   after that it is just the heading — so the only tell is the caret.
+
+   **It is `.tt-fold`, not `.tt-name`.** `.tt-name` is declared twice in this
+   sheet: here, and again further down as a *task row's* name — 12.5px mono in
+   the foreground colour. Same specificity, and the row's rule is written later,
+   so it won every time: QUICK's heading had been set in a task row's font while
+   BLOCKS, TODAY and MEDIA used the head's own 10px letter-spaced accent caps.
+   The two names had nothing to do with each other and only ever collided. */
+.ns-do .tt-fold{display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;
   color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;
   min-width:0}
-.ns-do .tt-name:active{color:var(--tx)}
+.ns-do .tt-fold:active{color:var(--tx)}
 .ns-do .tt-caret{width:11px;height:11px;flex:0 0 auto;color:var(--mu);
   transform:rotate(90deg);transition:transform var(--dur-2) var(--ease)}
 .ns-do .tt.folded .tt-caret{transform:rotate(0)}

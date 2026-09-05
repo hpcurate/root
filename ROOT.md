@@ -1325,6 +1325,50 @@ point of the thing.
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
 
+### 2.26.2 — 2026-09-05 — the shadow stops clipping, the dot inverts, QUICK gets its heading back
+
+Four adjustments to the title shadow, three of them things the last two releases
+put there.
+
+**The shadow needs room, so the offset is its own token.** `--title-sh-x`.
+`.h-daynum` has to clip — that is what stops a number on its way out making the
+row taller — and the shadow is the one part of the glyph that sticks out to the
+right, so it was the part being cut off. The box is now a shadow-width wider and
+the digits sit a shadow-width off its right edge. STORE's total reserves the
+same. One value, so the reservation cannot drift from the thing it reserves for.
+
+**The dot after a wordmark is the inverse of the word.** `DO<em>.</em>` — the
+word is title-coloured with an accent shadow, so the dot, already the accent,
+was an accent shape behind an accent shape: not a shadow, just a slightly fatter
+dot. It takes the title colour as its shadow and keeps the accent as its own
+colour, which reads as the same treatment seen from the other side.
+
+**STORE's total flashes as one object.** The `€` sat at a fixed accent while the
+digits went green and red, and half a number changing colour reads as a
+rendering fault rather than as a signal. The mark and both shadows go with it
+now. It also gained the shadow it had been opted out of: that exemption existed
+because at `.4em` the un-rounded `.055em` came out sub-pixel and doubled into
+mush, and with 2.26.1's whole-pixel offset there is nothing left to avoid. Like
+the wordmark's dot, it wears it inverted.
+
+**DO's QUICK heading had been wearing a task row's font.** Not a shadow, despite
+appearances. `.tt-name` was declared twice in `do.css` — once for QUICK's fold
+button and once, later and at the same specificity, for a task row's name
+(12.5px mono in the foreground colour). The row's rule won every time, so QUICK
+was set in a task row's type while BLOCKS, TODAY and MEDIA used the head's own
+10px letter-spaced accent caps. The two names had nothing to do with each other
+and only ever collided; the fold button is `.tt-fold` now, and a check fails if
+`.tt-name` is ever declared twice again.
+
+**Parked, not built:** the triple-tap reachability idea (`@idea`).
+
+**Verified** — `test/harness.mjs`, **720 checks, all green** (713 at 2.26.1).
+New coverage: the offset as its own token with its floor and fallback; the
+daynum reserving it and offsetting its digits by it; the inverted dot; the
+inverted currency mark; the whole unit flashing together; the total reserving
+its own shadow; `.tt-name` declared exactly once; QUICK's heading inheriting the
+head's type; and no section head carrying a shadow at all.
+
 ### 2.26.1 — 2026-09-05 — the shadow was the blur, and the fold was the other one
 
 Both of 2.26.0's regressions, and the wordmark it forgot.

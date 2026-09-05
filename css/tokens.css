@@ -188,8 +188,15 @@
      Rounded, with a 1px floor, so the effect is an offset at every size it is
      used at and never a sub-pixel double. The em stays in the value rather than
      being resolved here, because a custom property is substituted at the point
-     of use — which is what makes it scale with whatever wears it. */
-  --title-sh:1px 0 0 var(--title-sh-c);
+     of use — which is what makes it scale with whatever wears it.
+
+     The offset is its own token because a shadow needs *room*: anything that
+     clips (`.h-daynum` has to, so a number on its way out is cut off by the row
+     rather than making it taller) has to reserve exactly this much on its right
+     or it clips its own shadow off. One value, so the reservation cannot drift
+     from the thing it is reserving for. */
+  --title-sh-x:1px;
+  --title-sh:var(--title-sh-x) 0 0 var(--title-sh-c);
 
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
@@ -348,7 +355,7 @@ html{height:100%}
         --hd-pad:round(calc(var(--hd-base) * var(--hd-scale) * .93), 1px)}
   /* the em resolves against the element the shadow lands on, so this rounds
      per size: 1px on a 15px title, 3px on the 54px wordmark */
-  :root{--title-sh:max(1px, round(.055em, 1px)) 0 0 var(--title-sh-c)}
+  :root{--title-sh-x:max(1px, round(.055em, 1px))}
 }
 
 /* Accent glow — a halo on the things that carry the accent. Off by default.

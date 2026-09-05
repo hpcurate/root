@@ -3125,18 +3125,18 @@ if (!JSON.parse(w.localStorage.getItem('do_todoist_v1')).quickOn) w.DO.toggleQui
 w.DO.renderQuick();
 const quickShown = () => !$('.ns-do #td-quick').classList.contains('hidden');
 if (quickShown()) {
-  check('the quick section\'s title is the fold switch', !!$('.ns-do #td-quick .tt-name'));
-  click($('.ns-do #td-quick .tt-name'));
+  check('the quick section\'s title is the fold switch', !!$('.ns-do #td-quick .tt-fold'));
+  click($('.ns-do #td-quick .tt-fold'));
   check('… folding hides the cards and keeps the head',
     $('.ns-do #td-quick').classList.contains('folded') &&
-    !!$('.ns-do #td-quick .tt-head') && !!$('.ns-do #td-quick .tt-name') &&
+    !!$('.ns-do #td-quick .tt-head') && !!$('.ns-do #td-quick .tt-fold') &&
     $('.ns-do #td-quick #td-quick-body').classList.contains('hidden'),
     $('.ns-do #td-quick').className);
   check('… the count stays readable while it is folded',
-    /open/.test($('.ns-do #td-quick .tt-name').textContent),
-    $('.ns-do #td-quick .tt-name').textContent.trim());
+    /open/.test($('.ns-do #td-quick .tt-fold').textContent),
+    $('.ns-do #td-quick .tt-fold').textContent.trim());
   check('… and it is remembered', JSON.parse(w.localStorage.getItem('do_todoist_v1')).quickFold === true);
-  click($('.ns-do #td-quick .tt-name'));
+  click($('.ns-do #td-quick .tt-fold'));
   check('… tapping it again brings them back',
     !$('.ns-do #td-quick').classList.contains('folded') &&
     !$('.ns-do #td-quick #td-quick-body').classList.contains('hidden'));
@@ -3482,13 +3482,21 @@ check('pinning puts the running cost in the band, at the wordmark size and in wh
   /\.ns-store \.h-cost\{[\s\S]*?color:var\(--tx\)/.test(storeCss4),
   sCost().textContent);
 check('... with a hard offset copy of its own glyphs behind it, not a soft drop shadow',
-  /--title-sh:max\(1px, round\(\.055em, 1px\)\) 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
+  /--title-sh:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
   /\.ns-store \.h-cost\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(storeCss4) &&
   !/text-shadow:[^;]*blur/.test(storeCss4));
 check('... and the currency mark reads in the accent',
   /\.ns-store \.h-cost \.cu\{[^}]*color:var\(--y\)/.test(storeCss4));
-check('... and the currency mark is not doubled with it',
-  /\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
+/* the mark opted out while the offset was un-rounded and came out sub-pixel at
+   .4em; with whole pixels it wears the shadow inverted, like the wordmark's dot */
+check('... and the currency mark wears it inverted: accent glyph, title-coloured shadow',
+  /\.ns-store \.h-cost \.cu\{[^}]*--title-sh-c:var\(--tx\);text-shadow:var\(--title-sh\)/.test(storeCss4) &&
+  !/\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
+check('... the whole unit flashes, mark and shadows included, not just the digits',
+  /\.ns-store \.h-cost\.up   \.cu\{color:var\(--gr\);--title-sh-c:var\(--gr\)\}/.test(storeCss4) &&
+  /\.ns-store \.h-cost\.down \.cu\{color:var\(--re\);--title-sh-c:var\(--re\)\}/.test(storeCss4));
+check('... and the total reserves room for its own shadow rather than clipping it',
+  /\.ns-store \.h-cost\{[\s\S]*?padding-right:var\(--title-sh-x\)/.test(storeCss4));
 check('... arriving is not a change: pinning mid-trip mounts, it does not flash',
   sCost().classList.contains('mount') &&
   !sCost().classList.contains('up') && !sCost().classList.contains('down'));
@@ -3637,10 +3645,17 @@ check('... tokens.css says why, so nobody re-adds it',
    a glyph copied less than a pixel sideways is a smear, not a shadow — it reads
    as blurred text, which is what 2.26.0 did to every sticky title. */
 check('the title shadow is one token, not three copies of an offset',
-  /--title-sh:max\(1px, round\(\.055em, 1px\)\) 0 0 var\(--title-sh-c\)/.test(tokensCss4));
-check('... its offset is a whole pixel at every size, with a 1px floor',
-  /--title-sh:max\(1px, round\(\.055em, 1px\)\)/.test(tokensCss4) &&
-  /--title-sh:1px 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+  /--title-sh:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+check('... its offset is a whole pixel at every size, with a 1px floor and a fallback',
+  /--title-sh-x:max\(1px, round\(\.055em, 1px\)\)/.test(tokensCss4) &&
+  /--title-sh-x:1px;/.test(tokensCss4));
+/* a shadow needs room: .h-daynum has to clip, so it reserves exactly the offset
+   on its right or the shadow is the part that gets cut off */
+check('... and the offset is nameable, so anything that clips can reserve it',
+  /\.view > \.h-top \.h-daynum\{[\s\S]*?min-width:calc\(1\.1em \+ var\(--title-sh-x\)\)/.test(shellCss4) &&
+  /\.view > \.h-top \.h-daynum span\{position:absolute;right:var\(--title-sh-x\)/.test(shellCss4));
+check('... the dot after a wordmark is the inverse: accent glyph, title-coloured shadow',
+  /\.view > \.h-top \.h-logo em\{--title-sh-c:var\(--tx\)\}/.test(shellCss4));
 check('... and the wordmark wears it too, not just the sub-screen titles',
   /\.view > \.h-top \.h-logo\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(shellCss4));
 check('... every sticky sub-screen title wears it',
@@ -3662,6 +3677,22 @@ check('a selected coffee or energy drink reads in the theme accent, not a frozen
   /\.ns-log \.caf-b\.on \.cnt-l\{color:var\(--y\);opacity:\.6\}/.test(logCss4) &&
   !/rgba\(167,\s*139,\s*250/.test(sheetRules('log')),
   (sheetRules('log').match(/rgba\(167[^)]*\)/g) || []).join(' '));
+
+/* -- DO's QUICK heading --
+   `.tt-name` was declared twice in do.css: once for this fold button and once,
+   later and at the same specificity, for a task row's name (12.5px mono in the
+   foreground). The row's rule won, so QUICK's heading had been set in a task
+   row's font while BLOCKS, TODAY and MEDIA used the head's own 10px accent
+   caps. The two names had nothing to do with each other. */
+check('QUICK\'s heading is a class of its own, not one shared with a task row name',
+  (sheetRules('do').match(/\.ns-do \.tt-name\{/g) || []).length === 1 &&
+  /\.ns-do \.tt-fold\{[^}]*font:inherit/.test(sheetRules('do')),
+  (sheetRules('do').match(/\.ns-do \.tt-name\{/g) || []).length + ' declarations of .tt-name');
+check('... so it inherits the section head\'s type, like every other section title',
+  /\.ns-do \.tt-fold\{[^}]*color:inherit[^}]*letter-spacing:inherit[^}]*text-transform:inherit/.test(sheetRules('do')));
+check('... and no section head carries a text-shadow — the shadow is the band\'s, not the body\'s',
+  !/\.ns-do \.tt-head\{[^}]*text-shadow/.test(sheetRules('do')) &&
+  !/\.ns-do \.tt-fold\{[^}]*text-shadow/.test(sheetRules('do')));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

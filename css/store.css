@@ -64,9 +64,17 @@
   color:var(--tx);
   --title-sh-c:var(--y);
   text-shadow:var(--title-sh);
+  /* room for its own shadow: it clips, so the offset would be the part cut off */
+  padding-right:var(--title-sh-x);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
+/* The currency mark is the inverse of the number beside it, the same way the
+   wordmark's dot is: accent glyph, title-coloured shadow. It carried
+   `text-shadow:none` until 2.26.2 because at .4em the offset used to come out
+   sub-pixel and doubled into mush — that was the un-rounded `.055em`, and with
+   the offset snapped to whole pixels there is nothing left to avoid. */
 .ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--y);margin-left:.12em;
-  text-shadow:none}
+  --title-sh-c:var(--tx);text-shadow:var(--title-sh);
+  transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
 .ns-store .h-cost.hidden{display:none}
 
 /* ── The change ──
@@ -82,6 +90,11 @@
    the trade the wrong way round. */
 .ns-store .h-cost.up  {color:var(--gr);--title-sh-c:var(--gr);animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
 .ns-store .h-cost.down{color:var(--re);--title-sh-c:var(--re);animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
+/* the whole unit goes with it — the mark and both shadows, not just the digits.
+   Half of it changing colour reads as a rendering fault rather than as a
+   signal, which is what it looked like while the mark sat at a fixed accent. */
+.ns-store .h-cost.up   .cu{color:var(--gr);--title-sh-c:var(--gr)}
+.ns-store .h-cost.down .cu{color:var(--re);--title-sh-c:var(--re)}
 @keyframes cost-up  {0%{transform:none} 34%{transform:translateY(-.055em)} 100%{transform:none}}
 @keyframes cost-down{0%{transform:none} 34%{transform:translateY(.055em)}  100%{transform:none}}
 /* mounting it when the counter is pinned: it arrives from the right, the way
