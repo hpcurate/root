@@ -115,17 +115,71 @@
   font-size:24px;line-height:1.1;letter-spacing:.03em}
 /* "n sections" is what the rows below now say */
 .ns-plan .proj-tile.open .proj-meta{display:none}
+/* The open tile drops its box, which also dropped the only thing on screen
+   carrying the project's colour at full strength — with the rows now railed
+   rather than washed, the heading was the last grey thing above a list that
+   had gone quiet too. A rule under the name in the project's colour: enough to
+   say whose sections these are, and not a box competing with them. */
+.ns-plan .proj-tile.open .proj-head{position:relative;padding-bottom:calc(9px * var(--dens))}
+.ns-plan .proj-tile.open .proj-head::after{content:'';position:absolute;left:0;right:0;bottom:0;
+  height:2px;border-radius:var(--r1);background:var(--proj-color);opacity:.85}
 /* the form open under it: the same heading, unchanged — .wide is kept as the
    state marker (aria and the harness read it) but no longer grows the box */
 
+/* ── Jumping to another project without closing this one ─────────────────────
+   Opening a project used to clear the grid of every other one, so the way to
+   the next project was back out through the one you were in. These are the
+   others, kept on screen as chips: the dot the tile already carries, the name,
+   and the queued count if it has one. One tap moves between projects, and the
+   FLIP carries the section rows out and the new ones in, so the screen never
+   goes back to a grid of boxes on the way.
+
+   A chip, not a tile: the open project is the subject of the screen and these
+   are a way out of it, so they are the quietest thing on it until touched. */
+.ns-plan .proj-jumps{grid-column:1 / -1;display:flex;gap:calc(6px * var(--dens));
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+  padding-bottom:2px;margin-bottom:calc(2px * var(--dens))}
+.ns-plan .proj-jumps::-webkit-scrollbar{display:none}
+.ns-plan .proj-jump{flex:0 0 auto;display:flex;align-items:center;gap:calc(7px * var(--dens));
+  background:none;border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--mu);font:700 10px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);
+  padding:calc(7px * var(--dens)) calc(11px * var(--dens));cursor:pointer;user-select:none;
+  transition:color .12s,border-color .12s,background .12s}
+.ns-plan .proj-jump .proj-dot{width:7px;height:7px}
+.ns-plan .proj-jump em{font:400 9px/1 var(--mono);letter-spacing:.04em;font-style:normal;
+  color:var(--proj-color);text-transform:none;font-variant-numeric:tabular-nums}
+/* one with something queued in it is already carrying its colour — that is
+   what makes "where did I put the other three" answerable at a glance */
+.ns-plan .proj-jump.has{color:var(--tx);border-color:var(--proj-color)}
+.ns-plan .proj-jump:active{background:color-mix(in srgb,var(--proj-color) 16%,var(--s1));
+  border-color:var(--proj-color);color:var(--tx)}
+
+/* ── A section row ──
+   The wash-and-outline box it used to be made three rows read as three
+   identical slabs of the project's colour, and the name — the only thing that
+   differs between them — was competing with all of it. The colour is a rail
+   down the left edge instead (CAL's device, and the media rows'), the surface
+   is the app's ordinary one, and the name is the loudest thing in the row
+   because the name is what you are choosing between.
+
+   `has` is the count of what is already queued into that section. */
 .ns-plan .proj-sec{grid-column:1 / -1;min-height:var(--tile-h);
-  display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
-  background:color-mix(in srgb,var(--proj-color) 10%,var(--s1));
-  border:var(--bw) solid var(--proj-color);border-radius:var(--r2);
+  display:flex;align-items:stretch;gap:calc(11px * var(--dens));
+  background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);
   color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;text-align:left;
-  padding:0 calc(14px * var(--dens));cursor:pointer;user-select:none;transition:background .12s}
-.ns-plan .proj-sec i{font-style:normal;color:var(--proj-color)}
-.ns-plan .proj-sec:active{background:color-mix(in srgb,var(--proj-color) 18%,var(--s1))}
+  padding:calc(9px * var(--dens)) calc(13px * var(--dens));cursor:pointer;user-select:none;
+  transition:background .12s,border-color .12s}
+.ns-plan .ps-rail{flex:0 0 3px;border-radius:var(--r1);background:var(--proj-color)}
+.ns-plan .ps-name{flex:1 1 auto;min-width:0;align-self:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-plan .ps-n{flex:0 0 auto;align-self:center;font:400 9.5px/1 var(--mono);font-style:normal;
+  letter-spacing:.04em;color:var(--proj-color);font-variant-numeric:tabular-nums}
+.ns-plan .proj-sec i{flex:0 0 auto;align-self:center;font-style:normal;color:var(--proj-color)}
+.ns-plan .proj-sec.has{border-color:color-mix(in srgb,var(--proj-color) 55%,var(--bd))}
+.ns-plan .proj-sec:active{background:color-mix(in srgb,var(--proj-color) 14%,var(--s1));
+  border-color:var(--proj-color)}
 
 /* ── The task form, in the grid ──
    Two tiles wide and four tall, morphing out of the section row that was

@@ -135,13 +135,43 @@ function renderProjects() {
   // the section list can change under an open form (a Config edit): fall back
   // to the rows rather than drawing a panel for a section that is gone
   if (openSub !== null && !open.subs[openSub]) openSub = null;
+  /* How many queued tasks are already filed under each section. It is the one
+     number this screen knows and never showed: the tile says "3 queued" for
+     the project and then the rows underneath — the things you are about to
+     add a fourth to — said nothing at all about where the other three went. */
+  const queuedIn = s => queue.filter(q => q.typeKey === open.key && q.subType === s.display).length;
   const body = openSub === null
-    ? open.subs.map((s, i) =>
-        `<button class="proj-sec" style="--proj-color:${color}" data-flip="sec:${i}"
-                  onclick="PLAN.pickSub('${open.key}',${i})">${esc(s.display)}<i>→</i></button>`).join('')
+    ? open.subs.map((s, i) => {
+        const n = queuedIn(s);
+        return `<button class="proj-sec${n ? ' has' : ''}" style="--proj-color:${color}" data-flip="sec:${i}"
+                  onclick="PLAN.pickSub('${open.key}',${i})">
+          <span class="ps-rail" aria-hidden="true"></span>
+          <span class="ps-name">${esc(s.display)}</span>
+          ${n ? `<em class="ps-n">${n}</em>` : ''}<i aria-hidden="true">→</i></button>`;
+      }).join('')
     : formPanel(open, open.subs[openSub], openSub, color);
 
-  grid.innerHTML = tile(open, true) + body;
+  /* ── The other projects stay reachable ──
+     Opening a project used to take every other one off the screen, so moving
+     from `curate` to `alive` was close, find, open — three taps and the grid
+     rebuilt twice — for what is one thought. They are a strip of chips under
+     the open header now: the colour dot each tile already carries, and the
+     name. Deliberately **not** `.proj-tile`: a tile is a full project box and
+     the rest of this file (and the harness) counts on there being exactly one
+     of those while a project is open. Their own flip keys, so they arrive with
+     the staggered reveal rather than flying in from where a tile used to be. */
+  const others = TASK_TYPES.filter(t => t.key !== open.key);
+  const jumps = others.length ? `<div class="proj-jumps" data-flip="jumps">${
+    others.map(t => {
+      const c = labelHue(t.label, t.key) || resolveColor(t.key);
+      const n = queue.filter(q => q.typeKey === t.key).length;
+      return `<button class="proj-jump${n ? ' has' : ''}" style="--proj-color:${c}" data-flip="j:${t.key}"
+                onclick="PLAN.openProj('${t.key}')" aria-label="open ${esc(t.label)}">
+        <span class="proj-dot" aria-hidden="true"></span><span>${esc(t.label)}</span>${
+        n ? `<em>${n}</em>` : ''}</button>`;
+    }).join('')}</div>` : '';
+
+  grid.innerHTML = tile(open, true) + jumps + body;
   fitTitle(grid.querySelector('.proj-tile.open .proj-name'));
   if (openSub !== null) { renderFormChips(); paintForm(); }
   syncSend();

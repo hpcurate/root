@@ -307,6 +307,8 @@ window.Shell = (function () {
   const askInput = document.getElementById('ask-input');
   const askYes   = document.getElementById('ask-yes');
   const askNo    = document.getElementById('ask-no');
+  const askAlt   = document.getElementById('ask-alt');
+  const askActs  = document.getElementById('ask-acts');
   let askDone = null;
 
   /* One string in, a title and a body out: the question is the title and
@@ -349,6 +351,12 @@ window.Shell = (function () {
     askYes.textContent = opt.yes || (hasInput ? 'save' : 'confirm');
     askYes.classList.toggle('danger', opt.danger !== false && !hasInput);
     askNo.textContent = opt.no || 'cancel';
+    /* The third answer. Two real outcomes stop being a yes/no, so the row
+       stops being two columns and stacks: three lozenges side by side on a
+       phone leaves no room for a verb worth reading. */
+    const hasAlt = !hasInput && typeof opt.alt === 'string' && opt.alt !== '';
+    if (askAlt) { askAlt.textContent = hasAlt ? opt.alt : ''; askAlt.hidden = !hasAlt; }
+    if (askActs) askActs.classList.toggle('three', hasAlt);
     askEl.classList.remove('hidden');
     // a text question wants the field; a yes/no wants neither field nor keyboard
     setTimeout(() => { try { (hasInput ? askInput : askYes).focus(); } catch {} }, 0);
@@ -356,6 +364,7 @@ window.Shell = (function () {
 
   if (askYes) askYes.addEventListener('click', () =>
     askSettle(askInput && askField && !askField.classList.contains('hidden') ? askInput.value : true));
+  if (askAlt) askAlt.addEventListener('click', () => askSettle('alt'));
   if (askNo)  askNo.addEventListener('click', () => askSettle(null));
   if (askEl)  askEl.addEventListener('keydown', e => {
     if (e.key === 'Enter' && askYes) { e.preventDefault(); askYes.click(); }
@@ -484,8 +493,17 @@ window.Shell = (function () {
     curView = next;
     if (!animate) { void track.offsetWidth; track.classList.remove('still'); }
     clearTimeout(leaveTimer);
+    /* .morph comes off with .leaving. It used to be added and never removed,
+       so the title animation — `both`, so it holds its last frame — stayed
+       applied to the current slide's wordmark for as long as the app was
+       open. A held animation keeps the element on its own compositing layer,
+       and text on a layer is drawn with grayscale antialiasing instead of
+       subpixel: the title sat very slightly soft from the first tab change
+       until the next one. Taking the class off once the animation has played
+       hands the wordmark back to the normal text path. */
     leaveTimer = setTimeout(() =>
-      document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving')), 900);
+      document.querySelectorAll('#track .view.leaving, #track .view.morph')
+        .forEach(v => v.classList.remove('leaving', 'morph')), 900);
   }
 
   /* The tab buttons and arrows follow TABS by name, never by a cached list:

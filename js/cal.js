@@ -188,6 +188,118 @@ function toggleEvent(i) {
   save(); render();
 }
 
+/* ── Clock arithmetic ─────────────────────────────────────────────────────────
+   The stored day is a list of rows, each carrying its own `from`, `to` and
+   duration in minutes; the drawing stacks them and reads the times off the
+   rows. So moving part of a day is arithmetic on those strings, and this is
+   the only place that does it. Minutes are taken modulo the day rather than
+   clamped: a row pushed past midnight belongs at the small hours, which is
+   what `over` on the record already means. */
+const hhmm = n => {
+  const m = ((Math.round(n) % 1440) + 1440) % 1440;
+  return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+};
+function shiftEvent(e, mins) {
+  if (!mins) return;
+  const a = minsOf(e.from), b = minsOf(e.to);
+  if (a == null) return;
+  e.from = hhmm(a + mins);
+  if (b != null) e.to = hhmm(b + mins);
+  // "+1" is a claim about the clock, so it is re-derived rather than carried
+  e.over = (a + mins) + (+e.dur || 0) >= 1440;
+}
+
+/* ── Removing a row ───────────────────────────────────────────────────────────
+   A day arrives from PLAN whole. Until now the only way to correct one was to
+   re-export it, which is a great deal of ceremony for "that meeting is off".
+
+   Deleting leaves an hour behind, and there are exactly two honest things to
+   do with it, which is why this asks rather than choosing:
+
+     close the gap    every row after it moves earlier by its duration. The
+                      day is genuinely shorter — everything happens sooner and
+                      you finish sooner. This is the answer when the thing was
+                      cancelled and you want the time back.
+     leave it free    the row becomes an unclaimed slot and the rest of the day
+                      stays exactly where it was planned. This is the answer
+                      when the *rest* of the day is fixed — a train at six is
+                      still at six whether or not the morning emptied out.
+
+   A `fixed` template row left free is still an idle row: what an idle row
+   means is "this hour, nothing in it", which is true of both. */
+function deleteEvent(i) {
+  const rec = sel && DB.days[sel];
+  const idx = +i;
+  const e = rec && rec.events && rec.events[idx];
+  if (!e || e.kind === 'idle') return;
+  Shell.ask({
+    title: `Delete “${e.name}”?`,
+    body: `${e.from}–${e.to} · ${e.dur} min. What should happen to the time it leaves behind?`,
+    yes: 'close the gap',
+    alt: 'leave it free',
+    danger: false,
+    done: a => {
+      if (!a) return;
+      const cur = sel && DB.days[sel];
+      const ev = cur && cur.events && cur.events[idx];
+      if (!ev || ev !== e) return;              // the day changed under the question
+      if (a === 'alt') {
+        /* Kept in place, emptied out. Everything that made it a task — the
+           project, the colour, the slot it held — goes, or a slot would still
+           read as claimed by a task that is not there any more. */
+        cur.events[idx] = { from:ev.from, to:ev.to, over:!!ev.over, dur:+ev.dur || 0,
+                            kind:'idle', name:IDLE_LABEL, slot:ev.slot || null,
+                            cal:null, project:null, projectLabel:null, section:null,
+                            color:null, done:false };
+      } else {
+        const by = -(+ev.dur || 0);
+        cur.events.splice(idx, 1);
+        cur.events.slice(idx).forEach(x => shiftEvent(x, by));
+      }
+      cur.localEdit = Date.now();
+      save(); render(); renderSettings();
+      Shell.toast(a === 'alt' ? 'deleted · the hour is free' : 'deleted · the day closed up');
+    },
+  });
+}
+
+/* ── The day starts when you woke up ──────────────────────────────────────────
+   PLAN resolves a day against one start time, chosen the night before. The
+   morning then happens, and by the time LOG's morning form is filled in the
+   real answer is known — and it is rarely the one PLAN guessed. Every row on
+   the day is then off by the difference, and the "now" line crosses a schedule
+   that stopped being true before breakfast.
+
+   LOG calls this when the wake time is saved. The whole day moves by the
+   difference between `start` and the wake time: the day keeps its shape, which
+   is the thing this app draws, and only its position on the clock changes.
+
+   `wakeShift` is the shift already applied, so this is idempotent and
+   reversible — a wake time corrected from 08:10 to 07:50 moves the day by the
+   twenty minutes between them, not by another two hours and ten, and clearing
+   the field puts the day back where PLAN wrote it. Without it, saving the
+   morning form twice would walk the day down the clock. */
+function setWake(iso, time) {
+  if (Prefs.get('calWakeShift') === false) return false;
+  load();
+  const rec = DB.days[iso];
+  if (!rec || !Array.isArray(rec.events) || !rec.events.length) return false;
+  const base = minsOf(rec.start);
+  if (base == null) return false;
+  const want = time ? minsOf(time) : null;
+  // an unreadable time is not a reason to move the day anywhere
+  if (time && want == null) return false;
+  const target = want == null ? 0 : want - base;
+  const delta  = target - (+rec.wakeShift || 0);
+  if (!delta) return false;
+  rec.events.forEach(e => shiftEvent(e, delta));
+  rec.wakeShift = target;
+  if (!target) delete rec.wakeShift;
+  save();
+  if (sel === iso) render();
+  return true;
+}
+
 /* ── Left and right, one day at a time ────────────────────────────────────────
    Stepping walks the days that exist — the planned ones plus today — rather
    than the calendar, so "next" never lands on a run of empty days you have to
@@ -312,7 +424,17 @@ function dayHTML() {
         under settings → apps → cal.</div></div>`;
   }
   const nowY = nowOffset(evs, per);
-  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day" style="--cal-hour:${per}px">${evs.map(({ e, i }) => {
+  /* Colour on the rows themselves rather than only on the 3px rail. Two dials,
+     because the two kinds of row answer different questions: a block is work
+     you chose and put in a slot, a template row is the shape the day has
+     anyway. Washing both at once is a rainbow and reads as noise; washing one
+     of them makes that one the thing you see. Off for both is what 2.23
+     looked like, and is still the default. */
+  const cls = [
+    Prefs.get('calColorBlocks') === true ? 'lit-task' : '',
+    Prefs.get('calColorOther')  === true ? 'lit-fixed' : '',
+  ].filter(Boolean).join(' ');
+  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }) => {
     const h = Math.max(18, Math.round((e.dur / 60) * per));
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
                 : e.kind === 'fixed' ? fixedColor(e.cal) : null;
@@ -324,6 +446,15 @@ function dayHTML() {
        a button that refuses — the two must not feel the same under a finger. */
     const tag = tickable(e) ? 'button' : 'div';
     const style = ` style="${color ? `--ev-color:${esc(color)};` : ''}--ev-h:${h}px"`;
+    /* The tick is the row and the delete is a control inside it, so the delete
+       cannot be a <button> nested in the row's own <button> — that is invalid
+       markup and the inner one does not reliably get the tap. It is a <span>
+       with a role, and the row's handler is the one delegated listener either
+       way: `data-act` on the span wins over the row's, because the listener
+       reads the closest one. An idle row has nothing to delete. */
+    const del = e.kind === 'idle' ? '' :
+      `<span class="ev-del" role="button" tabindex="0" data-act="del" data-i="${i}"
+             aria-label="delete ${esc(e.name)}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2L8 8M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>`;
     return `<${tag} class="cal-ev ${e.kind}${e.done ? ' done' : ''}"${style}${
       tickable(e) ? ` data-act="tick" data-i="${i}" aria-pressed="${!!e.done}"` : ''}>
       <span class="ev-at">${esc(e.from)}<b>${esc(e.to)}${e.over ? ' +1' : ''}</b></span>
@@ -331,6 +462,7 @@ function dayHTML() {
         <span class="ev-name">${esc(e.name)}</span>
         ${meta ? `<span class="ev-meta">${esc(meta)}</span>` : ''}
       </span>
+      ${del}
       ${tickable(e) ? `<span class="ev-check"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
     </${tag}>`;
   }).join('')}${nowY == null ? '' :
@@ -339,23 +471,44 @@ function dayHTML() {
 }
 
 /* The day itself is named by the nav above; this is only what it is made of.
-   Lower case throughout, and deliberately not `var(--caps)` — see cal.css. */
+   Lower case throughout, and deliberately not `var(--caps)` — see cal.css.
+
+   It used to be one string with `·` typed between the parts, which meant the
+   browser was free to break a line anywhere a space fell — and it did, in the
+   worst place: "5 tasks" and "3 done" split across two lines, so the head read
+   as a number stranded above its noun. Each fact is its own element now, with
+   the separator drawn by CSS rather than typed, so a fact is an unbreakable
+   unit that either fits on the line or moves to the next one whole.
+
+   The actions moved to their own row underneath. On a phone the meta already
+   wanted the full width, and "schedule from do" — the longest label on the
+   screen for a panel that is used a few times a month — was competing with it
+   for that width. It is `+ do` now: still the accent, still the only thing on
+   the head that adds rather than removes, and a quarter of the length. */
 function dayHead(rec) {
   const evs = rec.events || [];
   const tasks = evs.filter(e => e.kind === 'task').length;
   const done  = evs.filter(e => tickable(e) && e.done).length;
   /* "Edited here" is not decoration. Everywhere else on this screen, what is
      drawn is what PLAN resolved and sent — that is the whole claim the app
-     makes (§9). Filling the slots from DO breaks that claim for this day, so
-     the day says so, permanently, rather than quietly showing a schedule
-     Google was never told about. */
+     makes (§9). Filling the slots from DO, deleting a row and shifting the day
+     to a logged wake-up time all break that claim, so the day says so,
+     permanently, rather than quietly showing a schedule Google was never told
+     about. */
+  const facts = [
+    lower(rec.template),
+    'from ' + rec.start,
+    `${tasks} task${tasks === 1 ? '' : 's'}`,
+    rec.mode === 'blocks' ? 'blocks only' : 'full schedule',
+    done ? `${done} done` : '',
+    rec.wakeShift ? 'woken' : '',
+    rec.localEdit ? 'edited' : '',
+  ].filter(Boolean);
   return `<div class="cal-head">
-    <div class="ch-meta">${esc(lower(rec.template))} · from ${esc(rec.start)} · ${tasks} task${tasks === 1 ? '' : 's'}${
-      rec.mode === 'blocks' ? ' · blocks only' : ' · full schedule'}${
-      done ? ` · ${done} done` : ''}${rec.localEdit ? ' · edited here' : ''}</div>
+    <div class="ch-meta">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>
     <div class="ch-acts">
-      ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">schedule from do</button>' : ''}
-      <button class="ch-clear" data-act="clear-day">clear this day</button>
+      ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">+ do</button>' : ''}
+      <button class="ch-clear" data-act="clear-day">clear</button>
     </div>
   </div>`;
 }
@@ -543,6 +696,10 @@ document.addEventListener('click', e => {
   if (act === 'to-plan')   { Prefs.tap(); Shell.TABS.includes('plan') ? Shell.go('plan') : Shell.open('plan'); return; }
   if (act === 'clear')     { clearAll(); return; }
   if (act === 'clear-day') { clearDay(); return; }
+  /* The delete sits inside the row, so its click is on its way to the row's
+     own handler. Stopping it here is what keeps deleting a row from also
+     ticking it. */
+  if (act === 'del')         { e.stopPropagation(); e.preventDefault(); deleteEvent(t.dataset.i); return; }
   if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
   if (act === 'sched')       { openSched(); return; }
   if (act === 'sched-close') { closeSched(); return; }
@@ -564,7 +721,8 @@ Config.subscribe(path => {
 });
 Prefs.subscribe(k => {
   if (k === '*' || k === 'calHour' || k === 'calShowFixed' || k === 'calShowIdle' ||
-      k === 'calCalNames' || k === 'calAhead' || k === 'dateFormat') render();
+      k === 'calCalNames' || k === 'calAhead' || k === 'dateFormat' ||
+      k === 'calColorBlocks' || k === 'calColorOther') render();
   if (k === '*' || k === 'calKeep') { if (prune()) { save(); render(); renderSettings(); } }
   if (k === '*' || k === 'calStepsHide') wakeSteps();
 });
@@ -613,6 +771,6 @@ Shell.register('cal', {
 });
 
 return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
-         toggleEvent, openSched, closeSched, pickSlot, applySched, paintNow,
+         toggleEvent, deleteEvent, setWake, openSched, closeSched, pickSlot, applySched, paintNow,
          days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel };
 })();

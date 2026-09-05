@@ -80,12 +80,24 @@ body:has(#nav.chrome-off) .cal-steps,
 .cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}
 .cal-steps .cal-steps-sep{width:var(--bw);align-self:center;height:16px;background:var(--bd);flex:0 0 auto}
 
-/* ── the day's head ── */
-.ns-cal .cal-head{margin:0 0 calc(12px * var(--dens));display:flex;align-items:baseline;
-  justify-content:space-between;gap:calc(10px * var(--dens))}
+/* ── the day's head ─────────────────────────────────────────────────────────
+   Two rows: what the day is, then what can be done to it. They were one row
+   with the meta squeezed into whatever the buttons left, which on a phone was
+   not enough for it — and the meta is the half you read.
+
+   Each fact is its own inline-block with the separator on ::after, so the
+   browser can only break *between* facts. As one run of text with `·` typed
+   into it, a line could break at any space, and "5 tasks" and "3 done" came
+   apart across two lines — a number on one row and its noun on the next. */
+.ns-cal .cal-head{margin:0 0 calc(12px * var(--dens));display:flex;flex-direction:column;
+  align-items:stretch;gap:calc(7px * var(--dens))}
 .ns-cal .ch-meta{font:400 9.5px/1.5 var(--mono);letter-spacing:.8px;color:var(--tx-2);
-  text-transform:none;flex:1;min-width:0}
-.ns-cal .ch-acts{flex:0 0 auto;display:flex;align-items:baseline;gap:calc(12px * var(--dens))}
+  text-transform:none;min-width:0;
+  display:flex;flex-wrap:wrap;align-items:baseline;column-gap:0;row-gap:2px}
+.ns-cal .ch-meta > span{white-space:nowrap}
+.ns-cal .ch-meta > span::after{content:'·';padding:0 .5em;color:var(--bd-2)}
+.ns-cal .ch-meta > span:last-child::after{content:none}
+.ns-cal .ch-acts{flex:0 0 auto;display:flex;align-items:baseline;gap:calc(14px * var(--dens))}
 .ns-cal .ch-clear,.ns-cal .ch-act{flex:0 0 auto;background:none;border:none;cursor:pointer;padding:0;
   font:400 9px/1.5 var(--mono);letter-spacing:.8px;color:var(--bd-2);text-transform:none;
   white-space:nowrap;transition:color var(--dur-1)}
@@ -129,10 +141,44 @@ body:has(#nav.chrome-off) .cal-steps,
   border-radius:0;-webkit-appearance:none;appearance:none}
 .ns-cal button.cal-ev:active{background:var(--press)}
 
+/* ── Nothing on the day answers a finger that is scrolling ────────────────────
+   The shell already takes the press *wash* off anything scrolled under a
+   finger (tokens.css) and already swallows the click that ends a drag
+   (shell.js). Both are about the tap that follows. The day is the one screen
+   where that is not enough: its rows are as tall as the hours they stand for,
+   so a scroll down a full day is a finger travelling across five or six
+   controls, and every one of them was live under it — hovering, holding a
+   focus ring, offering its delete. It read as a list arguing with the hand
+   moving it.
+
+   So for the length of the gesture the day is a picture: nothing in it takes
+   a pointer at all. The scroller is the ancestor and keeps its own
+   pointer-events, so the scroll itself is untouched — this only removes the
+   rows as *targets*. `data-scrolling` clears 160ms after the last scroll
+   event, which is long enough to outlast momentum and short enough that a
+   deliberate tap on a day that has stopped moving lands. */
+[data-scrolling="on"] .ns-cal .cal-day,
+[data-scrolling="on"] .ns-cal .cal-head{pointer-events:none}
+
 /* ── a row that is done ───────────────────────────────────────────────────────
    Struck through and stood down rather than removed: the day keeps its shape,
    and the shape is the point of drawing it this way. The tick is the same mark
    DO's tiles use, so the gesture reads the same in both apps. */
+/* ── The delete on a row ──────────────────────────────────────────────────────
+   Quiet until it is wanted: the border colour at rest, the danger colour under
+   a finger. It is deliberately not the same weight as the tick — ticking a row
+   is the thing you do all day and deleting one is the thing you do twice a
+   month, and a cross as loud as the tick would be a cross that gets tapped by
+   mistake. The target is a full 28px square even though the mark inside it is
+   10px, because a small mark is not a reason for a small target. */
+.ns-cal .ev-del{flex:0 0 auto;align-self:center;width:28px;height:28px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--bd);cursor:pointer;border-radius:var(--r1);
+  transition:color var(--dur-1),background var(--dur-1)}
+.ns-cal .ev-del svg{width:10px;height:10px;display:block}
+.ns-cal .ev-del:active{color:var(--re);background:var(--press)}
+.ns-cal .cal-ev.done .ev-del{color:var(--bd-2)}
+
 .ns-cal .ev-check{flex:0 0 auto;align-self:center;width:15px;height:15px;border-radius:50%;
   border:var(--bw) solid var(--bd);display:flex;align-items:center;justify-content:center;
   color:transparent;transition:color var(--dur-1),background var(--dur-1),border-color var(--dur-1)}
@@ -166,6 +212,27 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cal-ev.idle{background:transparent}
 .ns-cal .cal-ev.idle .ev-box{border-left-style:dashed;border-left-color:var(--bd)}
 .ns-cal .cal-ev.idle .ev-name{font-weight:400;color:var(--bd-2);font-style:italic}
+
+/* ── Colourful events ─────────────────────────────────────────────────────────
+   Settings → apps → cal. The row's colour is already on screen as the rail
+   down its left edge; these lift it into the row itself. Two switches, because
+   the two kinds of row are two different claims — `lit-task` washes the blocks
+   you filed (the b1a / b2b slots), `lit-fixed` washes the template hours
+   around them. Both on is a rainbow, which is why it is two dials and not one.
+
+   A wash, not a fill: 12% of the colour over the surface the row already has,
+   so the *name* is still the highest-contrast thing in the row. A row filled
+   with its colour would be a row you read the colour of instead of the words.
+   An unclaimed slot is never lit — there is nothing there to have a colour. */
+.ns-cal .cal-day.lit-task .cal-ev.task{
+  background:color-mix(in srgb,var(--ev-color,var(--bd)) 12%,var(--s1))}
+.ns-cal .cal-day.lit-task .cal-ev.task .ev-meta{color:var(--ev-color,var(--tx-2))}
+.ns-cal .cal-day.lit-fixed .cal-ev.fixed{
+  background:color-mix(in srgb,var(--ev-color,var(--bd)) 10%,transparent)}
+.ns-cal .cal-day.lit-fixed .cal-ev.fixed .ev-name{color:var(--tx)}
+/* a done row stands down whatever else is on it: the wash goes with the rest */
+.ns-cal .cal-day.lit-task .cal-ev.task.done,
+.ns-cal .cal-day.lit-fixed .cal-ev.fixed.done{background:var(--s1)}
 
 /* ── schedule from do ─────────────────────────────────────────────────────────
    A panel drawn into the day rather than a screen of its own — the same choice

@@ -1032,7 +1032,18 @@ function saveMorning() {
              wkg:num($id('m-wkg').value), km:num($id('m-km').value),
              wo:woGet(), tkg:$id('m-tkg').value, tmin:$id('m-tmin').value,
              saved: Date.now() };
-  save(); toast('Morning saved'); go('home');
+  save();
+  /* The day PLAN exported was resolved against a start time chosen the night
+     before; this is the morning saying when it actually began. DAY moves the
+     whole day by the difference so its rows — and the line across them at the
+     hour it is now — describe the day that is happening rather than the one
+     that was guessed. CAL owns the arithmetic and the idempotence (its
+     `wakeShift`); LOG only says what the time was. Switchable off under
+     settings → apps → cal, which is what `false` back means here. */
+  if (window.CAL && CAL.setWake && CAL.setWake(TODAY, data.m.wt))
+    toast('Morning saved · day moved to ' + data.m.wt);
+  else toast('Morning saved');
+  go('home');
 }
 
 // ── Evening ───────────────────────────────────────────────────────────────────

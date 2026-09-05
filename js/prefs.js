@@ -192,6 +192,12 @@ const SCHEMA = {
   monoNumbers:  { kind:'bool',   def:true,  attr:'data-tnum' },
   colorfulTabs: { kind:'bool',   def:false, attr:'data-color-tabs' },
   chromeBlur:   { kind:'bool',   def:true,  attr:'data-chrome-blur' },
+  /* The explanatory text under a control — the paragraph over a settings
+     section and the grey line under a switch. On once, while the app is
+     new; off once you know what everything does, and the panels halve in
+     length. One attribute, so it reaches every hint at once and any future
+     one for free. */
+  tips:         { kind:'bool',   def:true,  attr:'data-tips' },
 
   // navigation — which apps have a tab, and in what order
   apps:         { kind:'list',   def:APPS.slice() },
@@ -233,6 +239,20 @@ const SCHEMA = {
      day than the pill did: it steps aside on its own once you stop using it.
      0 pins it. */
   calStepsHide: { kind:'range',  def:5,   min:0,  max:30,  step:1, unit:'s idle' },
+  /* Colour on the rows themselves, not only on the 3px rail. Two dials rather
+     than one because the two kinds of row answer different questions: a block
+     is work you chose and put somewhere, a template row is the shape of the
+     day. Washing both at once is a rainbow; washing one is a highlight. */
+  calColorBlocks:{ kind:'bool',  def:false },
+  calColorOther: { kind:'bool',  def:false },
+  /* LOG's morning wake-up time moves the day. Off keeps the day exactly as
+     PLAN exported it. See CAL.setWake(). */
+  calWakeShift: { kind:'bool',   def:true },
+
+  /* DO's routine cards. `doHideDone` drops a finished routine off the grid
+     rather than greying it; `doCardStyle` is how much of a card is drawn. */
+  doHideDone:   { kind:'bool',   def:false },
+  doCardStyle:  { kind:'enum',   def:'full', values:['full','minimal'] },
 };
 
 /* ── State ────────────────────────────────────────────────────────────────── */
@@ -451,6 +471,7 @@ function apply() {
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
   root.setAttribute('data-chrome-blur', prefs.chromeBlur   ? 'on' : 'off');
+  root.setAttribute('data-tips',        prefs.tips         ? 'on' : 'off');
   root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.style.colorScheme = info.mode;

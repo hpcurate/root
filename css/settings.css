@@ -84,6 +84,28 @@
   padding:12px 14px;margin-bottom:14px;
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
 
+/* ── Hints, and switching them off ────────────────────────────────────────────
+   Settings → behaviour → "Explain the controls". Every panel here carries two
+   kinds of explanatory text: the paragraph that introduces a section
+   (.data-warn / .set-note) and the grey line under an individual control
+   (a <small> in a switch's label, an <em> in a slider's). They are what makes
+   the app legible on the first pass and what makes it long to scroll on the
+   hundredth, so they are a dial rather than a decision.
+
+   One attribute on <html>, like the press wash and the chrome blur, so it
+   reaches every hint at once — including any written after this. What is
+   never hidden: the control's own name, the section heading, and the home
+   menu's sub-labels, which say what is *inside* a category rather than
+   explaining it — losing those would be losing the map, not the commentary. */
+[data-tips="off"] .ns-set .data-warn,
+[data-tips="off"] .ns-set .set-note,
+[data-tips="off"] .ns-set .setting-lbl small,
+[data-tips="off"] .ns-set .slider-head .lbl em,
+[data-tips="off"] .ns-set .opt-set > .lbl em{display:none}
+/* the label is the whole row once its hint is gone, so it stops reserving the
+   two-line height the hint used to fill */
+[data-tips="off"] .ns-set .setting-lbl{line-height:1.2}
+
 .ns-set .setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   padding:13px 14px;margin-bottom:8px}

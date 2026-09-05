@@ -25,6 +25,34 @@
 .ns-do .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-do .h-logo em{color:var(--y);font-style:normal}
 
+/* ── The day of the month, at the other end of the wordmark's row ─────────────
+   Same family, same weight, same size as `DO.` — it is the second half of one
+   line, not a caption stuck beside it — but muted, because the wordmark is
+   what the row is and the number is what the row is *about*. It is measured in
+   --title-px like the wordmark, so it follows the Title size dial and lands on
+   a whole pixel with it (tokens.css).
+
+   The box is the height of one digit and no more, with overflow hidden, so the
+   outgoing number is clipped by the row rather than pushing it taller. Both
+   digits are absolutely placed against the same right edge, which is what
+   makes the swap read as one number changing rather than two numbers passing.
+   `tabular-nums` keeps 9 → 10 from shifting the ones column sideways. */
+.ns-do .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
+  min-width:1.1em;height:1em;line-height:1;
+  font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--mu)}
+.ns-do .h-daynum span{position:absolute;right:0;top:0;display:block;line-height:1}
+/* the arriving digit comes up from below, the leaving one carries on upward:
+   one number moving forward, not two swapping places */
+.ns-do .h-daynum .dn-cur.rolling{animation:dn-in calc(.42s * var(--mo)) cubic-bezier(.22,.9,.24,1) both}
+.ns-do .h-daynum .dn-out{animation:dn-out calc(.42s * var(--mo)) cubic-bezier(.4,0,.7,.2) both}
+@keyframes dn-in {from{transform:translateY(100%);opacity:0} to{transform:none;opacity:1}}
+@keyframes dn-out{from{transform:none;opacity:1} to{transform:translateY(-100%);opacity:0}}
+/* it slides in with the title on a tab change — it is part of that line, so it
+   travels with it. The rule lives with the band's other title animations in
+   shell.css, which is also where it is switched off for a still track and for
+   reduced motion. */
+
 /* ── Home tab selector ────────────────────────────────────────────────────────
    The strip is built from Config, so its width follows however many tabs the
    user has defined — it can no longer be drawn for the two it shipped with. It
@@ -75,6 +103,34 @@
 .ns-do .card-bar{height:2px;background:var(--bd);border-radius:var(--r1);overflow:hidden}
 .ns-do .card-bar-fill{height:100%;background:var(--y);border-radius:var(--r1);transition:width .25s ease}
 .ns-do .card.done .card-bar-fill{background:var(--gr)}
+
+/* ── Minimal cards ────────────────────────────────────────────────────────────
+   Settings → apps → do → "Routine cards". The full card is a name, a "3 / 7
+   done" line and a progress bar stacked in a box; the minimal one is the name
+   and the ratio on a single row, no bar. Roughly a third of the height, so a
+   tab with six routines is a screen rather than a scroll, and the grid goes to
+   one column — two short rows side by side read as a table, and this is a
+   list. What is dropped is only the *drawing* of the progress: the ratio is
+   still there, and it is the same number the bar was showing. */
+.ns-do .grid.mini{grid-template-columns:1fr;gap:calc(6px * var(--dens))}
+.ns-do .card.mini{display:flex;align-items:center;justify-content:space-between;
+  gap:calc(12px * var(--dens));padding:calc(11px * var(--dens)) calc(14px * var(--dens))}
+.ns-do .card.mini .card-t{margin-bottom:0;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.ns-do .card.mini .card-s{margin-bottom:0;flex:0 0 auto;font-variant-numeric:tabular-nums}
+/* the ✓ is the full card's corner mark; on one row it would sit on the ratio,
+   so the ratio itself goes green and the mark is not needed */
+.ns-do .card.mini.done::after{content:none}
+.ns-do .card.mini.done .card-s{color:var(--gr)}
+
+/* every card on the tab is finished and the dial hides them — say so, rather
+   than leaving a hole where the grid was */
+.ns-do .grid-clear{grid-column:1 / -1;text-align:center;
+  padding:calc(22px * var(--dens)) calc(14px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);color:var(--gr)}
+.ns-do .grid-clear em{display:block;margin-top:8px;font:400 9px/1.5 var(--mono);
+  letter-spacing:.04em;text-transform:none;color:var(--mu);font-style:normal}
 
 /* ── Checklist screen ── */
 .ns-do .cnt{padding:calc(18px * var(--dens))}
@@ -260,16 +316,97 @@
 .ns-do .bk-past-names{flex:1 1 auto;min-width:0;font:400 10.5px/1.5 var(--mono);
   color:var(--mu);word-break:break-word}
 .ns-do .bk.sel{background:color-mix(in srgb,var(--bk-c) 32%,var(--s1));box-shadow:0 0 0 2px var(--bk-c)}
-.ns-do .md-group{margin-bottom:calc(16px * var(--dens))}
-.ns-do .md-group:last-of-type{margin-bottom:0}
+/* ── The media list ───────────────────────────────────────────────────────────
+   Rows, not tiles. The thing on a media row is a *title* — long, and the whole
+   point of the row — so it gets the full width and two lines before it gives
+   up, where the 2.8 tile gave it a third of a phone and an ellipsis. Every
+   other part of the row is subordinate to it: the colour is a 3px rail down
+   the left edge (the same device CAL uses for a project), the kind and the
+   second label are one small line beneath, and the tick sits on the right
+   where every tickable row in ROOT keeps it.
+
+   The rail rather than a wash: a list of twelve rows each washed in its own
+   label colour is a list nobody can read down. One colour per row, on one
+   edge, and the eye still groups them. */
+.ns-do .md-group{margin-bottom:calc(14px * var(--dens))}
+.ns-do .md-group:last-child{margin-bottom:0}
 .ns-do .md-lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:calc(7px * var(--dens));
   font:700 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);color:var(--bk-c)}
 .ns-do .md-lbl em{font:400 9px/1 var(--mono);letter-spacing:.06em;color:var(--mu);text-transform:none}
-.ns-do .bk.md{gap:5px}
-.ns-do .bk-sub{align-self:flex-start;font:700 7.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
-  color:var(--bk-c);border:1px solid color-mix(in srgb,var(--bk-c) 55%,transparent);border-radius:var(--r-pill);
-  padding:3px 6px;transition:opacity var(--dur-2) var(--ease)}
-.ns-do .bk.done .bk-sub{opacity:.22}
+
+.ns-do .md-list{display:flex;flex-direction:column;gap:calc(6px * var(--dens))}
+.ns-do .md-group{display:flex;flex-direction:column;gap:calc(6px * var(--dens))}
+.ns-do .md-row{display:flex;align-items:stretch;gap:calc(11px * var(--dens));width:100%;text-align:left;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx);cursor:pointer;padding:calc(10px * var(--dens)) calc(12px * var(--dens));
+  -webkit-appearance:none;appearance:none;font:inherit;
+  transition:background var(--dur-1),border-color var(--dur-1),opacity var(--dur-1)}
+.ns-do .md-row:active{background:var(--press)}
+.ns-do .md-rail{flex:0 0 3px;border-radius:var(--r1);background:var(--bk-c,var(--bd))}
+.ns-do .md-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:5px;justify-content:center}
+/* two lines, then an ellipsis — enough for every real title and a hard stop
+   for the one that is a paragraph */
+.ns-do .md-name{font:600 12.5px/1.35 var(--head);color:var(--tx);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  overflow-wrap:anywhere}
+.ns-do .md-meta{display:flex;flex-wrap:wrap;align-items:center;gap:calc(5px * var(--dens))}
+.ns-do .md-meta i{font:400 8px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
+  font-style:normal;padding:3px 6px;border-radius:var(--r1);
+  border:1px solid color-mix(in srgb,var(--bk-c) 45%,transparent);color:var(--bk-c)}
+/* priority was fetched from Todoist since 2.8 and never drawn. It reads in the
+   app's own urgency colours, not the label's, because it is not about the
+   label — it is the same p1/p2/p3 the today list uses. */
+.ns-do .md-meta i.md-pri{border-color:currentColor}
+.ns-do .md-pri.p1{color:var(--re)}
+.ns-do .md-pri.p2{color:var(--or)}
+.ns-do .md-pri.p3{color:#5e8cff}
+.ns-do .md-check{flex:0 0 auto;align-self:center;width:19px;height:19px;border-radius:50%;
+  border:var(--bw) solid var(--bd);display:flex;align-items:center;justify-content:center;
+  color:transparent;transition:color var(--dur-1),background var(--dur-1),border-color var(--dur-1)}
+.ns-do .md-check svg{width:11px;height:11px;display:block}
+/* done: struck through and stood down, the way CAL marks a finished row —
+   still on the list until midnight, because unticking it is how a mis-tap is
+   undone */
+.ns-do .md-row.done{opacity:.5}
+.ns-do .md-row.done .md-name{text-decoration:line-through;color:var(--mu)}
+.ns-do .md-row.done .md-check{background:var(--bk-c);border-color:var(--bk-c);color:var(--bg)}
+/* what "surprise me" landed on */
+.ns-do .md-row.picked{border-color:var(--bk-c);background:color-mix(in srgb,var(--bk-c) 12%,var(--s1))}
+
+/* ── The bar over the list ──
+   Kind chips on one row, then find and sort on the next. The chips scroll
+   sideways rather than wrapping — a fifth label should lengthen the strip, not
+   push the tools down the screen — which means claiming pan-x, the same trap
+   DO's home tab strip documents above. */
+.ns-do .md-bar{display:flex;flex-direction:column;gap:calc(8px * var(--dens));
+  margin-bottom:calc(11px * var(--dens))}
+.ns-do .md-chips{display:flex;gap:calc(5px * var(--dens));overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+  padding-bottom:2px}
+.ns-do .md-chips::-webkit-scrollbar{display:none}
+.ns-do .md-chip{flex:0 0 auto;display:flex;align-items:center;gap:6px;cursor:pointer;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--mu);font:700 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
+  padding:calc(8px * var(--dens)) calc(11px * var(--dens));
+  transition:background var(--dur-1),border-color var(--dur-1),color var(--dur-1)}
+.ns-do .md-chip em{font:400 9px/1 var(--mono);letter-spacing:.04em;font-style:normal;
+  color:var(--bd-2);text-transform:none;font-variant-numeric:tabular-nums}
+.ns-do .md-chip.on{color:var(--bk-c,var(--y));border-color:var(--bk-c,var(--y));
+  background:color-mix(in srgb,var(--bk-c,var(--y)) 12%,var(--s1))}
+.ns-do .md-chip.on em{color:inherit}
+.ns-do .md-chip:active{background:var(--press)}
+.ns-do .md-tools{display:flex;align-items:center;gap:calc(7px * var(--dens))}
+.ns-do .md-find{flex:1 1 auto;min-width:0;background:var(--s2);border:var(--bw) solid var(--bd);
+  border-radius:var(--r1);color:var(--tx);font:400 11px/1 var(--mono);letter-spacing:.04em;
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens));outline:none;
+  -webkit-appearance:none;appearance:none}
+.ns-do .md-find:focus{border-color:var(--y)}
+.ns-do .md-find::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.ns-do .md-sort{flex:0 0 auto;background:none;border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--mu);font:400 9px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens));cursor:pointer;white-space:nowrap;
+  transition:color var(--dur-1),border-color var(--dur-1)}
+.ns-do .md-sort:active{color:var(--y);border-color:var(--y)}
 
 /* ── Quick tasks ──
    Card-shaped like a routine card, because that is what they are read as. One

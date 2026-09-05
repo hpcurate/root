@@ -123,6 +123,13 @@
      it, so an app with its own size made the band jump on every tab change.
      The Title size dial multiplies it. */
   --title-base:54px;
+  /* The size actually used, snapped to a whole pixel. Four of the five title
+     sizes multiply out to a fraction, and a fractional wordmark makes a
+     fractional band, which pushes every row inside it — the date line most
+     visibly — off the pixel grid and into a resample. See the note over
+     `.view > .h-top` in shell.css. The unrounded value is the fallback for a
+     browser without `round()`. */
+  --title-px:calc(var(--title-base) * var(--title-scale));
 
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
@@ -241,6 +248,13 @@ html{height:100%;zoom:var(--ui-scale)}
 [data-title="m"]{--title-scale:1}
 [data-title="l"]{--title-scale:1.16}
 [data-title="xl"]{--title-scale:1.34}
+/* …and the snapped size the band is actually measured in. Declared after the
+   five steps so it sees whichever scale won, and guarded so a browser without
+   `round()` keeps the plain multiplication above rather than dropping to
+   nothing. */
+@supports (font-size: round(1.5px, 1px)) {
+  :root{--title-px:round(calc(var(--title-base) * var(--title-scale)), 1px)}
+}
 
 /* Accent glow — a halo on the things that carry the accent. Off by default.
    One token, applied wherever the accent is the surface rather than the ink. */

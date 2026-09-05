@@ -661,11 +661,51 @@ check("the media tab draws the tasks grouped under their label, in the label's T
   mdGroups[0].style.getPropertyValue('--bk-c') === '#db4035' && /@movie/.test(mdGroups[0].querySelector('.md-lbl').textContent) &&
   mdGroups[2].style.getPropertyValue('--bk-c') === '#299438' && /@music/.test(mdGroups[2].querySelector('.md-lbl').textContent),
   mdGroups.length + ' groups ' + mdGroups.map(g => g.getAttribute('style') + ' ' + g.querySelector('.md-lbl')?.textContent).join(' | '));
-const blonde = [...mdBox.querySelectorAll('.bk')].find(b => /Blonde/.test(b.textContent));
-check('a @music task shows its second label as a chip on the tile', !!blonde && blonde.querySelector('.bk-sub')?.textContent === 'album' && blonde.querySelector('.bk-check svg'));
+const blonde = [...mdBox.querySelectorAll('.md-row')].find(b => /Blonde/.test(b.textContent));
+check('a @music task shows its kind and its second label on the row', !!blonde &&
+  [...blonde.querySelectorAll('.md-meta i')].map(i => i.textContent).join(' ') === '@music album' &&
+  !!blonde.querySelector('.md-check svg') && !!blonde.querySelector('.md-rail'),
+  blonde && [...blonde.querySelectorAll('.md-meta i')].map(i => i.textContent).join(' '));
+check('the title is the row, not a tile: it gets the full width', !!blonde && blonde.classList.contains('md-row') &&
+  !mdBox.querySelector('.bk-grid'));
 check('the today list and the block tiles stay off the media tab', $('.ns-do #td-today').classList.contains('hidden') && $('.ns-do #td-blocks').classList.contains('hidden'));
+
+/* ── 2.24: the media tab reworked ── */
+const mdChips = () => [...mdBox.querySelectorAll('.md-chip')].map(c => c.textContent);
+check('a chip per label that has something on it, plus "all", each with its open count',
+  mdChips()[0] === 'all3' && mdChips().slice(1).join(',') === '@movie1,@show1,@music1', mdChips().join(','));
+w.DO.setMediaKind('music');
+check('tapping a chip narrows the list to that label',
+  [...mdBox.querySelectorAll('.md-row')].length === 1 &&
+  [...mdBox.querySelectorAll('.md-row')].every(r => /@music/.test(r.textContent)) &&
+  mdBox.querySelector('.md-chip.on').textContent === '@music1',
+  [...mdBox.querySelectorAll('.md-row')].map(r => r.textContent.trim()).join(' | '));
+check('… and the narrowing is stored, not just drawn', JSON.parse(w.localStorage.getItem('do_todoist_v1')).mediaKind === 'music');
+w.DO.setMediaKind('music');
+check('tapping the live chip again clears it', !mdBox.querySelector('.md-chip.on').textContent.startsWith('@') &&
+  [...mdBox.querySelectorAll('.md-row')].length === 3);
+w.DO.cycleMediaSort();
+check('sort cycles kind → a → z, and ungroups when it is no longer by kind',
+  mdBox.querySelector('.md-sort').textContent === 'a → z' && !mdBox.querySelector('.md-group') &&
+  [...mdBox.querySelectorAll('.md-name')].map(n => n.textContent).join('|') ===
+  [...mdBox.querySelectorAll('.md-name')].map(n => n.textContent).sort((a, b) => a.localeCompare(b)).join('|'),
+  mdBox.querySelector('.md-sort').textContent + ' :: ' + [...mdBox.querySelectorAll('.md-name')].map(n => n.textContent).join('|'));
+w.DO.cycleMediaSort();
+check('… then by priority, urgent first', mdBox.querySelector('.md-sort').textContent === 'by priority');
+w.DO.cycleMediaSort();
+check('… and back to by kind, grouped again', mdBox.querySelector('.md-sort').textContent === 'by kind' && !!mdBox.querySelector('.md-group'));
+w.DO.setMediaQuery('blon');
+check('the find box matches on the title, ignoring case',
+  [...mdBox.querySelectorAll('.md-row')].length === 1 && /Blonde/.test(mdBox.querySelector('.md-row').textContent));
+check('… and a query that matches nothing says so rather than going blank',
+  (w.DO.setMediaQuery('zzzz'), /nothing matching/.test(mdBox.querySelector('.tt-empty')?.textContent || '')),
+  mdBox.querySelector('.tt-empty')?.textContent);
+w.DO.setMediaQuery('');
+check('surprise me picks one open title and lights its row',
+  (w.DO.mediaPick(), mdBox.querySelectorAll('.md-row.picked').length === 1));
 w.DO.toggleMediaTask('m2'); await tick(50);
-check('ticking closes it in Todoist and fills the tile', mdOpen.get('m2').open === false && !![...mdBox.querySelectorAll('.bk.done')].find(b => /Blonde/.test(b.textContent)));
+check('ticking closes it in Todoist and strikes the row through',
+  mdOpen.get('m2').open === false && !![...mdBox.querySelectorAll('.md-row.done')].find(b => /Blonde/.test(b.textContent)));
 const mdRec = () => JSON.parse(w.localStorage.getItem('log_' + today)).e.media || [];
 check("it lands in today's log as media with its label and second label", mdRec().some(x => x.name === 'Blonde' && x.kind === 'music' && x.sub === 'album'), JSON.stringify(mdRec()));
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('output');
@@ -884,8 +924,30 @@ check('tapping a project expands it in place: one open tile, the others become i
   !!openTile && /curate/.test(openTile.textContent) && openTile.getAttribute('aria-expanded') === 'true' &&
   projTiles().length === 1 && secs.length === w.Config.get('plan.types').find(t => t.key === 'curate').subs.length,
   (openTile ? 'open ' : 'no open tile ') + projTiles().length + ' tiles ' + secs.length + ' rows');
-check('the rows are the project\'s sections, in its colour', secs.map(s => s.textContent.replace('→', '')).join(',') === 'mixing,production,socials' &&
-  secs[0].style.getPropertyValue('--proj-color') === '#884dff', secs.map(s => s.textContent).join(','));
+check('the rows are the project\'s sections, in its colour',
+  secs.map(s => s.querySelector('.ps-name').textContent).join(',') === 'mixing,production,socials' &&
+  secs[0].style.getPropertyValue('--proj-color') === '#884dff' && !!secs[0].querySelector('.ps-rail'),
+  secs.map(s => s.textContent.replace(/\s+/g, ' ').trim()).join(','));
+
+/* ── 2.24: the section rows, and getting out of an open project ── */
+check('the colour is a rail down the row, not a wash over it — three rows stopped reading as three slabs',
+  /\.ns-plan \.ps-rail\{flex:0 0 3px/.test(planCss) &&
+  /\.ns-plan \.proj-sec\{[^}]*background:var\(--s1\)/.test(planCss));
+check('the other projects stay on screen as chips, so switching is one tap and not three',
+  [...d.querySelectorAll('.ns-plan .proj-jump')].map(b => b.textContent.replace(/\s+/g, '')).join(',')
+    === w.Config.get('plan.types').filter(t => t.key !== 'curate').map(t => t.label).join(','),
+  [...d.querySelectorAll('.ns-plan .proj-jump')].map(b => b.textContent.replace(/\s+/g, '')).join(','));
+check('… and they are chips, not tiles: exactly one full project box stays open',
+  projTiles().length === 1 && !d.querySelector('.ns-plan .proj-jump.proj-tile'));
+check('… each with its own flip key, so they arrive with the reveal',
+  [...d.querySelectorAll('.ns-plan .proj-jump')].every(b => /^j:/.test(b.dataset.flip)) &&
+  $('.ns-plan .proj-jumps').dataset.flip === 'jumps');
+w.PLAN.openProj('alive');
+check('tapping one opens that project without closing back to the grid first',
+  /alive/.test($('.ns-plan .proj-tile.open').textContent) && projTiles().length === 1 &&
+  [...d.querySelectorAll('.ns-plan .proj-jump')].some(b => /curate/.test(b.textContent)),
+  $('.ns-plan .proj-tile.open')?.textContent.replace(/\s+/g, ' ').trim());
+w.PLAN.openProj('curate');
 /* The rows own their keys. Borrowing the tiles' made each row fly in from
    wherever that tile happened to sit, squashed to its width — the second and
    third rows worst of all — so a row must never carry a p: key again. */
@@ -2655,7 +2717,7 @@ check('… the template\'s own hours are not ours to move',
    schedule Google was never told about. */
 check('… and the day says it was edited here, because it no longer matches what was sent',
   typeof after.call(null) === 'object' && !!w.CAL.day(today).localEdit &&
-  /edited here/.test($('.ns-cal .ch-meta').textContent),
+  [...$('.ns-cal .ch-meta').querySelectorAll('span')].some(s => s.textContent === 'edited'),
   $('.ns-cal .ch-meta').textContent);
 check('… the panel closes itself, and nothing about it was persisted',
   !$('.ns-cal .cal-sched') && !('picks' in (w.CAL.day(today) || {})));
@@ -2673,6 +2735,114 @@ confirmAnswer = true;
 click($('.ns-cal .ch-clear')); settle();
 check('… while confirming clears that day and no other',
   !w.CAL.day(today) && !!$('.ns-cal .cal-empty'), w.CAL.days().join(','));
+
+/* ══ 2.24 — the day's head, deleting a row, colour, and the wake-up shift ═════ */
+const calCss = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
+
+/* The head. Each fact is its own element with the separator drawn by CSS, so a
+   line can only break *between* facts — "5 tasks" came apart across two lines
+   when the whole thing was one run of text with `·` typed into it. */
+w.CAL.write({ day: today, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { from: '07:00', to: '08:00', dur: 60, kind: 'fixed', name: 'routine', cal: 'kamo' },
+    { from: '08:00', to: '09:30', dur: 90, kind: 'task', name: 'a job',   slot: 'b1a', color: '#e06f9a', project: 'life' },
+    { from: '09:30', to: '10:00', dur: 30, kind: 'idle',  name: 'free',   slot: 'b1b' },
+    { from: '10:00', to: '11:00', dur: 60, kind: 'task', name: 'another', slot: 'b2a', color: '#4a9', project: 'core' },
+  ] });
+const chSpans = () => [...d.querySelectorAll('.ns-cal .ch-meta > span')].map(s => s.textContent);
+check('every fact on the head is its own element, so a line breaks between them and never inside one',
+  chSpans().join('|') === 'normal|from 07:00|2 tasks|blocks only', chSpans().join('|'));
+check('… each one unbreakable, with the separator drawn rather than typed',
+  /\.ns-cal \.ch-meta > span\{white-space:nowrap\}/.test(calCss) &&
+  /\.ns-cal \.ch-meta > span::after\{content:'·'/.test(calCss) &&
+  !/·/.test(d.querySelector('.ns-cal .ch-meta').textContent));
+check('… and the head stacks, so the actions never take width off the facts',
+  /\.ns-cal \.cal-head\{[^}]*flex-direction:column/.test(calCss));
+check('"schedule from do" is down to two characters and keeps the accent',
+  $('.ns-cal .ch-act').textContent === '+ do' && /\.ns-cal \.ch-act\{color:var\(--y\)\}/.test(calCss));
+
+/* Nothing on the day answers a finger that is scrolling. The press wash and the
+   click-after-drag were already handled globally; the day's rows are as tall as
+   their hours, so a scroll crosses several of them and every one was live. */
+check('the day takes no pointer at all while a slide is scrolling',
+  /\[data-scrolling="on"\] \.ns-cal \.cal-day,\s*\[data-scrolling="on"\] \.ns-cal \.cal-head\{pointer-events:none\}/.test(calCss));
+
+/* Deleting a row. Two honest answers to "what happens to the hour", so it asks
+   with three buttons rather than choosing one of them for you. */
+const evNamesAt = () => [...d.querySelectorAll('.ns-cal .cal-ev .ev-name')].map(n => n.textContent);
+const evTimesAt = () => [...d.querySelectorAll('.ns-cal .cal-ev .ev-at')].map(n => n.textContent.slice(0, 5));
+check('an unclaimed slot has no delete — there is nothing in it to remove',
+  [...d.querySelectorAll('.ns-cal .cal-ev')].filter(e => e.querySelector('.ev-del')).length === 3 &&
+  !d.querySelectorAll('.ns-cal .cal-ev')[2].querySelector('.ev-del'));
+click(d.querySelectorAll('.ns-cal .cal-ev')[1].querySelector('.ev-del'));
+check('deleting asks what to do with the time, and offers both answers plus a way out',
+  askOpen() && /Delete “a job”\?/.test($('#ask-title').textContent) &&
+  /90 min/.test($('#ask-body').textContent) &&
+  $('#ask-yes').textContent === 'close the gap' && $('#ask-alt').textContent === 'leave it free' &&
+  !$('#ask-alt').hidden && $('#ask-acts').classList.contains('three'),
+  $('#ask-title').textContent + ' :: ' + $('#ask-body').textContent);
+check('… and the row is not also ticked on the way past', !w.CAL.day(today).events[1].done);
+click($('#ask-no'));
+check('cancelling leaves the day exactly as it was', evNamesAt().join('|') === 'routine|a job|free|another');
+click(d.querySelectorAll('.ns-cal .cal-ev')[1].querySelector('.ev-del'));
+click($('#ask-alt'));
+check('"leave it free" keeps the hour and empties it, and the rest of the day does not move',
+  evNamesAt().join('|') === 'routine|free|free|another' && evTimesAt().join('|') === '07:00|08:00|09:30|10:00' &&
+  w.CAL.day(today).events[1].kind === 'idle' && w.CAL.day(today).events[1].project === null,
+  evNamesAt().join('|') + ' :: ' + evTimesAt().join('|'));
+check('… and the day says it was edited, because it no longer matches what was sent',
+  !!w.CAL.day(today).localEdit && chSpans().includes('edited'));
+w.CAL.write({ day: today, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { from: '07:00', to: '08:00', dur: 60, kind: 'fixed', name: 'routine', cal: 'kamo' },
+    { from: '08:00', to: '09:30', dur: 90, kind: 'task', name: 'a job',   slot: 'b1a', color: '#e06f9a' },
+    { from: '09:30', to: '10:30', dur: 60, kind: 'task', name: 'another', slot: 'b2a', color: '#4a9' },
+  ] });
+click(d.querySelectorAll('.ns-cal .cal-ev')[1].querySelector('.ev-del'));
+click($('#ask-yes'));
+check('"close the gap" removes the row and pulls everything after it earlier by its duration',
+  evNamesAt().join('|') === 'routine|another' && evTimesAt().join('|') === '07:00|08:00' &&
+  w.CAL.day(today).events[1].to === '09:00',
+  evNamesAt().join('|') + ' :: ' + evTimesAt().join('|') + ' :: ' + JSON.stringify(w.CAL.day(today).events[1]));
+
+/* Colour. Two dials, and an unclaimed slot is never lit. */
+check('the day is not coloured by default', !d.querySelector('.ns-cal .cal-day').className.includes('lit-'));
+w.Prefs.set('calColorBlocks', true);
+check('colouring the blocks marks the day and washes the task rows only',
+  d.querySelector('.ns-cal .cal-day').classList.contains('lit-task') &&
+  !d.querySelector('.ns-cal .cal-day').classList.contains('lit-fixed') &&
+  /\.ns-cal \.cal-day\.lit-task \.cal-ev\.task\{\s*background:color-mix\(in srgb,var\(--ev-color/.test(calCss));
+w.Prefs.set('calColorOther', true);
+check('… and the other events are their own switch',
+  d.querySelector('.ns-cal .cal-day').classList.contains('lit-fixed') &&
+  /\.ns-cal \.cal-day\.lit-fixed \.cal-ev\.fixed\{/.test(calCss));
+check('neither switch reaches an unclaimed slot', !/lit-\w+ \.cal-ev\.idle/.test(calCss));
+w.Prefs.set('calColorBlocks', false); w.Prefs.set('calColorOther', false);
+
+/* The wake-up shift. LOG says when the morning started; CAL moves the day. */
+w.CAL.write({ day: today, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { from: '07:00', to: '08:00', dur: 60, kind: 'fixed', name: 'routine', cal: 'kamo' },
+    { from: '08:00', to: '09:30', dur: 90, kind: 'task', name: 'a job', slot: 'b1a', color: '#e06f9a' },
+  ] });
+check('a wake-up later than the planned start moves the whole day by the difference',
+  w.CAL.setWake(today, '08:10') === true && evTimesAt().join('|') === '08:10|09:10' &&
+  w.CAL.day(today).events[1].to === '10:40',
+  evTimesAt().join('|'));
+check('… and the head says the day was woken', chSpans().includes('woken'), chSpans().join('|'));
+check('saving the same time again does not move it a second time',
+  w.CAL.setWake(today, '08:10') === false && evTimesAt().join('|') === '08:10|09:10');
+check('correcting the time moves it by the correction, not by the whole amount again',
+  w.CAL.setWake(today, '07:50') === true && evTimesAt().join('|') === '07:50|08:50');
+check('clearing it puts the day back where PLAN wrote it',
+  w.CAL.setWake(today, '') === true && evTimesAt().join('|') === '07:00|08:00' &&
+  w.CAL.day(today).wakeShift === undefined && !chSpans().includes('woken'));
+check('an unreadable time moves nothing', w.CAL.setWake(today, 'soon') === false && evTimesAt().join('|') === '07:00|08:00');
+w.Prefs.set('calWakeShift', false);
+check('and the whole thing is a dial: off, the day stays exactly as it was exported',
+  w.CAL.setWake(today, '09:00') === false && evTimesAt().join('|') === '07:00|08:00');
+w.Prefs.set('calWakeShift', true);
+w.CAL.clearDay(); settle();
 
 /* DO's quick cards. */
 check('a quick card is drawn in its label\'s colour, like a block tile',
@@ -2971,6 +3141,137 @@ check('both are controls on the layout panel, findable like every other dial',
 check('… and the appearance reset knows about them',
   /'motion','motionSpeed','navMotion','contrast'/.test(
     fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+
+/* ══ 2.24 — the band, the hints, and DO's cards ═══════════════════════════════ */
+
+/* ── The blurred title ──
+   Four of the five title sizes multiply out to a fraction (54 × .86 = 46.44),
+   and the band is bottom-aligned, so that fraction became the offset every row
+   inside it sat at — text on a half pixel is resampled rather than drawn, and
+   the smallest text in the band, the date line, is where it showed. */
+const tokensCss4 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const doCss2     = fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8');
+const shellCss4  = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+check('the wordmark is snapped to a whole pixel, and the band is measured in the snapped value',
+  /--title-px:round\(calc\(var\(--title-base\) \* var\(--title-scale\)\), 1px\)/.test(tokensCss4) &&
+  /\.view > \.h-top \.h-logo\{[\s\S]*?font-size:var\(--title-px\)/.test(shellCss4) &&
+  /min-height:calc\(env\(safe-area-inset-top\) \+ 54px \+ var\(--title-px\)\)/.test(shellCss4));
+check('… behind @supports, so a browser without round() keeps the plain multiplication',
+  /@supports \(font-size: round\(1\.5px, 1px\)\)/.test(tokensCss4) &&
+  /--title-px:calc\(var\(--title-base\) \* var\(--title-scale\)\)/.test(tokensCss4));
+/* The other half: .morph was added on every tab change and never taken off, so
+   the title's fill-mode animation stayed applied — holding the wordmark on a
+   compositing layer, where text is drawn with grayscale antialiasing. */
+w.Shell.go('log'); w.Shell.go('do');
+await tick(950);
+check('the morph class comes off once it has played, so the title is not left on a layer',
+  ![...d.querySelectorAll('#track .view')].some(v => v.classList.contains('morph')),
+  [...d.querySelectorAll('#track .view.morph')].map(v => v.id).join(','));
+
+/* ── The hints switch ── */
+check('the hints are on by default and claim the root', w.Prefs.get('tips') === true &&
+  d.documentElement.dataset.tips === 'on');
+w.Prefs.set('tips', false);
+const setCss4 = fs.readFileSync(path.join(ROOT, 'css/settings.css'), 'utf8');
+check('switching them off reaches every kind of hint at once, through one attribute',
+  d.documentElement.dataset.tips === 'off' &&
+  /\[data-tips="off"\] \.ns-set \.data-warn,[\s\S]*?\.ns-set \.setting-lbl small,[\s\S]*?\{display:none\}/.test(setCss4));
+check('… but never the control\'s own name, nor the home menu\'s map of what is inside a category',
+  !/\[data-tips="off"\][^{]*\.set-cat-b small/.test(setCss4) &&
+  !/\[data-tips="off"\][^{]*\.set-app-b small/.test(setCss4));
+w.SET.panel('behave');
+check('it is a control on the behaviour panel, findable like every other dial',
+  !!$('.ns-set [data-pref="tips"]') &&
+  w.SET.searchIndex().some(r => /explain the controls/i.test(r.title)));
+w.Prefs.set('tips', true);
+
+/* ── A static panel's switches now follow the value ──
+   The app panels are markup in index.html: their data-pref switches were
+   written with the shipped default on them and nothing ever painted them
+   again, so CAL's three had been showing the default since they shipped. */
+w.Prefs.set('calShowIdle', false);
+w.SET.panel('cal');
+check('a static panel\'s switch is painted from the pref, not left on the shipped default',
+  !$('.ns-set [data-pref="calShowIdle"]').classList.contains('on') &&
+  $('.ns-set [data-pref="calShowIdle"]').getAttribute('aria-checked') === 'false' &&
+  $('.ns-set [data-pref="calShowFixed"]').classList.contains('on'));
+click($('.ns-set [data-pref="calShowIdle"]'));
+check('… and flipping it moves the dot as well as the value',
+  w.Prefs.get('calShowIdle') === true && $('.ns-set [data-pref="calShowIdle"]').classList.contains('on'));
+check('the two colour switches and the wake-up one are on that panel too',
+  !!$('.ns-set [data-pref="calColorBlocks"]') && !!$('.ns-set [data-pref="calColorOther"]') &&
+  !!$('.ns-set [data-pref="calWakeShift"]'));
+
+/* ── DO's routine cards ── */
+w.Shell.go('do'); w.DO.setTab('daily');
+const cards = () => [...d.querySelectorAll('.ns-do #home-grid .card')];
+const cardNames = () => cards().map(c => c.querySelector('.card-t').textContent);
+check('a full card carries its name, its ratio and a bar',
+  cards().length > 0 && !!cards()[0].querySelector('.card-bar-fill') &&
+  / \/ .*done/.test(cards()[0].querySelector('.card-s').textContent) &&
+  !d.querySelector('.ns-do #home-grid.mini'),
+  cards()[0]?.textContent.replace(/\s+/g, ' ').trim());
+w.Prefs.set('doCardStyle', 'minimal');
+check('minimal drops the bar and the word, keeps the ratio, and goes to one column',
+  d.querySelector('.ns-do #home-grid').classList.contains('mini') &&
+  cards().every(c => c.classList.contains('mini') && !c.querySelector('.card-bar')) &&
+  /^\d+ \/ \d+$/.test(cards()[0].querySelector('.card-s').textContent) &&
+  /\.ns-do \.grid\.mini\{grid-template-columns:1fr/.test(doCss2),
+  cards()[0]?.textContent.replace(/\s+/g, ' ').trim());
+w.Prefs.set('doCardStyle', 'full');
+/* toggleAll() works on whichever routine is open and *toggles*, so finishing
+   one means opening it first and coming back — the same three taps a person
+   makes — and only when it is not already finished. The state is read back off
+   DO's own key rather than off the grid, because a hidden card is not there to
+   be asked. */
+const doState = () => { try { return JSON.parse(w.localStorage.getItem('do_' + w.Shell.today())) || {}; } catch { return {}; } };
+const allTicked = k => { const st = doState()[k] || {};
+  return w.Config.get('do.routines')[k].items.every(i => st[i]); };
+const setDone = (k, want) => {
+  if (allTicked(k) === want) return;
+  w.DO.openRoutine(k); w.DO.toggleAll(); w.DO.go('home');
+};
+const finish = k => setDone(k, true);
+const dailyKeys = w.Config.get('do.tabs').find(t => t.id === 'daily').routines
+  .filter(k => w.Config.get('do.routines')[k]);
+const firstKey = dailyKeys[0];
+const firstName = w.Config.get('do.routines')[firstKey].label;
+finish(firstKey);
+check('a finished card is marked done and stays on the grid',
+  cardNames().includes(firstName) && !!d.querySelector('.ns-do #home-grid .card.done'));
+w.Prefs.set('doHideDone', true);
+check('… until the dial says hide it, and then it is gone',
+  !cardNames().includes(firstName) && !d.querySelector('.ns-do #home-grid .card.done'),
+  cardNames().join(','));
+check('… and nothing was lost: the ticks are still there and switching back brings it straight back',
+  (w.Prefs.set('doHideDone', false), cardNames().includes(firstName) &&
+   !!d.querySelector('.ns-do #home-grid .card.done')));
+w.Prefs.set('doHideDone', true);
+dailyKeys.forEach(finish);
+check('a tab with nothing left says so rather than leaving a hole where the grid was',
+  !!d.querySelector('.ns-do .grid-clear') && /all done/.test($('.ns-do .grid-clear').textContent) &&
+  /settings → apps → do/.test($('.ns-do .grid-clear').textContent));
+dailyKeys.forEach(k => setDone(k, false));   // put the day back for whatever runs after
+w.Prefs.set('doHideDone', false);
+
+/* ── The day of the month, opposite the wordmark ── */
+const dayNum = () => $('.ns-do #do-daynum');
+check('the date sits at the other end of the wordmark\'s row, in the same type at the same size',
+  !!dayNum() && dayNum().parentElement.classList.contains('h-logo-row') &&
+  dayNum().querySelector('.dn-cur').textContent === String(Number(w.Shell.today().slice(8, 10))) &&
+  /\.ns-do \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(doCss2),
+  dayNum()?.textContent);
+check('… and it is hidden from the reading order — the date line above it already says the date',
+  dayNum().getAttribute('aria-hidden') === 'true');
+check('the number rolls to the new one rather than being swapped in place',
+  /@keyframes dn-in \{from\{transform:translateY\(100%\)/.test(doCss2) &&
+  /@keyframes dn-out\{from\{transform:none/.test(doCss2) &&
+  /\.ns-do \.h-daynum\{[^}]*overflow:hidden/.test(doCss2));
+check('… it travels with the title on a tab change, and holds still when the track does',
+  /\.view\.morph > \.h-top \.h-daynum\{/.test(shellCss4) &&
+  /#track\.still \.h-logo,#track\.still \.hd-title,#track\.still \.h-daynum\{animation:none!important\}/.test(shellCss4));
+check('… and reduced motion takes it off with the rest of the morph',
+  /\.view\.morph > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-daynum\{animation:none\}/.test(shellCss4));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

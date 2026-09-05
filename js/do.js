@@ -349,18 +349,71 @@ function renderTabs() {
   positionGlider();
 }
 
+/* ── The day of the month, opposite the wordmark ──────────────────────────────
+   The date used to live only in the small grey line above the title. It is the
+   one number that says which day's list you are looking at, and at 10px it was
+   the quietest thing on the screen. It now also sits at the right end of the
+   wordmark's row, cut from the same type at the same size, so the band reads
+   as `DO.` … `5` — one line with a number at each end.
+
+   The roll is the transition, not decoration: a checklist that resets at
+   midnight has exactly one moment where the number matters, and a digit that
+   changes without moving is a digit you do not notice has changed. The old
+   number leaves upward and the new one arrives from below, so the direction
+   says "forward" — the same way the titles slide with the tab move.
+
+   `dnCur` is what is on screen. It is tracked rather than read back off the
+   DOM because a re-render mid-roll would otherwise compare against the
+   outgoing digits and play the animation a second time. */
+let dnCur = null;
+function paintDayNum(iso) {
+  const box = $id('do-daynum'); if (!box) return;
+  const num = String(Number(String(iso).slice(8, 10)) || '');
+  const cur = box.querySelector('.dn-cur');
+  if (!cur) return;
+  if (dnCur === num) { cur.textContent = num; return; }
+  const had = dnCur !== null && cur.textContent !== '';
+  dnCur = num;
+  if (!had) { cur.textContent = num; return; }          // first paint: no roll from nothing
+  const out = document.createElement('span');
+  out.className = 'dn-out';
+  out.textContent = cur.textContent;
+  box.appendChild(out);
+  cur.textContent = num;
+  /* Restarting rather than adding: two day changes in quick succession (the
+     midnight roll landing while a step is still playing) must replace the
+     roll, not queue behind it. */
+  cur.classList.remove('rolling'); void cur.offsetWidth; cur.classList.add('rolling');
+  setTimeout(() => { out.remove(); cur.classList.remove('rolling'); }, 520);
+}
+
+/* A routine that is finished can be dropped from the grid rather than greyed:
+   on a tab whose routines are all morning ones, the afternoon is otherwise
+   spent scrolling past six ticked cards to reach the one that is not. The
+   travel card follows the same rule — it is a card on this grid like any
+   other. Nothing is *lost*: switching the dial back off brings them all
+   straight back, because the state was never touched. */
+const hideDone = () => Prefs.get('doHideDone') === true;
+
 function renderHome() {
   $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();   // #date-label is a span inside .h-label
+  paintDayNum(TODAY);
 
+  const minimal = Prefs.get('doCardStyle') === 'minimal';
   const routineCards = routinesOfTab(currentTab).map(key => {
     const r = ROUTINES[key];
     const done = r.items.filter(i => state[key]?.[i]).length;
     const pct  = r.items.length ? Math.round((done / r.items.length) * 100) : 0;
-    const isDone = done === r.items.length;
-    return `<div class="card${isDone ? ' done' : ''}" onclick="DO.openRoutine('${key}')">
+    const isDone = done === r.items.length && r.items.length > 0;
+    if (isDone && hideDone()) return '';
+    /* The minimal card is the same card with the two things that take height
+       taken out: the progress bar, and the "done" line under the name. What
+       is left is the name and the ratio on one row — enough to see how far in
+       you are, at a third of the height. */
+    return `<div class="card${isDone ? ' done' : ''}${minimal ? ' mini' : ''}" onclick="DO.openRoutine('${key}')">
       <div class="card-t">${r.label}</div>
-      <div class="card-s">${done} / ${r.items.length} done</div>
-      <div class="card-bar"><div class="card-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>
+      <div class="card-s">${done} / ${r.items.length}${minimal ? '' : ' done'}</div>
+      ${minimal ? '' : `<div class="card-bar"><div class="card-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>`}
     </div>`;
   }).join('');
 
@@ -371,15 +424,24 @@ function renderHome() {
     const tDone = tStat.done === tStat.total && tStat.total > 0;
     const n = travel.order.length;
     const sub = n === 0 ? 'no checklists yet'
-                        : `${n} list${n>1?'s':''} · ${tStat.done} / ${tStat.total} packed`;
-    travelCard = `<div class="card${tDone ? ' done' : ''}" onclick="DO.go('travel')">
-      <div class="card-t">Travel</div>
-      <div class="card-s">${sub}</div>
-      <div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%;background:${barColor(tStat.pct)}"></div></div>
-    </div>`;
+                        : `${n} list${n>1?'s':''} · ${tStat.done} / ${tStat.total}${minimal ? '' : ' packed'}`;
+    if (!(tDone && hideDone()))
+      travelCard = `<div class="card${tDone ? ' done' : ''}${minimal ? ' mini' : ''}" onclick="DO.go('travel')">
+        <div class="card-t">Travel</div>
+        <div class="card-s">${sub}</div>
+        ${minimal ? '' : `<div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%;background:${barColor(tStat.pct)}"></div></div>`}
+      </div>`;
   }
 
-  $id('home-grid').innerHTML = routineCards + travelCard;
+  const grid = $id('home-grid');
+  grid.classList.toggle('mini', minimal);
+  /* Everything on this tab is finished and the dial says hide it. An empty
+     grid with no explanation reads as a bug — worse, as lost data — so the
+     grid says what happened and how to get the cards back. */
+  grid.innerHTML = (routineCards + travelCard) ||
+    (hideDone() && routinesOfTab(currentTab).length
+      ? `<div class="grid-clear">all done<em>finished routines are hidden — settings → apps → do</em></div>`
+      : '');
   applySectionOrder();
   renderToday();
   renderBlocks();
@@ -771,8 +833,12 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       // block tasks: every task due today carrying one of PLAN's block labels
                       blocksOn:true, blocksHideDone:false, blocksDone:'day',
                       blocks:{ date:null, tasks:[], fetched:0 },
-                      // the media tab: every open task carrying one of do.mediaLabels, any date
-                      mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 },
+                      /* the media tab: every open task carrying one of do.mediaLabels, any date.
+                         `mediaKind` is the label the list is narrowed to ('' = all) and
+                         `mediaSort` is how it is ordered. Both persist: a backlog you come
+                         back to twice a day should not have to be narrowed twice a day. */
+                      mediaOn:true, mediaHideDone:false, mediaKind:'', mediaSort:'kind',
+                      media:{ date:null, tasks:[], fetched:0 },
                       // the quick cards: every open task carrying do.quickLabel, with its subtasks
                       quickOn:true, quickHideDone:false, quickFold:false,
                       quick:{ date:null, tasks:[], fetched:0 } };
@@ -1323,6 +1389,110 @@ async function fetchMedia() {
   next.sort((a, b) => order(a.kind) - order(b.kind) || a.content.localeCompare(b.content));
   td.media = { date:tdLocalDate(), tasks:next, fetched:Date.now() };
 }
+/* ── Drawing the list ─────────────────────────────────────────────────────────
+   2.8 drew media as the block tiles: three across, a title inside a 64px box.
+   That shape is right for a block — a block is a word ("mixing") standing for
+   an hour of work — and wrong for this, because the thing on a media tile is a
+   *title*, and a title is long. "The Lord of the Rings: The Fellowship of the
+   Ring" in a third of a phone width is four lines of 11px type or an ellipsis,
+   and either way the list stopped being readable at exactly the length a
+   backlog reaches.
+
+   So: one row per title, full width, the label's colour as a rail down its
+   left edge, the kind and the second label as a meta line under the name, and
+   the tick on the right where every other tickable row in ROOT keeps it. The
+   name gets two lines before it gives up, which covers all but the silliest.
+
+   The three controls above it are what a backlog actually needs, and all three
+   are drawn from data that was already being fetched and thrown away:
+
+     kind chips   the list narrowed to @movie, with the open count on each —
+                  "what films have I got" was previously a scroll.
+     find         a substring match on the title. Only once the list is long
+                  enough to need it; on eight items it is furniture.
+     sort         by kind (the shipped order, grouped), by name, or by
+                  priority — which was fetched from Todoist since 2.8 and had
+                  never been shown anywhere.
+
+   And `surprise me`, which is the honest answer to what a watchlist is for:
+   the problem with a backlog of forty films is never finding one, it is
+   choosing one. It picks from what is filtered and open, so "pick me a
+   podcast" is two taps. */
+let mediaQ = '';                        // the find box — in memory, never persisted
+/* A stored filter can outlive the label it names — the media labels are Config,
+   editable under settings → do. A narrowing to a label that is gone would hide
+   the whole list behind a chip that is no longer drawn, so it falls back to
+   "all" rather than to an empty screen with no way out of it. */
+const mediaKind = () => {
+  const k = String(td.mediaKind || '');
+  return MEDIA_LABELS.includes(k) ? k : '';
+};
+const mediaSortKey = () => (['kind','name','pri'].includes(td.mediaSort) ? td.mediaSort : 'kind');
+const SORT_LABEL = { kind:'by kind', name:'a → z', pri:'by priority' };
+
+/* What the list is showing, after every filter: the hide-done switch, the kind
+   chips and the find box. One function, because the head's counts, the rows
+   and `surprise me` must never disagree about what is on screen. */
+function mediaShown() {
+  const q = mediaQ.trim().toLowerCase();
+  const kind = mediaKind();
+  return tdMedia().tasks.filter(x =>
+    (!td.mediaHideDone || !x.done) &&
+    (!kind || x.kind === kind) &&
+    (!q || x.content.toLowerCase().includes(q)));
+}
+
+function mediaRow(x) {
+  /* Todoist counts priority upwards (4 is urgent), the UI counts downwards
+     (p1 is urgent). 1 is "no priority" and is not drawn — a chip on every row
+     is a chip that says nothing. */
+  const p = 5 - (+x.priority || 1);
+  const meta = [`@${esc(x.kind)}`, x.sub ? esc(x.sub) : ''].filter(Boolean)
+    .map(s => `<i>${s}</i>`).join('');
+  return `<button class="md-row${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}"
+            data-md-id="${esc(x.id)}" onclick="DO.toggleMediaTask('${esc(x.id)}')" aria-pressed="${x.done}">
+      <span class="md-rail" aria-hidden="true"></span>
+      <span class="md-body">
+        <span class="md-name">${esc(x.content)}</span>
+        <span class="md-meta">${meta}${p <= 3 ? `<i class="md-pri p${p}">p${p}</i>` : ''}</span>
+      </span>
+      <span class="md-check" aria-hidden="true"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </button>`;
+}
+
+/* The rows alone. The find box lives in the head and re-rendering the whole
+   section on every keystroke would take the focus and the caret with it, so
+   typing repaints this and nothing else. */
+function renderMediaList() {
+  const list = $id('td-media-list'); if (!list) return;
+  const m = tdMedia(), shown = mediaShown();
+  const when = m.fetched ? new Date(m.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
+  if (!shown.length) {
+    const why = !MEDIA_LABELS.length ? 'no media labels set — see settings → do'
+              : !m.tasks.length ? (when ? 'nothing labelled in todoist' : 'tap refresh to fetch the list')
+              : mediaQ.trim() ? `nothing matching “${esc(mediaQ.trim())}”`
+              : mediaKind() ? `nothing left under @${esc(mediaKind())}`
+              : 'all done';
+    list.innerHTML = `<div class="tt-empty">${why}</div>`;
+    return;
+  }
+  if (mediaSortKey() === 'kind') {
+    // grouped, in the order the labels are written in Config — the shipped shape
+    const groups = MEDIA_LABELS.map(kind => ({ kind, tasks: shown.filter(x => x.kind === kind) }))
+      .filter(g => g.tasks.length);
+    list.innerHTML = groups.map(g => `<div class="md-group" style="--bk-c:${esc(g.tasks[0].color)}">
+      <div class="md-lbl"><span>@${esc(g.kind)}</span><em>${g.tasks.filter(x => !x.done).length}</em></div>
+      ${g.tasks.map(mediaRow).join('')}</div>`).join('');
+    return;
+  }
+  const rows = shown.slice().sort(mediaSortKey() === 'name'
+    ? (a, b) => a.content.localeCompare(b.content)
+    // urgent first, then alphabetical inside a priority — a stable order matters
+    // more here than anywhere, because this list is read by scanning it
+    : (a, b) => (+b.priority || 1) - (+a.priority || 1) || a.content.localeCompare(b.content));
+  list.innerHTML = rows.map(mediaRow).join('');
+}
+
 function renderMedia() {
   const box = $id('td-media'); if (!box) return;
   const show = td.mediaOn && onMediaTab();
@@ -1330,21 +1500,66 @@ function renderMedia() {
   if (!show) return;
   const m = tdMedia();
   const open = m.tasks.filter(x => !x.done).length;
-  const shown = td.mediaHideDone ? m.tasks.filter(x => !x.done) : m.tasks;
   const when = m.fetched ? new Date(m.fetched).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : null;
-  const groups = MEDIA_LABELS.map(kind => ({ kind, tasks: shown.filter(x => x.kind === kind) })).filter(g => g.tasks.length);
-  const tile = x => `<button class="bk md${x.done ? ' done' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.toggleMediaTask('${esc(x.id)}')" aria-pressed="${x.done}">
-      ${x.sub ? `<span class="bk-sub">${esc(x.sub)}</span>` : ''}<span class="bk-name">${esc(x.content)}</span>
-      <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </button>`;
+  const kind = mediaKind();
+  // the open count under each label, before the find box narrows anything —
+  // a chip's number is what tapping it would show, not what is showing now
+  const countOf = k => m.tasks.filter(x => !x.done && (!k || x.kind === k)).length;
+  const chip = (k, label) => `<button class="md-chip${kind === k ? ' on' : ''}"${
+      k ? ` style="--bk-c:${esc((m.tasks.find(x => x.kind === k) || {}).color || 'var(--mu)')}"` : ''}
+      onclick="DO.setMediaKind('${esc(k)}')" aria-pressed="${kind === k}">${esc(label)}<em>${countOf(k)}</em></button>`;
+  // the find box earns its place once scrolling is the alternative
+  const findable = m.tasks.length >= 8;
   box.innerHTML = `<div class="tt-head"><span>media<em>${open} open</em></span>
-      <span class="tt-acts"><button class="tt-refresh" onclick="DO.toggleMediaHideDone()">${td.mediaHideDone ? 'show done' : 'hide done'}</button>
+      <span class="tt-acts">
+      ${open ? '<button class="tt-refresh tt-defer" onclick="DO.mediaPick()">surprise me</button>' : ''}
+      <button class="tt-refresh" onclick="DO.toggleMediaHideDone()">${td.mediaHideDone ? 'show done' : 'hide done'}</button>
       <button class="tt-refresh" data-td-btn="refresh" data-td-busy="…" onclick="DO.refreshToday()">refresh</button></span></div>
-    ${groups.length ? groups.map(g => `<div class="md-group" style="--bk-c:${esc(g.tasks[0].color)}">
-      <div class="md-lbl"><span>@${esc(g.kind)}</span><em>${g.tasks.filter(x => !x.done).length}</em></div>
-      <div class="bk-grid">${g.tasks.map(tile).join('')}</div></div>`).join('')
-      : `<div class="tt-empty">${!MEDIA_LABELS.length ? 'no media labels set — see settings → do' : when ? (m.tasks.length ? 'all done' : 'nothing labelled in todoist') : 'tap refresh to fetch the list'}</div>`}
+    ${m.tasks.length ? `<div class="md-bar">
+      <div class="md-chips">${chip('', 'all')}${MEDIA_LABELS.filter(k => m.tasks.some(x => x.kind === k)).map(k => chip(k, '@' + k)).join('')}</div>
+      <div class="md-tools">
+        ${findable ? `<input class="md-find" id="td-media-find" type="search" inputmode="search"
+             autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="find a title" aria-label="find a title" value="${esc(mediaQ)}"
+             oninput="DO.setMediaQuery(this.value)">` : ''}
+        <button class="md-sort" onclick="DO.cycleMediaSort()">${SORT_LABEL[mediaSortKey()]}</button>
+      </div>
+    </div>` : ''}
+    <div class="md-list" id="td-media-list"></div>
     <div class="tt-status">${when ? 'todoist fetched ' + when : ''}</div>`;
+  renderMediaList();
+}
+
+function setMediaKind(k) {
+  td.mediaKind = mediaKind() === k ? '' : k;    // tapping the live chip clears it
+  tdPersist(); Prefs.tap(); renderMedia();
+}
+function setMediaQuery(v) { mediaQ = String(v == null ? '' : v); renderMediaList(); }
+function cycleMediaSort() {
+  const order = ['kind', 'name', 'pri'];
+  td.mediaSort = order[(order.indexOf(mediaSortKey()) + 1) % order.length];
+  tdPersist(); Prefs.tap(); renderMedia();
+}
+
+/* One open title from whatever is filtered, chosen at random and shown rather
+   than acted on: it names the pick and lights its row, and closing it is still
+   the same tick as any other row. Choosing *for* you and closing it would be a
+   different app. */
+function mediaPick() {
+  const pool = mediaShown().filter(x => !x.done);
+  if (!pool.length) { toast('nothing open to pick from'); return; }
+  const x = pool[Math.floor(Math.random() * pool.length)];
+  Prefs.tap();
+  toast('→ ' + x.content);
+  /* A Todoist id is digits, so the attribute selector is safe as written —
+     but window.CSS is not there in every environment the harness runs in, and
+     finding the row is not worth throwing over. */
+  const rows = document.querySelectorAll('.ns-do .md-row');
+  rows.forEach(r => r.classList.remove('picked'));
+  const row = [...rows].find(r => r.dataset.mdId === String(x.id));
+  if (!row) return;
+  row.classList.add('picked');
+  try { row.scrollIntoView({ block:'center', behavior:'smooth' }); } catch {}
 }
 async function toggleMediaTask(id) {
   const m = tdMedia();
@@ -1868,7 +2083,9 @@ Shell.register('do', {
                go: () => { Shell.go('do'); openList(l.id); } }; }),
 });
 // the date label follows Settings → behaviour → dates without a reload
-Prefs.subscribe(k => { if (k === 'dateFormat' || k === '*') renderHome(); });
+Prefs.subscribe(k => {
+  if (k === 'dateFormat' || k === 'doHideDone' || k === 'doCardStyle' || k === '*') renderHome();
+});
 maybeRefreshToday();
 
 return { go, renderSettings: renderTodoistSettings,
@@ -1885,6 +2102,7 @@ return { go, renderSettings: renderTodoistSettings,
          renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone,
          cycleBlocksDone, blocksDoneWin, blockTasks, moveSection,
          renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday,
+         setMediaKind, setMediaQuery, cycleMediaSort, mediaPick,
          toggleBlockMove, selectBlock, moveBlocks,
          toggleTodayMove, selectToday, selectAllToday };
 })();

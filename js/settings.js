@@ -403,6 +403,10 @@ function behaveHTML() {
       { v:'settings', l:'settings' },
     ], 'Start on')}
 
+    ${sectionHead('Guidance')}
+    ${toggle('tips', 'Explain the controls',
+      'the paragraph over a section and the grey line under a switch — off halves the length of every panel')}
+
     ${sectionHead('Gestures')}
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
@@ -1501,11 +1505,57 @@ function panel(name) {
   // #settings/<panel> is linkable; the shell leaves this segment alone
   try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings/' + name); } catch {}
   RENDERERS[name] && RENDERERS[name]();
+  syncStatic(document.querySelector('.set-panel[data-panel="' + name + '"]'), name);
+}
+
+/* ── Static controls bound to a pref ──────────────────────────────────────────
+   The three generated panels rebuild their markup from Prefs on every render,
+   so their switches are correct by construction. The app panels are static
+   markup in index.html: their `data-pref` switches were written with the
+   default already on them and nothing ever painted them again. A toggle there
+   flipped the stored value and left its own dot where it was — the CAL panel's
+   three switches had been doing that since they shipped — and reopening
+   settings showed the shipped default rather than the setting.
+
+   One pass over the panel after it renders, reading Prefs for each control it
+   finds. It knows three shapes and nothing else about what any of them mean:
+   a switch, a chip in an .opt-set, and a range with its readout. */
+function syncStatic(root, name) {
+  /* Only the static panels. look / layout / behave rebuild their own markup
+     from Prefs on every render, so they are already right — and two of their
+     dials (radius, border) have `null` for a default, meaning "leave it to the
+     theme". Painting those the way this does would put an empty value in the
+     input and NaN where the readout says `auto`. */
+  if (!root || ['look', 'layout', 'behave'].includes(name)) return;
+  root.querySelectorAll('[data-pref]').forEach(el => {
+    const key = el.dataset.pref;
+    if (!key || !(key in Prefs.SCHEMA)) return;
+    const v = Prefs.get(key);
+    if (v === null || v === undefined) return;
+    if (el.dataset.toggle) {
+      el.classList.toggle('on', !!v);
+      el.setAttribute('aria-checked', String(!!v));
+      return;
+    }
+    if (el.dataset.val !== undefined) {          // a chip: on when it is the value
+      el.classList.toggle('on', String(v) === el.dataset.val);
+      return;
+    }
+    if (el.type === 'range') {
+      el.value = v;
+      const out = el.closest('.slider-row');
+      const lab = out && out.querySelector('.slider-val');
+      if (lab) lab.textContent = readoutFor(key, parseFloat(v));
+    }
+  });
 }
 
 function render() {
   if (currentCat === null) renderHome();
-  else RENDERERS[currentPanel] && RENDERERS[currentPanel]();
+  else {
+    RENDERERS[currentPanel] && RENDERERS[currentPanel]();
+    syncStatic(document.querySelector('.set-panel[data-panel="' + currentPanel + '"]'), currentPanel);
+  }
 }
 
 

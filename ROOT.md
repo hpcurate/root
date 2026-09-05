@@ -16,14 +16,14 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
-| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial) and the consistency strip. |
+| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -389,7 +389,7 @@ versions still work off the same data.
 | --- | --- | --- |
 | `do_<YYYY-MM-DD>` | DO | one day's routine ticks (older days are swept on the first load of a new day — folded into `do-stats-v1` first) |
 | `do-stats-v1` | DO | the rolling routine tally, `{ days: { iso: { routineKey: [done, total] } } }`, capped at 400 days. **Deliberately hyphenated**: the day sweep matches `do_`, and a summary the sweep can reach lasts one day. Same reasoning as `log-scale-v2` |
-| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list, since 2.19 the quick cards' switch and their cached tasks with subtasks |
+| `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list, since 2.19 the quick cards' switch and their cached tasks with subtasks, since 2.24 the media tab's kind filter and sort order (`mediaKind`, `mediaSort` — the find box is deliberately not stored) |
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
 | `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
@@ -404,7 +404,7 @@ versions still work off the same data.
 | `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
-| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`. Written only by PLAN's export; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
+| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -707,7 +707,10 @@ both say so, and a new device needs the `.apkg` imported again.
   `renderHome()` draws the grid on it instead of routine cards.
 - **The media list is a backlog, not a day's list.** `td.media` keeps every
   open task whatever its date; a new day only drops the ones closed the day
-  before (their untick window is over) rather than emptying the cache.
+  before (their untick window is over) rather than emptying the cache. Since
+  2.24 it is drawn as rows rather than tiles, with a kind filter and a sort
+  that persist and a find box that does not — a narrowing you chose is worth
+  keeping, a half-typed query two hours old only looks like a broken list.
 - **A sub-screen is `.scr` + `.hd-back`, and the shell relies on it.** The
   left arrow becomes "back" by finding `.scr.on:not(#s-home) .hd-back` in the
   current slide. A new sub-screen that names its home something other than
@@ -1321,6 +1324,168 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.24 — 2026-09-05 — the media tab rebuilt, the day gets an editor, and the title stops being soft
+
+First release taken straight from Todoist: eleven tasks labelled `@claude`,
+carrying their own type and target (see `_git-push/PROTOCOL.md`).
+
+**The media tab is a list now, not a grid of tiles.** 2.8 drew media as the
+block tiles — three across, 64px boxes — which is the right shape for a block
+(a word standing for an hour) and the wrong one for a *title*, because titles
+are long. Three-across at 11px meant four wrapped lines or an ellipsis on
+anything longer than "Dune", so the tab stopped being readable at exactly the
+length a backlog reaches. It is one row per title now: the label's colour as a
+rail down the left edge, the name at two lines before it gives up, the kind and
+the second label as a meta line under it, and the tick on the right where every
+tickable row in ROOT keeps it. Four things came with it, all drawn from data
+that was already being fetched: **kind chips** with the open count on each, so
+"what films have I got" is a tap; a **find** box (only once the list passes
+eight, below which it is furniture); a **sort** — by kind, a → z, or by
+priority, which had been fetched from Todoist since 2.8 and shown nowhere; and
+**surprise me**, which picks one open title from whatever is filtered. That
+last one is the honest answer to what a watchlist is for — the problem with
+forty films is never finding one, it is choosing. The kind and the sort persist
+(`td.mediaKind`, `td.mediaSort`); the find box does not, because a query you
+come back to two hours later is a list that looks broken. A stored kind whose
+label has since been deleted from Config falls back to "all" rather than
+hiding the list behind a chip that is no longer drawn.
+
+**Rows on the day can be deleted, and the prompt asks what to do with the
+hour.** A day arrives from PLAN whole, and until now correcting one meant
+re-exporting it — a great deal of ceremony for "that meeting is off". There are
+exactly two honest things to do with the time a deleted row leaves, so it asks
+rather than choosing: **close the gap** moves every row after it earlier by its
+duration (the day is genuinely shorter, and you finish sooner), or **leave it
+free** turns the row into an unclaimed slot and leaves the rest of the day
+exactly where it was planned. The second is the right answer more often than it
+sounds — a train at six is still at six whether or not the morning emptied out.
+Either way the day is marked `localEdit`, same as filling it from DO: it no
+longer matches what was sent. An idle row has no delete, because there is
+nothing in it to remove. This is the first three-answer question in the app, so
+`Shell.ask` gained an optional `alt` button (settling as the string `'alt'`) and
+the action row stacks when there are three of them — three verbs across a phone
+leaves each of them two words.
+
+**LOG's morning wake-up time moves the day.** PLAN resolves a day against a
+start time chosen the night before; the morning then happens, and the real
+answer is rarely the one PLAN guessed, so every row was off by the difference
+and the now-line crossed a schedule that stopped being true before breakfast.
+Saving the morning form now shifts the whole day by `wake − start`. The day
+keeps its shape — that is the thing this app draws — and only its position on
+the clock changes. `rec.wakeShift` records what has already been applied, which
+makes it idempotent and reversible: correcting 08:10 to 07:50 moves the day by
+twenty minutes and not by another two hours, and clearing the field puts it back
+where PLAN wrote it. Switchable off under settings → apps → cal, and CAL owns
+all the arithmetic — LOG only says what the time was.
+
+**Colourful events, as two switches.** Every row already carried its colour on
+its rail; these lift it into the row as a 12% wash. Two dials rather than one
+because the two kinds of row are two different claims — the blocks you filed
+into slots, and the template hours around them — and washing both at once is a
+rainbow. A wash and not a fill, so the *name* stays the highest-contrast thing
+in the row. An unclaimed slot is never lit: there is nothing in it to have a
+colour.
+
+**The day's head no longer breaks its own words.** It was one run of text with
+`·` typed into it, so a line could break at any space — and did, in the worst
+place: "5 tasks" and "3 done" came apart, a number stranded above its noun.
+Each fact is its own inline element now with the separator drawn by CSS, so a
+break can only fall *between* facts. The head also stacks — meta on one row,
+actions on the next — because on a phone the facts wanted the full width and
+`schedule from do`, the longest label on the screen for a panel used a few times
+a month, was taking it. That button is `+ do` now: same accent, quarter of the
+length.
+
+**Nothing on the day answers a finger that is scrolling.** 2.22.3 took the press
+*wash* off anything scrolled under a finger and 2.23 swallowed the click that
+ends a drag; both are about the tap that follows. The day is the one screen
+where that was not enough, because its rows are as tall as the hours they stand
+for — a scroll down a full day is a finger crossing five or six live controls.
+For the length of the gesture the day is a picture: `pointer-events:none` on
+`.cal-day` and `.cal-head` under `[data-scrolling]`. The scroller is the
+ancestor and keeps its own, so the scroll itself is untouched.
+
+**The top of the title band was soft, and it was arithmetic.** Four of the five
+title sizes multiply out to a fraction (54 × .86 = 46.44), and the band is
+`justify-content:flex-end`, so that fraction became the offset every row inside
+it was pushed down by. Text that lands on a half pixel is resampled rather than
+drawn — and it showed first on the *smallest* text in the band, the date line at
+the top, which is why the bug read as "the top of the title is blurred" rather
+than "the title is blurred". `--title-px` is the wordmark's size snapped with
+`round()`, and the band is measured in it; the unrounded value stays as the
+fallback for a browser without `round()`. The other half was `.morph`, added on
+every tab change and never taken off, which left the title's `both`-filled
+animation applied for the life of the session — holding the wordmark on a
+compositing layer, where text is drawn with grayscale antialiasing instead of
+subpixel. It now comes off with `.leaving`, on the same timer.
+
+**DO's date sits opposite the wordmark.** The day of the month at the right end
+of the `DO.` row, cut from the same type at the same size (`--title-px`, so it
+follows the Title size dial and snaps with it), and muted — the wordmark is what
+the row *is*, the number is what it is *about*. When the day changes the old
+number leaves upward and the new one arrives from below: a checklist that resets
+at midnight has exactly one moment where the number matters, and a digit that
+changes without moving is a digit you do not notice has changed. It is
+`aria-hidden` — the date line above it already says the date in words.
+
+**Routine cards can be minimal, and can hide once finished.** Minimal is the
+name and the ratio on one row, no bar, one column: about a third of the height,
+so a tab with six routines is a screen rather than a scroll. What is dropped is
+only the *drawing* of the progress — the ratio is the same number the bar was
+showing. Hiding a finished routine never touches its state; switching the dial
+back off brings the card straight back, ticks and all. A tab with nothing left
+says "all done" and where to get the cards back, rather than leaving a hole
+where the grid was.
+
+**PLAN: the other projects stay on screen.** Opening a project used to clear the
+grid of every other one, so the way to the next project was back out through the
+one you were in — close, find, open, and the grid rebuilt twice for what is one
+thought. The others are a strip of chips under the open header now, each with
+its queued count, and one tap moves between them with the FLIP carrying the
+section rows out and the new ones in. They are deliberately `.proj-jump` and not
+`.proj-tile`: exactly one full project box is open at a time and the rest of the
+file counts on it. The section rows lost their wash — three rows each filled
+with the same project colour read as three identical slabs, with the name, the
+only thing that differs, competing with all of it — and gained the rail, plus
+the count of what is already queued into each. The open header keeps a rule in
+the project's colour under its name, so opening a project no longer drains the
+colour off the screen.
+
+**A hints switch.** Settings → behaviour → "Explain the controls": the paragraph
+over a section and the grey line under a switch, off in one attribute. They are
+what makes the app legible on the first pass and what makes it long to scroll on
+the hundredth, so they are a dial rather than a decision. Never hidden: a
+control's own name, a section heading, and the home menu's sub-labels, which say
+what is *inside* a category rather than explaining it — losing those is losing
+the map, not the commentary.
+
+**A latent bug found on the way.** The app panels are static markup in
+`index.html`, and their `data-pref` switches were written with the shipped
+default on them and then never painted again — so CAL's three had been showing
+the default rather than the setting since they shipped, and flipping one moved
+the value without moving the dot. `syncStatic()` paints a static panel from
+Prefs after it renders. It is scoped away from look / layout / behave, which
+rebuild their own markup and where two dials (`radius`, `border`) default to
+`null` meaning "leave it to the theme" — painting those this way would put NaN
+where the readout says `auto`.
+
+**Verified** — `test/harness.mjs`, **632 checks, all green** (572 before), and
+the site served over http. New coverage: the media rows, chips, find, sort and
+surprise-me; the head's unbreakable facts; deleting a row both ways and
+cancelling; the wake shift being idempotent, correctable, clearable and
+switchable off; both colour dials; the scroll-inert day; `--title-px` and the
+`@supports` fallback; `.morph` coming off; the hints attribute and what it does
+*not* hide; a static panel's switch following its pref; minimal cards, hiding a
+finished routine and the empty-tab message; the day number and its roll; and
+PLAN's jump chips. Two 2.8 checks were rewritten rather than deleted — they
+asserted the media *tile* markup that this release replaces, and the behaviour
+they were guarding (the second label shown, ticking closing the task in Todoist)
+is still checked on the new row.
+
+**Not verified** — the blur itself, which is a rendering artefact and cannot be
+seen from jsdom. Both causes are fixed and both are demonstrable in the source;
+whether the phone still shows it is a question for the phone.
 
 ### 2.23 — 2026-09-05 — every overlay lets go, DAY runs during the day, and a half of the day is written when someone writes it
 

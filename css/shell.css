@@ -84,7 +84,7 @@ body{
 .view.leaving{z-index:1}
 /* boot and re-parking: no fade, no morph */
 #track.still .view{transition:none}
-#track.still .h-logo,#track.still .hd-title{animation:none!important}
+#track.still .h-logo,#track.still .hd-title,#track.still .h-daynum{animation:none!important}
 
 /* The title does not cross-fade with the page: it slides. The incoming
    slide's wordmark — or the header of whichever sub-screen that slide was
@@ -93,9 +93,11 @@ body{
    --dir is +1 or -1, set by Shell from the direction of the move. It only
    works because every band is the same shape and the wordmark sits in the
    same place on all eight slides — see the band rules below. */
-.view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title{
+.view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title,
+.view.morph > .h-top .h-daynum{
   animation:title-in var(--t-title-in) cubic-bezier(.22,.9,.24,1) both}
-.view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{
+.view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title,
+.view.leaving > .h-top .h-daynum{
   animation:title-out var(--t-title-out) cubic-bezier(.4,0,.7,.2) both}
 @keyframes title-in{from{opacity:0;transform:translateX(calc(var(--dir,1) * 34px))}
                     to{opacity:1;transform:none}}
@@ -112,11 +114,26 @@ body{
    sized off the wordmark alone. DO's daily/media/other strip sits beside the
    wordmark inside the same row, and is capped (do.css) so it can never be
    what drives the height. */
+/* ── Why the band is measured in whole pixels ─────────────────────────────────
+   The wordmark's size is `--title-base * --title-scale`, and four of the five
+   title sizes are fractional (54 × .72 = 38.88, × .86 = 46.44, × 1.16 = 62.64,
+   × 1.34 = 72.36). That fraction used to reach two places at once: the band's
+   min-height, and — through `justify-content:flex-end` — the offset every row
+   inside it was pushed down by. A text run that lands on a half pixel is
+   resampled rather than drawn, which is why the *smallest* text in the band
+   went soft first: the date line at the top of DO. The wordmark itself is big
+   enough to carry it, so the bug read as "the top of the title is blurred"
+   rather than "the title is blurred".
+
+   `round()` is the whole fix: the wordmark is a whole number of pixels, so the
+   band is a whole number of pixels, so every row in it sits on the grid. The
+   unrounded value stays as the first declaration for a browser without
+   `round()` — it renders as it did before rather than losing the rule. */
 .view > .h-top{
   flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
   display:flex;flex-direction:column;justify-content:flex-end;gap:8px;
   padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
-  min-height:calc(env(safe-area-inset-top) + 54px + var(--title-base) * var(--title-scale))}
+  min-height:calc(env(safe-area-inset-top) + 54px + var(--title-px))}
 .view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
 .view > .h-top > .h-label,.view > .h-top > .h-meta{
   margin:0;padding:0;min-height:20px;display:flex;align-items:center;gap:8px}
@@ -126,7 +143,7 @@ body{
 .view > .h-top > .h-logo-row{margin:0}
 .view > .h-top .h-logo{
   margin:0;padding:0;line-height:1;
-  font-size:calc(var(--title-base) * var(--title-scale))}
+  font-size:var(--title-px)}
 .view > .h-top .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:18px}
 
 .view-body{
@@ -276,7 +293,7 @@ body{
 .ask-field input:focus{border-color:var(--y)}
 .ask-acts{display:grid;grid-template-columns:1fr 1fr;gap:calc(7px * var(--dens));
   margin-top:calc(18px * var(--dens))}
-.ask-no,.ask-yes{border-radius:var(--r1);cursor:pointer;padding:calc(13px * var(--dens)) 0;
+.ask-no,.ask-yes,.ask-alt{border-radius:var(--r1);cursor:pointer;padding:calc(13px * var(--dens)) 0;
   font:700 10px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);
   transition:opacity .12s,background var(--dur-1),border-color var(--dur-1)}
 .ask-no{background:var(--s2);border:var(--bw) solid var(--bd);color:var(--mu)}
@@ -284,6 +301,21 @@ body{
 .ask-yes{background:var(--y);border:var(--bw) solid var(--y);color:var(--on-y)}
 .ask-yes.danger{background:var(--re);border-color:var(--re);color:#fff}
 .ask-yes:active{opacity:.82}
+/* ── Three answers ──
+   A question with two real outcomes plus cancel. The row stacks rather than
+   splitting into thirds — three verbs across a phone leaves each of them two
+   words — and the order is read downwards: the two things that happen, then
+   the way out. Source order puts cancel first (it is the Escape key's answer
+   and the one a screen reader should meet last of the three), so the grid
+   places it explicitly rather than relying on where it sits in the markup. */
+.ask-acts.three{grid-template-columns:1fr}
+.ask-acts.three .ask-yes{order:1}
+.ask-acts.three .ask-alt{order:2}
+.ask-acts.three .ask-no {order:3}
+/* the second outcome is not the destructive one and not the way out: an
+   outlined button in the accent, between the two */
+.ask-alt{background:var(--y-fade);border:var(--bw) solid var(--yb);color:var(--y)}
+.ask-alt:active{background:color-mix(in srgb,var(--y) 24%,transparent)}
 
 /* ── The numpad ───────────────────────────────────────────────────────────────
    One pad for every numeric field in every app (js/shell.js). STORE's own .pad
@@ -464,6 +496,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 @media (prefers-reduced-motion:reduce){
   .view,#nav,.nav-arrow,.tab-b::before{transition:none}
   .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title,
-  .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title{animation:none}
+  .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title,
+  .view.morph > .h-top .h-daynum,.view.leaving > .h-top .h-daynum{animation:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }

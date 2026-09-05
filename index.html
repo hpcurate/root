@@ -251,6 +251,12 @@
         <div class="h-logo">DO<em>.</em></div>
         <!-- filled by DO.renderTabs() from Config → do.tabs -->
         <div class="tabs" id="home-tabs"></div>
+        <!-- The day of the month, right-aligned opposite the wordmark and cut
+             from the same type at the same height, so the band reads as one
+             line with a number at each end. DO.paintDayNum() swaps the digits
+             and plays the roll; the two spans are the number leaving and the
+             number arriving. -->
+        <div class="h-daynum" id="do-daynum" aria-hidden="true"><span class="dn-cur"></span></div>
       </div>
       <div class="h-acts">
         <button class="h-act sync" data-td-btn="sync" data-td-busy="⋯" onclick="DO.syncTodoist()">sync</button>
@@ -1130,6 +1136,24 @@
       <div class="data-warn">The order of the sections on DO's first tab. The today list and the block tasks show on that tab only.</div>
       <div id="do-sections"></div>
 
+      <div class="sec">Routine cards</div>
+      <div class="data-warn">
+        How the cards on DO's home are drawn, and what happens to one once every
+        item on it is ticked. Hiding a finished routine never touches its state —
+        switching this back off brings the card straight back, ticks and all.
+      </div>
+      <div class="opt-set" data-opt="doCardStyle">
+        <label class="lbl">Card size<em>minimal is the name and the count on one row, no bar</em></label>
+        <div class="opts">
+          <button class="opt on" data-pref="doCardStyle" data-val="full">full</button>
+          <button class="opt" data-pref="doCardStyle" data-val="minimal">minimal</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Hide finished routines<small>a fully ticked card drops off the grid until tomorrow</small></span>
+        <button class="tog" data-pref="doHideDone" data-toggle="1" role="switch" aria-checked="false" aria-label="hide finished routines"></button>
+      </div>
+
       <div class="sec">Daily data</div>
       <div class="data-warn">Stored locally on this device; the daily lists reset automatically each day.</div>
       <div class="setting-row">
@@ -1647,6 +1671,29 @@
         <button class="tog" data-pref="calCalNames" data-toggle="1" role="switch" aria-checked="false" aria-label="show calendar names"></button>
       </div>
 
+      <div class="sec"><span>Colour</span></div>
+      <div class="data-warn">
+        Every row already carries its colour on the rail down its left edge.
+        These lift it into the row itself — a wash, not a fill, so the name stays
+        the thing you read. Two switches rather than one: turning both on colours
+        every row on the day, which is a rainbow. An unclaimed slot is never
+        coloured — there is nothing in it to have one.
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Colour the blocks<small>the tasks you filed into slots — b1a, b2b — in their project's colour</small></span>
+        <button class="tog" data-pref="calColorBlocks" data-toggle="1" role="switch" aria-checked="false" aria-label="colour the blocks"></button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Colour the other events<small>the routine, kamo, gym and break hours, in their calendar's colour</small></span>
+        <button class="tog" data-pref="calColorOther" data-toggle="1" role="switch" aria-checked="false" aria-label="colour the other events"></button>
+      </div>
+
+      <div class="sec"><span>The morning</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Follow the wake-up time<small>LOG's morning wake-up moves the whole day to when it actually started</small></span>
+        <button class="tog on" data-pref="calWakeShift" data-toggle="1" role="switch" aria-checked="true" aria-label="follow the wake-up time"></button>
+      </div>
+
       <div class="sec"><span>Which days</span></div>
       <div class="slider-row" data-slider="calAhead">
         <div class="slider-head"><label class="lbl">Days ahead<em>how far the strip looks forward</em></label>
@@ -1757,9 +1804,14 @@
     <div class="ask-field hidden" id="ask-field">
       <input type="text" id="ask-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="answer">
     </div>
-    <div class="ask-acts">
+    <!-- .ask-alt is the third answer, hidden unless a caller asks for one:
+         a question with two real outcomes plus cancel ("delete it — and do
+         what with the hour it leaves behind?"). Shell.ask settles it as the
+         string 'alt', so a two-button caller can never see it by accident. -->
+    <div class="ask-acts" id="ask-acts">
       <button class="ask-no modal-cancel" id="ask-no">cancel</button>
       <button class="ask-yes danger" id="ask-yes">confirm</button>
+      <button class="ask-alt" id="ask-alt" hidden></button>
     </div>
   </div>
 </div>
