@@ -1258,7 +1258,64 @@ window.Shell = (function () {
     return out;
   }
 
-  return { toast, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS,
+  /* ── The big day-number in a title band ─────────────────────────────────────
+     LOG and DAY both carry one, at the right end of the wordmark's row, cut
+     from the same type at the same size. It lives here rather than twice in
+     two modules because the whole point of it is that the two are identical —
+     two copies would be two things to keep in step, and they would not stay in
+     step (§3).
+
+     The change is a shuffle, not a roll. A vertical roll says "the next one
+     along", which is right for a counter and wrong for this: stepping through
+     days is riffling a deck, so the number that leaves is flicked off to one
+     side, tilted and blurred as it goes, while the next one drops in from the
+     other side and settles. Which side is which follows the direction you
+     moved: forward throws the old one left, back throws it right, so the
+     gesture and the animation agree about which way time went.
+
+     `--dn-dir` carries that direction into the keyframes. The state is kept
+     per element rather than read back off the DOM, because a re-render
+     mid-shuffle would otherwise compare against the digits on their way out
+     and play the whole thing a second time. */
+  const dnState = new WeakMap();
+  function dayNum(box, iso) {
+    if (!box) return;
+    const cur = box.querySelector('.dn-cur');
+    if (!cur) return;
+    const num = String(Number(String(iso).slice(8, 10)) || '');
+    const was = dnState.get(box) || null;
+    if (was && was.num === num) { cur.textContent = num; return; }
+    /* The cleanup timer is part of the per-box state, not a module-level one:
+       LOG and DAY each have a box, and a single shared timer meant whichever
+       shuffled second cancelled the first one's cleanup — leaving its outgoing
+       digits in the DOM to pile up behind the live one. */
+    dnState.set(box, { num, iso: String(iso), timer: was ? was.timer : null });
+    if (!was || cur.textContent === '') { cur.textContent = num; return; }   // first paint: nothing to shuffle from
+    box.style.setProperty('--dn-dir', String(iso) >= was.iso ? 1 : -1);
+    /* Exactly one number is ever on its way out. A finger held on the arrow
+       steps faster than the animation runs, and appending one of these per step
+       stacked them all against the same right edge — a smear of digits behind
+       the live one that only cleared when the stepping stopped. The one before
+       is gone the instant the next leaves, which is also what a deck does. */
+    box.querySelectorAll('.dn-out').forEach(o => o.remove());
+    const out = document.createElement('span');
+    out.className = 'dn-out';
+    out.textContent = cur.textContent;
+    box.appendChild(out);
+    cur.textContent = num;
+    /* Restarted rather than added to: a finger held on the arrow steps faster
+       than the animation runs, and each step must replace the one before it
+       rather than queue behind it. */
+    cur.classList.remove('shuffling'); void cur.offsetWidth; cur.classList.add('shuffling');
+    const st = dnState.get(box);
+    clearTimeout(st.timer);
+    st.timer = setTimeout(() => {
+      box.querySelectorAll('.dn-out').forEach(o => o.remove());
+      cur.classList.remove('shuffling');
+    }, 520);
+  }
+
+  return { toast, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
            hashTarget, searchApps,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,

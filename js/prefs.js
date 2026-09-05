@@ -102,6 +102,18 @@ const DISPLAY_FONTS = [
   { id:'bebas',    name:'Bebas',       stack:"'Bebas Neue',Impact,sans-serif",             google:'Bebas+Neue' },
   { id:'archivo',  name:'Archivo',     stack:"'Archivo',system-ui,sans-serif",             google:'Archivo:wght@600;800' },
   { id:'unbounded',name:'Unbounded',   stack:"'Unbounded',system-ui,sans-serif",           google:'Unbounded:wght@600;800' },
+  /* 2.25 — six more. Chosen to widen the *range* rather than lengthen the list:
+     a condensed grotesque, a geometric, a slab, a high-contrast serif, a
+     rounded face and an editorial one, so the wordmark can be narrow, friendly
+     or literary rather than five shades of the same sans. Weights are the two
+     the app uses (700/800, or the nearest a face has) — a face is not worth
+     offering at a weight the titles cannot render. */
+  { id:'oswald',   name:'Oswald',      stack:"'Oswald',Impact,sans-serif",                 google:'Oswald:wght@600;700' },
+  { id:'poppins',  name:'Poppins',     stack:"'Poppins',system-ui,sans-serif",             google:'Poppins:wght@600;800' },
+  { id:'chivo',    name:'Chivo',       stack:"'Chivo',system-ui,sans-serif",               google:'Chivo:wght@700;900' },
+  { id:'playfair', name:'Playfair',    stack:"'Playfair Display',Georgia,serif",           google:'Playfair+Display:wght@700;900' },
+  { id:'nunito',   name:'Nunito',      stack:"'Nunito',system-ui,sans-serif",              google:'Nunito:wght@700;900' },
+  { id:'dmserif',  name:'DM Serif',    stack:"'DM Serif Display',Georgia,serif",           google:'DM+Serif+Display' },
   { id:'system',   name:'System',      stack:"system-ui,-apple-system,'Segoe UI',sans-serif", google:null },
   { id:'mono',     name:'Mono',        stack:"var(--mono)",                                google:null },
 ];
@@ -111,6 +123,12 @@ const MONO_FONTS = [
   { id:'plex',      name:'IBM Plex',  stack:"'IBM Plex Mono','JetBrains Mono',monospace", google:'IBM+Plex+Mono:wght@400;700' },
   { id:'spacemono', name:'Space',     stack:"'Space Mono','JetBrains Mono',monospace",    google:'Space+Mono:wght@400;700' },
   { id:'dm',        name:'DM Mono',   stack:"'DM Mono','JetBrains Mono',monospace",       google:'DM+Mono:wght@400;500' },
+  /* 2.25 — three more, again for range: a wide typewriter face, a narrow one
+     for dense screens, and a humanist that is easier to read at 9px than any
+     of the geometric ones above. */
+  { id:'courier',   name:'Courier',   stack:"'Courier Prime','Courier New',monospace",    google:'Courier+Prime:wght@400;700' },
+  { id:'redhat',    name:'Red Hat',   stack:"'Red Hat Mono','JetBrains Mono',monospace",  google:'Red+Hat+Mono:wght@400;700' },
+  { id:'sourcemono',name:'Source',    stack:"'Source Code Pro','JetBrains Mono',monospace", google:'Source+Code+Pro:wght@400;700' },
   { id:'system',    name:'System',    stack:"ui-monospace,SFMono-Regular,Menlo,Consolas,monospace", google:null },
 ];
 
@@ -171,6 +189,12 @@ const SCHEMA = {
   cardStyle:    { kind:'enum',   def:'outline',values:['outline','fill','ghost','line'],attr:'data-cards' },
   accentUse:    { kind:'enum',   def:'normal', values:['subtle','normal','loud'],      attr:'data-accent-use' },
   titleSize:    { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-title' },
+  /* The sticky sub-screen header's title, on its own steps. Deliberately not
+     the same dial as the wordmark: the wordmark is glanced at on the way past,
+     this one is read at arm's length for as long as you are on that screen,
+     and wanting one big and the other small is a real thing to want. Its box
+     is derived from it, so a larger title gets a taller header (tokens.css). */
+  hdTitleSize:  { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-hd-title' },
 
   // appearance — continuous, written as inline custom properties
   /* How fast the motion runs, on top of whichever preset is picked. Stored as
@@ -466,6 +490,7 @@ function apply() {
   root.setAttribute('data-cards',   prefs.cardStyle);
   root.setAttribute('data-accent-use', prefs.accentUse);
   root.setAttribute('data-title',      prefs.titleSize);
+  root.setAttribute('data-hd-title',   prefs.hdTitleSize);
   root.setAttribute('data-tab-labels', prefs.showTabLabels ? 'on' : 'off');
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');

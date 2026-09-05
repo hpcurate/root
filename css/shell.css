@@ -153,11 +153,77 @@ body{
   font-size:var(--title-px)}
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
+/* ── The big day-number, at the other end of the wordmark's row ───────────────
+   LOG and DAY both carry one, and it is defined once here rather than twice in
+   two app sheets because the whole point of it is that the two are identical.
+   Same family, same weight and same size as the wordmark — it is the second
+   half of one line, not a caption stuck beside it — measured in `--title-px`
+   so it follows the Title size dial and lands on a whole pixel with it.
+
+   The box is one digit tall with overflow hidden, so a number on its way out is
+   clipped by the row rather than making it taller, and both digits are placed
+   against the same right edge, which is what makes the change read as one
+   number moving rather than two numbers passing. `tabular-nums` keeps 9 → 10
+   from shifting the ones column sideways.
+
+   ── The shuffle ──
+   A vertical roll says "the next one along", which is right for a counter and
+   wrong for this. Stepping through days is riffling a deck: the number that
+   leaves is flicked off to one side, tilted and blurred as it goes, while the
+   next drops in from the other side and settles. `--dn-dir` is set by
+   Shell.dayNum() from the direction you moved, so forward throws the old one
+   left and back throws it right — the animation and the gesture agree about
+   which way time went.
+
+   The blur is what makes it a shuffle rather than a slide: a card leaving the
+   hand is not in focus, and without it the tilt reads as a glitch. It is one
+   small element for a fifth of a second, which is the only reason a filter
+   animation is acceptable here at all. */
+.view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
+  min-width:1.1em;height:1em;line-height:1;
+  font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--tx)}
+.view > .h-top .h-daynum span{position:absolute;right:0;top:0;display:block;line-height:1}
+.view > .h-top .h-daynum .dn-cur.shuffling{
+  animation:dn-in calc(.44s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
+.view > .h-top .h-daynum .dn-out{
+  animation:dn-out calc(.44s * var(--mo)) cubic-bezier(.35,0,.75,.25) both}
+@keyframes dn-in{
+  from{transform:translateX(calc(var(--dn-dir,1) * .55em)) rotate(calc(var(--dn-dir,1) * 7deg));
+       filter:blur(7px);opacity:0}
+  55% {opacity:1}
+  to  {transform:none;filter:blur(0);opacity:1}}
+@keyframes dn-out{
+  from{transform:none;filter:blur(0);opacity:1}
+  45% {opacity:.55}
+  to  {transform:translateX(calc(var(--dn-dir,1) * -.55em)) rotate(calc(var(--dn-dir,1) * -7deg));
+       filter:blur(7px);opacity:0}}
+
+/* ── Why there is no -webkit-overflow-scrolling here ──────────────────────────
+   **This is what was blurring the top of the title band, and it took three
+   goes to find because it cannot be seen anywhere but on an iPhone.**
+
+   `-webkit-overflow-scrolling:touch` opts a scroller into iOS's legacy
+   accelerated-scrolling path. On that path the scroller and anything
+   composited over it are rasterised into layers and re-scaled rather than
+   redrawn, and text on a re-scaled layer is resampled — soft edges, worst on
+   the smallest type. `.h-top` sits directly over this scroller at z-index 20,
+   which is why the softness landed on the band and nowhere else on the page,
+   and why the date line — 10px, letter-spaced, muted — was the first thing to
+   show it.
+
+   Two releases were spent looking for a fractional pixel (`--title-px` in
+   2.24.0, `--sat` in 2.24.1). Both of those were real and both are worth
+   keeping, and neither was this: the offsets were never the problem, the
+   compositing path was.
+
+   The property has done nothing since iOS 13 — momentum scrolling is the
+   default behaviour now — and it is deprecated. Removing it puts these
+   scrollers back on the normal path, where text is drawn at its real size. */
 .view-body{
   flex:1 1 auto;min-height:0;
   overflow-y:auto;overflow-x:hidden;
   overscroll-behavior-y:contain;
-  -webkit-overflow-scrolling:touch;
   scrollbar-width:none}
 .view-body::-webkit-scrollbar{display:none}
 /* The gap between the band and the first thing under it, the same on every
@@ -385,7 +451,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   -webkit-appearance:none;appearance:none}
 #search-q:focus{border-color:var(--y)}
 #search-out{flex:1;min-height:0;overflow-y:auto;margin-top:calc(10px * var(--dens));
-  -webkit-overflow-scrolling:touch}
+  }
 .sr{display:flex;align-items:center;gap:calc(11px * var(--dens));width:100%;text-align:left;
   background:none;border:none;border-bottom:var(--bw) solid var(--bd);cursor:pointer;color:var(--tx);
   padding:calc(11px * var(--dens)) calc(4px * var(--dens))}

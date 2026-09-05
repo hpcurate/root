@@ -3345,49 +3345,181 @@ check('a tab with nothing left says so rather than leaving a hole where the grid
 dailyKeys.forEach(k => setDone(k, false));   // put the day back for whatever runs after
 w.Prefs.set('doHideDone', false);
 
-/* ── The day of the month, opposite the wordmark ──
-   2.24.0 put it on DO, where it crowded the daily/media/other strip out of the
-   row it shares with the wordmark and where the number only ever changed at
-   midnight. It is LOG's: the arrows there step the date, so the roll — which is
-   the whole point of drawing it big — happens whenever they are used. */
-const logCss4 = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+/* ── The big day-number ──
+   2.24.0 put it on DO (wrong: it crowded the tab strip, and the number only
+   changed at midnight). 2.24.1 moved it to LOG. 2.25 gives DAY the same one and
+   defines it once in the shell, because the point is that they are identical. */
 w.Shell.go('log');
 const dayNum = () => $('.ns-log #log-daynum');
 check('the date sits at the other end of the wordmark\'s row, in the same type at the same size',
   !!dayNum() && dayNum().parentElement.classList.contains('h-logo-row') &&
   dayNum().querySelector('.dn-cur').textContent === String(Number(w.Shell.today().slice(8, 10))) &&
-  /\.ns-log \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(logCss4),
+  /\.view > \.h-top \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(shellCss4),
   dayNum()?.textContent);
 check('… in the title\'s own colour, not the muted one',
-  /\.ns-log \.h-daynum\{[^}]*color:var\(--tx\)\}/.test(logCss4));
+  /\.view > \.h-top \.h-daynum\{[^}]*color:var\(--tx\)\}/.test(shellCss4));
+check('… defined once in the shell, not once per app that carries one',
+  !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8')) &&
+  !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
+  !/\.ns-do \.h-daynum/.test(doCss2));
 check('… and it is off DO, which has its tab strip\'s width back',
-  !d.querySelector('.ns-do #do-daynum') && !/\.ns-do \.h-daynum/.test(doCss2) &&
+  !d.querySelector('.ns-do #do-daynum') &&
   d.querySelector('.ns-do .h-logo-row').children.length === 2,
-  d.querySelector('.ns-do .h-logo-row')
-    ? [...d.querySelector('.ns-do .h-logo-row').children].map(c => c.className).join(',') : 'no row');
+  [...d.querySelector('.ns-do .h-logo-row').children].map(c => c.className).join(','));
 check('… and it is hidden from the reading order — the date line above it already says the date',
   dayNum().getAttribute('aria-hidden') === 'true');
-check('the number rolls to the new one rather than being swapped in place',
-  /@keyframes dn-in \{from\{transform:translateY\(100%\)/.test(logCss4) &&
-  /@keyframes dn-out\{from\{transform:none/.test(logCss4) &&
-  /\.ns-log \.h-daynum\{[^}]*overflow:hidden/.test(logCss4));
-/* On DO this fired once a day, at midnight. Here it fires on every step, which
-   is what makes it worth animating at all. */
+
+/* 2.25: a shuffle, not a roll. The number that leaves is flicked off to one
+   side, tilted and blurred; the next drops in from the other side. */
+check('the change is a sideways shuffle with blur, not a vertical roll',
+  /@keyframes dn-in\{[\s\S]*?translateX\(calc\(var\(--dn-dir,1\) \* \.55em\)\)[\s\S]*?filter:blur\(7px\)/.test(shellCss4) &&
+  /@keyframes dn-out\{[\s\S]*?filter:blur\(7px\)/.test(shellCss4) &&
+  !/translateY\(100%\)/.test(shellCss4),
+  (shellCss4.match(/@keyframes dn-in\{[\s\S]*?\}\}/) || ['none'])[0].slice(0, 120));
+check('… and it tilts as it goes, which is what makes it read as a card and not a slide',
+  /rotate\(calc\(var\(--dn-dir,1\) \* 7deg\)\)/.test(shellCss4) &&
+  /rotate\(calc\(var\(--dn-dir,1\) \* -7deg\)\)/.test(shellCss4));
 const dnText = () => dayNum().querySelector('.dn-cur').textContent;
 const dnWas = dnText();
 w.LOG.shiftDate(-1);
-check('stepping the date rolls the number, the old one leaving as the new one arrives',
-  dnText() !== dnWas && !!dayNum().querySelector('.dn-out') &&
-  dayNum().querySelector('.dn-cur').classList.contains('rolling') &&
+check('stepping the date shuffles the number, the old one leaving as the new one arrives',
+  dnText() !== dnWas && dayNum().querySelectorAll('.dn-out').length === 1 &&
+  dayNum().querySelector('.dn-cur').classList.contains('shuffling') &&
   dayNum().querySelector('.dn-out').textContent === dnWas,
-  dnWas + ' -> ' + dnText());
+  dnWas + ' -> ' + dnText() + ' out=' + dayNum().querySelectorAll('.dn-out').length);
+check('… stepping back throws it the other way, so the animation agrees with the gesture',
+  dayNum().style.getPropertyValue('--dn-dir') === '-1',
+  dayNum().style.getPropertyValue('--dn-dir'));
 w.LOG.resetDate();
-check('… and coming back to today rolls it back', dnText() === dnWas);
+check('… and forward throws it the first way again',
+  dnText() === dnWas && dayNum().style.getPropertyValue('--dn-dir') === '1');
+
+/* DAY carries the same number, from the same helper. */
+w.Shell.go('cal');
+const calNum = () => $('.ns-cal #cal-daynum');
+check('DAY carries the same big date, in the same row, from the same helper',
+  !!calNum() && calNum().parentElement.classList.contains('h-logo-row') &&
+  calNum().querySelector('.dn-cur').textContent === String(Number(w.CAL.selected().slice(8, 10))) &&
+  calNum().getAttribute('aria-hidden') === 'true',
+  calNum()?.textContent);
+/* The cleanup timer used to be one module-level handle shared by both boxes, so
+   whichever shuffled second cancelled the first one's cleanup and left its
+   outgoing digits in the DOM to pile up behind the live number. Shuffle both,
+   several times, and neither box may accumulate. */
+w.Shell.go('log');
+for (let i = 0; i < 3; i++) { w.LOG.shiftDate(-1); w.CAL.pick(calDay); w.CAL.pick(today); }
+const piled = box => box.querySelectorAll('.dn-out').length > 1 ||
+  box.querySelector('.dn-cur').textContent.length > 2;
+check('… and one box\'s shuffle never cancels the other box\'s cleanup',
+  !piled(dayNum()) && !piled(calNum()),
+  'log=' + dayNum().querySelector('.dn-cur').textContent + '/' + dayNum().querySelectorAll('.dn-out').length +
+  ' cal=' + calNum().querySelector('.dn-cur').textContent + '/' + calNum().querySelectorAll('.dn-out').length);
+w.LOG.resetDate();
 check('… it travels with the title on a tab change, and holds still when the track does',
   /\.view\.morph > \.h-top \.h-daynum\{/.test(shellCss4) &&
   /#track\.still \.h-logo,#track\.still \.hd-title,#track\.still \.h-daynum\{animation:none!important\}/.test(shellCss4));
 check('… and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-daynum\{animation:none\}/.test(shellCss4));
+
+/* == 2.25 ==================================================================== */
+
+/* -- The blur, third attempt --
+   Not a fractional pixel after all. `-webkit-overflow-scrolling:touch` opts a
+   scroller into iOS's legacy accelerated path, where the scroller and anything
+   composited over it are rasterised and re-scaled rather than redrawn - and
+   `.h-top` sits directly over `.view-body` at z-index 20. It has done nothing
+   since iOS 13 and is deprecated. */
+const sheetRules = f => fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+const ALL_SHEETS = ['shell','do','log','plan','store','settings','cal','learn','tend','track'];
+const logCss4 = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+check('no scroller is on iOS legacy accelerated path any more',
+  ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))),
+  ALL_SHEETS.filter(f => /-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))).join(','));
+check('... and the sideways strips still claim pan-x, which is what makes them draggable',
+  /\.ns-do \.tabs\{[\s\S]*?touch-action:pan-x pan-y/.test(doCss2) &&
+  /\.set-seg\{[\s\S]*?touch-action:pan-x pan-y/.test(setCss4));
+check('... the two earlier fixes are kept, because both were real',
+  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4));
+
+/* -- LOG's arrows step aside like DAY's stepper -- */
+w.Shell.go('log');
+const metaRow = () => $('#view-log .h-meta');
+check('LOG date arrows fade on idle and share DAY dial rather than inventing a second one',
+  /\.ns-log \.h-meta\.idle \.h-arr,[\s\S]*?opacity:0;pointer-events:none\}/.test(logCss4) &&
+  /Prefs\.get\('calStepsHide'\)/.test(fs.readFileSync(path.join(ROOT, 'js/log.js'), 'utf8')));
+metaRow().classList.add('idle');
+w.LOG.wakeArrows();
+check('... and any touch on LOG brings them straight back', !metaRow().classList.contains('idle'));
+metaRow().classList.add('idle');
+w.LOG.shiftDate(-1);
+check('... stepping the date counts as using them', !metaRow().classList.contains('idle'));
+w.LOG.resetDate();
+
+/* -- STORE: the list total, and the pinned cost -- */
+const storeCss4 = fs.readFileSync(path.join(ROOT, 'css/store.css'), 'utf8');
+w.Shell.go('store');
+const sCount = () => $('.ns-store #store-count');
+const sCost  = () => $('.ns-store #store-cost');
+check('STORE puts the list total in the band, the way the other apps put their meta there',
+  !!sCount() && !!sCount().closest('.h-top'), sCount() && sCount().textContent);
+check('... and the count and the pinned cost share one flex end, so mounting the cost slides the count',
+  sCount().parentElement.classList.contains('h-band-end') &&
+  sCost().parentElement === sCount().parentElement &&
+  /\.ns-store \.h-band-end\{flex:0 0 auto;display:flex/.test(storeCss4));
+check('the cost is hidden while the counter is unpinned', sCost().classList.contains('hidden'));
+w.STORE.togglePin();
+check('pinning puts the running cost in the band, at the wordmark size and in the accent',
+  !sCost().classList.contains('hidden') && /^[\d.]+/.test(sCost().textContent) &&
+  !!sCost().querySelector('.cu') &&
+  /\.ns-store \.h-cost\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(storeCss4) &&
+  /\.ns-store \.h-cost\{[^}]*color:var\(--y\)/.test(storeCss4),
+  sCost().textContent);
+check('... and the two are distinguishable: one is the band small type, the other the big number',
+  /\.ns-store \.h-count\{[^}]*font:700 10px\/1 var\(--head\)/.test(storeCss4));
+check('the widget stops drawing the price it handed to the band, and keeps the bar',
+  /\.ns-store \.cw\.pinned \.cw-total\{display:none\}/.test(storeCss4) &&
+  !/\.cw\.pinned \.cw-bar\{display:none\}/.test(storeCss4) &&
+  !!$('.ns-store #cw-fill'));
+check('... and it locks flush rather than tucking its own top border out of sight',
+  /\.ns-store \.cw\.pinned\{position:sticky;top:0;/.test(storeCss4) &&
+  !/\.cw\.pinned\{position:sticky;top:calc\(-1 \* var\(--bw\)\)/.test(storeCss4));
+w.STORE.togglePin();
+check('unpinning takes the cost back out of the band and gives the widget its number back',
+  sCost().classList.contains('hidden') && !$('.ns-store #cw').classList.contains('pinned'));
+
+/* -- More fonts, and a dial for the sticky sub-screen title -- */
+check('there are more faces to choose from, and the range is wider rather than just longer',
+  w.Prefs.DISPLAY_FONTS.length >= 14 && w.Prefs.MONO_FONTS.length >= 8 &&
+  ['playfair','oswald','nunito'].every(id => w.Prefs.DISPLAY_FONTS.some(f => f.id === id)) &&
+  ['courier','sourcemono'].every(id => w.Prefs.MONO_FONTS.some(f => f.id === id)),
+  w.Prefs.DISPLAY_FONTS.length + ' display, ' + w.Prefs.MONO_FONTS.length + ' mono');
+check('... and every new one names the weights the titles actually render',
+  w.Prefs.DISPLAY_FONTS.every(f => !f.google || /wght@|Bebas|DM\+Serif/.test(f.google)));
+check('the sticky sub-screen title has a size dial of its own, separate from the wordmark',
+  w.Prefs.get('hdTitleSize') === 'm' && d.documentElement.dataset.hdTitle === 'm' &&
+  w.Prefs.SCHEMA.hdTitleSize.values.join(',') === 'xs,s,m,l,xl');
+check('... every sticky header measures from it instead of the literal 15px it had',
+  ['do','learn','log','plan','settings','store'].every(f => {
+    const css = fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8');
+    return /\.hd-title\{font:800 var\(--hd-title-px\)\/1 var\(--head\)/.test(css) &&
+           !/\.hd-title\{font:800 15px/.test(css);
+  }));
+check('... and the bar grows with it, rather than cramming a bigger word into the same box',
+  ['do','learn','log','plan','settings','store'].every(f =>
+    /padding:calc\(var\(--hd-pad\) \+ var\(--sat\)\) 18px var\(--hd-pad\)/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))) &&
+  /--hd-pad:calc\(var\(--hd-title-px\) \* \.93\)/.test(tokensCss4));
+w.Prefs.set('hdTitleSize', 'xl');
+check('... and moving it claims the root, like every other enumerated dial',
+  d.documentElement.dataset.hdTitle === 'xl');
+w.Prefs.set('hdTitleSize', 'm');
+w.SET.panel('layout');
+check('both size dials are on the layout panel, findable by name',
+  !!$('.ns-set [data-pref="hdTitleSize"]') &&
+  w.SET.searchIndex().some(r => /sub-screen title size/i.test(r.title)));
+check('... and the appearance reset knows about the new one',
+  /'titleSize','hdTitleSize'/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

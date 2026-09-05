@@ -276,7 +276,7 @@ function resetCart() {
    thing you switch on in the aisle and off at the till. */
 function togglePin() {
   state.cwPin = !state.cwPin;
-  saveState(); paintPin(); Prefs.tap();
+  saveState(); paintPin(); paintBand(); Prefs.tap();
   toast(state.cwPin ? 'counter pinned' : 'counter unpinned');
 }
 function paintPin() {
@@ -289,8 +289,36 @@ function paintPin() {
   }
 }
 
+/* ── The band's right end ─────────────────────────────────────────────────────
+   How much of the list is ticked, always; and what the trip has cost, only
+   while the counter is pinned. Pinning is the signal that you are in a shop
+   and the total is the number you keep glancing at, so that is exactly when it
+   is worth the band's width — and when it is up there, the widget below stops
+   drawing it (store.css) rather than showing it twice.
+
+   The count and the cost share one flex end, so mounting the cost is what
+   slides the count leftwards. Nothing tells it to move. */
+function paintBand() {
+  const cnt = $id('store-count');
+  if (cnt) {
+    const total = state.list.length;
+    const checked = state.list.filter(i => i.checked).length;
+    cnt.textContent = total ? `${checked}/${total} ${total === 1 ? 'item' : 'items'}` : '';
+  }
+  const cost = $id('store-cost');
+  if (!cost) return;
+  const on = !!state.cwPin;
+  cost.classList.toggle('hidden', !on);
+  if (!on) return;
+  cost.innerHTML = `${esc(state.cart.toFixed(2))}<span class="cu">${esc(CUR())}</span>`;
+  // the widget already says "over by …" in red; the band agrees rather than
+  // inventing a second way of saying it
+  cost.classList.toggle('over', state.budget > 0 && state.cart > state.budget);
+}
+
 function renderCart() {
   paintPin();
+  paintBand();
   $id('cw-cart').textContent = state.cart.toFixed(2);
   $all('.cu').forEach(el => { el.textContent = CUR(); });
   const logBtn = $id('cw-log-btn');
@@ -546,6 +574,7 @@ function renderList() {
   const banner = $id('all-checked-banner');
   const tripBtn = $id('trip-btn');
 
+  paintBand();
   if (!state.list.length) {
     ul.innerHTML = '<div class="li-empty">no items yet</div>';
     countEl.textContent = '0 items';

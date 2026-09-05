@@ -19,11 +19,11 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
-| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. |
+| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -1324,6 +1324,94 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.25 — 2026-09-05 — the blur is found, the date shuffles, STORE's counter comes up top
+
+**The blurred title band was `-webkit-overflow-scrolling:touch`, and it took
+three releases to find because it cannot be seen anywhere but on a phone.** That
+property opts a scroller into iOS's legacy accelerated path, where the scroller
+and everything composited over it are rasterised into layers and re-scaled
+rather than redrawn — and text on a re-scaled layer is resampled. `.h-top` sits
+directly over `.view-body` at z-index 20, which is exactly why the softness
+landed on the band and nowhere else on the page, and why the date line (10px,
+letter-spaced, muted) was the first thing to show it.
+
+2.24.0 and 2.24.1 both went looking for a fractional pixel — `--title-px` for
+the wordmark, `--sat` for the status-bar inset. Both of those were real, both
+are kept, and neither was this: the offsets were never the problem, the
+compositing path was. Hugo pasting the screenshot and saying "nothing changed"
+after two attempts is what ruled the whole class out. The property has done
+nothing since iOS 13 — momentum scrolling is the default — and is deprecated;
+all seven uses are gone. The sideways strips keep their `touch-action:pan-x`,
+which is the rule that actually makes them draggable.
+
+**The big date is a shuffle now, and DAY has one too.** A vertical roll says
+"the next one along", which is right for a counter and wrong for a date:
+stepping through days is riffling a deck. The number that leaves is flicked to
+one side, tilted seven degrees and blurred as it goes, while the next drops in
+from the other side and settles. `--dn-dir` carries the direction you moved, so
+forward throws the old one left and back throws it right — the animation and the
+gesture agree about which way time went. It lives in `Shell.dayNum()` rather
+than twice in two modules, because the point of DAY's being "the same big date
+as in LOG" is that they are the same object; two copies would be two things to
+keep in step. Two bugs fell out of writing it once: the cleanup timer was
+module-level, so whichever box shuffled second cancelled the other's cleanup and
+left its digits piling up behind the live number; and a fast burst of steps
+stacked one outgoing digit per step. There is exactly one number on its way out
+now, per box, ever.
+
+**LOG's date arrows step aside like DAY's stepper**, on the same dial
+(`calStepsHide`) rather than a second one — they are the same control doing the
+same job, and "how long before a stepper gets out of the way" is one question.
+They fade rather than being removed: taking them out of the row would move the
+date sideways under them every time.
+
+**STORE's band carries the list total, and the trip's cost while the counter is
+pinned.** The two share one flex end deliberately — mounting the cost is what
+pushes the item count leftwards, so nothing has to be told to move and the two
+cannot get out of step. They are the same information at two scales, so they are
+drawn as different kinds of thing: the count is the band's small type, the cost
+is the big-number treatment LOG and DAY use for the date, in the accent and
+carrying its currency, going red when the budget is. With the price up in the
+band the widget stops drawing it and keeps what the band cannot carry — the
+budget line, the bar and the keys. And it locks flush: `top:0`, not
+`top:-1px`, which had been tucking its own top border out of sight at exactly
+the moment it became the topmost thing on the page.
+
+**More faces, and the sticky sub-screen title gets a size of its own.** Six
+display and three mono, chosen to widen the range rather than lengthen the list
+— a condensed grotesque, a geometric, a slab, a high-contrast serif, a rounded
+face, an editorial one. And `.hd-title` had its 15px written into six
+stylesheets as a literal, so the Title size dial reached the eight home
+wordmarks and nothing else: the header you actually sit under while working was
+the one piece of type in the app with no say over it. `--hd-title-px` is its own
+five-step dial, and the bar's padding is derived from the size, so a bigger
+title gets a proportionally taller header instead of a big word crammed into a
+small box.
+
+**Parked, not built:** "bring content down: triple tap screen to bring elements
+down 50%" (`@idea`). The `@idea` label is the protocol's new parking place — a
+thought written down where it will be seen again, not a request. It is listed
+and left alone, never completed, because closing it would throw away the idea.
+
+**Verified** — `test/harness.mjs`, **679 checks, all green** (657 at the end of
+2.24.1), plus braces balanced across twelve stylesheets, every touched module
+parsed, and the site served over http. New coverage: no sheet left on the legacy
+scroll path while the pan-x claims survive; both earlier snapping fixes kept;
+LOG's arrows idling, waking on touch and waking on a step; the shuffle's
+sideways travel, blur, tilt and direction; DAY carrying the same number from the
+same helper; neither box's cleanup cancelling the other's under a burst; STORE's
+count and cost sharing a flex end, the cost mounting only when pinned, the
+widget dropping the price and keeping the bar, and the pin locking flush; the
+font lists' size and weights; and the sub-screen dial claiming the root, every
+header measuring from it, the bar growing with it, and the appearance reset
+knowing about it.
+
+**Not verified** — the blur, again, for the same reason as twice before: it is a
+rendering artefact on a device this session cannot reach. What is different this
+time is that the cause is a named, deprecated, iOS-specific compositing opt-in
+that was sitting directly under the one element that showed the symptom, rather
+than an arithmetic term that ought to have mattered and did not.
 
 ### 2.24.1 — 2026-09-05 — the date moves to LOG, a day can be started from nothing
 

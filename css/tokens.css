@@ -140,6 +140,22 @@
      Every header in the app measures itself from this instead now. */
   --sat:env(safe-area-inset-top);
 
+  /* ── The sticky sub-screen title ──
+     The header a sub-screen brings with it (`.hd` — DO's routine list, LOG's
+     forms, the settings panels). Its size was written into six stylesheets as
+     a literal 15px, so the Title size dial reached the eight home wordmarks and
+     nothing else; the header you actually sit under while working was the one
+     piece of type in the app with no say over it.
+
+     The box follows the type rather than being a fixed 14px: the padding is
+     derived from the size, so a larger title gets a proportionally taller
+     header instead of a big word crammed into a small bar. Both are snapped,
+     for the same reason the band is (see `--title-px`). */
+  --hd-base:15px;
+  --hd-scale:1;
+  --hd-title-px:calc(var(--hd-base) * var(--hd-scale));
+  --hd-pad:calc(var(--hd-title-px) * .93);
+
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
      morph was over before the eye caught it. They follow --mo like the rest. */
@@ -257,6 +273,14 @@ html{height:100%;zoom:var(--ui-scale)}
 [data-title="m"]{--title-scale:1}
 [data-title="l"]{--title-scale:1.16}
 [data-title="xl"]{--title-scale:1.34}
+/* the sticky sub-screen title, on its own five steps — it is read at arm's
+   length while working, where the wordmark is glanced at, so the two are not
+   the same decision and do not share a dial */
+[data-hd-title="xs"]{--hd-scale:.8}
+[data-hd-title="s"]{--hd-scale:.9}
+[data-hd-title="m"]{--hd-scale:1}
+[data-hd-title="l"]{--hd-scale:1.2}
+[data-hd-title="xl"]{--hd-scale:1.4}
 /* …and the snapped size the band is actually measured in. Declared after the
    five steps so it sees whichever scale won, and guarded so a browser without
    `round()` keeps the plain multiplication above rather than dropping to
@@ -267,6 +291,8 @@ html{height:100%;zoom:var(--ui-scale)}
      a header that ends a fraction of a pixel higher than the system wanted is
      a header with the clock sitting on it */
   :root{--sat:round(up, env(safe-area-inset-top), 1px)}
+  :root{--hd-title-px:round(calc(var(--hd-base) * var(--hd-scale)), 1px);
+        --hd-pad:round(calc(var(--hd-base) * var(--hd-scale) * .93), 1px)}
 }
 
 /* Accent glow — a halo on the things that carry the accent. Off by default.

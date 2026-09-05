@@ -694,7 +694,18 @@
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label" id="date-label">—</div>
-      <div class="h-logo">STORE<em>.</em></div>
+      <!-- The wordmark, then the band's right end: how much of the list is
+           ticked, and — only while the counter is pinned — what the trip has
+           cost so far, in the big-number style LOG and DAY use for the date.
+           They share one flex end, so the cost mounting is what slides the item
+           count left; nothing has to be told to move. -->
+      <div class="h-logo-row">
+        <div class="h-logo">STORE<em>.</em></div>
+        <div class="h-band-end">
+          <span class="h-count" id="store-count"></span>
+          <span class="h-cost hidden" id="store-cost" aria-hidden="true"></span>
+        </div>
+      </div>
     </div>
 
     <div class="cnt">
@@ -1024,6 +1035,10 @@
       <div class="h-logo-row">
         <div class="h-logo">DAY<em>.</em></div>
         <div class="cal-band-date" id="cal-band-date"></div>
+        <!-- the same big day-number LOG carries, in the same type, shuffling the
+             same way — Shell.dayNum() owns both. DAY steps through days with the
+             stepper at the foot of the screen, so it changes as often as LOG's. -->
+        <div class="h-daynum" id="cal-daynum" aria-hidden="true"><span class="dn-cur"></span></div>
       </div>
     </div>
     <div class="cnt">

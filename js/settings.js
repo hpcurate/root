@@ -330,6 +330,9 @@ function layoutHTML() {
     ${chips('titleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Title size', 'the DO. LOG. PLAN. wordmarks')}
+    ${chips('hdTitleSize', [
+      { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
+    ], 'Sub-screen title size', 'the sticky header inside a screen — its bar grows with it')}
     ${slider('contentWidth', 'Max content width', v => Math.round(v) + 'px')}
     ${slider('iconStroke', 'Icon weight', v => v.toFixed(1))}
 
@@ -1758,7 +1761,7 @@ view.addEventListener('click', e => {
       ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
        'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle','cardStyle',
        'accentUse','radius','border',
-       'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize',
+       'density','uiScale','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');
     });

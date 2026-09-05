@@ -333,47 +333,19 @@ function calcStreak() {
   return streak;
 }
 
-/* ── The day of the month, opposite the wordmark ──────────────────────────────
-   2.24.0 put this on DO, which was the wrong home twice over. It crowded DO's
-   daily/media/other strip out of the row it shares with the wordmark, and on
-   DO the number only ever changes at midnight — so the roll, which is the
-   whole point of drawing it big, was something you would see once a day and
-   only if you were looking.
-
-   LOG is the app that *moves* through days. The arrows above the wordmark step
-   it, so the number changes whenever you use them and the roll says which way
-   you went. It reads in the title's own colour, not the muted one: it is the
-   second half of the wordmark's line rather than a caption beside it.
-
-   The old number leaves upward and the new one arrives from below. `dnCur` is
-   what is on screen, tracked rather than read back off the DOM, because a
-   re-render mid-roll would otherwise compare against the outgoing digits and
-   play the animation a second time. */
-let dnCur = null;
-function paintDayNum(iso) {
-  const box = $id('log-daynum'); if (!box) return;
-  const num = String(Number(String(iso).slice(8, 10)) || '');
-  const cur = box.querySelector('.dn-cur');
-  if (!cur) return;
-  if (dnCur === num) { cur.textContent = num; return; }
-  const had = dnCur !== null && cur.textContent !== '';
-  dnCur = num;
-  if (!had) { cur.textContent = num; return; }          // first paint: no roll from nothing
-  const out = document.createElement('span');
-  out.className = 'dn-out';
-  out.textContent = cur.textContent;
-  box.appendChild(out);
-  cur.textContent = num;
-  /* Restarting rather than adding: two steps in quick succession — a finger
-     held on the arrow — must replace the roll, not queue behind it. */
-  cur.classList.remove('rolling'); void cur.offsetWidth; cur.classList.add('rolling');
-  setTimeout(() => { out.remove(); cur.classList.remove('rolling'); }, 520);
-}
+/* Declared up here, not beside wakeArrows() at the foot of the file:
+   refreshHome() calls it during module init, and a `let` at the use site would
+   still be in its temporal dead zone by then. */
+let arrowTimer = null;
 
 function refreshHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('home-date').textContent = Prefs.formatDate(TODAY);
-  paintDayNum(TODAY);
+  /* The big number at the other end of the wordmark's row. Shell owns it —
+     DAY carries the same one and the point is that they are identical — and it
+     works out the shuffle's direction from the date it was last given. */
+  Shell.dayNum($id('log-daynum'), TODAY);
+  wakeArrows();                    // stepping the date is using them, so they stay
   $id('btn-today').classList.toggle('hidden', TODAY === REAL_TODAY);
   $id('card-m').classList.toggle('done', morningLogged(data));
   $id('card-e').classList.toggle('done', eveningLogged(data));
@@ -2144,7 +2116,32 @@ if (calBox) calBox.addEventListener('keydown', e => {
 /* onMinute is the shell's own minute tick, the one that already watches for
    midnight: the alert wants re-deriving as 10:00 and 21:00 pass, and a second
    timer for it would be a second thing to keep in step. */
+/* ── The date arrows step aside ───────────────────────────────────────────────
+   DAY's stepper fades once it has been idle and comes back on the first touch
+   anywhere on the app; these are the same control doing the same job, so they
+   behave the same way and read the same dial (`calStepsHide` — one "how long
+   before a stepper gets out of the way", not two).
+
+   They fade rather than being removed: taking them out of the row would move
+   the date sideways under them every time they went. */
+function wakeArrows() {
+  const el = document.querySelector('#view-log .h-meta');
+  if (!el) return;
+  el.classList.remove('idle');
+  clearTimeout(arrowTimer);
+  const secs = +Prefs.get('calStepsHide');
+  if (!isFinite(secs) || secs <= 0) return;      // 0 pins them, as it does on DAY
+  arrowTimer = setTimeout(() => el.classList.add('idle'), secs * 1000);
+}
+['pointerdown', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, e => {
+    if (!document.getElementById('view-log')?.classList.contains('cur')) return;
+    if (e.target.closest && e.target.closest('#view-log')) wakeArrows();
+  }, { passive: true }));
+Prefs.subscribe(k => { if (k === '*' || k === 'calStepsHide') wakeArrows(); });
+
 Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
+                        onShow: wakeArrows,
                         onMinute: refreshAlert, home: goBack });
 refreshAlert();
 
@@ -2156,5 +2153,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
          setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
-         alertShown, dismissAlert };
+         alertShown, dismissAlert, wakeArrows };
 })();

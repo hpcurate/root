@@ -331,6 +331,11 @@ function paintBand() {
   const rel = relLabel(sel);
   el.innerHTML = `<span class="cbd-date">${esc(lower(Prefs.formatDate(sel, 'short')))}</span>` +
                  (rel ? `<span class="cbd-rel">${esc(rel)}</span>` : '');
+  /* …and the big number at the end of the row, the one LOG carries. Shell owns
+     it so the two cannot drift apart, and works the shuffle's direction out
+     from the day it was last given — which on DAY is every step of the
+     stepper. */
+  Shell.dayNum(document.querySelector('#view-cal #cal-daynum'), sel);
 }
 
 /* The stepper is a sibling of #views, not part of the slide — it is fixed, and

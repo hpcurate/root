@@ -11,10 +11,10 @@
 .ns-plan .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-plan .scr.on{display:block}
 .ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-    padding:calc(14px + var(--sat)) 18px 14px;
+    padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-plan .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
+.ns-plan .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
 .ns-plan .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-plan .hd-action:active{color:var(--y)}
 
@@ -145,8 +145,7 @@
    A chip, not a tile: the open project is the subject of the screen and these
    are a way out of it, so they are the quietest thing on it until touched. */
 .ns-plan .proj-jumps{grid-column:1 / -1;display:flex;gap:calc(6px * var(--dens));
-  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x pan-y;
   padding-bottom:2px;margin-bottom:calc(2px * var(--dens))}
 .ns-plan .proj-jumps::-webkit-scrollbar{display:none}
 .ns-plan .proj-jump{flex:0 0 auto;display:flex;align-items:center;gap:calc(7px * var(--dens));

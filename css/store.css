@@ -10,10 +10,10 @@
 
 /* ── Sticky sub-screen header ── */
 .ns-store .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-    padding:calc(14px + var(--sat)) 18px 14px;
+    padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-store .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-store .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
+.ns-store .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
 .ns-store .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .hd-action:active{color:var(--y)}
 .ns-store .hd-action.danger:active{color:var(--re)}
@@ -21,8 +21,41 @@
 /* ── Home top ── */
 /* the band's box is shell.css's, shared by every app */
 .ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-store .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-store .h-logo em{color:var(--y);font-style:normal}
+
+/* ── The band's right end ─────────────────────────────────────────────────────
+   How much of the list is ticked, and — only while the counter is pinned —
+   what the trip has cost. They share one flex end deliberately: the cost
+   mounting is what pushes the item count leftwards, so the count does not have
+   to be told to move and cannot get out of step with what is beside it.
+
+   The two are the same information at two scales, so they must not read as the
+   same kind of thing. The count is the band's small type, muted, following the
+   same line as every other app's meta; the cost is the big-number treatment
+   LOG and DAY use for the date, in the accent and carrying its currency. You
+   cannot mistake one for the other at a glance in a shop, which is the whole
+   test. */
+.ns-store .h-band-end{flex:0 0 auto;display:flex;align-items:baseline;
+  gap:calc(11px * var(--dens));min-width:0}
+.ns-store .h-count{flex:0 0 auto;font:700 10px/1 var(--head);letter-spacing:.16em;
+  text-transform:var(--caps);color:var(--y);white-space:nowrap;
+  transition:transform var(--dur-2) var(--ease),opacity var(--dur-2) var(--ease)}
+.ns-store .h-count:empty{display:none}
+/* the pinned cost, at the wordmark's size — measured in --title-px like the
+   wordmark and LOG's date, so all three follow the Title size dial together */
+.ns-store .h-cost{flex:0 0 auto;font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--y);white-space:nowrap;
+  align-self:center;
+  animation:cost-in calc(.34s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
+.ns-store .h-cost .cu{font:700 .38em/1 var(--head);color:var(--mu);margin-left:.1em}
+.ns-store .h-cost.hidden{display:none}
+/* over budget is the one state worth shouting, and the counter widget already
+   says it in red — the band agrees with it rather than inventing a colour */
+.ns-store .h-cost.over{color:var(--re)}
+@keyframes cost-in{from{opacity:0;transform:translateX(.4em) scale(.9)}
+                   to{opacity:1;transform:none}}
 .ns-store .h-settings-btn{position:absolute;top:calc(var(--sat) + 28px);right:18px;
                   background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
                   cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
@@ -53,8 +86,27 @@
    the buttons are the reason you wanted it in view, and half a calculator
    stuck to the top is not a calculator. */
 .ns-store .cw{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));margin-bottom:22px}
-.ns-store .cw.pinned{position:sticky;top:calc(-1 * var(--bw));z-index:6;
-  background:var(--s1);box-shadow:var(--shadow-lift)}
+/* ── Pinned ──
+   `top:0`, not `top:-1px`. Tucking the widget a border-width above the
+   scroller's edge hid its own top border at exactly the moment it locked, so
+   the box looked open at the top for as long as it was pinned — the one state
+   where it is the topmost thing on the page and its edge is doing the work of
+   separating it from the band above.
+
+   The price itself moves up into the band while it is pinned (`.h-cost`), so
+   the widget drops that row and keeps everything the band cannot carry: the
+   budget line, the bar, and the keys. A pinned counter that was only a readout
+   would not be worth pinning — the buttons are the reason you wanted it. */
+.ns-store .cw.pinned{position:sticky;top:0;z-index:6;
+  background:var(--s1);box-shadow:var(--shadow-lift);
+  padding-top:calc(11px * var(--dens))}
+.ns-store .cw.pinned .cw-total{display:none}
+/* with the number gone the top row is the budget line and the pin, and the
+   budget line stops being a right-aligned column against a big number */
+.ns-store .cw.pinned .cw-top{align-items:center;margin-bottom:calc(9px * var(--dens))}
+.ns-store .cw.pinned .cw-budget{flex:1;text-align:left;padding-bottom:0}
+.ns-store .cw.pinned .cw-budget .b-line{display:inline}
+.ns-store .cw.pinned .cw-budget .b-line + .b-line{margin-left:.4em}
 .ns-store .cw-top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:calc(10px * var(--dens))}
 /* the pin lives on the widget, so it is where the thing it pins is */
 .ns-store .cw-pin{flex:0 0 auto;align-self:flex-start;background:none;border:none;padding:calc(2px * var(--dens));
@@ -132,7 +184,7 @@
           padding:calc(11px * var(--dens)) calc(13px * var(--dens));margin-bottom:10px}
 .ns-store .clog-sum .cs-k{font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);color:var(--mu)}
 .ns-store .clog-sum .cs-v{font:800 20px/1 var(--head);letter-spacing:-.01em;color:var(--tx)}
-.ns-store .clog-list{max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ns-store .clog-list{max-height:46vh;overflow-y:auto}
 .ns-store .clog-row{display:flex;align-items:center;gap:calc(10px * var(--dens));padding:calc(9px * var(--dens)) calc(3px * var(--dens));
           border-bottom:var(--bw) solid var(--bd)}
 .ns-store .clog-row:last-child{border-bottom:none}
