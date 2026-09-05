@@ -13,7 +13,7 @@
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-store .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-store .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh);flex:1}
+.ns-store .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);flex:1}
 .ns-store .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .hd-action:active{color:var(--y)}
 .ns-store .hd-action.danger:active{color:var(--re)}
@@ -23,7 +23,7 @@
 .ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-store .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-store .h-logo em{color:var(--y);font-style:normal}
+.ns-store .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 /* ── The item count, on the date line ─────────────────────────────────────────
    `SAT 5 SEP · 3/11 ITEMS`, the same shape DO uses for "9 TO DO". It shared the
@@ -63,20 +63,22 @@
   font-variant-numeric:tabular-nums;
   color:var(--tx);
   --title-sh-c:var(--y);
-  text-shadow:var(--title-sh);
+  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
   /* the depth the cells turn in. Small: a board's cards are millimetres from
      the face, and a long perspective makes the flip read as a fade. */
   perspective:140px;
   /* room for its own shadow: it clips, so the offset would be the part cut off */
   padding-right:var(--title-sh-x);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
-/* The currency mark is the inverse of the number beside it, the same way the
-   wordmark's dot is: accent glyph, title-coloured shadow. It carried
-   `text-shadow:none` until 2.26.2 because at .4em the offset used to come out
-   sub-pixel and doubled into mush — that was the un-rounded `.055em`, and with
-   the offset snapped to whole pixels there is nothing left to avoid. */
-.ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--y);margin-left:.12em;
-  --title-sh-c:var(--tx);text-shadow:var(--title-sh);
+/* The currency mark wears what the number wears — title colour, accent shadow.
+   It used to be the inverse of it, the way the wordmark's dot used to be, and
+   it went the same way for the same reason: the total is one number and one
+   signal, and half of it in the other colour is the thing that reads as a
+   fault. It keeps its own `color` and its own transition rather than
+   inheriting, because it is the one part that must *not* be replaced on a
+   repaint — see costFace() in store.js. */
+.ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--tx);margin-left:.12em;
+  --title-sh-c:var(--y);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
 /* ── The cells ──
    One per character of the number, the decimal point included. They declare no

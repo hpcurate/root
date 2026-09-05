@@ -10,7 +10,7 @@
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-log .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-log .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh)}
+.ns-log .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
 
 /* ── Home ──
    The band's box is shell.css's, shared by all eight apps; this is the date
@@ -35,7 +35,7 @@
 .ns-log .h-today.hidden{display:none}
 .ns-log .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-log .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-log .h-logo em{color:var(--y);font-style:normal}
+.ns-log .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 /* The big day-number at the other end of the wordmark's row is the shell's —
    DAY carries the same one, and the point of it is that the two are identical.

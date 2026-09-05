@@ -991,19 +991,31 @@ both say so, and a new device needs the `.apkg` imported again.
   not actually scheduled, and telling those two apart at a glance is the whole
   point of the view.
 
-- **A `var()` is substituted on the declaration that uses it, on the element
-  that declaration applies to.** Re-pointing a custom property on a child does
-  nothing unless the child also re-declares the property that reads it. 2.26.2
-  gave the wordmark's dot `--title-sh-c:var(--tx)` and nothing else, reasoning
-  that `text-shadow` is inherited so restating the colour was enough. It is
-  not: `.h-logo`'s `text-shadow` had already resolved to the accent, and what
-  the dot inherited was that finished value with no property left in it to
-  override. The dot wore an accent shadow behind an accent glyph for two
-  versions — the exact non-effect the fix was written to avoid. STORE's counter
-  and its currency mark always worked because both re-declare `text-shadow`
-  next to the property. **Anything that re-points `--title-sh-c` owes itself a
-  `text-shadow`.** jsdom does not cascade, so the check that passed was reading
-  the custom property alone; it reads the declaration beside it now.
+- **A custom property that references another one bakes it where it is
+  *declared*, not where it is used.** This is the single most expensive thing in
+  this file's history: it cost five versions and three "fixes" that changed
+  nothing. `--title-sh` was `var(--title-sh-x) 0 0 var(--title-sh-c)` on
+  `:root`, so `var(--title-sh-c)` was substituted **on `:root`** — the accent —
+  and what inherited down the tree was a finished string with no property left
+  in it to override. Every `--title-sh-c` override in the app was a no-op: the
+  wordmark's dot, STORE's currency mark, and the green/red flash on the running
+  total. **Lengths behave the opposite way** — they stay as tokens and resolve
+  against whoever uses them — which is why the offset was correctly 3px on the
+  54px wordmark and 1px on the 0.4em currency mark while the colour was the
+  accent on both. That split is exactly what made it look like it worked.
+  There is no composed `--title-sh` any more: the shadow is written out at the
+  point of use, `text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)`, which is
+  the only form where the element's own colour is the one that counts. A check
+  fails if any stylesheet reaches for the old token again.
+- **jsdom does not cascade, so a stylesheet regex is the whole test — and it
+  will happily assert the half that does nothing.** Three checks passed against
+  the broken shadow because they read the declaration that was present rather
+  than the behaviour it was supposed to produce. What broke the loop was
+  launching headless Chrome over the devtools protocol and reading
+  `getComputedStyle` off the real page. **When a visual fix is reported as "still
+  not fixed", stop reading the stylesheet and go and measure it** —
+  `--remote-debugging-port` plus node's global `WebSocket` is about sixty lines
+  and needs nothing installed.
 - **An element rebuilt on every paint cannot transition.** A replaced node has
   no previous computed value, so it arrives at its final one — instantly, while
   everything around it eases. STORE's total was one `innerHTML =` per repaint,
@@ -1367,6 +1379,70 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.0.1 — 2026-09-06 — the title shadow was never overridable, and both "fixes" proved it
+
+Hugo, for the third time: *"the dot is still not fixed. same with the animation
+for the store total, the shadow is still staying red it needs to be accent
+shadow, title text colour it's not hard to understand."*
+
+He was right three times, and the reason all three attempts failed is one line
+in `tokens.css`.
+
+**`--title-sh` baked its colour at `:root`.** It was
+`var(--title-sh-x) 0 0 var(--title-sh-c)`, declared on `:root` — and a custom
+property's own `var()` references are substituted when *it* is computed, on the
+element it is declared on. So `var(--title-sh-c)` resolved to the accent *there*,
+and every element below inherited a finished string with nothing left in it to
+override. **Every `--title-sh-c` override in the app was doing nothing**: the
+wordmark's dot, STORE's currency mark, and the green/red flash on the total.
+
+Lengths are the opposite — they stay lazy and resolve against whoever uses them —
+so the offset *was* correctly 3px on the 54px wordmark and 1px on the 0.4em
+currency mark. Half of it worked, which is why nobody caught the other half for
+five versions.
+
+The shadow is composed at the point of use now —
+`text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)` — in all twelve places
+that wear it. There is no composed token to reach for, and a check fails if one
+comes back.
+
+**The dot is the word.** Title text colour, accent shadow, exactly like the
+letters in front of it. 2.26.2 and 3.0 both tried to make it the *inverse* of
+the word — accent glyph, title-coloured shadow — and 3.0 finally succeeded at
+applying an effect nobody had asked for, which is how it ended up further from
+what was wanted than the version that did nothing. The rule for it is deleted
+from `shell.css` and the `color:var(--y)` is deleted from all ten app sheets:
+it inherits both now, and there is nothing left to invert.
+
+**STORE's total is one signal again.** With the token fixed, the digits, the
+decimal point, the shadow and the currency mark all move to green or red
+together and ease back together — measured in Chrome, not inferred: during a
+change every one of them reports the same `rgb()`, and the shadow tracks the
+text frame for frame. The currency mark also stops being the inverse of the
+number beside it, for the same reason the dot did.
+
+**Measured, not argued.** 3.0 shipped two shadow fixes reasoned entirely from
+the stylesheet, because jsdom does not cascade and a regex on a CSS file will
+cheerfully assert the half that does nothing. This one was found by launching
+headless Chrome over the devtools protocol and reading `getComputedStyle` off
+the real page — sixty lines, node's global `WebSocket`, nothing installed. The
+before/after is unambiguous:
+
+```
+before   dot   color rgb(167,139,250)  shadow rgb(167,139,250)   <- accent on accent
+after    dot   color rgb(222,222,222)  shadow rgb(167,139,250)   <- title on accent
+before   total color mid-red           shadow rgb(167,139,250)   <- shadow never moved
+after    total color mid-red           shadow mid-red            <- linked
+```
+
+§6 carries both lessons: what a custom property bakes and when, and to go and
+measure a visual fix rather than read the stylesheet again.
+
+**Verified** — `test/harness.mjs`, 755 checks, all green; the nine checks that
+had been asserting the old token were rewritten to assert the behaviour, plus
+two new guards (nothing reaches for `var(--title-sh)`, and no sheet paints the
+dot). And this time, looked at: the wordmark rendered at 3× in Chrome.
 
 ### 3.0 — 2026-09-06 — CREATE, and two things that were the same mistake twice
 

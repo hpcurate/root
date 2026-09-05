@@ -15,7 +15,7 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-track .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-track .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-track .h-logo em{color:var(--y);font-style:normal}
+.ns-track .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 .ns-track .cnt{padding:0 calc(18px * var(--dens))}
 

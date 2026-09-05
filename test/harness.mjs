@@ -3492,15 +3492,15 @@ check('pinning puts the running cost in the band, at the wordmark size and in wh
   /\.ns-store \.h-cost\{[\s\S]*?color:var\(--tx\)/.test(storeCss4),
   sCost().textContent);
 check('... with a hard offset copy of its own glyphs behind it, not a soft drop shadow',
-  /--title-sh:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss4) &&
-  /\.ns-store \.h-cost\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(storeCss4) &&
+  /\.ns-store \.h-cost\{[\s\S]*?text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(storeCss4) &&
   !/text-shadow:[^;]*blur/.test(storeCss4));
-check('... and the currency mark reads in the accent',
-  /\.ns-store \.h-cost \.cu\{[^}]*color:var\(--y\)/.test(storeCss4));
-/* the mark opted out while the offset was un-rounded and came out sub-pixel at
-   .4em; with whole pixels it wears the shadow inverted, like the wordmark's dot */
-check('... and the currency mark wears it inverted: accent glyph, title-coloured shadow',
-  /\.ns-store \.h-cost \.cu\{[^}]*--title-sh-c:var\(--tx\);text-shadow:var\(--title-sh\)/.test(storeCss4) &&
+/* 3.0.1: the mark wore the inverse of the number — accent glyph, title-coloured
+   shadow — the way the wordmark's dot did, and it went the same way. The total is
+   one number and one signal; half of it in the other colour is what reads as a
+   fault rather than as a total moving. */
+check('... and the currency mark wears what the number wears, not the inverse of it',
+  /\.ns-store \.h-cost \.cu\{[^}]*color:var\(--tx\)/.test(storeCss4) &&
+  /\.ns-store \.h-cost \.cu\{[^}]*--title-sh-c:var\(--y\);text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(storeCss4) &&
   !/\.ns-store \.h-cost \.cu\{[^}]*text-shadow:none/.test(storeCss4));
 check('... the whole unit flashes, mark and shadows included, not just the digits',
   /\.ns-store \.h-cost\.up   \.cu\{color:var\(--gr\);--title-sh-c:var\(--gr\)\}/.test(storeCss4) &&
@@ -3684,8 +3684,24 @@ check('... tokens.css says why, so nobody re-adds it',
 /* .055em is 2.97px on the 54px wordmark but 0.825px on a 15px sticky title, and
    a glyph copied less than a pixel sideways is a smear, not a shadow — it reads
    as blurred text, which is what 2.26.0 did to every sticky title. */
-check('the title shadow is one token, not three copies of an offset',
-  /--title-sh:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss4));
+/* 3.0.1 — the one that mattered. `--title-sh` composed the offset and the
+   colour at :root, and a custom property's own var()s are substituted where it
+   is *declared*: the colour was baked there and inherited down as a finished
+   value, so every --title-sh-c override in the app was a no-op. Lengths are the
+   opposite — they stay lazy and resolve against whoever uses them — which is why
+   the offset was correctly 3px on the wordmark and 1px on the currency mark
+   while the colour was the accent on both. That split is what made it look like
+   it worked for five versions. Composed at the point of use now. */
+check('the title shadow is composed where it is used, never pre-baked in a token',
+  !/--title-sh:/.test(tokensCss4) &&
+  /--title-sh-c:/.test(tokensCss4) && /--title-sh-x:/.test(tokensCss4));
+check('... and nothing anywhere still reaches for the token that baked its colour',
+  ['tokens','shell','settings','do','log','plan','store','tend','track','learn','cal','create','themes']
+    .every(f => !/var\(--title-sh\)/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))),
+  ['tokens','shell','settings','do','log','plan','store','tend','track','learn','cal','create','themes']
+    .filter(f => /var\(--title-sh\)/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))).join(','));
 check('... its offset is a whole pixel at every size, with a 1px floor and a fallback',
   /--title-sh-x:max\(1px, round\(\.055em, 1px\)\)/.test(tokensCss4) &&
   /--title-sh-x:1px;/.test(tokensCss4));
@@ -3694,26 +3710,32 @@ check('... its offset is a whole pixel at every size, with a 1px floor and a fal
 check('... and the offset is nameable, so anything that clips can reserve it',
   /\.view > \.h-top \.h-daynum\{[\s\S]*?min-width:calc\(1\.1em \+ var\(--title-sh-x\)\)/.test(shellCss4) &&
   /\.view > \.h-top \.h-daynum span\{position:absolute;right:var\(--title-sh-x\)/.test(shellCss4));
-/* 2.26.2 set the custom property here and nothing else, which did nothing at
-   all: a var() is substituted on the declaration that uses it, so .h-logo's
-   text-shadow had already resolved to the accent before the dot inherited it.
-   The check that passed was this one reading the property alone — so it now
-   reads the declaration that makes the property mean something. */
-check('... the dot after a wordmark is the inverse: accent glyph, title-coloured shadow',
-  /\.view > \.h-top \.h-logo em\{--title-sh-c:var\(--tx\);text-shadow:var\(--title-sh\)\}/.test(shellCss4));
-check('... and it re-declares the shadow, or the override is substituted nowhere',
-  /\.h-logo em\{[^}]*text-shadow:var\(--title-sh\)/.test(shellCss4));
+/* The dot is the word: title text colour, accent shadow, exactly like the
+   letters. 2.26.2 and 3.0 both tried to make it the inverse and the second
+   attempt succeeded at applying an effect nobody asked for. There is no rule
+   for it now in any sheet — it inherits both — and that is the assertion. */
+check('... the dot after a wordmark is the word: title colour, accent shadow, no rule of its own',
+  !/\.h-logo em\{[^}]*color:/.test(shellCss4) &&
+  !/\.h-logo em\{[^}]*--title-sh-c:/.test(shellCss4) &&
+  !/\.h-logo em\{[^}]*text-shadow:/.test(shellCss4));
+check('... and no app sheet paints it the accent either, or it is the inverse again',
+  ['do','log','plan','store','tend','track','learn','cal','create','settings']
+    .every(f => !/\.h-logo em\{[^}]*color:/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))),
+  ['do','log','plan','store','tend','track','learn','cal','create','settings']
+    .filter(f => /\.h-logo em\{[^}]*color:/.test(
+      fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))).join(','));
 check('... and the wordmark wears it too, not just the sub-screen titles',
-  /\.view > \.h-top \.h-logo\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(shellCss4));
+  /\.view > \.h-top \.h-logo\{[\s\S]*?text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(shellCss4));
 check('... every sticky sub-screen title wears it',
   ['do','learn','log','plan','settings','store'].every(f =>
-    /\.hd-title\{[^}]*text-shadow:var\(--title-sh\)/.test(
+    /\.hd-title\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(
       fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))),
   ['do','learn','log','plan','settings','store'].filter(f =>
-    !/\.hd-title\{[^}]*text-shadow:var\(--title-sh\)/.test(
+    !/\.hd-title\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(
       fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))).join(','));
 check('... and so do the big dates on LOG and DAY',
-  /\.view > \.h-top \.h-daynum\{[^}]*text-shadow:var\(--title-sh\)/.test(shellCss4));
+  /\.view > \.h-top \.h-daynum\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(shellCss4));
 
 /* -- LOG's caffeine counters --
    The label under a selected coffee or energy drink was rgba(167,139,250,.6) -

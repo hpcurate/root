@@ -12,7 +12,7 @@
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-do .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
-.ns-do .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh);flex:1}
+.ns-do .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);flex:1}
 .ns-do .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-do .hd-action:active{color:var(--y)}
 
@@ -23,7 +23,7 @@
 .ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-do .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-do .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-do .h-logo em{color:var(--y);font-style:normal}
+.ns-do .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 /* ── Home tab selector ────────────────────────────────────────────────────────
    The strip is built from Config, so its width follows however many tabs the

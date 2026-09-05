@@ -21,7 +21,7 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-tend .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-tend .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-tend .h-logo em{color:var(--y);font-style:normal}
+.ns-tend .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 .ns-tend .h-acts{display:flex;gap:14px}
 .ns-tend .h-act{background:none;border:none;color:var(--tx-2);font:400 11px/1 var(--mono);

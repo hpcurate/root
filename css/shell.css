@@ -169,26 +169,17 @@ body{
 .view > .h-top .h-logo{
   margin:0;padding:0;line-height:1;
   font-size:var(--title-px);
-  text-shadow:var(--title-sh)}
-/* ── The dot is the inverse of the word ──
-   `DO<em>.</em>` — the word is title-coloured with an accent shadow, so the dot,
-   which is already the accent, would otherwise be an accent shape behind an
-   accent shape: no shadow at all, just a slightly fatter dot. Swapping the two
-   makes it read as the same treatment seen from the other side, and it is the
-   one glyph in the wordmark where that reads as deliberate rather than as a
-   mistake.
+  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
+/* ── The dot is part of the word, not a comment on it ──
+   `DO<em>.</em>` — title text colour, accent shadow, exactly like the letters
+   in front of it. There is no rule here for it any more, and that is the fix:
+   it inherits both from `.h-logo` and there is nothing left to get inverted.
 
-   **It has to re-declare `text-shadow`, not just the colour.** 2.26.2 set
-   `--title-sh-c` here and nothing else, reasoning that the shadow is inherited
-   so restating the colour was enough. It is not: a `var()` is substituted on
-   the declaration that uses it, on the element that declaration applies to, so
-   `.h-logo`'s `text-shadow` had already resolved to the accent by the time the
-   dot inherited it — as a finished value, with no `--title-sh-c` left in it to
-   override. The dot wore the accent behind the accent for two versions: the
-   exact non-effect the paragraph above was written to avoid. Anything that
-   re-points `--title-sh-c` owes itself a `text-shadow` too; STORE's counter and
-   its currency mark have always had one, which is why those two worked. */
-.view > .h-top .h-logo em{--title-sh-c:var(--tx);text-shadow:var(--title-sh)}
+   2.26.2 and 3.0 both tried to make the dot the *inverse* of the word — accent
+   glyph, title-coloured shadow — and the second attempt succeeded at applying
+   an effect nobody had asked for. The dot is one glyph at the end of a wordmark;
+   it does not need its own idea. The `color:var(--y)` each app sheet used to put
+   on it is gone with it. */
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
 /* ── The big day-number, at the other end of the wordmark's row ───────────────
@@ -220,7 +211,7 @@ body{
 .view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
   min-width:calc(1.1em + var(--title-sh-x));height:1em;line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh)}
+  font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
 /* The box has to clip — that is what stops a number on its way out making the
    row taller — so the digits are held one shadow-width off the right edge and
    the box is that much wider. Without it the shadow, which is the one part of

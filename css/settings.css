@@ -10,7 +10,7 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-set .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-set .h-logo em{color:var(--y);font-style:normal}
+.ns-set .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 /* ── Home menu ────────────────────────────────────────────────────────────────
    The apps kept out of the bar, as tappable tiles with their tab icon, then
@@ -46,7 +46,7 @@
 .ns-set .hd{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
   padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .ns-set .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
-.ns-set .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh);flex:1}
+.ns-set .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);flex:1}
 /* the live preview sticks below the category header rather than under it */
 .ns-set .preview{top:calc(52px + var(--sat))}
 

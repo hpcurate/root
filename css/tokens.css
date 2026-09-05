@@ -196,7 +196,22 @@
      or it clips its own shadow off. One value, so the reservation cannot drift
      from the thing it is reserving for. */
   --title-sh-x:1px;
-  --title-sh:var(--title-sh-x) 0 0 var(--title-sh-c);
+  /* **There is deliberately no `--title-sh` composing these two.** There was
+     one, from 2.25.1 to 3.0, and every `--title-sh-c` override in the app was
+     silently doing nothing because of it.
+
+     A custom property's own `var()` references are substituted when *it* is
+     computed — on the element it is declared on. `--title-sh` was declared here,
+     so `var(--title-sh-c)` inside it resolved to the accent *here*, and what
+     inherited down the tree was a finished value with no property left in it to
+     override. Lengths are the opposite: they stay as tokens and resolve against
+     whoever uses them, which is why the offset was correctly 3px on the wordmark
+     and 1px on the currency mark while the colour was the accent on both. That
+     split is exactly what made it look like it worked.
+
+     So the shadow is composed at the point of use — `text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)` —
+     which is the only form where an element's own `--title-sh-c` is the one that
+     counts. Anything wearing this shadow writes those two variables out. */
 
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
