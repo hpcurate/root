@@ -538,6 +538,49 @@ const DEFAULTS = {
     ratings: ['revision', 'shaky', 'almost', 'acquired'],
     study: { sessionCap: 0, cardScale: 1, flip: false, showTags: false },
   },
+
+  /* ── CREATE ─────────────────────────────────────────────────────────────────
+     The songs themselves, their ticks, their notes and the session log live in
+     `create_v1`. What is here is the vocabulary CREATE reasons with: the stages
+     a song moves through and the checklist each stage carries.
+
+     A stage's `key` is an identity — a song's stage and every tick it has are
+     filed under it — so a stage can be relabelled and recoloured freely and is
+     never renumbered. `items` are plain strings, the way DO's routine items
+     are, and a tick is filed under `key|item text`: reordering a checklist
+     keeps every tick, rewording an item drops that one item's ticks. The
+     alternative was a key column in the editor, which is worse to live with
+     than the thing it protects.
+
+     `done` is the terminal stage and carries no checklist: a finished song is
+     not a song with more to do. It is the one stage the home screen files under
+     "released" rather than "in flight", and it is found by `terminal:true`, not
+     by its key — rename it to "released" and nothing moves. */
+  create: {
+    stages: [
+      { key:'idea',    label:'idea',        color:'#a78bfa',
+        items:['reference picked','tempo and key set','the hook exists','voice memo kept'] },
+      { key:'sketch',  label:'sketch',      color:'#5e8cff',
+        items:['drums in','bass in','chords in','melody in','eight bars that loop'] },
+      { key:'arrange', label:'arrangement', color:'#3fc9b0',
+        items:['intro','first drop','breakdown','second drop','outro','transitions written','nothing is copy-pasted'] },
+      { key:'mix',     label:'mix',         color:'#e8a33d',
+        items:['gain staged','low end cleared','drums glued','bass and kick share nothing','vocals sit','sends and space','automation passed','mono checked','reference matched','listened on the phone'] },
+      { key:'master',  label:'master',      color:'#f0709a',
+        items:['limiter set','loudness checked','top and tail','exported','listened all the way through'] },
+      { key:'done',    label:'released',    color:'#5cdb7d', terminal:true, items:[] },
+    ],
+    /* What a new song is pre-filled with. `bpm` and `key` are blank rather
+       than guessed — a wrong tempo written down is worse than no tempo. */
+    newTrack: { stage:'idea', bpm:'', key:'', tags:'' },
+    /* How the home screen is drawn: the default sort, how many sessions a
+       song's own screen lists, and how far back "this week" reaches. */
+    home: { sort:'touched', sessionCount: 6, weekDays: 7 },
+    /* The tick that says a session happened. A session is minutes and a word
+       about what was done; these are the words offered as chips, and any of
+       them can be typed over. */
+    sessionKinds: ['writing','sound design','recording','arranging','mixing','mastering','listening'],
+  },
 };
 
 /* ── Store ────────────────────────────────────────────────────────────────── */

@@ -306,6 +306,60 @@ function paintPin() {
 let costWas = null;
 let costTimer = null;
 
+/* ── The face ─────────────────────────────────────────────────────────────────
+   One cell per character, so a digit that changes can flip on its own the way a
+   departure board does, and — the part that is not decoration — so that every
+   element on screen survives a repaint.
+
+   Until 3.0 this was one `innerHTML =` per paint, which threw the currency mark
+   away and built a new one. A replaced element has no previous value to
+   transition from, so the mark *snapped* to green while the digits beside it
+   eased into it over --dur-3: the same signal arriving twice at two different
+   speeds, which is what reads as a rendering fault rather than as a total going
+   up. The digits inherit their colour from .h-cost and follow its transition
+   for free; the mark carries its own (it is the accent, deliberately), so the
+   mark is the one node that must not be replaced. It is moved across a rebuild
+   rather than recreated.
+
+   Cells are rebuilt only when the number changes shape — 9.99 to 10.00. */
+function costFace(el, text) {
+  let cu = el.querySelector('.cu');
+  if (!cu) { cu = document.createElement('span'); cu.className = 'cu'; }
+  cu.textContent = CUR();
+
+  const cells = [...el.querySelectorAll('.cd')];
+  if (cells.length !== text.length) {
+    while (el.firstChild) el.removeChild(el.firstChild);   // keeps `cu`: it is held above
+    for (let i = 0; i < text.length; i++) {
+      const c = document.createElement('span');
+      c.className = 'cd';
+      c.style.setProperty('--i', String(i));               // its place in the cascade
+      c.textContent = text[i];
+      el.appendChild(c);
+    }
+    el.appendChild(cu);
+    return [...el.querySelectorAll('.cd')];
+  }
+  const changed = [];
+  cells.forEach((c, i) => {
+    if (c.textContent !== text[i]) { c.textContent = text[i]; changed.push(c); }
+  });
+  if (cu.parentNode !== el) el.appendChild(cu);
+  return changed;
+}
+
+/* Only the characters that actually changed flip: 4.50 -> 4.90 turns one card
+   over, not four, which is the whole reason a board reads as fast as it does.
+   Restarted rather than added to — keying in a price a digit at a time fires
+   this several times a second — and the class comes off the lot in one reflow
+   rather than one per cell. */
+function costFlap(cells) {
+  if (!cells.length) return;
+  cells.forEach(c => c.classList.remove('flap'));
+  void cells[0].offsetWidth;
+  cells.forEach(c => c.classList.add('flap'));
+}
+
 function paintBand() {
   const cnt = $id('store-count');
   if (cnt) {
@@ -321,11 +375,12 @@ function paintBand() {
   if (!on) { costWas = null; return; }        // unpinned: the next mount is a first paint
 
   const now = +state.cart || 0;
-  cost.innerHTML = `${esc(now.toFixed(2))}<span class="cu">${esc(CUR())}</span>`;
+  const changed = costFace(cost, now.toFixed(2));
 
   /* Arriving is not a change. Pinning the counter mid-trip would otherwise
      flash green for the whole basket, which says "you just spent forty euros"
-     about money that was already spent. */
+     about money that was already spent. The mount animation carries the number
+     in, so the cells do not also flip: two entrances at once is neither. */
   if (!wasOn || costWas === null) {
     cost.classList.remove('up', 'down');
     cost.classList.remove('mount'); void cost.offsetWidth; cost.classList.add('mount');
@@ -333,6 +388,7 @@ function paintBand() {
     return;
   }
   if (now === costWas) return;
+  costFlap(changed);
 
   /* Green as it rises, red as it falls. The class is dropped after the run so
      the colour eases back to white through the transition rather than snapping,

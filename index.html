@@ -57,6 +57,7 @@
   <link rel="stylesheet" href="css/track.css">
   <link rel="stylesheet" href="css/learn.css">
   <link rel="stylesheet" href="css/cal.css">
+  <link rel="stylesheet" href="css/create.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -110,6 +111,15 @@
   <symbol id="tab-set" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="3" y1="8" x2="6.6" y2="8"/><circle cx="9" cy="8" r="2.4"/><line x1="11.4" y1="8" x2="21" y2="8"/>
     <line x1="3" y1="16" x2="12.6" y2="16"/><circle cx="15" cy="16" r="2.4"/><line x1="17.4" y1="16" x2="21" y2="16"/>
+  </symbol>
+  <!-- CREATE: a waveform. Five bars and nothing else, which is a shape no
+       other tab icon here is built from — the harness takes a signature of each
+       symbol's shapes and fails on a repeat, and a fader would have been the
+       settings sliders again. -->
+  <symbol id="tab-create" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="10" x2="3" y2="14"/><line x1="7.5" y1="6" x2="7.5" y2="18"/>
+    <line x1="12" y1="3" x2="12" y2="21"/><line x1="16.5" y1="7" x2="16.5" y2="17"/>
+    <line x1="21" y1="10.5" x2="21" y2="13.5"/>
   </symbol>
   <!-- the "!" a tab wears in place of its own icon while something is overdue
        (Shell.alert) — one stroke and its dot, at the icon's own weight -->
@@ -1072,6 +1082,54 @@
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     CREATE — the songs being made, one of them, and the session log
+
+     Three screens. Everything inside them is drawn by CREATE.render(); what is
+     written by hand is the band (whose box belongs to shell.css and is shared
+     by all ten) and the two sub-screen headers, because the shell's left arrow
+     becomes "back" by finding a .hd-back inside the open .scr.
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-create" id="view-create" aria-label="CREATE">
+
+  <!-- ── HOME — the shelf ── -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">production · mixing</div>
+      <div class="h-logo">CREATE<em>.</em></div>
+    </div>
+    <div class="cnt">
+      <div id="cr-hero"></div>
+      <div id="cr-stages"></div>
+      <div class="cr-sec"><span>In flight</span><em id="cr-count"></em></div>
+      <div id="cr-sorts"></div>
+      <div id="cr-list"></div>
+      <button class="cr-add" data-act="add">+ new song</button>
+      <div id="cr-released"></div>
+      <div id="cr-week"></div>
+    </div>
+  </div>
+
+  <!-- ── ONE SONG ── -->
+  <div id="s-song" class="scr">
+    <div class="hd">
+      <button class="hd-back" data-act="home">← shelf</button>
+      <div class="hd-title" id="cr-song-title">SONG</div>
+    </div>
+    <div class="cnt" id="cr-song"></div>
+  </div>
+
+  <!-- ── THE SESSION LOG ── -->
+  <div id="s-sessions" class="scr">
+    <div class="hd">
+      <button class="hd-back" data-act="home">← shelf</button>
+      <div class="hd-title">SESSIONS</div>
+    </div>
+    <div class="cnt" id="cr-sessions"></div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      SETTINGS — every app's settings, one panel each
      ═════════════════════════════════════════════════════════════════════════ -->
 <section class="view ns-set" id="view-settings" aria-label="Settings">
@@ -1770,6 +1828,51 @@
       <div class="set-content" data-content-for="cal"></div>
     </div>
 
+    <!-- ── CREATE ── -->
+    <div class="set-panel ns-create" data-panel="create">
+      <div class="sec"><span>The shelf</span></div>
+      <div class="setRow">
+        <div class="sl">Sort by<s>how the songs in flight are ordered</s></div>
+        <select id="cr-set-sort" data-cfg="create.home" data-sub="sort" aria-label="sort songs by">
+          <option value="touched">last worked on</option>
+          <option value="stage">stage</option>
+          <option value="name">name</option>
+        </select>
+      </div>
+      <div class="setRow">
+        <div class="sl">Sessions listed<s>how many of a song's own sessions its screen shows</s></div>
+        <input type="number" min="1" max="40" step="1" id="cr-set-sessions"
+               data-cfg="create.home" data-sub="sessionCount" aria-label="sessions listed">
+      </div>
+      <div class="setRow">
+        <div class="sl">"This week" is<s>how far back the hours on the shelf reach</s></div>
+        <input type="number" min="1" max="60" step="1" id="cr-set-week"
+               data-cfg="create.home" data-sub="weekDays" aria-label="days in a week">
+      </div>
+
+      <div class="sec"><span>Stored</span></div>
+      <div class="settings-status idle" id="cr-status">nothing on the shelf yet</div>
+      <div class="data-warn">
+        CREATE has no network. The songs, their ticks, their notes and every
+        session are in this browser under <code>create_v1</code>, and the ROOT
+        backup under <strong>data</strong> carries them as well.
+      </div>
+
+      <div class="sec"><span>Backup</span></div>
+      <div class="btnRow">
+        <button class="btn btn-2" data-act="export">export</button>
+        <button class="btn btn-2" data-act="pick-import">import</button>
+        <input type="file" id="cr-file" accept=".json,application/json" class="hidden" data-act="import">
+      </div>
+
+      <div class="sec"><span>Reset</span></div>
+      <div class="setting-row">
+        <span class="setting-lbl">Reset all data<small>every song, every tick and the whole session log</small></span>
+        <button class="setting-btn danger" data-act="reset">reset</button>
+      </div>
+      <div class="set-content" data-content-for="create"></div>
+    </div>
+
   </div><!-- /#s-cat -->
 </section>
 
@@ -1823,6 +1926,9 @@
   </button>
   <button class="tab-b" data-app="cal" role="tab" aria-selected="false" aria-label="DAY">
     <svg aria-hidden="true"><use href="#tab-cal"/></svg><span class="tb-l">day</span>
+  </button>
+  <button class="tab-b" data-app="create" role="tab" aria-selected="false" aria-label="CREATE">
+    <svg aria-hidden="true"><use href="#tab-create"/></svg><span class="tb-l">create</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
@@ -2070,6 +2176,7 @@
 <!-- after PLAN, which hands it the day at export time, and before settings.js,
      which needs every module to exist to render its panels -->
 <script src="js/cal.js"></script>
+<script src="js/create.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/search.js"></script>
 </body>

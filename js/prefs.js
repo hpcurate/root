@@ -159,7 +159,7 @@ const THEME_CHARACTER = {
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
-const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal'];
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create'];
 
 /* ── Schema ───────────────────────────────────────────────────────────────────
    Every setting in one table: its default, its kind, and its bounds. The

@@ -231,6 +231,8 @@
 [data-color-tabs="on"] #nav .tab-b[data-app="tend"]::before{background:#3fc9b0}
 [data-color-tabs="on"] #nav .tab-b[data-app="track"]::before{background:#f0709a}
 [data-color-tabs="on"] #nav .tab-b[data-app="learn"]::before{background:#5ad4e6}
+[data-color-tabs="on"] #nav .tab-b[data-app="cal"]::before{background:#c98b3f}
+[data-color-tabs="on"] #nav .tab-b[data-app="create"]::before{background:#e6c34a}
 [data-color-tabs="on"] #nav .tab-b[data-app="settings"]::before{background:var(--mu)}
 [data-color-tabs="on"] #nav .tab-b.on{color:#0e0e0e}
 

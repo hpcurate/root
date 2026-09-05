@@ -1,0 +1,202 @@
+/* ── CREATE ───────────────────────────────────────────────────────────────────
+   The songs being made. Three screens: the shelf, one song, and the session
+   log. Nothing here is a fixed pixel value that a preset should own — every
+   radius is a ratio of --r-base, every hairline is --bw, every gap is scaled by
+   --dens, and every label says text-transform:var(--caps) rather than
+   uppercase, so the caps switch reaches this sheet like the other nine.
+
+   A stage's colour is the one thing this sheet does not know: it comes out of
+   Config and is written onto the element as --st-c by create.js. There is one
+   rule per shape, not one per stage, so a stage added in the editor needs no
+   CSS at all. */
+
+.ns-create .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-create .scr.on{display:block}
+
+/* a sub-screen's sticky header — the shell finds .hd-back in here to turn the
+   left arrow into a back button */
+.ns-create .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
+  padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
+  display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
+.ns-create .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;
+  letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
+.ns-create .hd-title{font:800 var(--hd-title-px)/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);
+  text-shadow:var(--title-sh);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;
+  letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color var(--dur-1)}
+.ns-create .hd-action:active{color:var(--y)}
+
+/* the band's box is shell.css's, shared by every app */
+.ns-create .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
+.ns-create .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
+.ns-create .h-logo em{color:var(--y);font-style:normal}
+
+.ns-create .cnt{padding:0 calc(18px * var(--dens))}
+
+.ns-create .cr-sec{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps);
+  margin:26px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ns-create .cr-sec em{font-style:normal;color:var(--bd-2)}
+.ns-create .cr-empty{font:400 11px/1.7 var(--mono);color:var(--tx-2);padding:calc(18px * var(--dens)) 0;text-align:center}
+
+/* ── the shelf's head ──────────────────────────────────────────────────────── */
+.ns-create .cr-hero{text-align:center;margin:8px 0 18px}
+.ns-create .cr-hero .n{font:800 74px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
+.ns-create .cr-hero .n .of{color:var(--bd-2);font-size:26px;vertical-align:super}
+.ns-create .cr-hero .k{font:400 10px/1 var(--mono);letter-spacing:3px;color:var(--tx-2);
+  text-transform:var(--caps);margin-top:10px}
+
+/* the stage strip: one segment per stage, as wide as the songs sitting on it.
+   Built from Config, so it has no fixed width and no fixed number of parts. */
+.ns-create .cr-bar{display:flex;gap:3px;height:10px;margin:0 0 12px;border-radius:var(--r-pill);overflow:hidden}
+.ns-create .cr-bar i{display:block;background:var(--st-c,var(--bd-2));min-width:4px}
+.ns-create .cr-bar.none i{background:var(--bd)}
+.ns-create .cr-keys{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens)) calc(12px * var(--dens))}
+.ns-create .cr-key{display:flex;align-items:center;gap:6px;font:400 9.5px/1 var(--mono);letter-spacing:.08em;
+  color:var(--tx-2);text-transform:var(--caps)}
+.ns-create .cr-key i{width:8px;height:8px;border-radius:var(--r-pill);background:var(--st-c,var(--bd-2));flex:0 0 auto}
+.ns-create .cr-key b{color:var(--tx);font-weight:800;font-family:var(--head)}
+
+/* ── the sort chips ───────────────────────────────────────────────────────── */
+.ns-create .cr-sorts{display:flex;gap:calc(6px * var(--dens));margin-bottom:calc(10px * var(--dens));
+  overflow-x:auto;touch-action:pan-x pan-y;scrollbar-width:none}
+.ns-create .cr-sorts::-webkit-scrollbar{display:none}
+.ns-create .cr-sort{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
+  padding:calc(7px * var(--dens)) calc(13px * var(--dens));cursor:pointer;transition:color var(--dur-1),border-color var(--dur-1)}
+.ns-create .cr-sort:active{background:var(--press)}
+.ns-create .cr-sort.on{color:var(--y);border-color:var(--y)}
+
+/* ── a song on the shelf ──────────────────────────────────────────────────── */
+.ns-create .cr-song{display:block;width:100%;text-align:left;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-left:3px solid var(--st-c,var(--bd-2));border-radius:var(--r2);
+  padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:calc(8px * var(--dens));cursor:pointer}
+.ns-create .cr-song:active{background:var(--press)}
+.ns-create .cr-song .t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ns-create .cr-song .nm{font:800 15px/1.25 var(--head);color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-song .st{flex:0 0 auto;font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);
+  color:var(--st-c,var(--tx-2))}
+.ns-create .cr-song .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin-top:5px}
+.ns-create .cr-song .mt s{text-decoration:none;color:var(--mu)}
+.ns-create .cr-prog{display:flex;align-items:center;gap:calc(9px * var(--dens));margin-top:calc(10px * var(--dens))}
+.ns-create .cr-prog .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
+.ns-create .cr-prog .rail i{display:block;height:100%;background:var(--st-c,var(--y));border-radius:var(--r-pill)}
+.ns-create .cr-prog .v{font:400 9px/1 var(--mono);letter-spacing:.08em;color:var(--tx-2);flex:0 0 auto}
+
+.ns-create .cr-add{width:100%;background:none;border:var(--bw) dashed var(--bd-2);border-radius:var(--r2);
+  color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
+  padding:calc(14px * var(--dens));cursor:pointer;margin-top:calc(4px * var(--dens))}
+.ns-create .cr-add:active{background:var(--press);color:var(--y)}
+
+/* released: a fold, because a shelf of finished songs is a nice thing to have
+   and a bad thing to scroll past every time */
+.ns-create .cr-fold{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:none;border:none;padding:calc(12px * var(--dens)) 0;cursor:pointer;
+  font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps)}
+.ns-create .cr-fold b{color:var(--tx-2);font-weight:400}
+.ns-create .cr-done{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;
+  text-align:left;background:none;border:none;border-top:var(--bw) solid var(--bd);
+  padding:calc(11px * var(--dens)) 0;cursor:pointer}
+.ns-create .cr-done:active{background:var(--press)}
+.ns-create .cr-done .nm{font:400 12px/1.3 var(--mono);color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-done .dt{font:400 9px/1 var(--mono);letter-spacing:.08em;color:var(--mu);flex:0 0 auto}
+
+/* ── the week's numbers ───────────────────────────────────────────────────── */
+.ns-create .cr-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(10px * var(--dens))}
+.ns-create .cr-stat{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
+  padding:calc(13px * var(--dens)) calc(8px * var(--dens));text-align:center}
+.ns-create .cr-stat .v{font:800 21px/1.2 var(--head);color:var(--tx)}
+.ns-create .cr-stat .v.acc{color:var(--y)}
+.ns-create .cr-stat .k{font:400 8.5px/1.3 var(--mono);letter-spacing:1.4px;color:var(--tx-2);
+  text-transform:var(--caps);margin-top:5px}
+
+/* ── one song ─────────────────────────────────────────────────────────────── */
+.ns-create .cr-head{margin:calc(4px * var(--dens)) 0 calc(18px * var(--dens))}
+.ns-create .cr-meta{display:flex;flex-wrap:wrap;gap:calc(7px * var(--dens))}
+.ns-create .cr-mchip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.06em;
+  padding:calc(7px * var(--dens)) calc(12px * var(--dens));cursor:pointer}
+.ns-create .cr-mchip:active{background:var(--press)}
+.ns-create .cr-mchip b{color:var(--tx);font-weight:400}
+.ns-create .cr-mchip.empty{color:var(--mu);border-style:dashed}
+
+/* the stage stepper: every stage, in order, the one it is on lit in its own
+   colour. Tapping one moves the song there. */
+.ns-create .cr-steps{display:flex;gap:calc(6px * var(--dens));overflow-x:auto;touch-action:pan-x pan-y;
+  scrollbar-width:none;padding-bottom:2px}
+.ns-create .cr-steps::-webkit-scrollbar{display:none}
+.ns-create .cr-step{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
+  padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;
+  transition:color var(--dur-1),border-color var(--dur-1)}
+.ns-create .cr-step:active{background:var(--press)}
+.ns-create .cr-step.on{color:var(--st-c,var(--y));border-color:var(--st-c,var(--y))}
+.ns-create .cr-step.past{color:var(--mu)}
+
+/* the stage's checklist */
+.ns-create .cr-check{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);overflow:hidden}
+.ns-create .cr-item{display:flex;align-items:center;gap:calc(12px * var(--dens));width:100%;text-align:left;
+  background:none;border:none;border-top:var(--bw) solid var(--bd);
+  padding:calc(12px * var(--dens)) calc(14px * var(--dens));cursor:pointer}
+.ns-create .cr-item:first-child{border-top:none}
+.ns-create .cr-item:active{background:var(--press)}
+.ns-create .cr-item .bx{width:17px;height:17px;flex:0 0 auto;border:var(--bw) solid var(--bd-2);
+  border-radius:var(--r1);position:relative}
+.ns-create .cr-item.on .bx{border-color:var(--st-c,var(--y));background:var(--st-c,var(--y))}
+.ns-create .cr-item.on .bx::after{content:'';position:absolute;left:5px;top:1px;width:4px;height:9px;
+  border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(42deg)}
+.ns-create .cr-item .lb{font:400 12px/1.45 var(--mono);color:var(--tx);letter-spacing:.02em}
+.ns-create .cr-item.on .lb{color:var(--tx-2);text-decoration:line-through}
+.ns-create .cr-check-done{font:400 10px/1.6 var(--mono);color:var(--tx-2);letter-spacing:.04em;
+  padding:calc(16px * var(--dens)) calc(14px * var(--dens));text-align:center}
+
+.ns-create .cr-notes{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  color:var(--tx);font:400 12px/1.7 var(--mono);padding:calc(13px * var(--dens)) calc(14px * var(--dens));
+  resize:vertical;min-height:96px}
+.ns-create .cr-notes:focus{outline:none;border-color:var(--y)}
+.ns-create .cr-notes::placeholder{color:var(--mu)}
+
+/* logging a session */
+.ns-create .cr-form{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(14px * var(--dens))}
+.ns-create .cr-row{display:flex;gap:calc(8px * var(--dens));align-items:center}
+.ns-create .cr-form input[type=text]{flex:1;min-width:0;background:var(--s2);border:var(--bw) solid var(--bd);
+  border-radius:var(--r1);color:var(--tx);font:400 12px/1 var(--mono);
+  padding:calc(11px * var(--dens)) calc(12px * var(--dens))}
+.ns-create .cr-form input[type=text]:focus{outline:none;border-color:var(--y)}
+.ns-create .cr-form input.dur{flex:0 0 84px;text-align:center}
+.ns-create .cr-kinds{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens));margin:calc(10px * var(--dens)) 0 0}
+.ns-create .cr-kind{background:none;border:var(--bw) solid var(--bd);border-radius:var(--r-pill);color:var(--tx-2);
+  font:400 9.5px/1 var(--mono);letter-spacing:.06em;padding:calc(6px * var(--dens)) calc(11px * var(--dens));cursor:pointer}
+.ns-create .cr-kind:active{background:var(--press)}
+.ns-create .cr-go{width:100%;margin-top:calc(12px * var(--dens));background:var(--y);border:none;
+  border-radius:var(--r1);color:var(--on-y);font:700 11px/1 var(--mono);letter-spacing:.1em;
+  text-transform:var(--caps);padding:calc(13px * var(--dens));cursor:pointer}
+.ns-create .cr-go:disabled{background:var(--s2);color:var(--mu);cursor:default}
+
+/* the sessions themselves — the same row on a song's screen and on the log */
+.ns-create .cr-ses{display:flex;align-items:baseline;justify-content:space-between;gap:calc(10px * var(--dens));
+  border-top:var(--bw) solid var(--bd);padding:calc(11px * var(--dens)) 0}
+.ns-create .cr-ses:first-of-type{border-top:none}
+.ns-create .cr-ses .l{font:400 11px/1.5 var(--mono);color:var(--tx);min-width:0}
+.ns-create .cr-ses .l s{display:block;text-decoration:none;color:var(--tx-2);font-size:9.5px;
+  letter-spacing:.06em;margin-top:3px}
+.ns-create .cr-ses .r{flex:0 0 auto;font:800 14px/1 var(--head);color:var(--tx)}
+.ns-create .cr-ses .r small{font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:.08em;margin-left:2px}
+.ns-create .cr-ses .x{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;
+  padding:0 0 0 calc(8px * var(--dens));flex:0 0 auto}
+.ns-create .cr-ses .x:active{color:var(--re)}
+.ns-create .cr-day{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps);
+  margin:calc(20px * var(--dens)) 0 calc(4px * var(--dens))}
+
+.ns-create .cr-acts{margin-top:calc(26px * var(--dens))}
+.ns-create .cr-act{width:100%;background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.06em;
+  padding:calc(12px * var(--dens));cursor:pointer;margin-top:calc(7px * var(--dens))}
+.ns-create .cr-act:active{background:var(--press)}
+.ns-create .cr-act.danger{color:var(--re)}
+
+@media (hover:hover) and (pointer:fine){
+  .ns-create .hd-back:hover,.ns-create .hd-action:hover{color:var(--y)}
+  .ns-create .cr-sort:hover,.ns-create .cr-step:hover,.ns-create .cr-kind:hover{color:var(--tx)}
+  .ns-create .cr-add:hover{color:var(--y);border-color:var(--y)}
+}

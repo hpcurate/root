@@ -176,8 +176,19 @@ body{
    accent shape: no shadow at all, just a slightly fatter dot. Swapping the two
    makes it read as the same treatment seen from the other side, and it is the
    one glyph in the wordmark where that reads as deliberate rather than as a
-   mistake. `text-shadow` is inherited, so this only has to restate the colour. */
-.view > .h-top .h-logo em{--title-sh-c:var(--tx)}
+   mistake.
+
+   **It has to re-declare `text-shadow`, not just the colour.** 2.26.2 set
+   `--title-sh-c` here and nothing else, reasoning that the shadow is inherited
+   so restating the colour was enough. It is not: a `var()` is substituted on
+   the declaration that uses it, on the element that declaration applies to, so
+   `.h-logo`'s `text-shadow` had already resolved to the accent by the time the
+   dot inherited it — as a finished value, with no `--title-sh-c` left in it to
+   override. The dot wore the accent behind the accent for two versions: the
+   exact non-effect the paragraph above was written to avoid. Anything that
+   re-points `--title-sh-c` owes itself a `text-shadow` too; STORE's counter and
+   its currency mark have always had one, which is why those two worked. */
+.view > .h-top .h-logo em{--title-sh-c:var(--tx);text-shadow:var(--title-sh)}
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
 /* ── The big day-number, at the other end of the wordmark's row ───────────────

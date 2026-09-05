@@ -31,7 +31,8 @@ const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY' };
+const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
+                    create:'CREATE' };
 
 /* ── What Config holds, flattened ─────────────────────────────────────────────
    One entry per line: which path it lives under, what a match is called, and
@@ -62,6 +63,10 @@ const CONTENT = [
   { path:'track.curriculum',   app:'track', rows: v => (v || []).map(t => ({ name: t.t, sub: `topic ${t.id} · ${t.dom}` })) },
   { path:'learn.ratings',      app:'learn', rows: v => (v || []).map(r => ({ name: r, sub:'rating' })) },
   { path:'cal.eventColors',    app:'cal',   rows: v => Object.keys(v || {}).map(k => ({ name: k, sub:'event colour' })) },
+  { path:'create.stages',      app:'create',
+    rows: v => (v || []).flatMap(st => [{ name: st.label, sub:'stage' }]
+      .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + st.label })))) },
+  { path:'create.sessionKinds', app:'create', rows: v => (v || []).map(k => ({ name: k, sub:'session kind' })) },
 ];
 
 function contentHits(q) {

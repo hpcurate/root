@@ -32,16 +32,17 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','data'];
 /* Which category a panel sits in, and what its pill says. `data` is a single
    panel, so its category shows no pill bar. */
 const CATS = {
-  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal'] },
+  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create'] },
   appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
-                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day' };
+                    do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day',
+                    create:'create' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
@@ -51,9 +52,11 @@ const lastPanel = {};           // per category: the pill you were on
 /* Display names. `cal` is the app's id everywhere it is an identity — the
    storage key, the namespace, Prefs.APPS, the settings panel — and DAY is only
    what it is called. Renaming the id would churn all four for a word. */
-const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY' };
+const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
+                    create:'CREATE' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
-                    tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day' };
+                    tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day',
+                    create:'music in progress' };
 
 /* Which storage keys belong to which app — read-only bookkeeping for the
    storage report. The shell never writes to another app's keys. LEARN's decks
@@ -67,6 +70,7 @@ const GROUPS = [
   { name:'DAY',   color:'#c98b3f', match:k => k === 'cal_days_v1' },
   { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
   { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
+  { name:'CREATE',color:'#e6c34a', match:k => k.startsWith('create_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
 ];
 
@@ -1083,6 +1087,77 @@ const EDITORS = {
      A task row is already the colour of its project — PLAN resolves that at
      export time and it travels with the day. What is editable here is the
      template around it, which is grouped by calendar rather than by project. */
+  /* ── CREATE · the stages and their checklists ──────────────────────────────
+     A stage's key is what a song's stage and every one of its ticks is filed
+     under, so it is shown but never edited: relabel and recolour freely,
+     delete only a stage nothing sits on. The items are plain lines, and a tick
+     is filed under the item's own text — reordering a list keeps every tick,
+     rewording a line drops that one line's. */
+  'create.stages': {
+    title: 'Stages and their checklists',
+    note: 'The path a song walks, in order, and what each stage asks of it. One item per line. The last stage is the finished one — a song there is filed under "released" and is asked for nothing.',
+    render() {
+      const stages = Config.get('create.stages') || [];
+      return stages.map(st => `<div class="ed-card" data-key="${esc(st.key)}">
+          <div class="ed-head">
+            <input type="text" data-field="label" value="${esc(st.label)}" placeholder="stage" aria-label="stage name">
+            <input type="color" class="ed-swatch" data-field="color" value="${esc(st.color || '#888888')}" aria-label="${esc(st.label)} colour">
+            <button class="ed-del" data-del="${esc(st.key)}" aria-label="delete stage">×</button>
+          </div>
+          <textarea data-field="items" rows="${Math.min(12, Math.max(2, (st.items || []).length))}"
+                    spellcheck="false" aria-label="${esc(st.label)} checklist">${esc((st.items || []).join('\n'))}</textarea>
+          <div class="ed-hint">key <code>${esc(st.key)}</code>${st.terminal ? ' · the finished stage' : ''}</div>
+        </div>`).join('') + `<button class="ed-add" data-add="1">+ add a stage</button>`;
+    },
+    read(box) {
+      const was = Config.get('create.stages') || [];
+      const out = [];
+      box.querySelectorAll('.ed-card').forEach(card => {
+        const key = card.dataset.key;
+        const old = was.find(x => x.key === key) || {};
+        const st = {
+          key,
+          label: card.querySelector('[data-field=label]').value.trim() || key,
+          color: card.querySelector('[data-field=color]').value,
+          items: lines(card.querySelector('[data-field=items]').value),
+        };
+        if (old.terminal) st.terminal = true;
+        out.push(st);
+      });
+      /* The finished stage is found by `terminal`, never by its key or its
+         position, so deleting it would leave a shelf with no way to finish a
+         song. If it has gone, the last stage becomes it. */
+      if (out.length && !out.some(x => x.terminal)) out[out.length - 1].terminal = true;
+      Config.set('create.stages', out);
+    },
+    add() {
+      const st = Config.get('create.stages') || [];
+      const key = uniqueKey('stage', st.map(x => x.key));
+      /* In front of the finished one: a new stage is more work to do, and work
+         after "released" is not a stage. */
+      const at = st.findIndex(x => x.terminal);
+      st.splice(at < 0 ? st.length : at, 0, { key, label:'New stage', color:'#7a8699', items:['first thing'] });
+      Config.set('create.stages', st);
+    },
+    del(key) {
+      const st = (Config.get('create.stages') || []).filter(x => x.key !== key);
+      Config.set('create.stages', st);
+    },
+  },
+
+  /* ── CREATE · what a session is called ─────────────────────────────────── */
+  'create.sessionKinds': {
+    title: 'Session kinds',
+    note: 'The chips offered when you log an hour at the desk. They are only a shortcut — the field takes any words you type.',
+    render() {
+      return `<div class="f">
+        <label class="lbl">Kinds <em>comma separated</em></label>
+        <input type="text" data-cfg="create.sessionKinds" data-list="1" value="${esc((Config.get('create.sessionKinds') || []).join(', '))}">
+      </div>`;
+    },
+    read() {},
+  },
+
   'cal.eventColors': {
     title: 'Event colours',
     note: 'The template hours around your blocks, coloured by the calendar they sit on. One per line: the calendar name, a pipe, then a hex colour. The line "*" is the fallback for a calendar this list has never heard of. A task keeps its own project\'s colour and is not set here.',
@@ -1108,7 +1183,8 @@ const EDITORS = {
 const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.blocks','log.labels','log.fields',
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
-                      'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors'];
+                      'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors',
+                      'create.stages','create.sessionKinds'];
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -1440,6 +1516,7 @@ const RENDERERS = {
   track:() => { window.TRACK&& TRACK.renderSettings(); renderContent('track'); },
   learn:() => { window.LEARN&& LEARN.renderSettings(); renderContent('learn'); },
   cal:  () => { window.CAL  && CAL.renderSettings();   renderContent('cal'); },
+  create:() => { window.CREATE && CREATE.renderSettings(); renderContent('create'); },
 };
 
 /* Two screens: the home menu and a category. Switching screens starts at the

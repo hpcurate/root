@@ -64,6 +64,9 @@
   color:var(--tx);
   --title-sh-c:var(--y);
   text-shadow:var(--title-sh);
+  /* the depth the cells turn in. Small: a board's cards are millimetres from
+     the face, and a long perspective makes the flip read as a fade. */
+  perspective:140px;
   /* room for its own shadow: it clips, so the offset would be the part cut off */
   padding-right:var(--title-sh-x);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
@@ -75,6 +78,29 @@
 .ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--y);margin-left:.12em;
   --title-sh-c:var(--tx);text-shadow:var(--title-sh);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
+/* ── The cells ──
+   One per character of the number, the decimal point included. They declare no
+   colour and no shadow of their own, and that is the point: an inherited value
+   follows the parent's transition frame by frame, so the digits, the point and
+   .h-cost's own shadow move to green together and at one speed without any of
+   them owning a transition. The currency mark is the single exception, because
+   it is deliberately the other colour — it carries a matching transition so it
+   arrives with them rather than after them. */
+.ns-store .h-cost .cd{display:inline-block;transform-origin:50% 0}
+/* The flip. The new character turns in from the top edge, the way a card falls
+   on a departure board, with each cell a beat behind the one to its left so a
+   number that changes in two places reads left to right. Only the characters
+   that changed are given the class, so 4.50 → 4.90 turns one card over.
+
+   It rides --mo like everything else, so "no motion" stops it dead rather than
+   leaving one animation running against a setting that asked for none. */
+.ns-store .h-cost .cd.flap{
+  animation:cost-flap calc(.26s * var(--mo)) var(--ease-out) both;
+  animation-delay:calc(var(--i, 0) * .026s * var(--mo))}
+@keyframes cost-flap{
+  0%  {transform:rotateX(-88deg);opacity:.15}
+  62% {transform:rotateX(7deg);  opacity:1}
+  100%{transform:rotateX(0);     opacity:1}}
 .ns-store .h-cost.hidden{display:none}
 
 /* ── The change ──

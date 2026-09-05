@@ -99,7 +99,7 @@ check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3)
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
 check('all themes apply', d.documentElement.dataset.theme === 'noir');
 w.Prefs.set('theme', 'void');
-for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','data']) w.SET.panel(p);
+for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','create','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 // ── 2. settings routing ─────────────────────────────────────────────────────
@@ -290,7 +290,7 @@ w.Config.reset('log.streakRequires');
 
 // ── 15. 2.2 — three more apps in the track ─────────────────────────────────
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
-check('nine tabs, settings last', w.Shell.TABS.length === 9 && w.Shell.TABS[8] === 'settings', w.Shell.TABS.join(','));
+check('ten tabs, settings last', w.Shell.TABS.length === 10 && w.Shell.TABS[9] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
@@ -307,7 +307,7 @@ check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settin
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
 w.Prefs.reset('apps');
-check('reset restores all nine in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,settings', w.Shell.TABS.join(','));
+check('reset restores all ten in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,settings', w.Shell.TABS.join(','));
 w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
@@ -742,7 +742,7 @@ check('settings opens on a home menu with three categories', $('.ns-set #s-home'
   [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
-check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal',
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create',
   [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
 click($('.ns-set [data-open="tend"]')); await tick();
 check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
@@ -754,7 +754,7 @@ check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,s
 w.Prefs.reset('apps');
 w.SET.panel('do');
 check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
-  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'do');
 check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
   !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
@@ -829,7 +829,7 @@ check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMov
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
 // ── 24. 2.10 — the title band, blocks → tomorrow, PLAN in label colours ────
-check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','cal','settings'].every(a => {
+check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','cal','create','settings'].every(a => {
   const v = $('#view-' + a); return v.children.length === 2 && v.children[0].classList.contains('h-top') && v.children[1].classList.contains('view-body');
 }), [...d.querySelectorAll('#track .view')].map(v => v.id + ':' + [...v.children].map(c => c.className).join('+')).join(' '));
 check("DO's tab strip and date live in the band", !!$('#view-do > .h-top #home-tabs') && !!$('#view-do > .h-top #date-label'));
@@ -883,7 +883,7 @@ check('no glider: the active tab is its own filled pill again', !$('#nav .nav-gl
 // shape — so no app sheet may set the band's box or its own wordmark size
 const shellCss = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 const planCss = fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8');
-const appSheets = ['do','log','plan','store','tend','track','learn','cal','settings']
+const appSheets = ['do','log','plan','store','tend','track','learn','cal','create','settings']
   .map(a => [a, fs.readFileSync(path.join(ROOT, 'css/' + a + '.css'), 'utf8')]);
 const strays = appSheets.filter(([, css]) => /\.h-top\s*\{/.test(css) || /\.h-logo\{font:/.test(css)).map(([a]) => a);
 check('one band shape: no app sheet sets its own .h-top box or wordmark size', !strays.length, strays.join(','));
@@ -2623,22 +2623,32 @@ check('the empty day\'s one action is upper case — the exception DAY makes for
    the blocks DO is holding. All three are about using DAY at four in the
    afternoon rather than reading it at eight in the morning. */
 const dayNow = new w.Date();
-const inAnHour = h => String((dayNow.getHours() + h + 24) % 24).padStart(2, '0') + ':00';
-/* Two hours that bracket the current one, so "now" falls inside the second row
-   wherever in the day this suite happens to run. */
-w.CAL.write({ day: today, start: inAnHour(-1), template: 'normal', mode: 'blocks', notes: [],
+/* Three hours that bracket the current one, so "now" falls inside the day
+   wherever in the day this suite happens to run.
+
+   The window is slid to fit rather than wrapped. `hour - 1` modulo 24 turns
+   00:xx into a day that starts at 23:00 — an hour *before* the date it is filed
+   under — so "now" landed before its own day began and the line clamped to the
+   top. This check failed for one hour every night, which is the worst kind of
+   red: real, reproducible, and never while anyone is looking. CAL was right
+   both times; the fixture was asking it where midnight falls in a day that had
+   not started. */
+const startH = Math.max(0, Math.min(21, dayNow.getHours() - 1));
+const atH = h => String(startH + h).padStart(2, '0') + ':00';
+const nowRow = dayNow.getHours() - startH;      // which of the three rows holds now
+w.CAL.write({ day: today, start: atH(0), template: 'normal', mode: 'blocks', notes: [],
   events: [
-    { from: inAnHour(-1), to: inAnHour(0), dur: 60, kind: 'fixed', name: 'routine', cal: 'home' },
-    { from: inAnHour(0), to: inAnHour(1), dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#fff' },
-    { from: inAnHour(1), to: inAnHour(2), dur: 60, kind: 'idle', name: 'b1b', slot: 'b1b' },
+    { from: atH(0), to: atH(1), dur: 60, kind: 'fixed', name: 'routine', cal: 'home' },
+    { from: atH(1), to: atH(2), dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#fff' },
+    { from: atH(2), to: atH(3), dur: 60, kind: 'idle', name: 'b1b', slot: 'b1b' },
   ] });
 w.CAL.pick(today);
 const nowEl = () => $('.ns-cal #cal-now');
 const nowY = () => parseInt(String(nowEl()?.getAttribute('style') || '').replace(/.*--now-y:(-?\d+)px.*/, '$1'), 10);
 const perHour = Math.max(20, +w.Prefs.get('calHour') || 56);
 check('today carries a line at the hour the clock has reached',
-  !!nowEl() && nowY() >= perHour && nowY() <= perHour * 2,
-  (nowEl() ? nowY() + 'px of ' + perHour + '/hour' : 'no line'));
+  !!nowEl() && nowY() >= perHour * nowRow && nowY() <= perHour * (nowRow + 1),
+  (nowEl() ? nowY() + 'px of ' + perHour + '/hour, row ' + nowRow : 'no line'));
 check('… placed from the same durations the rows are drawn from, not measured off the DOM',
   /\.ns-cal \.cal-now\{[^}]*top:var\(--now-y/.test(calCss3) &&
   /\.ns-cal \.cal-now\{[^}]*pointer-events:none/.test(calCss3));
@@ -3520,6 +3530,36 @@ check('... the movement under the colour is a nudge, not a jump',
   /@keyframes cost-down\{0%\{transform:none\} 34%\{transform:translateY\(\.055em\)\}/.test(storeCss4));
 check('... and it eases back to white rather than snapping',
   /\.ns-store \.h-cost\{[\s\S]*?transition:color var\(--dur-3\) var\(--ease\), text-shadow var\(--dur-3\) var\(--ease\)/.test(storeCss4));
+/* 3.0 — the whole unit moves as one, and the digits turn over.
+   The mark used to be rebuilt by an `innerHTML =` on every paint, and a
+   replaced element has no previous value to transition from: it snapped to
+   green while the digits eased into it. The node has to survive a repaint. */
+const cuNode = () => $('.ns-store #store-cost .cu');
+const cuWas = cuNode();
+w.STORE.addCart(1.25);
+check('the currency mark is the same element after a repaint, or its colour cannot ease',
+  !!cuNode() && cuNode() === cuWas, cuNode() ? 'a node, but a new one' : 'no mark');
+check('... and the number is cells, one per character, the decimal point included',
+  [...d.querySelectorAll('.ns-store #store-cost .cd')].map(c => c.textContent).join('') ===
+  $('.ns-store #cw-cart').textContent,
+  [...d.querySelectorAll('.ns-store #store-cost .cd')].map(c => c.textContent).join(''));
+check('... which carry no colour of their own, so they follow .h-cost frame for frame',
+  !/\.ns-store \.h-cost \.cd\{[^}]*color:/.test(storeCss4) &&
+  !/\.ns-store \.h-cost \.cd\{[^}]*text-shadow:/.test(storeCss4));
+/* Only what changed turns over: 5.75 -> 5.95 is one card, not four. */
+const flapped = () => [...d.querySelectorAll('.ns-store #store-cost .cd.flap')].map(c => c.textContent).join('');
+w.STORE.addCart(0.2);
+check('only the characters that changed flip, the way a board turns one card',
+  flapped().length > 0 && flapped().length < $('.ns-store #cw-cart').textContent.length,
+  $('.ns-store #cw-cart').textContent + ' flipped [' + flapped() + ']');
+check('... the flip is a card falling from the top edge, in a perspective, staggered left to right',
+  /\.ns-store \.h-cost\{[\s\S]*?perspective:140px/.test(storeCss4) &&
+  /\.ns-store \.h-cost \.cd\{[^}]*transform-origin:50% 0/.test(storeCss4) &&
+  /@keyframes cost-flap\{[\s\S]*?rotateX\(-88deg\)/.test(storeCss4) &&
+  /animation-delay:calc\(var\(--i, 0\) \* \.026s \* var\(--mo\)\)/.test(storeCss4));
+check('... and it rides --mo, so "no motion" stops it dead like everything else',
+  /animation:cost-flap calc\(\.26s \* var\(--mo\)\)/.test(storeCss4));
+
 const costCls = sCost().className;
 w.STORE.addCart(0);
 check('a repaint that changes nothing does not re-flash', sCost().className === costCls);
@@ -3654,8 +3694,15 @@ check('... its offset is a whole pixel at every size, with a 1px floor and a fal
 check('... and the offset is nameable, so anything that clips can reserve it',
   /\.view > \.h-top \.h-daynum\{[\s\S]*?min-width:calc\(1\.1em \+ var\(--title-sh-x\)\)/.test(shellCss4) &&
   /\.view > \.h-top \.h-daynum span\{position:absolute;right:var\(--title-sh-x\)/.test(shellCss4));
+/* 2.26.2 set the custom property here and nothing else, which did nothing at
+   all: a var() is substituted on the declaration that uses it, so .h-logo's
+   text-shadow had already resolved to the accent before the dot inherited it.
+   The check that passed was this one reading the property alone — so it now
+   reads the declaration that makes the property mean something. */
 check('... the dot after a wordmark is the inverse: accent glyph, title-coloured shadow',
-  /\.view > \.h-top \.h-logo em\{--title-sh-c:var\(--tx\)\}/.test(shellCss4));
+  /\.view > \.h-top \.h-logo em\{--title-sh-c:var\(--tx\);text-shadow:var\(--title-sh\)\}/.test(shellCss4));
+check('... and it re-declares the shadow, or the override is substituted nowhere',
+  /\.h-logo em\{[^}]*text-shadow:var\(--title-sh\)/.test(shellCss4));
 check('... and the wordmark wears it too, not just the sub-screen titles',
   /\.view > \.h-top \.h-logo\{[\s\S]*?text-shadow:var\(--title-sh\)/.test(shellCss4));
 check('... every sticky sub-screen title wears it',
@@ -3694,6 +3741,164 @@ check('... and no section head carries a text-shadow — the shadow is the band\
   !/\.ns-do \.tt-head\{[^}]*text-shadow/.test(sheetRules('do')) &&
   !/\.ns-do \.tt-fold\{[^}]*text-shadow/.test(sheetRules('do')));
 
+/* ── 3.0 · CREATE — the tenth app ────────────────────────────────────────────
+   Songs on stages, each stage's own checklist, and the hours at the desk. What
+   is asserted here is the part that is easy to get wrong later: that the whole
+   app is built from Config rather than from lists in the module, that a tick is
+   filed under something a reorder cannot move, and that a deleted stage or a
+   deleted song leaves nothing dangling. */
+w.Shell.go('create');
+await tick();
+check('CREATE is the tenth app, wired everywhere an app has to be wired',
+  !!w.CREATE && w.Shell.TABS.includes('create') && !!$('#view-create') &&
+  !!$('.tab-b[data-app="create"]') && !!$('.ns-set .set-panel[data-panel="create"]') &&
+  w.Prefs.APPS.includes('create'),
+  w.Shell.TABS.join(','));
+check('an empty shelf says so rather than drawing nothing',
+  !w.CREATE.songs().length && !!$('.ns-create .cr-empty'),
+  $('.ns-create #cr-list').textContent.trim().slice(0, 40));
+
+// a song is started through the app's own dialog, never the platform's
+click($('.ns-create .cr-add'));
+check('starting a song asks in the app, with a field',
+  askOpen() && !$('#ask-field').classList.contains('hidden'));
+$('#ask-input').value = 'night bus';
+click($('#ask-yes'));
+await tick();
+check('... and lands on that song, on the first stage',
+  w.CREATE.songs().length === 1 && $('.ns-create #s-song').classList.contains('on') &&
+  $('.ns-create #cr-song-title').textContent === 'night bus' &&
+  w.CREATE.songs()[0].stage === w.CREATE.stages()[0].key,
+  w.CREATE.songs()[0] && w.CREATE.songs()[0].stage);
+const crItems = () => [...d.querySelectorAll('.ns-create .cr-item')];
+const crSong  = () => w.CREATE.songs()[0];
+check("the checklist on screen is the stage's, out of Config, not a list in the module",
+  crItems().length > 0 && crItems().length === w.Config.get('create.stages')[0].items.length,
+  crItems().length + ' rows');
+
+// a tick is filed under stage|item, which is what survives a reorder
+click(crItems()[1]);
+const crStageKey   = w.Config.get('create.stages')[0].key;
+const crItemTwo = w.Config.get('create.stages')[0].items[1];
+check("a tick is filed under the stage and the item's own text",
+  !!crSong().done[crStageKey + '|' + crItemTwo] && crItems()[1].classList.contains('on'),
+  Object.keys(crSong().done).join(','));
+const stagesWas = JSON.parse(JSON.stringify(w.Config.get('create.stages')));
+const reordered = JSON.parse(JSON.stringify(stagesWas));
+reordered[0].items = reordered[0].items.slice().reverse();
+w.Config.set('create.stages', reordered);
+check('... so reordering a checklist keeps every tick',
+  !!crSong().done[crStageKey + '|' + crItemTwo] &&
+  crItems().filter(el => el.classList.contains('on')).length === 1,
+  Object.keys(crSong().done).join(','));
+w.Config.set('create.stages', stagesWas);
+
+// the stages are a path, and moving along it changes what is asked
+const crSteps = () => [...d.querySelectorAll('.ns-create .cr-step')];
+check('every stage is offered as a step, the current one lit',
+  crSteps().length === w.CREATE.stages().length && crSteps()[0].classList.contains('on'),
+  crSteps().length + ' steps');
+click(crSteps()[3]);
+check('moving a song changes the stage and the checklist under it',
+  crSong().stage === w.CREATE.stages()[3].key &&
+  crItems().length === w.CREATE.stages()[3].items.length,
+  crSong().stage + ' / ' + crItems().length);
+check('... and the tick left behind on the earlier stage is still filed',
+  !!crSong().done[crStageKey + '|' + crItemTwo]);
+
+// a session is hours at the desk, and the shelf counts them
+const typeIn = (sel, v) => { const el = $(sel); el.value = v;
+  el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+typeIn('.ns-create #cr-hours', '1.5');
+typeIn('.ns-create #cr-what', 'drums');
+click($('.ns-create .cr-go'));
+check('a session is logged against the song, dated today',
+  w.CREATE.sessions().length === 1 && w.CREATE.sessions()[0].hours === 1.5 &&
+  w.CREATE.sessions()[0].date === today && w.CREATE.sessions()[0].what === 'drums',
+  JSON.stringify(w.CREATE.sessions()[0]));
+check('... and the form is emptied rather than left holding the last one',
+  $('.ns-create #cr-hours').value === '');
+w.CREATE.go('home');
+check("the shelf reads the week's hours off the log",
+  /1h30/.test($('.ns-create #cr-week').textContent),
+  $('.ns-create #cr-week').textContent.replace(/\s+/g, ' ').trim().slice(0, 70));
+check('a song in flight is drawn with its stage and its progress',
+  d.querySelectorAll('.ns-create .cr-song').length === 1 &&
+  !!$('.ns-create .cr-song .cr-prog'));
+
+// built from Config: a stage added in the editor needs no code and no CSS
+const withExtra = JSON.parse(JSON.stringify(stagesWas));
+withExtra.splice(1, 0, { key: 'stage_x', label: 'sound design', color: '#8888ff', items: ['a patch'] });
+w.Config.set('create.stages', withExtra);
+check('a stage added in the editor reaches the stepper with no code change',
+  w.CREATE.stages().length === stagesWas.length + 1 && w.CREATE.stages()[1].key === 'stage_x',
+  w.CREATE.stages().map(x => x.key).join(','));
+// a stage deleted from under a song falls back rather than throwing
+w.Config.set('create.stages', stagesWas.slice(0, 2));
+errors.length = 0;
+w.CREATE.go('home');
+check('a song on a stage the editor deleted falls back, and nothing throws',
+  errors.length === 0 && !!$('.ns-create .cr-song'), errors.slice(0, 2).join(' | '));
+w.Config.set('create.stages', stagesWas);
+
+// the songs are not in Config, so search reaches them through the module's hook
+check("search finds a song by name, through the module's own hook",
+  w.SEARCH.results('night').some(r => r.title === 'night bus'),
+  w.SEARCH.results('night').map(r => r.title).join(','));
+
+// the finished stage is found by `terminal`, never by its key or its position
+w.CREATE.open(crSong().id);
+click(crSteps()[crSteps().length - 1]);
+w.CREATE.go('home');
+check('a song on the finished stage leaves the shelf for "released"',
+  !d.querySelector('.ns-create .cr-song') && !!$('.ns-create .cr-fold'),
+  $('.ns-create #cr-released').textContent.replace(/\s+/g, ' ').trim().slice(0, 40));
+
+// deleting a song asks first, and takes its sessions with it
+w.CREATE.open(crSong().id);
+click($('.ns-create .cr-act.danger'));
+check('deleting a song asks in the app and says what goes with it',
+  askOpen() && /night bus/.test($('#ask-title').textContent) && /1 session/.test($('#ask-body').textContent),
+  $('#ask-title').textContent + ' | ' + $('#ask-body').textContent);
+settle(true);
+check('... and its sessions go with it, so nothing is left pointing at nothing',
+  !w.CREATE.songs().length && !w.CREATE.sessions().length,
+  w.CREATE.songs().length + ' songs / ' + w.CREATE.sessions().length + ' sessions');
+check('CREATE keeps its own storage key', !!w.localStorage.getItem('create_v1'));
+
+// the content editors, at the end of CREATE's own panel like every other app's
+w.SET.panel('create');
+check("CREATE's stage editor lives at the end of its own panel",
+  !!$('.ns-set [data-content-for="create"] [data-group="create.stages"]') &&
+  !!$('.ns-set [data-content-for="create"] input[data-cfg="create.sessionKinds"]') &&
+  d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-card').length === w.CREATE.stages().length,
+  d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-card').length + ' cards');
+const stageKeysWere = w.CREATE.stages().map(x => x.key).join(',');
+click($('.ns-set [data-group="create.stages"] .ed-add'));
+check('a stage is added in front of the finished one, never after it',
+  w.CREATE.stages().length === stagesWas.length + 1 &&
+  w.CREATE.stages()[w.CREATE.stages().length - 1].terminal === true,
+  w.CREATE.stages().map(x => x.key).join(','));
+click(d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-del')[w.CREATE.stages().length - 1]);
+check('... and deleting the finished stage leaves the last one finished, or the shelf has no end',
+  w.CREATE.stages().some(x => x.terminal),
+  w.CREATE.stages().map(x => x.key + (x.terminal ? '*' : '')).join(','));
+w.Config.reset('create.stages');
+check('reset puts the shipped stages back',
+  w.CREATE.stages().map(x => x.key).join(',') === stageKeysWere,
+  w.CREATE.stages().map(x => x.key).join(','));
+
+const createCss = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
+const createJs  = fs.readFileSync(path.join(ROOT, 'js/create.js'), 'utf8');
+check('a stage colour is one rule and a variable, not one rule per stage',
+  /--st-c/.test(createCss) && !/#a78bfa/i.test(createCss),
+  (createCss.match(/--st-c/g) || []).length + ' uses');
+check("CREATE's two sideways scrollers claim the gesture, or they are dead under a finger",
+  /\.ns-create \.cr-steps\{[^}]*touch-action:pan-x pan-y/.test(createCss) &&
+  /\.ns-create \.cr-sorts\{[^}]*touch-action:pan-x pan-y/.test(createCss));
+check('CREATE has no network at all — a song is not a task',
+  !/fetch\s*\(|todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs));
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 /* ── a ninth app has to arrive on an install that already has an app list ────
@@ -3729,7 +3934,7 @@ check('a new app reaches an install whose app list predates it',
   !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
   w2.Prefs.get('apps').join(','));
 check('… in its shipped position, not tacked onto the end of settings',
-  w2.Prefs.get('apps').join(',') === 'do,log,track,cal', w2.Prefs.get('apps').join(','));
+  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create', w2.Prefs.get('apps').join(','));
 check('… while the apps that install had switched off stay switched off',
   ['plan', 'store', 'tend', 'learn'].every(a => !w2.Prefs.get('apps').includes(a)),
   w2.Prefs.get('apps').join(','));

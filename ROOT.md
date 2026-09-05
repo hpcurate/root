@@ -8,7 +8,7 @@
 
 ## 1. What ROOT is
 
-Eight small single-purpose tools that share one phone, one frame and one set of
+Nine small single-purpose tools that share one phone, one frame and one set of
 storage keys. It is a static site — no build step, no framework, no dependencies,
 no network except the Todoist calls you explicitly ask for (and, only when you
 import an Anki deck, the three libraries LEARN needs to unpack it). Open
@@ -23,11 +23,12 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
+| **CREATE** | The songs being made. Each sits on a stage — idea, sketch, arrangement, mix, master, released — and each stage asks its own checklist of it; the hours at the desk are written down as sessions. Three screens: the shelf, one song, the session log. No network at all: a song is not a task and a shelf of them is the normal state of things, not a backlog to clear. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
-Which of the eight get a tab, and in what order, is itself a setting
+Which of the nine get a tab, and in what order, is itself a setting
 (appearance → layout → apps in the bar). Settings is always last. An app
 switched off keeps its slide and opens from the settings home.
 
@@ -74,7 +75,7 @@ Two rules that fall out of the vision, and that every future change must respect
 ```
 root/
 ├── ROOT.md            this file — read first, update last
-├── index.html         all markup for all eight views + the icon sprite
+├── index.html         all markup for all nine views + the icon sprite
 ├── favicon.png
 ├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
 ├── test/
@@ -90,7 +91,8 @@ root/
 │   ├── tend.css       │
 │   ├── track.css      │
 │   ├── learn.css      │
-│   ├── cal.css        ┘
+│   ├── cal.css        │
+│   ├── create.css     ┘
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
@@ -98,6 +100,7 @@ root/
     ├── config.js      the content layer
     ├── shell.js       Creds, Shell, the slide track, swipe, keyboard
     ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js  cal.js
+    ├── create.js       the songs being made
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
 ```
@@ -107,10 +110,10 @@ root/
 ```
 <head>   prefs.js          stamps the look on <html> before the first paint
          tokens.css → do → log → plan → store → tend → track → learn → cal
-                    → shell → settings → themes.css
+                    → create → shell → settings → themes.css
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
-         do / log / plan / store / tend / track / learn / cal
+         do / log / plan / store / tend / track / learn / cal / create
          settings.js       needs every module to exist to render its panels
          search.js         reads SET.searchIndex() and the modules' search hooks
 ```
@@ -129,8 +132,8 @@ specificity. `settings.css` is after `shell.css` for the same reason.
 ### Namespacing
 
 Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE` /
-`TEND` / `TRACK` / `LEARN` / `CAL`, and each does its DOM lookups through a
-scoped helper:
+`TEND` / `TRACK` / `LEARN` / `CAL` / `CREATE`, and each does its DOM lookups
+through a scoped helper:
 
 ```js
 const SCOPE = '.ns-do ';
@@ -146,7 +149,8 @@ and one document-level listener, filtered on `.closest('.ns-tend')`, dispatches
 and that is the one listener that reaches all of them. CAL is built the same
 way and for the same reason — its markup is in the slide and in the settings
 panel, and a day name interpolated into an inline handler is one more thing to
-get wrong.
+get wrong. CREATE is the third, for the third time the same reason: a song's
+name is the user's own text and it is in three screens and a settings panel.
 
 Any *user-editable* value that is interpolated into an inline handler —
 `onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
@@ -405,6 +409,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
+| `create_v1` | CREATE | the songs (name, stage, tempo, key, tags, notes and every tick), the session log and the shelf's own two switches. A tick is filed under `<stageKey>\|<item text>` — see §6. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -719,7 +724,7 @@ both say so, and a new device needs the `.apkg` imported again.
   At boot each view becomes band + `.view-body`; `#s-home > .h-top` is the
   band. A new app's header must be a `.h-top` directly under `#s-home` — its
   box (padding, height, the label row, the wordmark's size and the status-bar
-  inset) belongs to `shell.css` and is shared by all eight, because the title
+  inset) belongs to `shell.css` and is shared by all nine, because the title
   morph only reads as one title becoming another if they are the same shape.
   Set type and colour in the app sheet; never the box, and never a
   `--title-base` of its own. A harness check enforces it.
@@ -986,6 +991,43 @@ both say so, and a new device needs the `.apkg` imported again.
   not actually scheduled, and telling those two apart at a glance is the whole
   point of the view.
 
+- **A `var()` is substituted on the declaration that uses it, on the element
+  that declaration applies to.** Re-pointing a custom property on a child does
+  nothing unless the child also re-declares the property that reads it. 2.26.2
+  gave the wordmark's dot `--title-sh-c:var(--tx)` and nothing else, reasoning
+  that `text-shadow` is inherited so restating the colour was enough. It is
+  not: `.h-logo`'s `text-shadow` had already resolved to the accent, and what
+  the dot inherited was that finished value with no property left in it to
+  override. The dot wore an accent shadow behind an accent glyph for two
+  versions — the exact non-effect the fix was written to avoid. STORE's counter
+  and its currency mark always worked because both re-declare `text-shadow`
+  next to the property. **Anything that re-points `--title-sh-c` owes itself a
+  `text-shadow`.** jsdom does not cascade, so the check that passed was reading
+  the custom property alone; it reads the declaration beside it now.
+- **An element rebuilt on every paint cannot transition.** A replaced node has
+  no previous computed value, so it arrives at its final one — instantly, while
+  everything around it eases. STORE's total was one `innerHTML =` per repaint,
+  which threw the currency mark away and built a new one: the digits eased into
+  green over `--dur-3` and the mark *snapped* to it, one signal arriving twice
+  at two speeds. The number is cells now and the mark is moved across a rebuild
+  rather than recreated. The digits carry no colour of their own on purpose —
+  an inherited value follows the parent's transition frame by frame, so they
+  are linked to `.h-cost` for free and cannot drift from it.
+- **CREATE files a tick under `stageKey|item text`.** Reordering a checklist in
+  the editor keeps every tick; rewording a line drops that one line's. The
+  alternative was a key column in the editor, which is worse to live with than
+  the thing it protects. Stage *keys* are identities and are shown but never
+  edited — a song's stage is filed under one.
+- **CREATE's finished stage is found by `terminal`, never by its key or its
+  position.** A song on it is filed under "released" rather than in flight, and
+  is asked for no checklist. The editor preserves the flag across a rename and
+  hands it to the last stage if the one carrying it is deleted — without that,
+  deleting one row would leave a shelf with no way to finish anything.
+- **A stage a song sits on can be deleted out from under it.** CREATE falls
+  back to the first stage for drawing and leaves the song's own `stage` string
+  alone, the way TEND leaves a plant's group key alone: the stage may come
+  back, and rewriting it on read would be the one edit that cannot be undone.
+
 ---
 
 ## 7. How to do the common things
@@ -1017,7 +1059,8 @@ in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
 app list and the shell's TABS all follow `Prefs.APPS` — and because `apps` is
 stored whole, `appsSeen` is what actually gets the new tab onto an install that
 already has an app list. That is automatic, but read the §6 note before
-assuming a new tab appears: for CAL it did not. Use the `card` class on the app's raised surfaces so the depth
+assuming a new tab appears: for CAL it did not. CREATE is the worked example —
+3.0 added it and touched exactly the list above and nothing else. Use the `card` class on the app's raised surfaces so the depth
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
@@ -1029,7 +1072,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 524 checks covering boot, every theme and panel, the
+through DOM events: 755 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1038,7 +1081,7 @@ and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
 alert in 2.19, CAL and the new-app migration in 2.20, the multi-slot
 export, the stepped day and the new transition in 2.20.1, and the app's own
 dialog, the numpad's four readings, LOG's month and fortnight, DAY's stepper and
-STORE's pin in 2.22. jsdom has no
+STORE's pin in 2.22, and CREATE's stages, ticks, sessions and editors in 3.0. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -1324,6 +1367,166 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.0 — 2026-09-06 — CREATE, and two things that were the same mistake twice
+
+A ninth app, and two fixes that turned out to share a root cause.
+
+---
+
+#### CREATE — the songs being made
+
+A tenth tab. The brief was one line — *"new tab CREATE for music production and
+mixing, do what you think is best first then we will adjust"* — so the shape of
+it is a decision, and this is the decision:
+
+**A song sits on a stage, a stage asks a checklist of it, and every hour at the
+desk is written down.** Three screens — the shelf, one song, the session log —
+and no network at all.
+
+*Why that and not a task list.* ROOT already has four ways to track work that is
+due, and none of them fit a song: a song has no date, it is never late, and
+having six of them open at once is the normal state of the craft rather than a
+backlog to clear. What is actually hard to hold in your head is **which of them
+is at which point**, and what "mix" means at four in the morning when you have
+already listened to it two hundred times. So the stage is the state, and the
+checklist is the app remembering the discipline you are too close to the track
+to remember. Nothing here is due, nothing badges the tab, and nothing is ever
+overdue.
+
+*What is Config's.* The stages, their colours and their checklists — the whole
+path a song walks is editable from Settings → create, including adding stages
+and rewriting every list. The module holds no list of its own; the strip on the
+shelf, the stepper and the checklist are all drawn from Config, so a stage added
+in the editor needs no code and no CSS.
+
+*What is the app's.* The songs, their ticks, their notes and every session, in
+`create_v1`.
+
+**Identities, and the one trade.** A stage's `key` is what a song's stage and
+every one of its ticks is filed under, so it is shown in the editor and never
+edited. A tick is filed under `stageKey|item text`: reordering a checklist keeps
+every tick, rewording a line drops that one line's. A key column in the editor
+would have protected the rename, and it would have been worse to live with than
+the thing it protects — the same call DO's routine items already make.
+
+The finished stage is found by `terminal`, never by its key or its position, so
+"released" can be renamed to anything and the shelf still knows where a song
+stops. Delete the row carrying it and the last stage inherits it, because a
+shelf with no way to finish a song is not a shelf.
+
+**The shelf.** How many songs are in flight, a strip of one segment per stage as
+wide as the songs sitting on it, the songs themselves (sorted by last worked on,
+by stage, or by name), and the last seven days' hours. Released songs are behind
+a fold: a good thing to have and a bad thing to scroll past every time.
+
+**One song.** Its tempo, key and tags as chips that open the app's own dialog;
+the stage stepper; that stage's checklist; notes saved as you type; and the log
+form — hours through the numpad's `duration` kind (130 is 1h30), a word about
+what you did, and the session kinds as chips that fill the field rather than
+replacing it.
+
+**The session log.** Every session, newest first, under the day it happened on,
+with the week and the all-time totals.
+
+*Wired the way §7 says and nowhere else:* a slide whose `#s-home` starts with a
+`.h-top`, `css/create.css` scoped to `.ns-create`, `Shell.register('create')`, a
+`.tab-b` and a `tab-create` sprite symbol, `'create'` in `Prefs.APPS`, a settings
+panel ending in its content box, `SET.PANELS` / `CATS.apps` / `SEG_NAMES` /
+`RENDERERS` / `APP_NAMES` / `APP_HINTS` / `GROUPS`, two `EDITORS` entries, and
+two `CONTENT` rows plus a `search` hook so both the stages and the songs are
+findable. The `appsSeen` migration carries it onto an install that already has
+an app list, which is the trap CAL walked into and there is a check for.
+
+*The icon is a waveform — five bars and nothing else.* A fader would have been
+the settings sliders again; the harness takes a signature of each `tab-*`
+symbol's shapes and fails on a repeat, and five bars is a shape no other tab
+icon is built from.
+
+---
+
+#### The dot's shadow, properly this time
+
+2.26.2 said the dot after a wordmark takes the title colour as its shadow. It
+did not. `.h-logo em{--title-sh-c:var(--tx)}` was the whole fix, on the
+reasoning that `text-shadow` is inherited so restating the colour was enough.
+
+**A `var()` is substituted on the declaration that uses it, on the element that
+declaration applies to.** `.h-logo`'s `text-shadow` had already resolved to the
+accent; what the dot inherited was that finished value, with no custom property
+left in it to override. So the dot went on wearing an accent shadow behind an
+accent glyph — not a shadow, just a slightly fatter dot, which is the exact
+non-effect 2.26.2 was written to remove. Two versions of it.
+
+The rule re-declares `text-shadow` beside the property now. STORE's counter and
+its currency mark have always done both, which is why those two worked and this
+one did not, and §6 now says so in the general form: anything that re-points
+`--title-sh-c` owes itself a `text-shadow`.
+
+**The check that passed was reading the custom property alone.** jsdom does not
+cascade, so a regex on the stylesheet is all there is — and this one asserted
+the half that was there rather than the half that made it work. It reads the
+declaration beside it now.
+
+---
+
+#### STORE's total: one signal, one speed, and a board
+
+Same root cause, one level along. The counter was rebuilt with an
+`innerHTML =` on every repaint, which threw the currency mark away and built a
+new one. **A replaced element has no previous computed value, so it cannot
+transition:** the digits eased into green over `--dur-3` while the mark *snapped*
+to it. One signal arriving twice, at two speeds, which is what reads as a
+rendering fault rather than as a total going up.
+
+The number is cells now — one per character, the decimal point included — and
+they are updated in place; the mark is moved across a rebuild rather than
+recreated. The cells declare no colour and no shadow of their own on purpose: an
+inherited value follows the parent's transition frame by frame, so the digits,
+the point and the shadow move with `.h-cost` for free and cannot drift from it.
+The mark is the single exception, because it is deliberately the other colour,
+and it carries a matching transition so it arrives with them rather than after.
+
+**And the cards turn over.** A character that changes flips in from the top edge
+in a short perspective, each cell a beat behind the one to its left — a
+departure board. Only the characters that actually changed get it, so 4.50 →
+4.90 turns one card rather than four, which is what makes a board read as fast
+as it does. It rides `--mo` like every other animation, so "no motion" stops it
+dead. Arriving is still not a change: pinning the counter mid-trip mounts, and
+the cells do not also flip — two entrances at once is neither.
+
+---
+
+#### Also
+
+**The colour-coded tab list had no entry for DAY.** Adding CREATE's meant
+writing the line next to the gap; DAY was the only app whose pill fell back to
+nothing with colour-coded tabs on. One line, and called out here because it was
+not asked for.
+
+**A harness check failed for one hour every night.** DAY's now-line fixture
+built its day from `hour - 1` modulo 24, so between 00:00 and 00:59 it wrote a
+day starting at 23:00 — an hour before the date it was filed under — and then
+asked CAL where midnight fell in a day that had not started. CAL was right both
+times; the fixture was wrong. The window slides to fit now instead of wrapping,
+and what it expects moves with it. Found by running the suite at 00:14.
+
+---
+
+**Verified** — `test/harness.mjs`, **755 checks, all green**, 31 new: CREATE's
+wiring, its Config-driven stages and checklists, the tick that survives a
+reorder, a stage deleted from under a song, the session log, the released fold,
+the delete that takes its sessions with it, both content editors, the terminal
+flag surviving an edit; the dot's re-declared shadow; and the counter's
+surviving mark, its cells, and the flip that only touches what changed.
+
+**Not verified by eye.** jsdom does not lay out or paint, and the browser
+extension was not connected this session, so nothing here has been seen on a
+screen: CREATE's whole appearance, the dot's shadow, and the flip board are
+argued from the stylesheet rather than looked at. The three Todoist tasks are
+completed because each was built and is covered by checks; if any of it looks
+wrong on the phone, that is the adjusting the CREATE task already said would
+come.
 
 ### 2.26.2 — 2026-09-05 — the shadow stops clipping, the dot inverts, QUICK gets its heading back
 
