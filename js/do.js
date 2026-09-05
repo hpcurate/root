@@ -349,44 +349,6 @@ function renderTabs() {
   positionGlider();
 }
 
-/* ── The day of the month, opposite the wordmark ──────────────────────────────
-   The date used to live only in the small grey line above the title. It is the
-   one number that says which day's list you are looking at, and at 10px it was
-   the quietest thing on the screen. It now also sits at the right end of the
-   wordmark's row, cut from the same type at the same size, so the band reads
-   as `DO.` … `5` — one line with a number at each end.
-
-   The roll is the transition, not decoration: a checklist that resets at
-   midnight has exactly one moment where the number matters, and a digit that
-   changes without moving is a digit you do not notice has changed. The old
-   number leaves upward and the new one arrives from below, so the direction
-   says "forward" — the same way the titles slide with the tab move.
-
-   `dnCur` is what is on screen. It is tracked rather than read back off the
-   DOM because a re-render mid-roll would otherwise compare against the
-   outgoing digits and play the animation a second time. */
-let dnCur = null;
-function paintDayNum(iso) {
-  const box = $id('do-daynum'); if (!box) return;
-  const num = String(Number(String(iso).slice(8, 10)) || '');
-  const cur = box.querySelector('.dn-cur');
-  if (!cur) return;
-  if (dnCur === num) { cur.textContent = num; return; }
-  const had = dnCur !== null && cur.textContent !== '';
-  dnCur = num;
-  if (!had) { cur.textContent = num; return; }          // first paint: no roll from nothing
-  const out = document.createElement('span');
-  out.className = 'dn-out';
-  out.textContent = cur.textContent;
-  box.appendChild(out);
-  cur.textContent = num;
-  /* Restarting rather than adding: two day changes in quick succession (the
-     midnight roll landing while a step is still playing) must replace the
-     roll, not queue behind it. */
-  cur.classList.remove('rolling'); void cur.offsetWidth; cur.classList.add('rolling');
-  setTimeout(() => { out.remove(); cur.classList.remove('rolling'); }, 520);
-}
-
 /* A routine that is finished can be dropped from the grid rather than greyed:
    on a tab whose routines are all morning ones, the afternoon is otherwise
    spent scrolling past six ticked cards to reach the one that is not. The
@@ -397,7 +359,6 @@ const hideDone = () => Prefs.get('doHideDone') === true;
 
 function renderHome() {
   $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();   // #date-label is a span inside .h-label
-  paintDayNum(TODAY);
 
   const minimal = Prefs.get('doCardStyle') === 'minimal';
   const routineCards = routinesOfTab(currentTab).map(key => {

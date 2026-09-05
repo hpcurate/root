@@ -11,7 +11,7 @@
 .ns-plan .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-plan .scr.on{display:block}
 .ns-plan .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    padding:calc(14px + var(--sat)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-plan .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-plan .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
@@ -119,10 +119,18 @@
    carrying the project's colour at full strength — with the rows now railed
    rather than washed, the heading was the last grey thing above a list that
    had gone quiet too. A rule under the name in the project's colour: enough to
-   say whose sections these are, and not a box competing with them. */
-.ns-plan .proj-tile.open .proj-head{position:relative;padding-bottom:calc(9px * var(--dens))}
-.ns-plan .proj-tile.open .proj-head::after{content:'';position:absolute;left:0;right:0;bottom:0;
-  height:2px;border-radius:var(--r1);background:var(--proj-color);opacity:.85}
+   say whose sections these are, and not a box competing with them.
+
+   It is a real element rather than a pseudo-element, and a child of the tile
+   rather than of `.proj-head`, so that flip()'s reveal wave can animate it —
+   `el.animate()` cannot touch an `::after`, so as one it snapped in on the
+   first frame while everything else was still held at zero. It comes down with
+   the section rows now, in the same stagger. Absolutely placed, so it spans the
+   tile without having to be a flex item in a row laid out for two. */
+.ns-plan .proj-tile.open{position:relative}
+.ns-plan .proj-tile.open .proj-head{padding-bottom:calc(9px * var(--dens))}
+.ns-plan .ph-rule{position:absolute;left:0;right:0;bottom:0;height:2px;
+  border-radius:var(--r1);background:var(--proj-color);opacity:.85}
 /* the form open under it: the same heading, unchanged — .wide is kept as the
    state marker (aria and the harness read it) but no longer grows the box */
 

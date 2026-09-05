@@ -116,7 +116,17 @@ function renderProjects() {
               onclick="PLAN.openProj('${tt.key}')">
       <span class="proj-head"><span class="proj-dot" data-flip="pd:${tt.key}" data-flip-text="p:${tt.key}"></span><span
             class="proj-name" data-flip="pn:${tt.key}" data-flip-text="p:${tt.key}">${tt.label}</span></span>
-      <span class="proj-meta">${meta}</span>
+      <span class="proj-meta">${meta}</span>${
+      /* The rule under an open project's name. It is a real element and a
+         direct child of the tile — not a `::after` on `.proj-head`, which is
+         what 2.24.0 made it — because flip()'s reveal wave animates the
+         carrier's children, and a pseudo-element cannot be animated by
+         `el.animate()`. As an `::after` it therefore snapped into place on the
+         first frame while everything around it was still held at zero, which
+         is the pop Hugo saw. As a child it is skipped only if it holds a
+         mover, and it holds none, so it comes down with the section rows in
+         the same stagger. */
+      big ? '<span class="ph-rule" aria-hidden="true"></span>' : ''}
     </button>`;
   };
   grid.classList.toggle('open', !!open);
@@ -343,9 +353,16 @@ function flip(before) {
     const d = deltaOf(el.dataset.flip);
     return d && (Math.abs(d.dx) > .5 || Math.abs(d.dy) > .5 || Math.abs(d.sh - 1) > .01);
   });
-  /* The move owns most of the budget and the reveal follows inside it, so the
-     whole gesture still lasts exactly as long as a tab change does. */
-  const moveMs   = travels ? Math.round(ms * .58) : 0;
+  /* The move owns most of the budget and the reveal follows inside it.
+
+     It used to own .58 of it — near 400ms at the shipped `--t-flip` — which is
+     a long time to watch a word change size, and the name growing from 13px to
+     24px is the one part of this gesture where the *scale* is what you see
+     rather than the travel. A slow translate reads as weight; a slow scale
+     reads as the text struggling to settle. It is .34 now: the name arrives
+     while the eye is still following it, and the reveal starts sooner, so the
+     whole gesture is shorter as well as quicker at the front. */
+  const moveMs   = travels ? Math.round(ms * .34) : 0;
   const revealMs = Math.round(ms * .40);
 
   let fresh = 0;
@@ -1088,9 +1105,12 @@ function clock(mins) {
   const day = Math.floor(mins / 1440), r = ((mins % 1440) + 1440) % 1440;
   return { hm: `${String(Math.floor(r / 60)).padStart(2, '0')}:${String(r % 60).padStart(2, '0')}`, day };
 }
-/* A template with its real clock times, resolved from the one start time. */
-function resolved(name) {
-  const s0 = startMin();
+/* A template with its real clock times, resolved from the one start time.
+   `s0` is minutes past midnight and defaults to the export form's — passed
+   explicitly only by blankDay(), which resolves a day without touching the
+   form's state. */
+function resolved(name, s0) {
+  if (typeof s0 !== 'number') s0 = startMin();
   return rowsOf(name).map(r => {
     const a = clock(s0 + (+r.at || 0)), b = clock(s0 + (+r.at || 0) + (+r.dur || 0));
     return Object.assign({}, r, { from:a.hm, to:b.hm, over:a.day > 0 });
@@ -1302,6 +1322,44 @@ function calendarDay() {
   });
   return { day:expForm.day, start:expForm.start, template:expForm.template,
            mode:expForm.mode, notes:noteLines(), events };
+}
+
+/* ── A day with nothing in it yet ─────────────────────────────────────────────
+   DAY could only ever show a day PLAN had exported, so a morning with nothing
+   planned offered one thing: leave for PLAN, queue tasks, send them. That is
+   the right route when there is something to send. It is the wrong one when
+   the blocks are already sitting on DO, labelled @b1 / @b2 in Todoist, and all
+   that is missing is the shape of a day to drop them into.
+
+   This is that shape and nothing else: the chosen template resolved against a
+   start time, every slot row `idle`, every template row `fixed`. No tasks — DAY
+   fills those from DO itself, with the panel it already has.
+
+   **It lives here and not in CAL on purpose.** §9's rule is that CAL never
+   resolves `plan.dayTemplates` — a day drawn from a template is a day PLAN
+   resolved, and the moment CAL learned to do it itself there would be two
+   answers to "what is a normal day" that could drift apart. So PLAN resolves
+   it, exactly as it does for an export, and hands the finished record over.
+   `CAL.write()` is still the only way into that store.
+
+   What is different from an export is that nothing was sent — no Todoist task,
+   no 22:00 agent, no Google. CAL marks the day it gets from here `localOnly`
+   and says so on the head, because §9's other rule is that DAY never claims a
+   day that was not actually scheduled. */
+function blankDay(iso, name, start) {
+  const t = templates();
+  const tName = (name && t[name]) ? name
+              : (expForm.template && t[expForm.template]) ? expForm.template
+              : Object.keys(t)[0];
+  if (!tName || !rowsOf(tName).length) return null;
+  const m = HM.exec(String(start || ''));
+  const s0 = m ? +m[1] * 60 + +m[2] : startMin();
+  const events = resolved(tName, s0).map(r => {
+    const base = { from:r.from, to:r.to, over:!!r.over, dur:+r.dur || 0 };
+    return r.slot ? Object.assign(base, { kind:'idle', name:r.slot, slot:r.slot })
+                  : Object.assign(base, { kind:'fixed', name:r.event, cal:r.cal || null });
+  });
+  return { day:iso, start:clock(s0).hm, template:tName, mode:'blocks', notes:[], events };
 }
 
 /* ── The panel ──────────────────────────────────────────────────────────────
@@ -1584,7 +1642,7 @@ return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput,
          savePreset, applyPreset, deletePreset, plannedOn,
          renderSent, toggleSent, clearSent,
          openExport, closeExport, pickSlot, setTemplate, setMode, expField, doExport,
-         exportDescription, previewRows, resolved,
+         exportDescription, previewRows, resolved, blankDay,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

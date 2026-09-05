@@ -10,7 +10,7 @@
 
 /* ── Sticky sub-screen header ── */
 .ns-store .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    padding:calc(14px + var(--sat)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-store .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-store .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
@@ -23,7 +23,7 @@
 .ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
 .ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-store .h-logo em{color:var(--y);font-style:normal}
-.ns-store .h-settings-btn{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:18px;
+.ns-store .h-settings-btn{position:absolute;top:calc(var(--sat) + 28px);right:18px;
                   background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
                   cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .h-settings-btn:active{color:var(--y)}

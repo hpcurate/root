@@ -7,7 +7,7 @@
 .ns-log .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-log .scr.on{display:block}
 .ns-log .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    padding:calc(14px + var(--sat)) 18px 14px;
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-log .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-log .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps)}
@@ -23,8 +23,43 @@
          letter-spacing:.08em;cursor:pointer;padding:calc(3px * var(--dens)) calc(6px * var(--dens));transition:all .12s}
 .ns-log .h-today:active{color:var(--y);border-color:var(--y)}
 .ns-log .h-today.hidden{display:none}
+.ns-log .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-log .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-log .h-logo em{color:var(--y);font-style:normal}
+
+/* ── The day of the month, at the other end of the wordmark's row ─────────────
+   Same family, same weight, same size as `LOG.` — it is the second half of one
+   line, not a caption stuck beside it — and in the title's own colour rather
+   than the muted one, so the row reads as a single object with a word at one
+   end and a number at the other. It is measured in --title-px like the
+   wordmark, so it follows the Title size dial and lands on a whole pixel with
+   it (tokens.css).
+
+   It lives on LOG rather than DO because LOG is the app that moves through
+   days: the arrows above step the date, so the number changes whenever they
+   are used. On DO it changed once a day, at midnight, and it was taking the
+   width the daily/media/other strip needed.
+
+   The box is the height of one digit and no more, with overflow hidden, so the
+   outgoing number is clipped by the row rather than pushing it taller. Both
+   digits are absolutely placed against the same right edge, which is what
+   makes the swap read as one number changing rather than two numbers passing.
+   `tabular-nums` keeps 9 → 10 from shifting the ones column sideways. */
+.ns-log .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
+  min-width:1.1em;height:1em;line-height:1;
+  font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--tx)}
+.ns-log .h-daynum span{position:absolute;right:0;top:0;display:block;line-height:1}
+/* the arriving digit comes up from below, the leaving one carries on upward:
+   one number moving forward, not two swapping places */
+.ns-log .h-daynum .dn-cur.rolling{animation:dn-in calc(.42s * var(--mo)) cubic-bezier(.22,.9,.24,1) both}
+.ns-log .h-daynum .dn-out{animation:dn-out calc(.42s * var(--mo)) cubic-bezier(.4,0,.7,.2) both}
+@keyframes dn-in {from{transform:translateY(100%);opacity:0} to{transform:none;opacity:1}}
+@keyframes dn-out{from{transform:none;opacity:1} to{transform:translateY(-100%);opacity:0}}
+/* it slides in with the title on a tab change — it is part of that line, so it
+   travels with it. The rule lives with the band's other title animations in
+   shell.css, which is also where it is switched off for a still track and for
+   reduced motion. */
 .ns-log .h-streak{font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);padding:0 calc(18px * var(--dens)) calc(24px * var(--dens));min-height:20px}
 .ns-log .h-streak em{color:var(--y);font-style:normal}
 

@@ -130,6 +130,15 @@
      `.view > .h-top` in shell.css. The unrounded value is the fallback for a
      browser without `round()`. */
   --title-px:calc(var(--title-base) * var(--title-scale));
+  /* The status-bar inset, snapped. 2.24.0 rounded the wordmark and stopped
+     there, which fixed half of it: the band's vertical metrics have *two*
+     fractional inputs and this is the other. A notched iPhone reports
+     `env(safe-area-inset-top)` as 47.33px (and other devices report their own
+     thirds), and that number lands in both the band's padding-top and its
+     min-height — so with `justify-content:flex-end` every row inside was still
+     being pushed to a third of a pixel, and small text was still resampled.
+     Every header in the app measures itself from this instead now. */
+  --sat:env(safe-area-inset-top);
 
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
@@ -254,6 +263,10 @@ html{height:100%;zoom:var(--ui-scale)}
    nothing. */
 @supports (font-size: round(1.5px, 1px)) {
   :root{--title-px:round(calc(var(--title-base) * var(--title-scale)), 1px)}
+  /* rounded *up*, never down: this is a clearance from the physical notch, and
+     a header that ends a fraction of a pixel higher than the system wanted is
+     a header with the clock sitting on it */
+  :root{--sat:round(up, env(safe-area-inset-top), 1px)}
 }
 
 /* Accent glow — a halo on the things that carry the accent. Off by default.

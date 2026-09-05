@@ -408,11 +408,22 @@ function dayHTML() {
     /* The action is one of this app's own controls, not a full-width form
        button: the empty state is a card like every other card here, and a
        `.btn` stretched across it read as a screen from a different app. */
+    /* Two ways out of an empty day, and the order is which one is more often
+       right in the morning. Leaving for PLAN is the route when there is
+       something to *send*. But the blocks are usually already on DO — labelled
+       @b1 / @b2 in Todoist, fetched, sitting there — and the only thing missing
+       is a day-shape to drop them into. "schedule from do" asks PLAN for that
+       shape (it resolves the template; CAL never does — §9) and opens the same
+       panel a planned day offers, so one tap goes from "nothing planned" to
+       picking slots. */
+    const canStart = !!(window.PLAN && PLAN.blankDay);
     return `<div class="cal-empty card">
       <div class="ce-title">${sel === today ? 'nothing planned for today' : 'nothing planned for this day'}</div>
       <div class="ce-note">PLAN writes the day here when you export it — pick the sent tasks,
-        give each one a slot, and the day follows.</div>
-      <button class="ce-go" data-act="to-plan">open plan<span aria-hidden="true">→</span></button>
+        give each one a slot, and the day follows.${canStart ? ` Or start from the day's own shape
+        and fill it with the blocks DO is already holding — nothing is sent anywhere.` : ''}</div>
+      ${canStart ? '<button class="ce-go" data-act="start-day">schedule from do<span aria-hidden="true">→</span></button>' : ''}
+      <button class="ce-go${canStart ? ' ce-alt' : ''}" data-act="to-plan">open plan<span aria-hidden="true">→</span></button>
     </div>`;
   }
   const evs = visibleEvents(rec);
@@ -502,7 +513,13 @@ function dayHead(rec) {
     rec.mode === 'blocks' ? 'blocks only' : 'full schedule',
     done ? `${done} done` : '',
     rec.wakeShift ? 'woken' : '',
-    rec.localEdit ? 'edited' : '',
+    /* §9's hardest rule: DAY never claims a day that was not actually
+       scheduled. A day started here came from a template PLAN resolved, but
+       no Todoist task was written and no agent will put it on Google — so it
+       says so, permanently, and ahead of "edited", which is the smaller
+       claim of the two. */
+    rec.localOnly ? 'not sent' : '',
+    rec.localEdit && !rec.localOnly ? 'edited' : '',
   ].filter(Boolean);
   return `<div class="cal-head">
     <div class="ch-meta">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>
@@ -545,6 +562,32 @@ function slotsOf(rec) {
 function doBlocks() {
   return (window.DO && DO.blockTasks) ? DO.blockTasks().filter(t => t && t.content) : [];
 }
+/* ── Starting a day that PLAN never sent ──────────────────────────────────────
+   The empty day's second action. PLAN resolves its template into a day of idle
+   slots and template hours (`PLAN.blankDay`) — CAL does not resolve a template
+   and still does not — and that record goes in through `write()` like any
+   other. Then `localOnly`, which is not decoration either: nothing about this
+   day reached Todoist or Google, and §9 does not let DAY draw a day as
+   scheduled when it is not. The head says "not sent" for as long as it stands.
+
+   It opens the slot panel straight away. Building the shape is not the thing
+   anybody wanted — filling it is — and stopping at an empty grid of `free`
+   rows would be stopping one tap short of the point. */
+function startDay() {
+  if (!sel) return;
+  if (DB.days[sel]) { openSched(); return; }              // it already has a day
+  if (!window.PLAN || !PLAN.blankDay) { Shell.toast('plan is not loaded'); return; }
+  const day = PLAN.blankDay(sel);
+  if (!day || !day.events.length) { Shell.toast('no day template to build from — see settings → apps → plan'); return; }
+  if (!write(day)) { Shell.toast('could not start this day'); return; }
+  const rec = DB.days[sel];
+  if (rec) { rec.localOnly = Date.now(); save(); }
+  Prefs.tap();
+  Shell.toast('day started · nothing sent anywhere');
+  openSched();                                           // …which renders
+  if (!sched) render();                                  // no blocks on DO: still show the day
+}
+
 function openSched() {
   const rec = sel && DB.days[sel];
   if (!rec || !slotsOf(rec).length) { Shell.toast('this day has no block slots'); return; }
@@ -701,6 +744,7 @@ document.addEventListener('click', e => {
      ticking it. */
   if (act === 'del')         { e.stopPropagation(); e.preventDefault(); deleteEvent(t.dataset.i); return; }
   if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
+  if (act === 'start-day')   { startDay(); return; }
   if (act === 'sched')       { openSched(); return; }
   if (act === 'sched-close') { closeSched(); return; }
   if (act === 'sched-pick')  { pickSlot(t.dataset.id, t.dataset.slot); return; }
@@ -771,6 +815,6 @@ Shell.register('cal', {
 });
 
 return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
-         toggleEvent, deleteEvent, setWake, openSched, closeSched, pickSlot, applySched, paintNow,
+         toggleEvent, deleteEvent, setWake, startDay, openSched, closeSched, pickSlot, applySched, paintNow,
          days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel };
 })();

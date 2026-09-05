@@ -2844,6 +2844,56 @@ check('and the whole thing is a dial: off, the day stays exactly as it was expor
 w.Prefs.set('calWakeShift', true);
 w.CAL.clearDay(); settle();
 
+/* ── 2.24.1: starting a day PLAN never sent ──
+   DAY could only ever draw a day PLAN had exported, so a morning with nothing
+   planned offered one route: leave for PLAN. But the blocks are usually already
+   on DO, and the only thing missing is a shape to drop them into. */
+check('an empty day offers to build one from DO, as well as the older route to PLAN',
+  !!$('.ns-cal .cal-empty') && !!$('.ns-cal [data-act="start-day"]') &&
+  $('.ns-cal [data-act="start-day"]').textContent.replace(/\s+/g, ' ').trim().startsWith('schedule from do') &&
+  !!$('.ns-cal [data-act="to-plan"]'),
+  $('.ns-cal .cal-empty')?.textContent.replace(/\s+/g, ' ').trim());
+check('… and the two are not both the accent — one question, two answers',
+  $('.ns-cal [data-act="to-plan"]').classList.contains('ce-alt') &&
+  !$('.ns-cal [data-act="start-day"]').classList.contains('ce-alt') &&
+  /\.ns-cal \.ce-alt\{background:none/.test(calCss));
+/* §9's rule stands: CAL never resolves plan.dayTemplates. PLAN resolves it and
+   hands the record over, and write() is still the only way into the store. */
+/* The word appears in cal.js twice, in comments saying it never does this. What
+   must never appear is a *read* of it. */
+check('CAL still resolves no template of its own — PLAN does it and CAL is handed the day',
+  !/Config\.get\(\s*['"`]plan\./.test(calJs) && /PLAN\.blankDay/.test(calJs) &&
+  /function blankDay\(/.test(fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8')),
+  (calJs.match(/Config\.get\([^)]*\)/g) || []).join(' '));
+const blankRec = w.PLAN.blankDay(today);
+check('the shape PLAN hands over is the template with every slot empty — no tasks in it',
+  !!blankRec && blankRec.day === today && blankRec.events.length > 0 &&
+  blankRec.events.every(e => e.kind === 'idle' || e.kind === 'fixed') &&
+  blankRec.events.some(e => e.kind === 'idle' && e.slot),
+  blankRec ? blankRec.events.map(e => e.kind).join(',') : 'null');
+check('… and asking for it changes nothing on its own — it is a value, not a write',
+  !w.CAL.day(today));
+click($('.ns-cal [data-act="start-day"]'));
+check('starting a day writes it and it is drawn',
+  !!w.CAL.day(today) && !!$('.ns-cal .cal-day') && !$('.ns-cal .cal-empty'),
+  w.CAL.days().join(','));
+check('… every slot on it is free, because nothing has been put in one yet',
+  w.CAL.day(today).events.every(e => e.kind !== 'task'));
+check('… "+ do" is now offered, which is the whole point of building the shape',
+  !!$('.ns-cal .ch-act') && $('.ns-cal .ch-act').textContent === '+ do');
+/* §9's other rule: DAY never claims a day that was not actually scheduled. */
+check('… and the day says it was never sent, permanently and ahead of "edited"',
+  !!w.CAL.day(today).localOnly &&
+  [...d.querySelectorAll('.ns-cal .ch-meta > span')].map(s2 => s2.textContent).includes('not sent'),
+  [...d.querySelectorAll('.ns-cal .ch-meta > span')].map(s2 => s2.textContent).join('|'));
+check('a real export replaces it and the day stops saying "not sent"',
+  (w.CAL.write({ day: today, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
+     events: [{ from: '07:00', to: '08:00', dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#e06f9a' }] }),
+   w.CAL.day(today).localOnly === undefined &&
+   ![...d.querySelectorAll('.ns-cal .ch-meta > span')].map(s2 => s2.textContent).includes('not sent')),
+  [...d.querySelectorAll('.ns-cal .ch-meta > span')].map(s2 => s2.textContent).join('|'));
+w.CAL.clearDay(); settle();
+
 /* DO's quick cards. */
 check('a quick card is drawn in its label\'s colour, like a block tile',
   /\.ns-do \.qk\{background:color-mix\(in srgb,var\(--bk-c\)/.test(doCss) &&
@@ -2955,9 +3005,28 @@ check('… everything else in the grid is held at nothing for the whole move',
   /if \(grid\) Array\.from\(grid\.children\)\.forEach\(el => \{ if \(!carriers\.has\(el\)\) hold\(el\); \}\)/.test(planJs3));
 check('… and there is no move at all when the name does not actually go anywhere',
   /const travels = \[\.\.\.movers\]\.some/.test(planJs3) &&
-  /const moveMs\s+= travels \? Math\.round\(ms \* \.58\) : 0/.test(planJs3));
+  /const moveMs\s+= travels \? Math\.round\(ms \* \.\d+\) : 0/.test(planJs3));
+/* 2.24.0 gave the move .58 of the budget — near 400ms of watching a word change
+   size, which is the one part of this gesture where the scale is what you see. */
+check('… and the name resizes in well under half the budget, not most of it',
+  +(planJs3.match(/travels \? Math\.round\(ms \* \.(\d+)\) : 0/) || [])[1] <= 40,
+  (planJs3.match(/travels \? Math\.round\(ms \* \.(\d+)\) : 0/) || [])[1]);
 check('the queue outside the grid still slides, and is never blinked',
   /if \(grid && grid\.contains\(el\)\) return;/.test(planJs3));
+/* The rule under an open project's name. As an ::after it could not be animated
+   by el.animate(), so it snapped in on the first frame while every real element
+   around it was still held at zero. As a child of the tile it joins the wave. */
+w.PLAN.closeProj(); w.PLAN.openProj('curate');
+check('the rule under the open project is a real element, so it can come down with the rows',
+  !!d.querySelector('.ns-plan .proj-tile.open .ph-rule') &&
+  d.querySelector('.ns-plan .ph-rule').parentElement.classList.contains('proj-tile') &&
+  !/\.proj-head::after/.test(planCss),
+  d.querySelector('.ns-plan .ph-rule')?.parentElement.className);
+check('… and it holds no mover, so the reveal wave does not skip it',
+  !d.querySelector('.ns-plan .ph-rule').querySelector('[data-flip-text]'));
+check('… a closed tile has none — it is the open heading it underlines',
+  (w.PLAN.closeProj(), !d.querySelector('.ns-plan .ph-rule')));
+w.PLAN.openProj('curate');
 // move + reveal must still fit the one motion budget the shell uses for a tab change
 const mv = +(planJs3.match(/travels \? Math\.round\(ms \* \.(\d+)\) : 0/) || [])[1];
 const rv = +(planJs3.match(/const revealMs = Math\.round\(ms \* \.(\d+)\)/) || [])[1];
@@ -3155,7 +3224,29 @@ const shellCss4  = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 check('the wordmark is snapped to a whole pixel, and the band is measured in the snapped value',
   /--title-px:round\(calc\(var\(--title-base\) \* var\(--title-scale\)\), 1px\)/.test(tokensCss4) &&
   /\.view > \.h-top \.h-logo\{[\s\S]*?font-size:var\(--title-px\)/.test(shellCss4) &&
-  /min-height:calc\(env\(safe-area-inset-top\) \+ 54px \+ var\(--title-px\)\)/.test(shellCss4));
+  /min-height:calc\(var\(--sat\) \+ 54px \+ var\(--title-px\)\)/.test(shellCss4));
+/* 2.24.0 snapped the wordmark and the blur stayed, because the band has *two*
+   fractional inputs and the other is the status-bar inset — 47.33px on a
+   notched iPhone, landing in the padding and the min-height alike. */
+check('the status-bar inset is snapped too, and every header measures from it',
+  /--sat:round\(up, env\(safe-area-inset-top\), 1px\)/.test(tokensCss4) &&
+  /padding:calc\(var\(--sat\) \+ 14px\)/.test(shellCss4) &&
+  (() => {
+    // comments explain the inset by name; what must be gone is every *use* of it
+    const rules = f => fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const sheets = ['shell','do','log','plan','store','learn','settings'];
+    const bad = sheets.filter(f => /env\(safe-area-inset-top\)/.test(rules(f)));
+    return bad.length === 0 || bad.join(',');
+  })() === true,
+  (() => {
+    const rules = f => fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    return ['shell','do','log','plan','store','learn','settings']
+      .filter(f => /env\(safe-area-inset-top\)/.test(rules(f))).join(',');
+  })());
+check('… rounded up, never down — it is clearance from a physical notch',
+  /round\(up, env\(safe-area-inset-top\)/.test(tokensCss4));
 check('… behind @supports, so a browser without round() keeps the plain multiplication',
   /@supports \(font-size: round\(1\.5px, 1px\)\)/.test(tokensCss4) &&
   /--title-px:calc\(var\(--title-base\) \* var\(--title-scale\)\)/.test(tokensCss4));
@@ -3254,19 +3345,44 @@ check('a tab with nothing left says so rather than leaving a hole where the grid
 dailyKeys.forEach(k => setDone(k, false));   // put the day back for whatever runs after
 w.Prefs.set('doHideDone', false);
 
-/* ── The day of the month, opposite the wordmark ── */
-const dayNum = () => $('.ns-do #do-daynum');
+/* ── The day of the month, opposite the wordmark ──
+   2.24.0 put it on DO, where it crowded the daily/media/other strip out of the
+   row it shares with the wordmark and where the number only ever changed at
+   midnight. It is LOG's: the arrows there step the date, so the roll — which is
+   the whole point of drawing it big — happens whenever they are used. */
+const logCss4 = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+w.Shell.go('log');
+const dayNum = () => $('.ns-log #log-daynum');
 check('the date sits at the other end of the wordmark\'s row, in the same type at the same size',
   !!dayNum() && dayNum().parentElement.classList.contains('h-logo-row') &&
   dayNum().querySelector('.dn-cur').textContent === String(Number(w.Shell.today().slice(8, 10))) &&
-  /\.ns-do \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(doCss2),
+  /\.ns-log \.h-daynum\{[^}]*font:800 var\(--title-px\)\/1 var\(--head\)/.test(logCss4),
   dayNum()?.textContent);
+check('… in the title\'s own colour, not the muted one',
+  /\.ns-log \.h-daynum\{[^}]*color:var\(--tx\)\}/.test(logCss4));
+check('… and it is off DO, which has its tab strip\'s width back',
+  !d.querySelector('.ns-do #do-daynum') && !/\.ns-do \.h-daynum/.test(doCss2) &&
+  d.querySelector('.ns-do .h-logo-row').children.length === 2,
+  d.querySelector('.ns-do .h-logo-row')
+    ? [...d.querySelector('.ns-do .h-logo-row').children].map(c => c.className).join(',') : 'no row');
 check('… and it is hidden from the reading order — the date line above it already says the date',
   dayNum().getAttribute('aria-hidden') === 'true');
 check('the number rolls to the new one rather than being swapped in place',
-  /@keyframes dn-in \{from\{transform:translateY\(100%\)/.test(doCss2) &&
-  /@keyframes dn-out\{from\{transform:none/.test(doCss2) &&
-  /\.ns-do \.h-daynum\{[^}]*overflow:hidden/.test(doCss2));
+  /@keyframes dn-in \{from\{transform:translateY\(100%\)/.test(logCss4) &&
+  /@keyframes dn-out\{from\{transform:none/.test(logCss4) &&
+  /\.ns-log \.h-daynum\{[^}]*overflow:hidden/.test(logCss4));
+/* On DO this fired once a day, at midnight. Here it fires on every step, which
+   is what makes it worth animating at all. */
+const dnText = () => dayNum().querySelector('.dn-cur').textContent;
+const dnWas = dnText();
+w.LOG.shiftDate(-1);
+check('stepping the date rolls the number, the old one leaving as the new one arrives',
+  dnText() !== dnWas && !!dayNum().querySelector('.dn-out') &&
+  dayNum().querySelector('.dn-cur').classList.contains('rolling') &&
+  dayNum().querySelector('.dn-out').textContent === dnWas,
+  dnWas + ' -> ' + dnText());
+w.LOG.resetDate();
+check('… and coming back to today rolls it back', dnText() === dnWas);
 check('… it travels with the title on a tab change, and holds still when the track does',
   /\.view\.morph > \.h-top \.h-daynum\{/.test(shellCss4) &&
   /#track\.still \.h-logo,#track\.still \.hd-title,#track\.still \.h-daynum\{animation:none!important\}/.test(shellCss4));

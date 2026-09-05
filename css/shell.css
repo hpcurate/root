@@ -125,15 +125,22 @@ body{
    enough to carry it, so the bug read as "the top of the title is blurred"
    rather than "the title is blurred".
 
-   `round()` is the whole fix: the wordmark is a whole number of pixels, so the
-   band is a whole number of pixels, so every row in it sits on the grid. The
-   unrounded value stays as the first declaration for a browser without
-   `round()` — it renders as it did before rather than losing the rule. */
+   **There are two fractional inputs here, and 2.24.0 only fixed one of them.**
+   `--title-px` snapped the wordmark, and the blur stayed, because the other
+   term is the status-bar inset: a notched iPhone reports
+   `env(safe-area-inset-top)` as 47.33px, and that number lands in the padding
+   *and* the min-height. `--sat` (tokens.css) is that value snapped, and every
+   header in the app is measured from it now.
+
+   Both are the same fix: whole-pixel band, whole-pixel rows, text drawn rather
+   than resampled. Both keep the unrounded value as the first declaration, so a
+   browser without `round()` renders as it did before rather than losing the
+   rule entirely. */
 .view > .h-top{
   flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
   display:flex;flex-direction:column;justify-content:flex-end;gap:8px;
-  padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
-  min-height:calc(env(safe-area-inset-top) + 54px + var(--title-px))}
+  padding:calc(var(--sat) + 14px) 18px 12px;
+  min-height:calc(var(--sat) + 54px + var(--title-px))}
 .view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
 .view > .h-top > .h-label,.view > .h-top > .h-meta{
   margin:0;padding:0;min-height:20px;display:flex;align-items:center;gap:8px}
@@ -144,7 +151,7 @@ body{
 .view > .h-top .h-logo{
   margin:0;padding:0;line-height:1;
   font-size:var(--title-px)}
-.view > .h-top .h-acts{position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:18px}
+.view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
 .view-body{
   flex:1 1 auto;min-height:0;
@@ -426,7 +433,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
     flex-direction:column;justify-content:flex-start;gap:4px;
     border:none;border-right:var(--bw) solid var(--bd);border-radius:0;
     background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;
-    padding:calc(env(safe-area-inset-top) + 20px) 8px 20px}
+    padding:calc(var(--sat) + 20px) 8px 20px}
   /* the rail is never in the way, so it never hides */
   #nav.chrome-off{opacity:1;transform:none;pointer-events:auto}
   .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}

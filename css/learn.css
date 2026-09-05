@@ -12,7 +12,7 @@
 .ns-learn .scr.on{display:block}
 
 .ns-learn .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-  padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+  padding:calc(14px + var(--sat)) 18px 14px;
   display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
 .ns-learn .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0}
 .ns-learn .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -80,7 +80,7 @@
 
 /* ── study ── */
 .ns-learn .study-wrap{padding:calc(18px * var(--dens));display:flex;flex-direction:column;
-  min-height:calc(100vh - 56px - var(--scr-pad-b) - env(safe-area-inset-top))}
+  min-height:calc(100vh - 56px - var(--scr-pad-b) - var(--sat))}
 .ns-learn .study-progress{display:flex;gap:calc(14px * var(--dens));font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);margin-bottom:14px;flex-wrap:wrap}
 .ns-learn .study-progress em{font-style:normal}
 .ns-learn .p-new em{color:var(--y)} .ns-learn .p-learn em{color:var(--or)} .ns-learn .p-due em{color:var(--gr)}

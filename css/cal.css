@@ -308,6 +308,16 @@ body:has(#nav.chrome-off) .cal-steps,
   padding:calc(11px * var(--dens)) calc(18px * var(--dens));cursor:pointer;
   transition:background var(--dur-1)}
 .ns-cal .ce-go:active{background:color-mix(in srgb,var(--y) 24%,transparent)}
+/* two ways out of an empty day, so they cannot both be the accent. The second
+   one — leaving for PLAN — is the older route and the less common answer in
+   the morning, so it is the outlined one. */
+.ns-cal .ce-alt{background:none;border-color:var(--bd);color:var(--mu)}
+.ns-cal .ce-alt:active{background:var(--press);color:var(--tx)}
+/* they stack rather than sitting side by side: two pills of different lengths
+   on one row read as a toolbar, and these are two answers to one question. The
+   card is centred, so each centres itself on its own line. */
+.ns-cal .cal-empty .ce-go{display:flex;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
+.ns-cal .cal-empty .ce-alt{margin-top:calc(9px * var(--dens))}
 
 /* ── the settings panel (reached through .ns-cal on that panel) ── */
 .ns-cal .settings-status{font:400 10px/1.4 var(--mono);letter-spacing:.6px;

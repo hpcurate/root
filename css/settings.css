@@ -44,11 +44,11 @@
 .ns-set .set-cat-b i{grid-column:2;grid-row:1 / span 2;font:400 14px/1 var(--mono);color:var(--y);font-style:normal}
 
 .ns-set .hd{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
-  padding:calc(14px + env(safe-area-inset-top)) 18px 14px;display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  padding:calc(14px + var(--sat)) 18px 14px;display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .ns-set .hd-back{background:none;border:none;color:var(--y);font:400 12px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:4px 0}
 .ns-set .hd-title{font:800 15px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);flex:1}
 /* the live preview sticks below the category header rather than under it */
-.ns-set .preview{top:calc(52px + env(safe-area-inset-top))}
+.ns-set .preview{top:calc(52px + var(--sat))}
 
 /* ── Segmented control ────────────────────────────────────────────────────────
    Seven app pills, so it scrolls sideways and the active chip is scrolled into

@@ -333,9 +333,47 @@ function calcStreak() {
   return streak;
 }
 
+/* ── The day of the month, opposite the wordmark ──────────────────────────────
+   2.24.0 put this on DO, which was the wrong home twice over. It crowded DO's
+   daily/media/other strip out of the row it shares with the wordmark, and on
+   DO the number only ever changes at midnight — so the roll, which is the
+   whole point of drawing it big, was something you would see once a day and
+   only if you were looking.
+
+   LOG is the app that *moves* through days. The arrows above the wordmark step
+   it, so the number changes whenever you use them and the roll says which way
+   you went. It reads in the title's own colour, not the muted one: it is the
+   second half of the wordmark's line rather than a caption beside it.
+
+   The old number leaves upward and the new one arrives from below. `dnCur` is
+   what is on screen, tracked rather than read back off the DOM, because a
+   re-render mid-roll would otherwise compare against the outgoing digits and
+   play the animation a second time. */
+let dnCur = null;
+function paintDayNum(iso) {
+  const box = $id('log-daynum'); if (!box) return;
+  const num = String(Number(String(iso).slice(8, 10)) || '');
+  const cur = box.querySelector('.dn-cur');
+  if (!cur) return;
+  if (dnCur === num) { cur.textContent = num; return; }
+  const had = dnCur !== null && cur.textContent !== '';
+  dnCur = num;
+  if (!had) { cur.textContent = num; return; }          // first paint: no roll from nothing
+  const out = document.createElement('span');
+  out.className = 'dn-out';
+  out.textContent = cur.textContent;
+  box.appendChild(out);
+  cur.textContent = num;
+  /* Restarting rather than adding: two steps in quick succession — a finger
+     held on the arrow — must replace the roll, not queue behind it. */
+  cur.classList.remove('rolling'); void cur.offsetWidth; cur.classList.add('rolling');
+  setTimeout(() => { out.remove(); cur.classList.remove('rolling'); }, 520);
+}
+
 function refreshHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('home-date').textContent = Prefs.formatDate(TODAY);
+  paintDayNum(TODAY);
   $id('btn-today').classList.toggle('hidden', TODAY === REAL_TODAY);
   $id('card-m').classList.toggle('done', morningLogged(data));
   $id('card-e').classList.toggle('done', eveningLogged(data));

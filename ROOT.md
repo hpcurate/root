@@ -23,7 +23,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -404,7 +404,7 @@ versions still work off the same data.
 | `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
-| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
+| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -1324,6 +1324,87 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.24.1 — 2026-09-05 — the date moves to LOG, a day can be started from nothing
+
+Six `@claude` tasks, all `@fix`, and four of them 2.24.0's fault an hour after
+it shipped.
+
+**The day number is LOG's, not DO's.** It was the wrong home twice over. On DO
+it shared the wordmark's row with the daily/media/other strip and took the width
+that strip needed — which is the "display issue" on the tab bar, same task, same
+cause. And on DO the number only ever changes at midnight, so the roll, which is
+the entire reason for drawing it big, was something you would see once a day and
+only if you happened to be looking. LOG is the app that *moves* through days: the
+arrows above the wordmark step the date, so the number changes whenever they are
+used and the roll says which way you went. It reads in the title's own colour
+now rather than the muted one — it is the second half of that line, not a
+caption beside it.
+
+**A day can be started when PLAN never sent one.** DAY could only draw a day
+that had been exported, so a morning with nothing planned offered exactly one
+route: leave for PLAN, queue tasks, send them. That is right when there is
+something to send, and wrong when the blocks are already on DO — labelled @b1 /
+@b2, fetched, sitting there — and all that is missing is a day-shape to drop
+them into. The empty card now offers "schedule from do", which builds that shape
+and opens the slot panel in one tap.
+
+**§9 is not bent to do it.** CAL still resolves no template: `PLAN.blankDay()`
+resolves it — the same `resolved()` an export uses, given a start time rather
+than reading the form — and hands the finished record over through `write()`,
+which remains the only way into that store. What *is* different from an export
+is that nothing was sent: no Todoist task, no 22:00 agent, no Google. So the day
+is marked `localOnly` and the head says **not sent**, permanently, and ahead of
+"edited" because it is the larger of the two claims. A real export for the same
+date replaces the record whole and the marker goes with it, which is correct —
+that day *is* sent.
+
+**The routines full/minimal control had no styling at all.** 2.24.0 invented
+`.opts > .opt` for it; the app's shape for a choice is `.chips > .chip`, which
+is what `chips()` generates for the built panels and what every static panel
+writes by hand. No stylesheet had ever heard of the class it was given, so it
+rendered as two bare buttons.
+
+**PLAN's project title resizes faster, and its rule stops popping.** The move
+owned .58 of the flip budget — near 400ms of watching a word change size, and
+the name growing 13px → 24px is the one part of that gesture where the scale is
+what you see rather than the travel. A slow translate reads as weight; a slow
+scale reads as text struggling to settle. It is .34 now, so the reveal starts
+sooner and the whole gesture is shorter as well. The rule under the open
+project's name was an `::after`, and `el.animate()` cannot touch a
+pseudo-element — so while every real element around it was held at zero by the
+reveal wave, the rule snapped in on the first frame. It is a real child of the
+tile now, holds no mover, and comes down with the section rows in their stagger.
+
+**The blur: the other half of the arithmetic.** 2.24.0 found that the band's
+vertical metrics were fractional and snapped the wordmark. The blur stayed,
+because there are *two* fractional inputs and the wordmark is only one of them.
+The other is the status-bar inset: a notched iPhone reports
+`env(safe-area-inset-top)` as 47.33px, and that number lands in the band's
+padding-top *and* its min-height — so with `justify-content:flex-end` every row
+inside was still being pushed to a third of a pixel, and the smallest text in
+the band was still being resampled rather than drawn. `--sat` is that value
+snapped with `round(up, …)` — up, never down, because it is clearance from a
+physical notch and a header ending a fraction high is a header with the clock on
+it. All thirteen uses across seven stylesheets now measure from it.
+
+**Verified** — `test/harness.mjs`, **652 checks, all green** (640 before). New
+coverage: the day number on LOG in the title colour and gone from DO, and the
+roll firing on a real date step; the empty day's two actions and their
+weighting; `blankDay` returning the template with every slot empty and writing
+nothing on its own; the `not sent` marker and its removal by a real export; CAL
+still reading no `plan.*` config; the `ph-rule` being a real element outside any
+mover; the move fraction being well under half the budget; and `--sat` being
+snapped, rounded up, and used in place of every raw inset.
+
+**Not verified** — whether the blur is gone. It is a rendering artefact, jsdom
+cannot see one, the browser extension would not connect, and the image attached
+to the task was not reachable through the Todoist API. The fix above is a real
+remaining fractional term in the same defect, found by reading; it is not a
+confirmation. Two other candidates remain if it persists: the
+`black-translucent` status-bar style with `viewport-fit=cover`, which lets iOS
+composite its own translucent bar over the top strip, and `html{zoom}` from a
+non-default Interface scale. The task is left open in Todoist for that reason.
 
 ### 2.24 — 2026-09-05 — the media tab rebuilt, the day gets an editor, and the title stops being soft
 
