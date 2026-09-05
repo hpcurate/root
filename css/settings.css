@@ -8,7 +8,7 @@
 .ns-set .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-set .scr.on{display:block}
 /* the band's box is shell.css's, shared by every app */
-.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-set .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-set .h-logo em{color:var(--y);font-style:normal}
 

@@ -3577,6 +3577,39 @@ check('… the three earlier fixes are all kept — each was a real defect',
   /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4) &&
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))));
 
+/* ── 2.25.2: the blur was the contrast, not the rendering ──
+   --mu is #4a4a4a on #0e0e0e — about 2.1:1, under half the minimum for body
+   text. It is the placeholder colour and the band's date line was using it as a
+   label colour at 10px, bold, uppercase, letter-spaced. Small text at 2:1 reads
+   as out of focus, not as faint, which is why four rendering fixes each changed
+   nothing. */
+const BAND_SHEETS = ['do','log','plan','store','tend','track','learn','cal','settings'];
+check('no title band draws its label row in placeholder grey',
+  BAND_SHEETS.every(f => {
+    const css = sheetRules(f);
+    const rows = css.match(/\.h-(label|meta)\{[^}]*\}/g) || [];
+    return rows.every(r => !/var\(--mu\)/.test(r));
+  }),
+  BAND_SHEETS.filter(f => (sheetRules(f).match(/\.h-(label|meta)\{[^}]*\}/g) || [])
+    .some(r => /var\(--mu\)/.test(r))).join(','));
+check('… they take the secondary foreground, which is what a label is',
+  BAND_SHEETS.every(f => {
+    const rows = sheetRules(f).match(/\.h-(label|meta)\{[^}]*\}/g) || [];
+    return rows.length === 0 || rows.some(r => /color:var\(--tx-2\)/.test(r));
+  }));
+check('… and so do the actions sitting in the same band',
+  !/\.ns-do \.h-act\{[^}]*color:var\(--mu\)/.test(sheetRules('do')) &&
+  !/\.ns-log \.h-arr\{[^}]*color:var\(--mu\)/.test(sheetRules('log')) &&
+  !/\.ns-tend \.h-act\{[^}]*color:var\(--mu\)/.test(sheetRules('tend')));
+check('… --mu itself is unchanged: it is still the placeholder colour, and now says so',
+  /--mu:#4a4a4a/.test(tokensCss4) &&
+  /never a label, see above/.test(tokensCss4));
+/* Every earlier fix stays: each was a real defect on its own terms. */
+check('… and none of the four earlier fixes was reverted to get here',
+  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4) &&
+  ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))) &&
+  /content="black"/.test(headHtml));
+
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 /* ── a ninth app has to arrive on an install that already has an app list ────

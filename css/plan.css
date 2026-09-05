@@ -19,7 +19,7 @@
 .ns-plan .hd-action:active{color:var(--y)}
 
 /* ── Home header ── (the band's box is shell.css's, shared by every app) */
-.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-plan .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-plan .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-plan .h-logo em{color:var(--y);font-style:normal}
 

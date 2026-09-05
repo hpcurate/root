@@ -1325,6 +1325,42 @@ point of the thing.
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
 
+### 2.25.2 — 2026-09-05 — the blur was the contrast
+
+**It was never a rendering artefact.** `--mu` is `#4a4a4a` on a `#0e0e0e`
+ground — a contrast ratio of **2.18:1**, under half the minimum for body text.
+It is the *placeholder* colour, named as such in tokens.css, and the title
+band's date line was using it as a **label** colour at 10px, bold, uppercase,
+with .16em of letter-spacing.
+
+Small text at 2:1 does not read as faint. It reads as **out of focus**. That is
+what "the top of the sticky title is blurred" was, through five reports and four
+wrong fixes — and it is exactly why pixel-snapping, a compositing path and the
+status bar each changed nothing at all: none of them was ever touching the thing
+that was wrong.
+
+The screenshot said so plainly and it took too long to read it: *every* soft
+thing in it was `--mu` — the date, `sync`, the day number, the inactive tab
+chips — and *every* crisp thing was not: `DO.`, `ROUTINE P1`, `chores`. Four
+fixes that each changed nothing were four pieces of evidence that the model was
+wrong.
+
+The band's label rows take `--tx-2` (**6.86:1**), and so do the actions sitting
+in the same band — DO's and TEND's `sync`, LOG's date arrows and its "today"
+chip, STORE's settings link. `--mu` itself is unchanged and still the
+placeholder colour; it now carries a note saying that is all it is for.
+
+**All four earlier fixes are kept.** Each was a real defect found on the way and
+each is worth having: the wordmark still snaps to a whole pixel (2.24.0), so
+does the status-bar inset (2.24.1), no scroller is on iOS's legacy accelerated
+path (2.25.0), and the app no longer runs under the system status bar (2.25.1).
+None of them was reverted to get here.
+
+**Verified** — `test/harness.mjs`, **698 checks, all green** (693 at 2.25.1),
+with the new ones asserting that no band draws its label row in `--mu`, that
+they take `--tx-2`, that the actions beside them followed, that `--mu` is
+unchanged and documented, and that none of the four earlier fixes was undone.
+
 ### 2.25.1 — 2026-09-05 — the status bar goes back to iOS, and STORE's total gets a face
 
 **The blurred band was the status bar, and the page was asking for it.**

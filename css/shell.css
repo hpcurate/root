@@ -135,7 +135,21 @@ body{
    Both are the same fix: whole-pixel band, whole-pixel rows, text drawn rather
    than resampled. Both keep the unrounded value as the first declaration, so a
    browser without `round()` renders as it did before rather than losing the
-   rule entirely. */
+   rule entirely.
+
+   ── And neither of them was the blur ──
+   Nor was `-webkit-overflow-scrolling` (2.25.0), nor the translucent status bar
+   (2.25.1). All four were real defects and all four are staying fixed, but the
+   band kept looking soft through every one of them because **the top row was
+   not being rendered badly, it was the wrong colour**: `--mu`, which is
+   placeholder grey at about 2.1:1, used as a label colour at 10px. Small text
+   at that contrast reads as out of focus rather than as faint. The label rows
+   take `--tx-2` now, and `--mu` carries a note in tokens.css saying what it is
+   and is not for.
+
+   The lesson worth keeping: four fixes that each changed nothing were four
+   pieces of evidence that the model was wrong, and the fifth report should have
+   been read as "stop fixing rendering" much sooner than it was. */
 .view > .h-top{
   flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
   display:flex;flex-direction:column;justify-content:flex-end;gap:8px;

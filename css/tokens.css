@@ -32,7 +32,19 @@
   --bd-2:#333333;          /* emphasised hairline */
   --tx:#dedede;            /* foreground */
   --tx-2:#9a9a9a;          /* secondary foreground */
-  --mu:#4a4a4a;            /* muted / placeholder */
+  /* **Placeholder grey, and only that.** #4a4a4a on #0e0e0e is a contrast ratio
+     of about 2.1:1 — under half the minimum for body text. That is fine for the
+     thing it is named for: a hint inside an empty field, which is meant to
+     recede and which you are about to type over. It is *not* a label colour.
+
+     Small text at 2:1 does not read as faint, it reads as **out of focus** —
+     and the title band's date line was drawn in it at 10px, bold, uppercase,
+     with .16em of letter-spacing. That is what "the top of the sticky title is
+     blurred" was, through five reports and four wrong fixes: not a rendering
+     artefact at all, which is exactly why pixel-snapping, compositing paths and
+     the status bar each changed nothing. Anything that is a *label* takes
+     --tx-2 (about 7:1). See the note over `.view > .h-top` in shell.css. */
+  --mu:#4a4a4a;            /* muted / placeholder — never a label, see above */
 
   /* Accent. Only --y and --on-y are ever restated by a theme or the accent
      picker; the three washes are mixed from it, so a custom accent never needs

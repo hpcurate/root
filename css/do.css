@@ -20,7 +20,7 @@
    The band's box — padding, height, the label row, the wordmark's size — is
    set once for all eight apps in shell.css, so nothing about it is repeated
    here. What is left is what is DO's own. */
-.ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-do .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-do .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
 .ns-do .h-logo em{color:var(--y);font-style:normal}
@@ -55,7 +55,7 @@
      color:var(--mu);padding:0 calc(15px * var(--dens));border-radius:var(--r2);transition:color .25s}
 .ns-do .tab.active{color:var(--on-y)}
 .ns-do .h-acts{display:flex;align-items:center;gap:calc(14px * var(--dens))}
-.ns-do .h-act{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);
+.ns-do .h-act{background:none;border:none;color:var(--tx-2);font:400 11px/1 var(--mono);
        cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-do .h-act:active{color:var(--y)}
 .ns-do .h-act.sync{color:var(--y)}

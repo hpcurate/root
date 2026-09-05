@@ -15,9 +15,9 @@
 /* ── Home ──
    The band's box is shell.css's, shared by all eight apps; this is the date
    row's own type and the wordmark's weight. */
-.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu)}
+.ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-log .h-date-txt{flex:1}
-.ns-log .h-arr{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s,opacity .26s ease}
+.ns-log .h-arr{background:none;border:none;color:var(--tx-2);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s,opacity .26s ease}
 .ns-log .h-arr:active{color:var(--y)}
 /* ── The arrows step aside, the way DAY's stepper does ────────────────────────
    Same rule and the same dial (`calStepsHide`): they are controls you use in
@@ -29,7 +29,7 @@
    wakeSteps() — so getting them back is not a thing you have to aim at. */
 .ns-log .h-meta.idle .h-arr,
 .ns-log .h-meta.idle .h-today{opacity:0;pointer-events:none}
-.ns-log .h-today{background:none;border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--mu);font:400 8px/1 var(--mono);
+.ns-log .h-today{background:none;border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx-2);font:400 8px/1 var(--mono);
          letter-spacing:.08em;cursor:pointer;padding:calc(3px * var(--dens)) calc(6px * var(--dens));transition:all .12s}
 .ns-log .h-today:active{color:var(--y);border-color:var(--y)}
 .ns-log .h-today.hidden{display:none}
