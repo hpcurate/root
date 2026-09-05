@@ -769,7 +769,8 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       todayOn:false, todayOverdue:true, todayFilter:'',
                       today:{ date:null, tasks:[], fetched:0, missing:[] },
                       // block tasks: every task due today carrying one of PLAN's block labels
-                      blocksOn:true, blocksHideDone:false, blocks:{ date:null, tasks:[], fetched:0 },
+                      blocksOn:true, blocksHideDone:false, blocksDone:'day',
+                      blocks:{ date:null, tasks:[], fetched:0 },
                       // the media tab: every open task carrying one of do.mediaLabels, any date
                       mediaOn:true, mediaHideDone:false, media:{ date:null, tasks:[], fetched:0 },
                       // the quick cards: every open task carrying do.quickLabel, with its subtasks
@@ -1055,6 +1056,7 @@ function renderTodoistSettings() {
   const on = $id('td-today-on'); if (on) on.textContent = td.todayOn ? 'on' : 'off';
   const ov = $id('td-today-overdue'); if (ov) ov.textContent = td.todayOverdue ? 'on' : 'off';
   const bo = $id('td-blocks-on'); if (bo) bo.textContent = td.blocksOn ? 'on' : 'off';
+  const bd = $id('td-blocks-done'); if (bd) bd.textContent = blocksDoneWin();
   const mo = $id('td-media-on'); if (mo) mo.textContent = td.mediaOn ? 'on' : 'off';
   const ml = $id('td-media-labels'); if (ml) ml.textContent = MEDIA_LABELS.map(l => '@' + l).join(' ') || 'none';
   const qo = $id('td-quick-on'); if (qo) qo.textContent = td.quickOn ? 'on' : 'off';
@@ -1205,7 +1207,10 @@ async function moveBlocks(block) {
 function renderBlocks() {
   const box = $id('td-blocks'); if (!box) return;
   const b = tdBlocks();
-  const show = td.blocksOn && b.tasks.length > 0 && onFirstTab();
+  // the earlier days stand on their own: on a morning with nothing fetched yet,
+  // a week's window is still an answer to "show done"
+  const earlier = td.blocksOn ? earlierBlocks() : [];
+  const show = td.blocksOn && (b.tasks.length > 0 || earlier.length > 0) && onFirstTab();
   box.classList.toggle('hidden', !show);
   // hidden is also emptied: a stale tile in a hidden box is still a tile to anything that counts them
   if (!show) { box.innerHTML = ''; bkMove = false; bkSel.clear(); return; }
@@ -1219,11 +1224,14 @@ function renderBlocks() {
     ${bkMove ? `<div class="bk-move">${blockLabels().map(l =>
         `<button class="bk-move-b" style="--bk-c:${esc(colors[l] || Todoist.labelColor(l) || '#A78BFA')}" onclick="DO.moveBlocks('${esc(l)}')"${bkSel.size ? '' : ' disabled'}>${esc(l)}</button>`).join('')}
       <span class="bk-move-hint">${bkSel.size ? `${bkSel.size} → tomorrow as` : 'tap a block, then its slot'}</span></div>` : ''}
-    ${shown.length ? '' : '<div class="tt-empty">all done</div>'}
+    ${shown.length || earlier.length ? '' : '<div class="tt-empty">all done</div>'}
     <div class="bk-grid">${shown.map(x => `<button class="bk${x.done ? ' done' : ''}${bkMove && bkSel.has(x.id) ? ' sel' : ''}" style="--bk-c:${esc(x.color)}" onclick="DO.${bkMove ? 'selectBlock' : 'toggleBlockTask'}('${esc(x.id)}')" aria-pressed="${bkMove ? bkSel.has(x.id) : x.done}">
       <span class="bk-tag">@${esc(x.block)}${x.tag ? ` · ${esc(x.tag)}` : ''}</span><span class="bk-name">${esc(x.content)}</span>
       <span class="bk-check"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    </button>`).join('')}</div>`;
+    </button>`).join('')}</div>
+    ${earlier.length ? `<div class="bk-past"><div class="bk-past-h">earlier this ${esc(blocksDoneWin())}</div>${
+      earlier.map(d => `<div class="bk-past-d"><span class="bk-past-date">${esc(Prefs.formatDate(d.date, 'short'))}</span><span class="bk-past-names">${
+        d.blocks.map(n => esc(n)).join(' · ')}</span></div>`).join('')}</div>` : ''}`;
 }
 async function toggleBlockTask(id) {
   const b = tdBlocks();
@@ -1242,6 +1250,38 @@ async function toggleBlockTask(id) {
 }
 function blockTasks() { return td.blocksOn ? tdBlocks().tasks.slice() : []; }
 function toggleBlocksHideDone() { td.blocksHideDone = !td.blocksHideDone; tdPersist(); renderBlocks(); }
+
+/* ── How far back "show done" reaches ──────────────────────────────────────────
+   "Show done" used to mean today's finished blocks and nothing else, because
+   today is all DO holds: `td.blocks` is keyed by date and starts empty every
+   morning. But the names do survive — DO's tick calls `LOG.setBlock`, which
+   files them under the day in LOG's own record — so a week or a month of them is
+   a read away, and "what did I get through this week" is a better question than
+   "what did I get through since breakfast".
+
+   The window is a setting rather than a fourth button on the head: it is a
+   preference about what the button *means*, not another thing to press. `day`
+   is the default and is exactly the old behaviour.
+
+   The earlier days are names, not tasks. They carry no id, no colour and no
+   Todoist state — those were today's, and today's are gone — so they are drawn
+   as a quiet list under a date rather than as tiles you could try to untick.
+   Reopening a block finished last Tuesday is Todoist's job, not DO's. */
+const DONE_WINDOWS = ['day', 'week', 'month'];
+const DONE_DAYS = { day:0, week:6, month:29 };
+function blocksDoneWin() {
+  const w = String(td.blocksDone || 'day');
+  return DONE_WINDOWS.includes(w) ? w : 'day';
+}
+function cycleBlocksDone() {
+  td.blocksDone = DONE_WINDOWS[(DONE_WINDOWS.indexOf(blocksDoneWin()) + 1) % DONE_WINDOWS.length];
+  tdPersist(); renderTodoistSettings(); renderBlocks(); Prefs.tap();
+}
+function earlierBlocks() {
+  const days = DONE_DAYS[blocksDoneWin()];
+  if (!days || td.blocksHideDone) return [];
+  return (window.LOG && LOG.blocksBefore) ? LOG.blocksBefore(days) : [];
+}
 
 /* ── Media ────────────────────────────────────────────────────────────────────
    The media tab: every open task carrying one of do.mediaLabels (@movie @show
@@ -1626,9 +1666,21 @@ function plantRows() {
     id:x.id, content:x.content, labels:x.labels, priority:x.priority, due:x.due, section:'',
     done:x.done, glyph:x.glyph, src:'tend' })) : [];
 }
+/* The today list and the blocks section are two questions asked of Todoist, and
+   a task due today carrying @b1 answered both — so it was drawn twice, counted
+   twice in the badge, and could be ticked in one place while the other still
+   showed it open. The blocks section is the more specific of the two and it
+   already has the tile, the colour and the slot, so the block-labelled tasks
+   come out of the list here. Same shape as the TEND dedup beside it: one source
+   keeps the row, the other drops it, and neither fetch changes. Switching "show
+   block tasks" off hands them straight back to the list rather than hiding them
+   altogether. */
 function todayRows() {
   const pushed = window.TEND && TEND.pushedIds ? TEND.pushedIds() : new Set();
-  const api = td.todayOn ? ttToday().tasks.filter(x => !pushed.has(String(x.id))) : [];
+  const blocked = td.blocksOn ? new Set(blockLabels().map(tdName)) : new Set();
+  const isBlock = t => blocked.size > 0 &&
+    (Array.isArray(t.labels) ? t.labels : []).some(l => blocked.has(tdName(l)));
+  const api = td.todayOn ? ttToday().tasks.filter(x => !pushed.has(String(x.id)) && !isBlock(x)) : [];
   return plantRows().concat(api);
 }
 function openCount() { return todayRows().filter(x => !x.done).length; }
@@ -1830,7 +1882,8 @@ return { go, renderSettings: renderTodoistSettings,
          syncTodoist, testTodoist, saveTodoistSettings, toggleAutoPush,
          toggleEndpoint,
          refreshToday, toggleTodayTask, toggleToday, toggleTodayOverdue, saveTodaySettings,
-         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone, blockTasks, moveSection,
+         renderToday, renderBlocks, toggleBlockTask, toggleBlocks, toggleBlocksHideDone,
+         cycleBlocksDone, blocksDoneWin, blockTasks, moveSection,
          renderMedia, toggleMediaTask, toggleMedia, toggleMediaHideDone, mediaTasks, deferToday,
          toggleBlockMove, selectBlock, moveBlocks,
          toggleTodayMove, selectToday, selectAllToday };

@@ -16,14 +16,14 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
-| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards and the consistency strip. |
+| **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial) and the consistency strip. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. Stepped left and right through the days that are planned. Written at export time and read from nowhere else — see §9. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -532,6 +532,43 @@ both say so, and a new device needs the `.apkg` imported again.
   `preventDefault`ed instead: no focus, no keyboard, no scroll, nothing moves.
   `inputmode="none"` is still set for a field reached by Tab, and the original
   lives in `data-pad-im` so switching the pad off hands it back.
+- **An overlay owns the page until it closes, and the tap that closes it is
+  spent.** The pad's backdrop stopped taking pointer events the instant its
+  class came off, so the tap that dismissed it also pressed whatever was
+  underneath — one tap, two actions, and the second one never asked for. The
+  pointerdown that closes the pad is `preventDefault`ed *and*
+  `stopPropagation`ed, and the click it would have synthesised is swallowed by
+  a document-level capture listener (`padSwallowUntil`, cleared by the next
+  pointerdown so it can never eat a later tap). Anything new that draws over
+  the page owes the same three things.
+- **`padOpen` blurs whatever is focused, and that is not tidiness.** A live
+  system keyboard has already shrunk the visual viewport; a `position:fixed`
+  pad drawn against a viewport that has moved under it has its keys somewhere
+  other than where they look. 2.22 hit this by focusing the pad's own field and
+  fixed it by not focusing it — but a field answered *earlier* on the same form
+  was still focused, and its keyboard was still up. Nothing may be focused
+  while the pad is drawn.
+- **A tap outside a focused field blurs it, everywhere.** The platform's own
+  selection callout (paste / select / select all / autofill) has no dismissal of
+  its own: it stays up, anchored where the field was rather than where the field
+  now is, over whatever has scrolled into that space. Blurring is the only thing
+  that closes it, and until 2.23 nothing was blurring. One shell listener, so it
+  is every app's for free — a per-field fix would be one app remembering and
+  seven forgetting.
+- **A gesture that travelled is not a press.** 2.22.3 took the press *wash* off
+  a row scrolled under a finger; the press itself still fired on the way up. A
+  pointer that moves more than `TAP_SLOP` (12px) from where it landed — or a
+  touch the browser has already claimed for a scroll, which stops sending
+  `pointermove` and is caught on `touchmove` instead — marks the gesture, and
+  the click at the end of it is swallowed. The pad's own keys are exempt,
+  because they fire on `pointerdown` and have already happened.
+- **A pad-owned field says its unit with `data-unit`, and nothing is inferred.**
+  The field is never focused while the pad is up, so the pad's own label and the
+  number are all that is on screen — and the label the pad covers is often the
+  only place the unit was written down. A unit guessed from a label is a unit
+  that is wrong on the one field nobody checked, and a number under the wrong
+  unit is worse than a bare number. `duration` and `clock` ignore it: 7h20m and
+  09:30 are already units.
 - **The pad's keys fire on `pointerdown`, not on `click`.** A click on touch is
   synthesised, can be suppressed by anything that prevented a default earlier in
   the sequence, and arrives late. The `click` handler is kept only for a
@@ -597,6 +634,18 @@ both say so, and a new device needs the `.apkg` imported again.
   ten minutes, so a `syncTodoist()` called right after `Shell.go('tend')` may
   return at once as "busy". The harness waits it out; a user tapping "sync
   now" during an auto-sync gets the auto-sync's result a moment later.
+- **A block-labelled task is the blocks section's, not the today list's.** The
+  two are separate questions asked of Todoist and a task due today carrying
+  `@b1` answered both, so it was drawn twice, counted twice in the badge, and
+  tickable in one place while the other still showed it open. `todayRows()`
+  drops it while `blocksOn` is set — at *draw* time, not at fetch time, so
+  switching the section off hands it straight back with no refetch.
+- **DO's done-blocks window past today comes from LOG, and is names only.**
+  `td.blocks` is one day deep by design and starts empty every morning; the
+  names survive because DO's tick calls `LOG.setBlock`. `LOG.blocksBefore(n)` is
+  the read side. Those rows carry no id, no colour and no Todoist state — they
+  are drawn as a list under a date, never as tiles, because a tile offers a tick
+  that cannot exist.
 - **DO's today block is two sources, deduplicated by task id.** TEND's rows
   come from `TEND.todayList()` directly (so they show even with push off) and
   carry `tend:` ids that route the tick back to `TEND.setDone()`; a fetched
@@ -621,6 +670,25 @@ both say so, and a new device needs the `.apkg` imported again.
   tiles) are not on this token — their resting value differs per rule — so they
   can still light up under a drag. They are not in long scrollers, which is why
   it has not been worth the duplication.
+- **"Written" means someone wrote it, and there is a stamp for it.**
+  `morningLogged` / `eveningLogged` used to ask "does this half hold any value
+  at all", which was right while every value came from the form and stopped
+  being right when `setBlock` arrived: a block ticked on DO writes itself into
+  the real today's `e.blocks` without the evening form being opened, so one tick
+  turned the card green, cleared LOG's "!" and extended the streak. `m.saved` /
+  `e.saved` are written by `saveMorning` / `saveEvening` and are authoritative
+  when present; a record from before them falls back to the old field scan, with
+  `blocks` taken out of the evening's. Anything else that can write a day
+  without a person filling a form in must keep off both.
+- **Discard has to undo, not merely decline to save.** The forms do not hold
+  their answers in the DOM: the scales, the meds, the meals, the counters, the
+  cold-shower toggle and the blocks all write straight into `data` as they are
+  tapped, and `save()` only copies the text fields across and flushes the
+  object. So "go back without saving" left every one of those edits in the live
+  record, and the next write from *anywhere* committed them — an entry, a block
+  ticked on DO (`setBlock` persists the same object), the other half of the day.
+  `discard()` re-reads the day from storage, which also keeps whatever was
+  legitimately written while the form was open.
 - **`LOG.setBlock()` writes today's record even when another day is selected.**
   It edits the live record only if the selected day is the real today, and the
   stored one otherwise, so a tick on DO never changes which day LOG is showing.
@@ -894,6 +962,21 @@ both say so, and a new device needs the `.apkg` imported again.
   install that never touches it behaves exactly as before, and `baselineNow()`
   moves the date to *tomorrow* rather than rewriting any tick's date — which is
   what makes it safe to press twice.
+- **A day filled from DO is no longer what was sent, and says so.** Everything
+  else on DAY is a drawing of what PLAN resolved and handed to Todoist;
+  `applySched()` breaks that for one day, so the record gains `localEdit` and
+  the head reads "edited here" from then on. Anything else that ever edits a
+  stored day owes the same mark — a drawing that quietly claims to be the plan
+  is the one thing this app must not be.
+- **Filling a day's slots reads the slots off the record, never off a
+  template.** `slotsOf(rec)` walks the stored events. CAL does not resolve
+  `plan.dayTemplates` and is not going to: a day drawn from a template that was
+  never sent anywhere would be a day this app is not allowed to claim, which is
+  why the action is not offered on a day that does not exist.
+- **A tick on DAY is a mark on the drawing and nothing else.** CAL has no
+  network by contract (§8), so it cannot close anything in Todoist — and it
+  could not anyway, since a stored event carries a resolved name and no task id.
+  An `idle` row is not tickable: it is the absence of an event.
 - **CAL is written on success, never on the attempt.** `doExport()` builds the
   day *before* it clears the panel's state, but hands it over only after the
   Todoist task lands. A day drawn for an export that failed is a day that is
@@ -1158,6 +1241,58 @@ behind a confirmation), for a plan that was abandoned or exported to the wrong
 date; the Todoist task it wrote is not ROOT's to withdraw and the question says
 so.
 
+### Now, and what is left of the day
+
+Two things a day-shaped drawing is uniquely good at carrying, and neither was on
+it: where the clock has got to, and what is already done.
+
+**The line.** One hairline across the day at the height the hour has reached,
+drawn only on today and only while today is still running. Its offset is summed
+from the same durations the rows are drawn from rather than measured off the
+DOM, so it lands on the boundary it names whatever `calHour` is set to, and a
+row hidden by a dial contributes no height to either. Before the first row and
+after the last one it is simply not drawn: a line pinned to an edge says "the
+day has not started" in the most ambiguous way available. It rides the shell's
+own minute tick (`onMinute` → `paintNow`), which moves the line and nothing
+else — a full redraw once a minute would throw away the scroll position and the
+schedule panel with it.
+
+**The ticks.** A `task` or `fixed` row is a `<button>`; an `idle` row is a
+`<div>`, because it is the absence of an event and there is nothing there to
+have finished. A tick is stored on the event (`done`) and is a mark on the
+drawing and nothing else — CAL has no network by contract (§8) and a stored
+event carries a resolved name, not a task id. Ticking the same task on DO is
+what closes it. Re-exporting the day resets them, because re-exporting replaces
+the day.
+
+### The day's slots, filled from DO
+
+PLAN builds a day and sends it, and that is still how a day gets here. But the
+day PLAN sent is the day as it looked the night before, and by the morning the
+blocks on DO are the ones actually happening — re-exporting the whole day to
+move two of them is a great deal of ceremony for a small correction.
+
+So: **the slots this day already has, filled from the block tasks DO is holding
+now.** Only the slots — a `fixed` template row is the shape of the day — and
+only on a day that exists, because `slotsOf(rec)` walks the stored events. CAL
+does not resolve `plan.dayTemplates` and is not going to.
+
+The slot rules are PLAN's, deliberately (§8): a slot another task holds is
+refused **by name** rather than taken away in silence, tapping the slot a task
+already holds gives that hour back, and a task moving to a new slot gives up its
+old one. What is different is the ending — this overwrites every slot on the
+day, so it asks first, and the slots nobody filled go back to `idle`.
+
+**And the day says it was edited here, permanently.** `localEdit` on the record,
+"edited here" in the head. Everywhere else on this screen what is drawn is what
+PLAN resolved and handed over; this breaks that for one day, and a drawing that
+quietly claims to be the plan is the one thing DAY must not be. Nothing is sent:
+the tasks stay as they are in Todoist and the calendar keeps whatever PLAN
+already told it.
+
+`sched` is a gesture, not state — module-level, never persisted, dropped on any
+day change. Same rule as PLAN's `openKey` and DO's move selections.
+
 ### Lower case, deliberately — and the one thing that is not
 
 DAY is the one app that reads lower case throughout. `Prefs.formatDate()` is
@@ -1186,6 +1321,129 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 2.23 — 2026-09-05 — every overlay lets go, DAY runs during the day, and a half of the day is written when someone writes it
+
+**Three bugs that read as three bugs and were one rule: an overlay owns the page
+until it closes.** The pad's backdrop stopped taking pointer events the instant
+its class came off, so the tap that dismissed it also pressed whatever was
+underneath — one tap doing two things, and the second never asked for. The pad
+was drawn without dismissing the system keyboard, so on a form where a text
+field had been answered first it arrived over a keyboard against a visual
+viewport iOS had already shrunk, and a fixed element measured against a viewport
+that has moved has its keys somewhere other than where they look — which is the
+"the calculator makes the whole page bug out and the taps are misaligned"
+report. And the platform's own selection callout (paste / select / select all /
+autofill) had nothing at all that would dismiss it: it stayed up, anchored where
+the field had been rather than where the field now is, over whatever had
+scrolled into that space.
+
+One shell section answers all three. The tap that closes the pad is prevented
+*and* stopped, and the click it would have synthesised is swallowed on its way
+in. `padOpen` blurs whatever is focused before the pad is drawn, so nothing is
+moving by the time it is. And a tap outside a focused field blurs it, on every
+screen in every app — because blurring is the only thing that closes the
+callout, and nothing was blurring. A per-field fix would have been one app
+remembering and seven forgetting.
+
+**A gesture that travelled is not a press.** 2.22.3 took the press *wash* off a
+row scrolled under a finger; the press itself still fired when the finger
+lifted. A pointer that moves more than 12px from where it landed — or a touch
+the browser has already claimed for a scroll, which stops sending `pointermove`
+and is caught on `touchmove` instead — marks the gesture, and the click at the
+end of it never reaches the page.
+
+**The pad says what the number is in.** A pad-owned field is never focused, so
+while you answer it the only things on screen are the pad's label and a number —
+and the label the pad covers is often the only place the unit was written down.
+Cold shower reads `45 s`, weight `64.5 kg`, the walk `4 km`. Declared per field
+with `data-unit` and never inferred: a unit guessed from a label is a unit that
+is wrong on the one field nobody checked. `duration` and `clock` ignore it —
+7h20m and 09:30 are already units.
+
+**LOG's discard now undoes.** The forms do not hold their answers in the DOM:
+the scales, the meds, the meals, the counters, the cold-shower toggle and the
+blocks all write straight into the live record as they are tapped, and `save()`
+only copies the text fields across and flushes the object. So "go back without
+saving" left every one of those edits sitting in the record, and the next write
+from *anywhere* committed them — an entry, a block ticked on DO, the other half
+of the day. The form was discarded and the data was not, which is exactly "I
+went back without saving and it saved anyway", just delayed until something else
+touched the day. Discard re-reads the day from storage, which also keeps
+whatever was legitimately written while the form was open.
+
+**And a half of the day is written when someone wrote it.** `setBlock` files a
+block ticked on DO into the real today's record without the evening form ever
+being opened, and `blocks` counted as evidence that the evening had been filled
+in — so one tick on DO turned the card green, cleared LOG's "!" and extended the
+streak. `saveMorning` / `saveEvening` leave a stamp now, which is authoritative;
+records written before it fall back to the old field scan with `blocks` taken
+out of the evening's. The trade is deliberate and small: an old evening whose
+only content was ticked blocks reads as unwritten. Nothing is deleted — the
+blocks are still in the record, still in the `.md`, still in the reports.
+
+**DAY during the day.** A line across today at the hour it is, summed from the
+same durations the rows are drawn from rather than measured off the DOM, riding
+the shell's existing minute tick. And every `task` or `fixed` row can be ticked
+off — an `idle` row cannot, because it is the absence of an event. A tick is a
+mark on the drawing and nothing else: CAL has no network by contract, and a
+stored event carries a resolved name rather than a task id.
+
+**DAY's slots can be filled from DO.** PLAN builds a day and sends it, and that
+is still how a day gets here — but the day PLAN sent is the day as it looked
+last night, and by morning the blocks on DO are the ones actually happening.
+Re-exporting the whole day through PLAN to move two of them is a lot of ceremony
+for a small correction. So the slots this day already has, filled from the block
+tasks DO is holding now, with PLAN's own slot rules (a slot another task holds
+is refused by name; tapping the one it holds gives that hour back). It
+overwrites every slot, so it asks first, and it marks the day `localEdit` —
+"edited here" in the head, permanently. Everywhere else on this screen what is
+drawn is what PLAN resolved and handed over, and a drawing that quietly claims
+to be the plan is the one thing DAY must not be. Nothing is sent anywhere.
+
+**A block task is the blocks section's, not also a today row.** The two are
+separate questions asked of Todoist, and a task due today carrying `@b1`
+answered both — so it was drawn twice, counted twice in the tab badge, and
+tickable in one place while the other still showed it open. Dropped at draw
+time, not fetch time, so switching the blocks section off hands it straight back
+with no refetch.
+
+**How far back "show done" reaches is a setting.** Day (what it always did),
+week or month. DO's own cache is one day deep and always was; the earlier days
+come from LOG, where the tick already files the name. They are names under a
+date rather than tiles — a tile would offer a tick that cannot exist, since
+reopening a block finished last Tuesday is Todoist's job.
+
+**LOG's selected day is inverted rather than ringed**, and the day numbers are
+bold. A ring was a third border weight in a grid that already has a hairline and
+today's accent, and at 5mm across the difference between 1px and 1.5px is not a
+difference you can see. Swapping the ground for the ink is unmistakable at any
+size and cannot be confused with the written-day tints, because it is not a tint
+of anything.
+
+**STORE**: an empty list says "no items yet" and stops; the field says "add
+item".
+
+**Verified** — `test/harness.mjs`, 572 checks, all green, 48 new. The unit
+appearing per field and only where declared, and a duration left alone. The
+three overlay rules present in the shell rather than in one app. Discard leaving
+the record untouched and a later write from elsewhere unable to resurrect it,
+cancel keeping you on the form. A blocks-only evening reading as unwritten and
+saving the form stamping it, with the blocks themselves untouched. The now line
+landing inside the hour it names and absent on a day that is not today; a task
+row and a template row tickable and an idle row not; the tick persisting. The
+schedule panel listing DO's blocks against the day's own slots, refusing a taken
+slot by name, giving an hour back, asking before it overwrites, rewriting every
+slot, leaving the template's hours alone, marking the day edited — and CAL still
+containing no URL, no `fetch(` and no `XMLHttpRequest`. A block-labelled task
+kept out of the today list and handed back when the section is switched off. The
+done window at day / week / month, reaching into LOG's records, drawn as names
+and not as buttons, and persisted.
+
+**Still not verified by me**: how any of it looks or feels under a finger. The
+Chrome extension is still not connected, so the touch behaviours in particular —
+the swallowed tap, the blur, the 12px slop — are argued from the platform's
+semantics and held in place by structural checks, not driven under a thumb.
 
 ### 2.22.3 — 2026-09-04 — nothing is pressed while you scroll, and a chart that opens
 

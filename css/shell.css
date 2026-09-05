@@ -312,6 +312,11 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .npad-val.empty{color:var(--mu)}
 .npad-val.bad{color:var(--re)}
+/* The unit rides with the number rather than under it, at the weight of a
+   caption: 64.5 is the answer, kg is what it is in. Declared per field with
+   data-unit — see "the unit the number is in" in shell.js. */
+.npad-unit{font:400 15px/1 var(--mono);letter-spacing:.04em;color:var(--mu);margin-left:5px}
+.npad-val.empty .npad-unit,.npad-val.bad .npad-unit{display:none}
 .npad-note{font:400 10px/1.4 var(--mono);color:var(--mu);letter-spacing:.06em;
   margin-top:6px;min-height:14px}
 .npad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(5px * var(--dens));margin-bottom:8px}

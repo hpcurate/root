@@ -855,6 +855,21 @@ window.Shell = (function () {
   const PAD_KINDS = ['int', 'decimal', 'duration', 'clock'];
 
   let padTarget = null, padKind = 'int', padBuf = '', padFresh = true;
+  let padUnit = '';
+
+  /* ── The unit the number is in ──────────────────────────────────────────────
+     A pad-owned field is never focused, so the only thing on screen while you
+     answer it is the pad: the label it is asking under, and a number. "45" is
+     not an answer, "45 s" is, and the difference matters most on exactly the
+     fields where the unit is not in the label you can still see — the pad
+     covers the bottom half of the form.
+
+     `data-unit` on the input declares it. Nothing is inferred: a unit guessed
+     from a label is a unit that is wrong on the one field nobody checked, and
+     a number with the wrong unit under it is worse than a bare number. The
+     duration and clock kinds ignore it — they already read as 7h20m and 09:30,
+     which is what a unit is for. */
+  const padUnitOf = el => String((el && el.dataset && el.dataset.unit) || '').trim().slice(0, 6);
 
   function padKindOf(el) {
     if (!el || el.tagName !== 'INPUT' || el.disabled || el.readOnly) return null;
@@ -933,7 +948,7 @@ window.Shell = (function () {
       const t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
       return { value: t, read: t, note: '' };
     }
-    return { value: buf, read: buf, note: '' };
+    return { value: buf, read: buf, unit: buf ? padUnit : '', note: '' };
   }
 
   /* The label the field is asking under, so the pad says what it is for. */
@@ -947,7 +962,11 @@ window.Shell = (function () {
   function padPaint() {
     const r = padRead(padKind, padBuf);
     if (npadVal) {
+      /* The unit is a span rather than part of the string: it is set smaller
+         and quieter than the number, so 64.5 stays the thing being read. */
       npadVal.textContent = r.read || '0';
+      if (r.unit) npadVal.appendChild(Object.assign(document.createElement('span'),
+                                                    { className: 'npad-unit', textContent: r.unit }));
       npadVal.classList.toggle('empty', !r.read);
       npadVal.classList.toggle('bad', !!r.bad);
     }
@@ -966,7 +985,13 @@ window.Shell = (function () {
 
   function padOpen(el, kind) {
     if (padTarget && padTarget !== el) padClose();
+    /* Nothing may be focused while the pad is up. A live system keyboard has
+       already shrunk the visual viewport, and the pad is fixed — see the note
+       under "An overlay owns the page" below. */
+    const active = document.activeElement;
+    if (active && active !== document.body && active.blur) { try { active.blur(); } catch {} }
     padTarget = el; padKind = kind; padBuf = padSeed(el, kind); padFresh = true;
+    padUnit = (kind === 'duration' || kind === 'clock') ? '' : padUnitOf(el);
     // the field is not focused, so it says which one is being edited itself
     el.classList.add('pad-on');
     if (npadLabel) npadLabel.textContent = padLabelOf(el);
@@ -980,7 +1005,7 @@ window.Shell = (function () {
       padTarget.dispatchEvent(new Event('change', { bubbles: true }));
       padTarget = null;
     }
-    padBuf = '';
+    padBuf = ''; padUnit = '';
     if (npadBack) npadBack.classList.remove('on');
     if (npadEl) npadEl.classList.remove('on');
   }
@@ -1030,19 +1055,115 @@ window.Shell = (function () {
   }
   if (npadBack) npadBack.addEventListener('click', padClose);
 
+  /* ── An overlay owns the page until it closes ───────────────────────────────
+     Three bugs that read as three bugs and are one rule.
+
+     The pad is `position:fixed` over a backdrop, and the tap that dismissed it
+     also pressed whatever was under it: the backdrop stopped taking pointer
+     events the instant the class came off, so the rest of the same gesture
+     landed on the form. One tap did two things, and the second one was never
+     asked for. A tap that closes an overlay now does *only* that — the
+     pointerdown is prevented and stopped, and the click it would have
+     synthesised is swallowed on its way in.
+
+     The system keyboard is the same problem wearing the platform's clothes.
+     The pad was drawn without dismissing it, so on a form where a text field
+     had been answered first the pad arrived over a keyboard, against a visual
+     viewport iOS had already shrunk — and a fixed element measured against a
+     viewport that has moved under it has its keys somewhere other than where
+     they look. That is the "the calculator makes the whole page bug out and
+     the taps are misaligned" report, and the fix is that opening the pad blurs
+     whatever is focused first, so nothing is moving by the time it is drawn.
+
+     And a tap outside a focused field now blurs it, everywhere, which is what
+     takes the platform's own selection callout (paste / select / select all /
+     autofill) off the screen. It had no dismissal of its own: it stayed up,
+     anchored where the field had been rather than where the field now is, over
+     whatever had scrolled into that space. Blurring is the only thing that
+     closes it, and nothing was blurring. */
+  const FOCUSABLE_TEXT = 'input,textarea,select,[contenteditable=""],[contenteditable="true"]';
+  function blurField(el) { try { el.blur(); } catch {} }
+  /* The tap that dismissed something is spent. `preventDefault` stops the
+     synthesised click on most paths and `padSwallowUntil` covers the ones
+     where it does not — a click arriving late, from a touch sequence that had
+     already had a default prevented earlier, is exactly the shape that got
+     through before. */
+  let padSwallowUntil = 0;
+
   /* The tap that opens the pad, refused: no focus means no keyboard, no
      scroll-into-view and no viewport resize — see the note above. */
   document.addEventListener('pointerdown', e => {
     const el = e.target;
-    if (!el || el.tagName !== 'INPUT') {
-      // a tap anywhere else that is not the pad closes it
-      if (padIsOpen() && el && el.closest && !el.closest('#npad')) padClose();
+    const inPad = !!(el && el.closest && el.closest('#npad'));
+    /* A swallow belongs to the gesture that armed it and to no other. A new
+       pointerdown can only arrive after the previous gesture's click, so
+       anything still pending here is stale — and left pending it would eat a
+       fast second tap instead. */
+    padSwallowUntil = 0;
+
+    // 1. the pad is open and this tap is not on it: it closes the pad, and stops
+    if (padIsOpen() && !inPad) {
+      e.preventDefault();
+      e.stopPropagation();
+      padSwallowUntil = Date.now() + 700;
+      padClose();
       return;
     }
+    if (inPad) return;
+
+    // 2. a tap outside the focused field ends it — which is what closes the
+    //    platform's own callout, on every screen and in every app
+    const active = document.activeElement;
+    if (active && active !== el && active !== document.body &&
+        active.matches && active.matches(FOCUSABLE_TEXT) &&
+        !(el && el.closest && el.closest('label') && el.closest('label').contains(active))) {
+      blurField(active);
+    }
+
+    // 3. a numeric field: the pad answers it, and nothing else moves while it does
+    if (!el || el.tagName !== 'INPUT') return;
     const kind = padArm(el);
-    if (!kind || !padWanted()) { if (padIsOpen() && el !== padTarget) padClose(); return; }
+    if (!kind || !padWanted()) return;
     e.preventDefault();
     padOpen(el, kind);
+  }, true);
+
+  /* ── A gesture that moved is never a press ──────────────────────────────────
+     2.22.3 took the press *wash* off anything scrolled under a finger; this is
+     the other half — the press itself. A finger that lands on a row and then
+     drags is scrolling, and the click the browser synthesises when it lifts is
+     not something the person asked for. The slop is generous: a tap that is a
+     tap does not travel 12px, and a scroll that is a scroll passes it in the
+     first frame. */
+  const TAP_SLOP = 12;
+  let gx = 0, gy = 0, gMoved = false, gDown = false;
+  function gestureMoved() { gMoved = true; }
+  document.addEventListener('pointerdown', e => {
+    gx = e.clientX; gy = e.clientY; gMoved = false; gDown = true;
+  }, true);
+  document.addEventListener('pointermove', e => {
+    if (gMoved) return;
+    if (Math.abs(e.clientX - gx) > TAP_SLOP || Math.abs(e.clientY - gy) > TAP_SLOP) gestureMoved();
+  }, true);
+  // a touch the browser has already claimed for a scroll stops sending pointermove
+  document.addEventListener('touchmove', gestureMoved, { passive: true, capture: true });
+  document.addEventListener('pointercancel', gestureMoved, true);
+  /* A click with no pointer behind it is the keyboard's — Enter on a focused
+     button, or a module calling .click(). It must never inherit the last
+     finger's verdict, so a key press ends whatever gesture was open. */
+  document.addEventListener('keydown', () => { gDown = false; }, true);
+
+  /* Both swallows in one place, before anything else sees the click: the one
+     that closed the pad, and the one that ended a drag. Each is consumed here
+     whether or not it fires, so neither can reach the click after next. */
+  document.addEventListener('click', e => {
+    const inPad = !!(e.target && e.target.closest && e.target.closest('#npad'));
+    const fromPad  = Date.now() < padSwallowUntil;
+    const fromDrag = gDown && gMoved && !inPad;   // the pad's keys fired on pointerdown already
+    padSwallowUntil = 0; gDown = false;
+    if (!fromPad && !fromDrag) return;
+    e.preventDefault();
+    e.stopPropagation();
   }, true);
   /* Reached without a pointer — Tab, or a module calling focus(). The pad opens
      anyway; the field keeps its focus here, which is right for a keyboard user

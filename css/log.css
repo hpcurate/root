@@ -77,7 +77,7 @@
 .ns-log .lc-c{display:flex;align-items:center;justify-content:center;min-width:0;
   background:var(--s1);border:max(.5px, calc(var(--bw) * .5)) solid var(--bd);
   border-radius:var(--r1);
-  color:var(--mu);font:400 9.5px/1 var(--mono);cursor:pointer;padding:0;
+  color:var(--mu);font:700 9.5px/1 var(--mono);cursor:pointer;padding:0;
   transition:background .12s,border-color .12s,color .12s}
 .ns-log .lc-c.pad{background:none;border-color:transparent;pointer-events:none}
 /* A written day is a **tint**, not a fill. A solid accent block was the
@@ -91,10 +91,16 @@
   border-color:color-mix(in srgb,var(--y) 70%,var(--bd));color:var(--tx)}
 .ns-log .lc-c.future{opacity:.3;pointer-events:none}
 .ns-log .lc-c.today{border-color:var(--y)}
-/* The selected day is the one the two arrows in the band are pointing at. Its
-   ring is the one heavy line in the grid, and it can be, because there is
-   exactly one of it. */
-.ns-log .lc-c.sel{box-shadow:0 0 0 1.5px var(--y);border-color:var(--y)}
+/* The selected day is the one the two arrows in the band are pointing at, and
+   it is marked by being **inverted** rather than ringed. A ring was a third
+   border weight in a grid that already has two (the hairline, and today's
+   accent), and at 5mm across the difference between a 1px line and a 1.5px one
+   is not a difference you can see — it read as "this cell is slightly odd"
+   rather than as "this is the day you are on". Swapping the ground for the ink
+   is unmistakable at any size, needs no extra weight, and is the one thing in
+   the grid that cannot be confused with the written-day tints, because it is
+   not a tint of anything. It beats .f1/.f2 by being declared after them. */
+.ns-log .lc-c.sel{background:var(--tx);border-color:var(--tx);color:var(--bg);box-shadow:none}
 .ns-log .lc-c:active{background:var(--press)}
 
 /* ── The fortnight ───────────────────────────────────────────────────────────

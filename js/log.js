@@ -236,7 +236,28 @@ function go(id) {
 function goBack() {
   if (!dirty) { go('home'); return; }
   Shell.ask({ title: 'Go back without saving?', body: 'What you have typed on this form is lost.',
-              yes: 'discard', danger: true, done: a => { if (a) go('home'); } });
+              yes: 'discard', danger: true, done: a => { if (a) discard(); } });
+}
+
+/* ── Discard has to undo, not merely decline to save ──────────────────────────
+   The forms do not hold their answers in the DOM and read them at the end. The
+   scales, the meds, the meals, the counters, the cold-shower toggle and the
+   blocks all write straight into `data` as they are tapped — `save()` only
+   copies the text fields across and flushes the object. So "go back without
+   saving" left every one of those edits sitting in the live record, and the
+   next write from *anywhere* committed them: an entry added on the entries
+   screen, a block ticked on DO (`setBlock` persists the same object), the
+   other half of the day being saved. The form was discarded and the data was
+   not, which is the exact shape of "I went back without saving and it saved
+   anyway" — just delayed until something else touched the day.
+
+   Re-reading the day from storage is the whole fix, and it is also the honest
+   one: whatever was legitimately written while the form was open (a block
+   ticked on DO lands in storage, not only in memory) survives, because storage
+   is what is being restored from. */
+function discard() {
+  initData();      // the day as it is on disk, not as the form left it
+  go('home');      // …and go() repaints whichever form is opened next from it
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -246,14 +267,33 @@ function goBack() {
    grow. Any recorded value in that half now counts. */
 const has = v => v !== '' && v !== null && v !== undefined && v !== false && v !== 0 &&
                  !(Array.isArray(v) && !v.length);
+/* ── "Written" means someone wrote it ─────────────────────────────────────────
+   This used to be "does this half hold any value at all", which was right
+   while every value on it came from the form. It stopped being right when
+   `setBlock` arrived: a block ticked on DO writes itself into the real today's
+   `e.blocks` without the evening form ever being opened, and `blocks` was in
+   the list — so ticking one block off DO marked the evening written, turned
+   the card green, cleared LOG's "!" and extended the streak for an evening
+   nobody had filled in.
+
+   The answer is a stamp the *save* leaves, which is the only event that means
+   "this was filled in". It is authoritative when present. Records written
+   before it have none, so they still fall back to the field scan — with
+   `blocks` taken out of the evening's, since that is the one field the app can
+   write on its own and a day whose entire evening is blocks was DO's doing.
+   (The trade is deliberate and small: an old evening whose only content was
+   ticked blocks now reads as unwritten. Nothing is deleted — the blocks are
+   still in the record, still in the .md and still in the reports' counts.) */
 function morningLogged(d) {
   const m = d?.m;
+  if (m && m.saved) return true;
   return !!m && (['wt','sl','nrg','mood','wkg','km','wo','tkg','tmin'].some(k => has(m[k])) ||
                  m.cs_on === true || m.cs_on === false);
 }
 function eveningLogged(d) {
   const e = d?.e;
-  return !!e && (['kme','nrg','mood','stress','meals','blocks',
+  if (e && e.saved) return true;
+  return !!e && (['kme','nrg','mood','stress','meals',
                   'caf_c','caf_ed','cur_mix','cur_prod','cur_cont','bmix'].some(k => has(e[k])) ||
                  medKeys().some(k => has(e['meds_' + k])) ||
                  e.meds === 'yes');
@@ -267,6 +307,23 @@ function dayLogged(d) {
 }
 function readDay(iso) {
   try { return JSON.parse(localStorage.getItem('log_' + iso)); } catch { return null; }
+}
+
+/* ── The blocks that were finished, by day ────────────────────────────────────
+   DO ticks a block and `setBlock` files the name under that day here, so LOG is
+   already the only place a *past* day's completed blocks exist — DO's own cache
+   is one day deep by design and is emptied by the sweep. This is the read side
+   of that, for DO's done-blocks window: newest day first, days with nothing
+   left out, today never included (DO has today live, with its ids and colours,
+   and a name repeated underneath it would read as a second, lesser copy). */
+function blocksBefore(days) {
+  const n = Math.max(0, +days || 0), out = [];
+  for (let i = 1; i <= n; i++) {
+    const iso = dateOffset(REAL_TODAY, -i);
+    const names = readDay(iso)?.e?.blocks;
+    if (Array.isArray(names) && names.length) out.push({ date: iso, blocks: names.slice() });
+  }
+  return out;
 }
 function calcStreak() {
   let streak = 0, d = REAL_TODAY;
@@ -973,7 +1030,8 @@ function saveMorning() {
              nrg:scGet('sc-nrg-m'), mood:scGet('sc-mood-m'), cs_on,
              cs: cs_on ? $id('m-cs').value : '',
              wkg:num($id('m-wkg').value), km:num($id('m-km').value),
-             wo:woGet(), tkg:$id('m-tkg').value, tmin:$id('m-tmin').value };
+             wo:woGet(), tkg:$id('m-tkg').value, tmin:$id('m-tmin').value,
+             saved: Date.now() };
   save(); toast('Morning saved'); go('home');
 }
 
@@ -990,6 +1048,7 @@ function saveEvening() {
   data.e.nrg    = scGet('sc-nrg-e');
   data.e.mood   = scGet('sc-mood-e');
   data.e.stress = scGet('sc-stress');
+  data.e.saved  = Date.now();
   save(); toast('Evening saved'); go('home');
 }
 
@@ -2047,6 +2106,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
-         setMedia, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
+         setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
          alertShown, dismissAlert };
 })();

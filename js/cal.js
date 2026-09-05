@@ -101,11 +101,13 @@ function write(day) {
       project: e.project || null, projectLabel: e.projectLabel || null,
       section: e.section || null,
       color: e.color || null,
+      done: false,
     })),
   };
   prune();
   save();
   sel = day.day;                            // land on what was just planned
+  sched = null;
   render();
   return true;
 }
@@ -134,6 +136,7 @@ function pick(iso) {
   if (!isoRe.test(String(iso || ''))) return;
   Prefs.tap();
   sel = iso;
+  sched = null;              // the panel is about the day it was opened on
   render();
 }
 
@@ -150,11 +153,39 @@ function relLabel(iso) {
   return null;
 }
 
+/* The index in the record travels with the event, because a tick has to be
+   written back to the row it came from and the visible set is a filtered one —
+   two dials can take rows out from under it between one draw and the next. */
 function visibleEvents(rec) {
   const showFixed = Prefs.get('calShowFixed') !== false;
   const showIdle  = Prefs.get('calShowIdle')  !== false;
-  return (rec.events || []).filter(e =>
+  return (rec.events || []).map((e, i) => ({ e, i })).filter(({ e }) =>
     e.kind === 'task' || (e.kind === 'fixed' && showFixed) || (e.kind === 'idle' && showIdle));
+}
+
+/* ── Ticking a row off ─────────────────────────────────────────────────────────
+   A day you can only read is a day you re-read: the question at four in the
+   afternoon is not "what was planned" but "what is left", and answering it
+   meant holding the first half of the day in your head. A tick answers it on
+   the drawing.
+
+   It is a mark on the record and nothing else. CAL has no network by contract
+   (§8 — a harness check fails on any fetch in this file), so ticking a task
+   here does not close it in Todoist and cannot: the row is a *drawing* of a
+   task, resolved and frozen at export time, and it does not carry the id that
+   would be needed. The same task ticked on DO is the one that closes it.
+
+   An idle row is not tickable. It is the absence of an event — there is
+   nothing there to have finished — and offering a tick on one would be
+   offering an action that means nothing. */
+const tickable = e => e && (e.kind === 'task' || e.kind === 'fixed');
+function toggleEvent(i) {
+  const rec = sel && DB.days[sel];
+  const e = rec && rec.events && rec.events[+i];
+  if (!e || !tickable(e)) return;
+  e.done = !e.done;
+  Prefs.tap();
+  save(); render();
 }
 
 /* ── Left and right, one day at a time ────────────────────────────────────────
@@ -216,6 +247,44 @@ function wakeSteps() {
   stepsTimer = setTimeout(() => el.classList.add('idle'), secs * 1000);
 }
 
+/* ── Where "now" falls on the drawing ─────────────────────────────────────────
+   The rows are stacked in order and each one's height is its duration, so the
+   day already *is* a time axis — it just had nothing marking the present on it,
+   which is the one piece of information a day-shaped drawing is uniquely good
+   at carrying. The line is drawn only on today, and only while now is inside
+   the day's span: before the first row and after the last one it would be a
+   line pinned to an edge, saying "the day has not started" in the most
+   ambiguous way available.
+
+   The offset is computed from the same numbers the rows are drawn from rather
+   than measured off the DOM, so it cannot disagree with them, and it survives a
+   row being hidden by a dial (a hidden row contributes no height, and neither
+   does it here). A gap between two rows — which the template does not currently
+   produce, but nothing stops it from producing — puts the line at the top of
+   the row that is next. */
+const HHMM = /^(\d{1,2}):(\d{2})$/;
+const minsOf = t => { const m = HHMM.exec(String(t || '')); return m ? +m[1] * 60 + +m[2] : null; };
+function nowOffset(evs, per) {
+  if (sel !== Shell.today()) return null;
+  const d = new Date(), now = d.getHours() * 60 + d.getMinutes();
+  let y = 0;
+  for (const { e } of evs) {
+    const h = Math.max(18, Math.round((e.dur / 60) * per));
+    const a = minsOf(e.from);
+    // a row that runs past midnight owns the rest of the clock, not a wrapped span
+    const b = a == null ? null : a + (+e.dur || 0);
+    if (a == null || b == null) { y += h; continue; }
+    if (now < a) return y;                       // in the gap before this row
+    if (now < b) return y + Math.round(h * ((now - a) / Math.max(1, b - a)));
+    y += h;
+  }
+  return null;                                   // the day is over
+}
+function nowLabel() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 /* One row per event, its height the duration — so an hour looks like an hour
    and the day reads as a shape rather than as a list. The height is set from a
    dial rather than a literal, and the box uses the tokens like every other
@@ -238,11 +307,12 @@ function dayHTML() {
   const per = Math.max(20, +Prefs.get('calHour') || 56);
   const names = Prefs.get('calCalNames') === true;
   if (!evs.length) {
-    return dayHead(rec) + `<div class="cal-empty card"><div class="ce-title">every row is switched off</div>
+    return dayHead(rec) + schedHTML(rec) + `<div class="cal-empty card"><div class="ce-title">every row is switched off</div>
       <div class="ce-note">the template events and the free slots are both hidden — turn one back on
         under settings → apps → cal.</div></div>`;
   }
-  return dayHead(rec) + `<div class="cal-day" style="--cal-hour:${per}px">${evs.map(e => {
+  const nowY = nowOffset(evs, per);
+  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day" style="--cal-hour:${per}px">${evs.map(({ e, i }) => {
     const h = Math.max(18, Math.round((e.dur / 60) * per));
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
                 : e.kind === 'fixed' ? fixedColor(e.cal) : null;
@@ -250,24 +320,158 @@ function dayHTML() {
       ? [e.slot, e.projectLabel || e.project, names ? e.cal : null].filter(Boolean).join(' · ')
       : e.kind === 'idle' ? `${e.slot} · ${IDLE_LABEL}`
       : (names && e.cal) ? e.cal : '';
-    return `<div class="cal-ev ${e.kind}"${color ? ` style="--ev-color:${esc(color)};--ev-h:${h}px"` : ` style="--ev-h:${h}px"`}>
+    /* A row you can tick is a button; a row you cannot is not one, rather than
+       a button that refuses — the two must not feel the same under a finger. */
+    const tag = tickable(e) ? 'button' : 'div';
+    const style = ` style="${color ? `--ev-color:${esc(color)};` : ''}--ev-h:${h}px"`;
+    return `<${tag} class="cal-ev ${e.kind}${e.done ? ' done' : ''}"${style}${
+      tickable(e) ? ` data-act="tick" data-i="${i}" aria-pressed="${!!e.done}"` : ''}>
       <span class="ev-at">${esc(e.from)}<b>${esc(e.to)}${e.over ? ' +1' : ''}</b></span>
       <span class="ev-box">
         <span class="ev-name">${esc(e.name)}</span>
         ${meta ? `<span class="ev-meta">${esc(meta)}</span>` : ''}
       </span>
-    </div>`;
-  }).join('')}</div>` + notesHTML(rec);
+      ${tickable(e) ? `<span class="ev-check"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
+    </${tag}>`;
+  }).join('')}${nowY == null ? '' :
+    `<div class="cal-now" id="cal-now" style="--now-y:${nowY}px" aria-hidden="true"><span>${esc(nowLabel())}</span></div>`
+  }</div>` + notesHTML(rec);
 }
 
 /* The day itself is named by the nav above; this is only what it is made of.
    Lower case throughout, and deliberately not `var(--caps)` — see cal.css. */
 function dayHead(rec) {
-  const tasks = (rec.events || []).filter(e => e.kind === 'task').length;
+  const evs = rec.events || [];
+  const tasks = evs.filter(e => e.kind === 'task').length;
+  const done  = evs.filter(e => tickable(e) && e.done).length;
+  /* "Edited here" is not decoration. Everywhere else on this screen, what is
+     drawn is what PLAN resolved and sent — that is the whole claim the app
+     makes (§9). Filling the slots from DO breaks that claim for this day, so
+     the day says so, permanently, rather than quietly showing a schedule
+     Google was never told about. */
   return `<div class="cal-head">
     <div class="ch-meta">${esc(lower(rec.template))} · from ${esc(rec.start)} · ${tasks} task${tasks === 1 ? '' : 's'}${
-      rec.mode === 'blocks' ? ' · blocks only' : ' · full schedule'}</div>
-    <button class="ch-clear" data-act="clear-day">clear this day</button>
+      rec.mode === 'blocks' ? ' · blocks only' : ' · full schedule'}${
+      done ? ` · ${done} done` : ''}${rec.localEdit ? ' · edited here' : ''}</div>
+    <div class="ch-acts">
+      ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">schedule from do</button>' : ''}
+      <button class="ch-clear" data-act="clear-day">clear this day</button>
+    </div>
+  </div>`;
+}
+
+/* ── The day's blocks, filled from DO ──────────────────────────────────────────
+   PLAN builds a day and sends it; that is the way a day gets here and it is not
+   changing. But the day PLAN sent is the day as it looked the night before, and
+   by the morning the blocks on DO are the ones that are actually happening —
+   they came from Todoist, they are what got labelled @b1 in the end, and
+   re-exporting the whole day through PLAN to move two of them is a great deal
+   of ceremony for a small correction.
+
+   So: the slots this day already has, filled from the block tasks DO is holding
+   right now. Only the slots — a `fixed` template row is the shape of the day and
+   is not up for negotiation here — and only on a day that exists, because the
+   slots come from the record rather than from `plan.dayTemplates`. CAL does not
+   resolve a template; it never has, and a day drawn from one that was never sent
+   anywhere would be a day this app is not allowed to claim.
+
+   The slot rules are PLAN's, deliberately (§8): a slot one task holds is refused
+   to another, by name, rather than taken away in silence, and tapping the slot a
+   task already holds gives it back. What is different is the ending — this
+   overwrites, so it asks first, and it marks the day as edited here afterwards.
+
+   `sched` is a gesture, not state: module-level, never persisted, dropped on any
+   day change. Same rule as PLAN's `openKey` and DO's move selections. */
+let sched = null;                    // { picks: { slot: task } } while the panel is open
+
+function slotsOf(rec) {
+  const out = [];
+  (rec && rec.events || []).forEach(e => { if (e.slot && !out.includes(e.slot)) out.push(e.slot); });
+  return out;
+}
+function doBlocks() {
+  return (window.DO && DO.blockTasks) ? DO.blockTasks().filter(t => t && t.content) : [];
+}
+function openSched() {
+  const rec = sel && DB.days[sel];
+  if (!rec || !slotsOf(rec).length) { Shell.toast('this day has no block slots'); return; }
+  if (!doBlocks().length) { Shell.toast('no blocks on do — fetch them there first'); return; }
+  sched = { picks: {} };
+  Prefs.tap(); render();
+}
+function closeSched() { sched = null; Prefs.tap(); render(); }
+
+/* Keyed by slot rather than by task, because the slot is the thing that is
+   exclusive and the refusal has to name the task that already holds it. */
+function pickSlot(id, slot) {
+  if (!sched) return;
+  const t = doBlocks().find(x => String(x.id) === String(id));
+  if (!t) return;
+  const held = sched.picks[slot];
+  if (held && String(held.id) === String(id)) { delete sched.picks[slot]; Prefs.tap(); render(); return; }
+  // PLAN's phrasing, because it is PLAN's rule (§8) and the two panels should
+  // refuse in the same words
+  if (held) { Shell.toast(`${slot} is taken — by ${held.content}`); return; }
+  // one task, one slot: taking a new one gives the old one back
+  Object.keys(sched.picks).forEach(k => { if (String(sched.picks[k].id) === String(id)) delete sched.picks[k]; });
+  sched.picks[slot] = t;
+  Prefs.tap(); render();
+}
+
+function applySched() {
+  const rec = sel && DB.days[sel];
+  if (!rec || !sched) return;
+  const picks = sched.picks, n = Object.keys(picks).length;
+  if (!n) return;
+  const name = lower(Prefs.formatDate(sel, 'short'));
+  Shell.confirm(
+    `Put ${n} block${n === 1 ? '' : 's'} into ${name}? Every slot on this day is rewritten — the ones you have not filled go back to ${IDLE_LABEL}. Nothing is sent anywhere: the tasks stay as they are in Todoist, and the calendar keeps whatever PLAN already told it.`,
+    () => {
+      const r = DB.days[sel];
+      if (!r) return;
+      r.events = (r.events || []).map(e => {
+        if (!e.slot) return e;                       // the template's own hours are not ours
+        const t = picks[e.slot];
+        if (!t) return Object.assign({}, e, { kind:'idle', name:e.slot, project:null,
+                                              projectLabel:null, section:null, color:null, done:false });
+        return Object.assign({}, e, {
+          kind:'task', name:String(t.content), project:'todoist',
+          projectLabel: t.tag || 'todoist', section:null,
+          color: t.color || null, done:false });
+      });
+      r.localEdit = Date.now();
+      sched = null;
+      save(); render(); renderSettings();
+      Shell.toast(`${n} block${n === 1 ? '' : 's'} scheduled`);
+    });
+}
+
+function schedHTML(rec) {
+  if (!sched) return '';
+  const slots = slotsOf(rec), tasks = doBlocks();
+  const n = Object.keys(sched.picks).length;
+  return `<div class="cal-sched card">
+    <div class="cs-head">
+      <span class="cs-title">schedule from do</span>
+      <button class="cs-close" data-act="sched-close">cancel</button>
+    </div>
+    <div class="cs-note">the blocks do is holding, put into this day's slots. every slot is
+      rewritten — what you leave empty goes back to ${esc(IDLE_LABEL)}.</div>
+    ${tasks.map(t => `<div class="cs-row">
+        <div class="cs-task" style="--cs-c:${esc(t.color || '#6b6b6b')}">
+          <span class="cs-name">${esc(t.content)}</span>
+          <span class="cs-tag">@${esc(t.block)}${t.tag ? ` · ${esc(t.tag)}` : ''}${t.done ? ' · done' : ''}</span>
+        </div>
+        <div class="cs-slots">${slots.map(sl => {
+          const held = sched.picks[sl];
+          const on = held && String(held.id) === String(t.id);
+          const taken = held && !on;
+          return `<button class="cs-slot${on ? ' on' : ''}${taken ? ' taken' : ''}"
+            data-act="sched-pick" data-id="${esc(t.id)}" data-slot="${esc(sl)}">${esc(sl)}</button>`;
+        }).join('')}</div>
+      </div>`).join('')}
+    <button class="cs-go" data-act="sched-go"${n ? '' : ' disabled'}>${
+      n ? `schedule ${n} block${n === 1 ? '' : 's'}` : 'pick a slot'}</button>
   </div>`;
 }
 
@@ -339,6 +543,11 @@ document.addEventListener('click', e => {
   if (act === 'to-plan')   { Prefs.tap(); Shell.TABS.includes('plan') ? Shell.go('plan') : Shell.open('plan'); return; }
   if (act === 'clear')     { clearAll(); return; }
   if (act === 'clear-day') { clearDay(); return; }
+  if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
+  if (act === 'sched')       { openSched(); return; }
+  if (act === 'sched-close') { closeSched(); return; }
+  if (act === 'sched-pick')  { pickSlot(t.dataset.id, t.dataset.slot); return; }
+  if (act === 'sched-go')    { applySched(); return; }
 });
 
 /* Any touch on DAY brings the stepper back — including one on the stepper
@@ -362,10 +571,30 @@ Prefs.subscribe(k => {
 
 render();
 
+/* The line has to move, and the shell already has the one timer that notices a
+   minute passing — a second one for this would be a second thing to keep in
+   step (§3). It moves the line and nothing else: a full redraw once a minute
+   would throw away the scroll position and the open panel with it. */
+function paintNow() {
+  const rec = sel && DB.days[sel];
+  // the day is not on screen at all: there is no line to move, and redrawing a
+  // slide nobody is looking at once a minute is exactly what this avoids
+  if (!rec || !document.querySelector('#view-cal .cal-day')) return;
+  const el = document.querySelector('#view-cal #cal-now');
+  const per = Math.max(20, +Prefs.get('calHour') || 56);
+  const y = nowOffset(visibleEvents(rec), per);
+  if (y == null) { if (el) el.remove(); return; }
+  if (!el) { render(); return; }              // it has come back into the day
+  el.style.setProperty('--now-y', y + 'px');
+  const lab = el.querySelector('span');
+  if (lab) lab.textContent = nowLabel();
+}
+
 Shell.register('cal', {
   onShow: () => { load(); render(); },
-  onDayChange: () => { if (prune()) save(); sel = pickDefault(); render(); },
-  home: () => { sel = pickDefault(); render(); if (view) view.scrollTop = 0; },
+  onDayChange: () => { if (prune()) save(); sel = pickDefault(); sched = null; render(); },
+  onMinute: paintNow,
+  home: () => { sel = pickDefault(); sched = null; render(); if (view) view.scrollTop = 0; },
   /* The days are in CAL's own key, not in Config, so search asks here. A task
      is found by its own name — which is how a day is looked for ("when did I
      put the mixing in?") rather than by its date. */
@@ -384,5 +613,6 @@ Shell.register('cal', {
 });
 
 return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
+         toggleEvent, openSched, closeSched, pickSlot, applySched, paintNow,
          days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel };
 })();

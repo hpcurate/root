@@ -243,6 +243,22 @@
   padding:calc(9px * var(--dens)) calc(14px * var(--dens));cursor:pointer;transition:opacity var(--dur-1)}
 .ns-do .bk-move-b:disabled{opacity:.35;cursor:default}
 .ns-do .bk-move-hint{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em;margin-left:auto}
+
+/* ── The days before today, when "show done" reaches past it ──────────────────
+   Names, not tiles. A past day's blocks come from LOG's record and carry no
+   Todoist id, no colour and nothing to tick — drawing them as tiles would offer
+   an action that does not exist. They are a list under a date, at the weight of
+   a caption, sitting below the grid so today keeps the top of the section. */
+.ns-do .bk-past{margin-top:calc(10px * var(--dens));padding-top:calc(9px * var(--dens));
+  border-top:max(.5px, calc(var(--bw) * .5)) solid var(--bd)}
+.ns-do .bk-past-h{font:700 8.5px/1 var(--head);letter-spacing:.14em;text-transform:var(--caps);
+  color:var(--bd-2);margin-bottom:calc(7px * var(--dens))}
+.ns-do .bk-past-d{display:flex;gap:calc(9px * var(--dens));align-items:baseline;
+  padding:calc(4px * var(--dens)) 0;min-width:0}
+.ns-do .bk-past-date{flex:0 0 auto;font:400 9px/1.4 var(--mono);letter-spacing:.06em;
+  color:var(--bd-2);text-transform:var(--caps)}
+.ns-do .bk-past-names{flex:1 1 auto;min-width:0;font:400 10.5px/1.5 var(--mono);
+  color:var(--mu);word-break:break-word}
 .ns-do .bk.sel{background:color-mix(in srgb,var(--bk-c) 32%,var(--s1));box-shadow:0 0 0 2px var(--bk-c)}
 .ns-do .md-group{margin-bottom:calc(16px * var(--dens))}
 .ns-do .md-group:last-of-type{margin-bottom:0}

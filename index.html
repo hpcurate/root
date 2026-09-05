@@ -447,21 +447,21 @@
           <button class="cs-tog-b" onclick="LOG.setColdShower(true)">yes</button>
           <button class="cs-tog-b" onclick="LOG.setColdShower(false)">no</button>
         </div>
-        <div class="hidden" id="cs-sec"><input type="number" inputmode="numeric" id="m-cs" placeholder="seconds…" oninput="LOG.markDirty()" style="margin-top:6px"></div>
+        <div class="hidden" id="cs-sec"><input type="number" inputmode="numeric" data-unit="s" id="m-cs" placeholder="seconds…" oninput="LOG.markDirty()" style="margin-top:6px"></div>
       </div>
       <div class="f" data-field="weight">
         <label class="lbl">Weight (kg) <span class="lbl-hint" id="last-weight"></span></label>
-        <input type="text" inputmode="decimal" autocomplete="off" id="m-wkg" placeholder="75.0" oninput="LOG.markDirty()">
+        <input type="text" inputmode="decimal" data-unit="kg" autocomplete="off" id="m-wkg" placeholder="75.0" oninput="LOG.markDirty()">
       </div>
-      <div class="f" data-field="kmMorning"><label class="lbl">km walked (morning)</label><input type="text" inputmode="decimal" autocomplete="off" id="m-km" placeholder="2.0" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="kmMorning"><label class="lbl">km walked (morning)</label><input type="text" inputmode="decimal" data-unit="km" autocomplete="off" id="m-km" placeholder="2.0" oninput="LOG.markDirty()"></div>
       <hr>
       <div class="f" data-field="workout">
         <label class="lbl">Workout</label>
         <div class="wo4" id="wo4"></div>
       </div>
       <div id="wo-fields" data-field="workout">
-        <div class="f"><label class="lbl">Total kg lifted</label><input type="number" inputmode="numeric" id="m-tkg" placeholder="4500" oninput="LOG.markDirty()"></div>
-        <div class="f"><label class="lbl">Duration (min)</label><input type="number" inputmode="numeric" id="m-tmin" placeholder="65" oninput="LOG.markDirty()"></div>
+        <div class="f"><label class="lbl">Total kg lifted</label><input type="number" inputmode="numeric" data-unit="kg" id="m-tkg" placeholder="4500" oninput="LOG.markDirty()"></div>
+        <div class="f"><label class="lbl">Duration (min)</label><input type="number" inputmode="numeric" data-unit="min" id="m-tmin" placeholder="65" oninput="LOG.markDirty()"></div>
       </div>
       <button class="btn" onclick="LOG.saveMorning()">Save morning</button>
     </div>
@@ -471,7 +471,7 @@
   <div id="s-evening" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Evening</span></div>
     <div class="cnt">
-      <div class="f" data-field="kmEvening"><label class="lbl">km walked (evening)</label><input type="text" inputmode="decimal" autocomplete="off" id="e-kme" placeholder="3.5" oninput="LOG.markDirty()"></div>
+      <div class="f" data-field="kmEvening"><label class="lbl">km walked (evening)</label><input type="text" inputmode="decimal" data-unit="km" autocomplete="off" id="e-kme" placeholder="3.5" oninput="LOG.markDirty()"></div>
       <div class="f" data-field="energyE"><label class="lbl">Energy</label>
         <div class="sc" id="sc-nrg-e">
           <button class="sc-b" onclick="LOG.sc(this,'sc-nrg-e')">1</button>
@@ -737,7 +737,7 @@
 
       <!-- MANUAL ADD -->
       <div class="add-row" style="margin-top:14px">
-        <input type="text" id="manual-input" placeholder="add custom item…" onkeydown="if(event.key==='Enter')STORE.addManual()">
+        <input type="text" id="manual-input" placeholder="add item…" onkeydown="if(event.key==='Enter')STORE.addManual()">
         <button class="add-btn" onclick="STORE.addManual()">+ add</button>
       </div>
 
@@ -1193,6 +1193,10 @@
       <div class="setting-row">
         <span class="setting-lbl">Show block tasks<small>every task due today carrying a block label (PLAN's chips: @b1 @b2 @b3), in the label's Todoist colour</small></span>
         <button class="setting-btn" id="td-blocks-on" onclick="DO.toggleBlocks()">on</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Done blocks show<small>how far back &ldquo;show done&rdquo; reaches &mdash; the earlier days come from LOG's record of what you ticked</small></span>
+        <button class="setting-btn" id="td-blocks-done" onclick="DO.cycleBlocksDone()">day</button>
       </div>
       <div class="f">
         <label class="lbl">Projects and sections <em>one per line · project &gt; section</em></label>

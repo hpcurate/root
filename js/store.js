@@ -547,7 +547,7 @@ function renderList() {
   const tripBtn = $id('trip-btn');
 
   if (!state.list.length) {
-    ul.innerHTML = '<div class="li-empty">no items yet — add from categories, meals, or type manually below</div>';
+    ul.innerHTML = '<div class="li-empty">no items yet</div>';
     countEl.textContent = '0 items';
     banner.classList.remove('show');
     tripBtn.style.display = 'none';

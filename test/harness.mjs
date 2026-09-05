@@ -408,6 +408,8 @@ fetchScript = async (url, opts) => {
     { id: 't2', content: 'old thing',     labels: [],        priority: 1, due: { date: offset(-2) } },
     { id: 't3', content: 'tomorrow',      labels: [],        priority: 2, due: { date: offset(1) } },
     { id: 't4', content: 'no date',       labels: [],        priority: 2, due: null },
+    // due today and carrying a block label: the blocks section's, not the list's
+    { id: 't5', content: 'mix the track',  labels: ['b1', 'curate'], priority: 2, due: { date: today } },
   ].filter(t => !tdClosed.has(t.id)));
   return ok([]);
 };
@@ -419,6 +421,22 @@ w.DO.toggleToday();
 await tick(120);
 const ttRows = d.querySelectorAll('.ns-do #td-today .tt-row');
 check('today block shows due + overdue, not future or dateless', ttRows.length === 2 && !$('.ns-do #td-today').classList.contains('hidden'), 'rows ' + ttRows.length);
+/* 2.23: a task due today carrying @b1 answers both fetches, and used to be
+   drawn in both places — two rows for one task, counted twice in the badge, and
+   tickable in one while the other still showed it open. The blocks section is
+   the more specific of the two and keeps it. */
+const named = () => [...d.querySelectorAll('.ns-do #td-today .tt-name')].map(x => x.textContent);
+check('a block-labelled task is the blocks section\'s, and not also a today row',
+  !named().includes('mix the track') && ttRows.length === 2, named().join(' | '));
+w.DO.toggleBlocks();
+check('… and switching the blocks section off hands it straight back to the list',
+  named().includes('mix the track'), named().join(' | '));
+w.DO.toggleBlocks();
+check('… and back again', !named().includes('mix the track'), named().join(' | '));
+// it has answered its question; the rest of this file was written against a
+// world without it, and a block task left open would sit in the tab's count
+tdClosed.add('t5');
+await w.DO.refreshToday(true); await tick(120);
 check('priority is shown, label chips are not', !!$('.ns-do .tt-row .tt-pri.p1') && !$('.ns-do .tt-row .tt-lbl'));
 const secChip = $('.ns-do .tt-row .tt-sec');
 check("the section is named on a whole-project rule, in the project's colour", !!secChip && secChip.textContent === 'admin | tasks' && /4073ff/.test(secChip.getAttribute('style') || ''),
@@ -572,6 +590,33 @@ check('"hide done" removes the finished tile and keeps the section', d.querySele
   !$('.ns-do #td-blocks').classList.contains('hidden') && /show done/.test($('.ns-do #td-blocks .tt-refresh').textContent));
 w.DO.toggleBlocksHideDone();
 check('"show done" brings it back', d.querySelectorAll('.ns-do #td-blocks .bk').length === 1);
+
+/* 2.23 — how far back "show done" reaches is a setting. DO's own cache is one
+   day deep and always was; the earlier days come from LOG, which is where the
+   tick already files the name. */
+const pastDay = offset(-3);
+w.localStorage.setItem('log_' + pastDay, JSON.stringify({ date: pastDay, m: {}, e: { blocks: ['an older block'] }, entries: [] }));
+check('the window starts at "day", which is exactly what it did before',
+  w.DO.blocksDoneWin() === 'day' && !$('.ns-do #td-blocks .bk-past'), w.DO.blocksDoneWin());
+w.DO.cycleBlocksDone();
+check('… "week" reaches back and names the day each one was finished on',
+  w.DO.blocksDoneWin() === 'week' && !!$('.ns-do #td-blocks .bk-past') &&
+  /an older block/.test($('.ns-do #td-blocks .bk-past').textContent),
+  w.DO.blocksDoneWin() + ' / ' + ($('.ns-do #td-blocks .bk-past')?.textContent.replace(/\s+/g, ' ').trim() || 'nothing'));
+check('… and they are names, not tiles: there is nothing there to try to untick',
+  !d.querySelector('.ns-do #td-blocks .bk-past button') &&
+  !!$('.ns-do #td-blocks .bk-past-date') && !!$('.ns-do #td-blocks .bk-past-names'));
+w.DO.toggleBlocksHideDone();
+check('… "hide done" hides the earlier days too — they are all done',
+  !$('.ns-do #td-blocks .bk-past'));
+w.DO.toggleBlocksHideDone();
+w.DO.cycleBlocksDone();
+check('… "month" reaches further still, and the cycle comes back round to "day"',
+  w.DO.blocksDoneWin() === 'month' && !!$('.ns-do #td-blocks .bk-past') &&
+  (w.DO.cycleBlocksDone(), w.DO.blocksDoneWin() === 'day'), w.DO.blocksDoneWin());
+check('… the setting is on DO\'s own panel, and survives a reload',
+  !!$('#td-blocks-done') && JSON.parse(w.localStorage.getItem('do_todoist_v1')).blocksDone === 'day');
+w.localStorage.removeItem('log_' + pastDay);
 const barFill = $('.ns-do #home-grid .card-bar-fill');
 check('routine bars are tinted by progress, foreground → green', /color-mix\(in srgb, var\(--gr\) \d+%, var\(--tx\)\)/.test(barFill?.getAttribute('style') || ''), barFill?.getAttribute('style'));
 check("it is recorded as a completed block in today's log", JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track'));
@@ -2169,6 +2214,59 @@ check('… in the order the slots are configured, so the table reads the same ev
   (medNote.match(/\| (meds_\w+)/g) || []).join(',') === '| meds_lam,| meds_rit,| meds_m3',
   (medNote.match(/\| (meds_\w+)/g) || []).join(','));
 
+/* ── 2.23: discard has to undo ─────────────────────────────────────────────────
+   The forms write straight into the live record as they are tapped — the
+   scales, the meds, the counters, the blocks — and `save()` only flushes it.
+   So "go back without saving" left the edits in memory and the *next* write
+   from anywhere committed them: an entry, a block ticked on DO, the other half
+   of the day. The form was discarded; the data was not. */
+w.LOG.resetDate();
+$('.ns-log #e-kme').value = '3'; w.LOG.saveEvening();
+const eveRec = () => JSON.parse(w.localStorage.getItem('log_' + today)).e;
+const medWas = eveRec().meds_lam;
+w.LOG.go('evening');
+w.LOG.toggleMed('lam');                        // straight into the live record
+w.LOG.incCaf('c');
+confirmAnswer = true;
+w.LOG.goBack(); settle();
+check('going back without saving leaves the record exactly as it was',
+  eveRec().meds_lam === medWas && !eveRec().caf_c,
+  'lam ' + eveRec().meds_lam + ' / caf ' + eveRec().caf_c);
+w.LOG.addEntry && (($('.ns-log #et') || {}).value = 'a note');
+w.LOG.addEntry();
+check('… and a later write from somewhere else cannot resurrect them',
+  eveRec().meds_lam === medWas && !eveRec().caf_c,
+  'lam ' + eveRec().meds_lam + ' / caf ' + eveRec().caf_c);
+w.LOG.go('evening');
+w.LOG.toggleMed('lam');
+confirmAnswer = false;
+w.LOG.goBack(); settle();
+check('… while cancelling the question keeps you on the form with the edit intact',
+  !!$('.ns-log #s-evening.on'), $('.ns-log .scr.on')?.id);
+confirmAnswer = true;
+w.LOG.goBack(); settle();
+
+/* A half of the day is written when someone wrote it. `setBlock` files a block
+   ticked on DO straight into the real today's record without the evening form
+   being opened, and `blocks` used to count as evidence — so one tick on DO
+   turned the evening card green, cleared LOG's "!" and extended the streak. */
+const blank = { date: offset(-9), m: {}, e: { blocks: ['a block DO ticked'] }, entries: [] };
+w.localStorage.setItem('log_' + blank.date, JSON.stringify(blank));
+w.LOG.pickDate(blank.date);
+check('an evening whose only content is blocks DO ticked is not a written evening',
+  !$('.ns-log #card-e').classList.contains('done'),
+  $('.ns-log #card-e').className);
+$('.ns-log #e-kme').value = '';
+w.LOG.go('evening'); w.LOG.saveEvening();
+check('… and saving the form is what marks it, with a stamp rather than a guess',
+  $('.ns-log #card-e').classList.contains('done') &&
+  typeof JSON.parse(w.localStorage.getItem('log_' + blank.date)).e.saved === 'number',
+  JSON.stringify(JSON.parse(w.localStorage.getItem('log_' + blank.date)).e.saved));
+check('… the blocks themselves are untouched by any of it',
+  JSON.parse(w.localStorage.getItem('log_' + blank.date)).e.blocks.join() === 'a block DO ticked');
+w.localStorage.removeItem('log_' + blank.date);
+w.LOG.resetDate(); w.LOG.go('home');
+
 /* The chrome. */
 w.Prefs.set('chromeBlur', false);
 check('the blur behind the bar is a setting, and off really removes it',
@@ -2246,6 +2344,7 @@ check('… drawn from the sprite like the nav\'s own arrows, never typed as char
 
 // ── 33. 2.22 — the app asks its own questions, and answers its own numbers ───
 const shellCss3 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const shellJs3  = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
 const logCss2  = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
 const storeCss2 = fs.readFileSync(path.join(ROOT, 'css/store.css'), 'utf8');
 const calCss3  = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
@@ -2340,6 +2439,63 @@ w.Shell.numpad.close();
 check('the pad is a sheet, so it steps the shell\'s shortcuts aside like every other one',
   /\.npad\{[\s\S]*?position:fixed/.test(shellCss3) && !!$('#npad-back.sheet-back'));
 
+/* ── 2.23: the unit the number is in ─────────────────────────────────────────
+   A pad-owned field is never focused, so while you answer it the only things on
+   screen are the pad's own label and a number — and the label the pad covers is
+   often the only place the unit was written down. */
+const padUnit = () => $('#npad-val .npad-unit')?.textContent || '';
+w.Shell.numpad.open($('.ns-log #m-wkg'), 'decimal');
+'645'.split('').forEach(c => w.Shell.numpad.key(c));
+check('the pad says what the number is in, declared per field with data-unit',
+  padUnit() === 'kg' && $('#npad-val').textContent === '645kg',
+  $('#npad-val').textContent);
+w.Shell.numpad.key('clear');
+check('… and an empty field shows no unit — there is nothing for it to be the unit of',
+  padUnit() === '' || $('#npad-val').classList.contains('empty'),
+  $('#npad-val').textContent + ' / ' + $('#npad-val').className);
+w.Shell.numpad.close();
+w.Shell.numpad.open($('.ns-log #m-cs'), 'int');
+w.Shell.numpad.key('4'); w.Shell.numpad.key('5');
+check('… seconds on the cold shower, the field whose unit lives nowhere else',
+  padUnit() === 's' && $('.ns-log #m-cs').value === '45', $('#npad-val').textContent);
+w.Shell.numpad.close();
+w.Shell.numpad.open($('.ns-log #m-sl'), 'duration');
+w.Shell.numpad.key('7');
+check('… and a duration is left alone: 7h20m is already a unit, and two would be one too many',
+  padUnit() === '' && /7h00m/.test($('#npad-val').textContent), $('#npad-val').textContent);
+w.Shell.numpad.close();
+check('nothing is inferred — a unit guessed from a label is a unit that is wrong somewhere',
+  /padUnitOf = el => String\(\(el && el\.dataset && el\.dataset\.unit\)/.test(shellJs3),
+  'padUnitOf');
+
+/* ── An overlay owns the page until it closes ────────────────────────────────
+   The three reports that turned out to be one rule: the pad's closing tap also
+   pressed what was under it, the pad was drawn over a live system keyboard
+   against a viewport iOS had already shrunk, and the platform's own selection
+   callout had nothing that would dismiss it. */
+check('opening the pad blurs whatever is focused first, so nothing is moving when it is drawn',
+  /function padOpen[\s\S]{0,400}?const active = document\.activeElement;[\s\S]{0,200}?active\.blur/.test(shellJs3));
+check('… a tap that closes the pad is stopped there, and the click it would make is swallowed',
+  /if \(padIsOpen\(\) && !inPad\) \{\s*\n\s*e\.preventDefault\(\);\s*\n\s*e\.stopPropagation\(\);/.test(shellJs3) &&
+  /padSwallowUntil = Date\.now\(\) \+ 700/.test(shellJs3));
+check('… a tap outside the focused field ends it, on every screen rather than per app',
+  /const FOCUSABLE_TEXT = 'input,textarea,select/.test(shellJs3) &&
+  /active\.matches\(FOCUSABLE_TEXT\)[\s\S]{0,200}?blurField\(active\)/.test(shellJs3));
+/* 2.22.3 took the press *wash* off anything scrolled under a finger. This is
+   the other half: the press itself. */
+check('a gesture that travelled is not a press, and its click never reaches the page',
+  /const TAP_SLOP = 12/.test(shellJs3) &&
+  /addEventListener\('touchmove', gestureMoved/.test(shellJs3) &&
+  /const fromDrag = gDown && gMoved/.test(shellJs3));
+/* A click with no pointer behind it is the keyboard's, and must not inherit the
+   last finger's verdict — so a key press ends the gesture, and each swallow is
+   consumed here whether or not it fires. */
+check('… while a keyboard click carries no gesture and is never swallowed',
+  /addEventListener\('keydown', \(\) => \{ gDown = false; \}, true\)/.test(shellJs3) &&
+  /padSwallowUntil = 0; gDown = false;/.test(shellJs3));
+check('… and the pad\'s own keys are exempt, because they fire on pointerdown',
+  /const fromDrag = gDown && gMoved && !inPad;/.test(shellJs3));
+
 /* LOG's home: a month, a fortnight, and no scrolling. Two known days first —
    one written in full, one not written at all — so the cells and the lines have
    something to be about. */
@@ -2399,6 +2555,114 @@ check('… and steps aside once it has been idle, on a dial rather than a litera
   /calStepsHide/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
 check('the empty day\'s one action is upper case — the exception DAY makes for it',
   /\.ns-cal \.ce-go\{[\s\S]*?text-transform:uppercase/.test(calCss3));
+
+/* ── 2.23 — DAY during the day ───────────────────────────────────────────────
+   A now line, rows that can be ticked off, and the day's slots fillable from
+   the blocks DO is holding. All three are about using DAY at four in the
+   afternoon rather than reading it at eight in the morning. */
+const dayNow = new w.Date();
+const inAnHour = h => String((dayNow.getHours() + h + 24) % 24).padStart(2, '0') + ':00';
+/* Two hours that bracket the current one, so "now" falls inside the second row
+   wherever in the day this suite happens to run. */
+w.CAL.write({ day: today, start: inAnHour(-1), template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { from: inAnHour(-1), to: inAnHour(0), dur: 60, kind: 'fixed', name: 'routine', cal: 'home' },
+    { from: inAnHour(0), to: inAnHour(1), dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#fff' },
+    { from: inAnHour(1), to: inAnHour(2), dur: 60, kind: 'idle', name: 'b1b', slot: 'b1b' },
+  ] });
+w.CAL.pick(today);
+const nowEl = () => $('.ns-cal #cal-now');
+const nowY = () => parseInt(String(nowEl()?.getAttribute('style') || '').replace(/.*--now-y:(-?\d+)px.*/, '$1'), 10);
+const perHour = Math.max(20, +w.Prefs.get('calHour') || 56);
+check('today carries a line at the hour the clock has reached',
+  !!nowEl() && nowY() >= perHour && nowY() <= perHour * 2,
+  (nowEl() ? nowY() + 'px of ' + perHour + '/hour' : 'no line'));
+check('… placed from the same durations the rows are drawn from, not measured off the DOM',
+  /\.ns-cal \.cal-now\{[^}]*top:var\(--now-y/.test(calCss3) &&
+  /\.ns-cal \.cal-now\{[^}]*pointer-events:none/.test(calCss3));
+w.CAL.pick(calDay);
+check('… and a day that is not today has no line on it — it is about now, not about the plan',
+  !nowEl(), w.CAL.selected());
+w.CAL.pick(today);
+
+/* A tick is a mark on the drawing. CAL has no network by contract (§8), so it
+   cannot and must not close anything in Todoist. */
+const evAt = i => d.querySelectorAll('.ns-cal .cal-ev')[i];
+check('a task row and a template row can be ticked off; an unclaimed slot cannot',
+  evAt(0).tagName === 'BUTTON' && evAt(1).tagName === 'BUTTON' && evAt(2).tagName === 'DIV',
+  [...d.querySelectorAll('.ns-cal .cal-ev')].map(e => e.tagName + '.' + e.className).join(' | '));
+click(evAt(1)); settle();
+check('… ticking one strikes it through and records it on the day',
+  !!$('.ns-cal .cal-ev.task.done') && w.CAL.day(today).events[1].done === true &&
+  /1 done/.test($('.ns-cal .ch-meta').textContent),
+  $('.ns-cal .ch-meta').textContent);
+check('… and it survives being left and come back to',
+  (w.CAL.pick(calDay), w.CAL.pick(today), !!$('.ns-cal .cal-ev.task.done')));
+click($('.ns-cal .cal-ev.task.done')); settle();
+check('… ticking it again takes it back off', !$('.ns-cal .cal-ev.done'));
+
+/* Filling the day's slots from DO. The slots come from the record, never from
+   plan.dayTemplates — CAL does not resolve a template and is not starting now. */
+check('a day with slots offers to fill them from DO', !!$('.ns-cal .ch-act'),
+  $('.ns-cal .cal-head')?.textContent.replace(/\s+/g, ' ').trim());
+click($('.ns-cal .ch-act')); settle();
+const csRows = () => [...d.querySelectorAll('.ns-cal .cs-row')];
+const slotIn = (row, slot) => csRows()[row].querySelector(`.cs-slot[data-slot="${slot}"]`);
+const doBlk = w.DO.blockTasks();
+check('… the panel lists the blocks DO is holding, against this day\'s own slots',
+  !!$('.ns-cal .cal-sched') && csRows().length === doBlk.length && doBlk.length > 1 &&
+  csRows().every(r => [...r.querySelectorAll('.cs-slot')].map(b => b.dataset.slot).join(',') === 'b1a,b1b'),
+  csRows().length + ' rows for ' + doBlk.length + ' blocks');
+check('… and it will not go anywhere until a slot is picked',
+  $('.ns-cal .cs-go').disabled && /pick a slot/.test($('.ns-cal .cs-go').textContent));
+click(slotIn(0, 'b1b')); settle();
+check('… picking one names the count on the button',
+  !$('.ns-cal .cs-go').disabled && /schedule 1 block/.test($('.ns-cal .cs-go').textContent) &&
+  slotIn(0, 'b1b').classList.contains('on'),
+  $('.ns-cal .cs-go').textContent);
+/* PLAN's rule, deliberately: a slot another task holds is refused by name
+   rather than taken away in silence (§8). */
+click(slotIn(1, 'b1b')); settle();
+check('… a slot another task already holds is refused, naming the task that holds it',
+  !slotIn(1, 'b1b').classList.contains('on') && slotIn(1, 'b1b').classList.contains('taken') &&
+  $('#toast').textContent === `b1b is taken — by ${doBlk[0].content}`, $('#toast').textContent);
+click(slotIn(0, 'b1a')); settle();
+check('… while a task moving to another slot gives its old one back — one task, one slot',
+  slotIn(0, 'b1a').classList.contains('on') && !slotIn(0, 'b1b').classList.contains('on') &&
+  /schedule 1 block/.test($('.ns-cal .cs-go').textContent));
+click(slotIn(0, 'b1a')); settle();
+check('… and tapping the slot it already holds gives that hour back',
+  $('.ns-cal .cs-go').disabled);
+click(slotIn(0, 'b1b')); settle();
+confirmAnswer = false;
+click($('.ns-cal .cs-go')); settle();
+check('… and it asks before it overwrites, so cancelling changes nothing',
+  w.CAL.day(today).events[2].kind === 'idle' && !w.CAL.day(today).localEdit &&
+  !!$('.ns-cal .cal-sched'), w.CAL.day(today).events[2].kind);
+confirmAnswer = true;
+click($('.ns-cal .cs-go')); settle();
+const after = () => w.CAL.day(today).events;
+check('… confirming puts the block in the slot it was given',
+  after()[2].kind === 'task' && after()[2].name === doBlk[0].content && after()[2].slot === 'b1b',
+  after()[2].kind + ' ' + after()[2].name);
+check('… every slot is rewritten, so the one left empty goes back to free',
+  after()[1].kind === 'idle' && after()[1].name === 'b1a',
+  after()[1].kind + ' ' + after()[1].name);
+check('… the template\'s own hours are not ours to move',
+  after()[0].kind === 'fixed' && after()[0].name === 'routine');
+/* Everywhere else on this screen, what is drawn is what PLAN resolved and sent.
+   This day no longer is, and it has to say so rather than quietly showing a
+   schedule Google was never told about. */
+check('… and the day says it was edited here, because it no longer matches what was sent',
+  typeof after.call(null) === 'object' && !!w.CAL.day(today).localEdit &&
+  /edited here/.test($('.ns-cal .ch-meta').textContent),
+  $('.ns-cal .ch-meta').textContent);
+check('… the panel closes itself, and nothing about it was persisted',
+  !$('.ns-cal .cal-sched') && !('picks' in (w.CAL.day(today) || {})));
+/* The line CAL is not allowed to cross, restated where the new code is. */
+check('… and none of it taught CAL to talk to anything',
+  !/fetch\(|XMLHttpRequest|https?:\/\//.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
+w.CAL.clearDay(); settle();
 w.CAL.write({ day: today, start: '08:00', template: 'normal', mode: 'blocks', notes: [],
   events: [{ from: '08:00', to: '09:00', dur: 60, kind: 'task', name: 'a job', slot: 'b1a', color: '#fff' }] });
 check('a drawn day offers a way to clear itself', !!$('.ns-cal .ch-clear'));
@@ -2547,8 +2811,16 @@ check('a written day is a tint rather than a fill — the border carries the sta
 check('a day\'s border is a hairline, and still derived from --bw rather than a literal',
   /\.ns-log \.lc-c\{[^}]*border:max\(\.5px, calc\(var\(--bw\) \* \.5\)\) solid/.test(logCss2) &&
   !/\.ns-log \.lc-c\{[^}]*border:var\(--bw\) solid/.test(logCss2));
-check('… and the one heavy line in the grid is the selected day, of which there is one',
-  /\.ns-log \.lc-c\.sel\{box-shadow:0 0 0 1\.5px var\(--y\)/.test(logCss2));
+/* 2.23: the ring became an inversion. A third border weight in a grid that
+   already has a hairline and today's accent was not a difference you could see
+   at 5mm across; swapping the ground for the ink is. It must also beat the
+   written-day tints, which it does by being declared after them. */
+check('… and the selected day is inverted rather than ringed',
+  /\.ns-log \.lc-c\.sel\{background:var\(--tx\);border-color:var\(--tx\);color:var\(--bg\)/.test(logCss2) &&
+  !/\.ns-log \.lc-c\.sel\{box-shadow:0 0 0 1\.5px/.test(logCss2) &&
+  logCss2.indexOf('.ns-log .lc-c.sel{') > logCss2.indexOf('.ns-log .lc-c.f2{'));
+check('… and the day numbers are bold enough to read at that size',
+  /\.ns-log \.lc-c\{[^}]*font:700 9\.5px\/1 var\(--mono\)/.test(logCss2));
 w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
 check('the fortnight draws three series now, stress beside energy and mood',
   d.querySelectorAll('.ns-log .lc-l').length === 3 &&
