@@ -3234,7 +3234,7 @@ const shellCss4  = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 check('the wordmark is snapped to a whole pixel, and the band is measured in the snapped value',
   /--title-px:round\(calc\(var\(--title-base\) \* var\(--title-scale\)\), 1px\)/.test(tokensCss4) &&
   /\.view > \.h-top \.h-logo\{[\s\S]*?font-size:var\(--title-px\)/.test(shellCss4) &&
-  /min-height:calc\(var\(--sat\) \+ 54px \+ var\(--title-px\)\)/.test(shellCss4));
+  /min-height:calc\(var\(--sat\) \+ 54px \+ max\(var\(--band-row\), var\(--title-px\) \* var\(--title-cap\)\)\)/.test(shellCss4));
 /* 2.24.0 snapped the wordmark and the blur stayed, because the band has *two*
    fractional inputs and the other is the status-bar inset — 47.33px on a
    notched iPhone, landing in the padding and the min-height alike. */
@@ -3426,7 +3426,7 @@ check('… and one box\'s shuffle never cancels the other box\'s cleanup',
   ' cal=' + calNum().querySelector('.dn-cur').textContent + '/' + calNum().querySelectorAll('.dn-out').length);
 w.LOG.resetDate();
 check('… it travels with the title on a tab change, and holds still when the track does',
-  /\.view\.morph > \.h-top \.h-daynum\{/.test(shellCss4) &&
+  /\.view\.morph > \.h-top \.h-daynum,/.test(shellCss4) &&
   /#track\.still \.h-logo,#track\.still \.hd-title,#track\.still \.h-daynum\{animation:none!important\}/.test(shellCss4));
 check('… and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-daynum\{animation:none\}/.test(shellCss4));
@@ -3937,6 +3937,52 @@ check("CREATE's two sideways scrollers claim the gesture, or they are dead under
   /\.ns-create \.cr-sorts\{[^}]*touch-action:pan-x pan-y/.test(createCss));
 check('CREATE has no network at all — a song is not a task',
   !/fetch\s*\(|todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs));
+
+/* ── 3.0.3 · the bands centre on their ink ───────────────────────────────────
+   A wordmark is all caps, and caps in a line-height:1 box leave the descender
+   space empty underneath — 8.5px of a 54px box, measured in Chrome. The band had
+   no slack to redistribute (14 + 82 + 12 was exactly its 108px floor), so all of
+   it read as a gap under the title. jsdom has no layout, so what is asserted
+   here is the rule; the measurement is in the update log. */
+const shellCss5 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const tokensCss5 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const storeCss5 = fs.readFileSync(path.join(ROOT, 'css/store.css'), 'utf8');
+check('the band centres its content rather than piling the slack at one end',
+  /\.view > \.h-top\{[^}]*justify-content:center/.test(shellCss5) &&
+  !/\.view > \.h-top\{[^}]*justify-content:flex-end/.test(shellCss5));
+check('... and the titles are trimmed to their caps, so what is centred is the ink',
+  /\.view > \.h-top \.h-logo\{[^}]*text-box:trim-both cap alphabetic/.test(shellCss5) &&
+  /\.view \.scr \.hd-title\{text-box:trim-both cap alphabetic\}/.test(shellCss5) &&
+  /\.ns-store \.h-cost\{[^}]*text-box:trim-both cap alphabetic/.test(storeCss5));
+check('... the cap height is a measured token, not a literal in three sheets',
+  /--title-cap:\.65/.test(tokensCss5) &&
+  !/text-box[^;]*;[\s\S]{0,40}0\.65/.test(shellCss5));
+/* One band shape for every app is what makes the title morph read as one title
+   being pushed along. Trimming the wordmark to 35px made DO's 40px tab strip the
+   tallest thing in its row for the first time, which made its band 2px taller
+   than the other nine. The row is declared now, for everyone. */
+check('every band shares one row height, so no app can be the odd one out',
+  /--band-row:40px/.test(tokensCss5) &&
+  /\.view > \.h-top > \.h-logo-row\{[^}]*min-height:max\(var\(--band-row\), calc\(var\(--title-px\) \* var\(--title-cap\)\)\)/.test(shellCss5) &&
+  /min-height:calc\(var\(--sat\) \+ 54px \+ max\(var\(--band-row\)/.test(shellCss5));
+check("... and DO's tab strip is declared rather than padding-derived, as §6 asks",
+  /\.ns-do > \.h-top \.tabs\{height:var\(--band-row\)/.test(fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8')));
+/* The gap under the band is the shell's and an app must not add to it. STORE's
+   .cnt was padding all four sides, so the home screen had 18 + 18 between the
+   wordmark and the counter widget — the gap that started this. */
+check("the gap under the band is the shell's alone, on every app's home",
+  /\.ns-store #s-home > \.cnt\{padding-top:0\}/.test(storeCss5) &&
+  ['tend','track','cal','create'].every(f =>
+    /\.ns-\w+ \.cnt\{padding:0 /.test(fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))),
+  ['tend','track','cal','create'].filter(f =>
+    !/\.ns-\w+ \.cnt\{padding:0 /.test(fs.readFileSync(path.join(ROOT, 'css/' + f + '.css'), 'utf8'))).join(','));
+/* The counter is a title too: it sits on the wordmark's row and should be
+   pushed along with it rather than appearing where the last one left. */
+check('the pinned total slides with the titles, both ways',
+  /\.view\.morph > \.h-top \.h-daynum,\.view\.morph > \.h-top \.h-cost\{/.test(shellCss5) &&
+  /\.view\.leaving > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-cost\{/.test(shellCss5));
+check('... and reduced motion takes it off with the rest of the morph',
+  /\.view\.morph > \.h-top \.h-cost,\.view\.leaving > \.h-top \.h-cost\{animation:none\}/.test(shellCss5));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

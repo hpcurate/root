@@ -94,16 +94,22 @@ body{
    works because every band is the same shape and the wordmark sits in the
    same place on all eight slides — see the band rules below. */
 .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title,
-.view.morph > .h-top .h-daynum{
+.view.morph > .h-top .h-daynum,.view.morph > .h-top .h-cost{
   animation:title-in var(--t-title-in) cubic-bezier(.22,.9,.24,1) both}
 .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title,
-.view.leaving > .h-top .h-daynum{
+.view.leaving > .h-top .h-daynum,.view.leaving > .h-top .h-cost{
   animation:title-out var(--t-title-out) cubic-bezier(.4,0,.7,.2) both}
 @keyframes title-in{from{opacity:0;transform:translateX(calc(var(--dir,1) * 34px))}
                     to{opacity:1;transform:none}}
 @keyframes title-out{to{opacity:0;transform:translateX(calc(var(--dir,1) * -34px))}}
 /* nothing of the band may spill sideways while a title is mid-slide */
 .view > .h-top{overflow:hidden}
+
+/* Every sticky sub-screen title, wherever it is declared. The app sheets set
+   its type; this is the box, which belongs here with the rest of the shared
+   shape — a `.hd` is `align-items:center`, so an untrimmed title centres its
+   descender space rather than its letters and sits high in its own bar. */
+.view .scr .hd-title{text-box:trim-both cap alphabetic}
 
 /* ── One band shape for every app ─────────────────────────────────────────────
    The eight bands used to be eight different heights — their own padding,
@@ -150,18 +156,39 @@ body{
    The lesson worth keeping: four fixes that each changed nothing were four
    pieces of evidence that the model was wrong, and the fifth report should have
    been read as "stop fixing rendering" much sooner than it was. */
+/* ── The band is centred on its ink, not on its line boxes ──
+   A wordmark is all caps, and a caps-only line in a `line-height:1` box leaves
+   the descender space empty underneath: measured in Chrome, `STORE.` is 37px of
+   ink in a 54px box, so 8.5px of the band's height under the title is space no
+   glyph will ever occupy. The band had no slack to redistribute either — 14 top
+   + 82 content + 12 bottom is exactly its 108px floor — so `justify-content`
+   had nothing to do and every one of those 8.5px read as a gap between the
+   title and whatever the app draws first. On STORE, against the counter widget,
+   that is the gap you notice.
+
+   `text-box` (below, on the titles themselves) trims the half-leading so the box
+   *is* the caps, `center` distributes what is left evenly rather than piling it
+   at one end, and the floor tracks the trimmed title so it does not put the
+   space straight back. `--title-cap` is Syne's cap height as a fraction of the
+   em, measured rather than guessed; it is only ever used to size boxes around
+   trimmed text, so a different display face changes one number. */
 .view > .h-top{
   flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
-  display:flex;flex-direction:column;justify-content:flex-end;gap:8px;
+  display:flex;flex-direction:column;justify-content:center;gap:8px;
   padding:calc(var(--sat) + 14px) 18px 12px;
-  min-height:calc(var(--sat) + 54px + var(--title-px))}
+  min-height:calc(var(--sat) + 54px + max(var(--band-row), var(--title-px) * var(--title-cap)))}
 .view:has(> .view-body > #s-home:not(.on)) > .h-top{display:none}
 .view > .h-top > .h-label,.view > .h-top > .h-meta{
   margin:0;padding:0;min-height:20px;display:flex;align-items:center;gap:8px}
 /* the two apps with a corner action keep their label clear of it */
 .ns-do > .h-top > .h-label{padding-right:calc(118px * var(--dens))}
 .ns-store > .h-top > .h-label{padding-right:calc(80px * var(--dens))}
-.view > .h-top > .h-logo-row{margin:0}
+/* Every app's wordmark row is the same height, so every band is — see
+   `--band-row`. Without it DO's 40px tab strip made its band 2px taller than
+   the other nine the moment the wordmark stopped being 54px tall. */
+.view > .h-top > .h-logo-row{margin:0;
+  min-height:max(var(--band-row), calc(var(--title-px) * var(--title-cap)));
+  display:flex;align-items:center}
 /* The wordmark wears the same shadow as everything else that is a title —
    2.26.0 put it on the sticky sub-screen headers and the big dates and left the
    one title that is most obviously a title without it. Set here rather than in
@@ -169,6 +196,8 @@ body{
 .view > .h-top .h-logo{
   margin:0;padding:0;line-height:1;
   font-size:var(--title-px);
+  /* the box is the caps, so what is centred is what you can see */
+  text-box:trim-both cap alphabetic;
   text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
 /* ── The dot is part of the word, not a comment on it ──
    `DO<em>.</em>` — title text colour, accent shadow, exactly like the letters
@@ -208,15 +237,24 @@ body{
    hand is not in focus, and without it the tilt reads as a glitch. It is one
    small element for a fifth of a second, which is the only reason a filter
    animation is acceptable here at all. */
+/* Its height is the trimmed wordmark's, not `1em`: the two share a row under
+   `align-items:center`, and a box that is still a full em tall next to one that
+   is now cap height would centre 8.5px lower than the letters beside it. It
+   cannot be trimmed with `text-box` like the others — its digits are absolutely
+   positioned so that one can slide out while the next slides in, and an
+   absolute child has no line box to trim. */
 .view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
-  min-width:calc(1.1em + var(--title-sh-x));height:1em;line-height:1;
+  min-width:calc(1.1em + var(--title-sh-x));height:calc(var(--title-cap) * 1em);line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
 /* The box has to clip — that is what stops a number on its way out making the
    row taller — so the digits are held one shadow-width off the right edge and
    the box is that much wider. Without it the shadow, which is the one part of
    the glyph that sticks out to the right, was the part being cut off. */
-.view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);top:0;display:block;line-height:1}
+/* pulled up by the half-leading the box no longer has, so the digits sit on the
+   wordmark's baseline rather than a line box's */
+.view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);
+  top:calc((var(--title-cap) * 1em - 1em) / 2);display:block;line-height:1}
 .view > .h-top .h-daynum .dn-cur.shuffling{
   animation:dn-in calc(.44s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
 .view > .h-top .h-daynum .dn-out{
@@ -604,5 +642,6 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .view.morph > .h-top .h-logo,.view.morph .scr.on .hd-title,
   .view.leaving > .h-top .h-logo,.view.leaving .scr.on .hd-title,
   .view.morph > .h-top .h-daynum,.view.leaving > .h-top .h-daynum{animation:none}
+  .view.morph > .h-top .h-cost,.view.leaving > .h-top .h-cost{animation:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }

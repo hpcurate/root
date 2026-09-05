@@ -195,6 +195,22 @@
      rather than making it taller) has to reserve exactly this much on its right
      or it clips its own shadow off. One value, so the reservation cannot drift
      from the thing it is reserving for. */
+  /* Syne's cap height as a fraction of the em, measured in Chrome: a trimmed
+     `STORE.` is 35.1px of box at a 54px font size. Used only to size boxes
+     around text that `text-box` has trimmed to its caps — the wordmark's row and
+     the day number — so swapping the display face is one number here rather than
+     a hunt through the sheets. */
+  --title-cap:.65;
+
+  /* The wordmark's row, and the floor under it. The row is the trimmed title or
+     this, whichever is taller, **for every app** — which is what stops one app's
+     furniture making its band the odd one out. It is DO's tab strip that sets
+     the number: 32px chips in a bordered, padded rail. §6 has said since 2.19
+     that anything sharing this row needs a declared height; before the titles
+     were trimmed the 54px wordmark was taller than all of it and the rule never
+     had to bite. Now it does. */
+  --band-row:40px;
+
   --title-sh-x:1px;
   /* **There is deliberately no `--title-sh` composing these two.** There was
      one, from 2.25.1 to 3.0, and every `--title-sh-c` override in the app was

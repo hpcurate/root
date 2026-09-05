@@ -375,6 +375,8 @@ Other anchors, and the single rule that makes each dial real:
 | `--chrome-alpha` | Chrome opacity | `--chrome-bg` mixes it with `--chrome-rgb` |
 | `--readable` | Max content width | the `min-width:560px` cap |
 | `--title-scale` | Title size | `.view > .h-top .h-logo` in `shell.css`, times the one `--title-base` |
+| `--title-cap` | (not a dial) | Syne's cap height as a fraction of the em, **measured** (35.1px of box at 54px). Only ever sizes boxes around `text-box`-trimmed text — the wordmark's row, the day number. A different display face is one number |
+| `--band-row` | (not a dial) | the wordmark's row, and the floor under it: the trimmed title or this, whichever is taller, for **every** app. DO's tab strip sets the number |
 | `--t-fade` `--t-title-in` `--t-title-out` `--t-flip` | (not a dial) | the shell's own motion — the tab cross-fade, the title morph, PLAN's FLIPs — all multiplied by `--mo` |
 
 Colour: a preset states only `--y` (accent) and `--on-y` (what reads on top of
@@ -720,6 +722,19 @@ both say so, and a new device needs the `.apkg` imported again.
   left arrow becomes "back" by finding `.scr.on:not(#s-home) .hd-back` in the
   current slide. A new sub-screen that names its home something other than
   `s-home`, or hides its back button, gets a dead left arrow.
+- **A band centres its ink, not its line boxes.** A wordmark is all caps, and
+  caps in a `line-height:1` box leave the descender space empty underneath —
+  8.5px of a 54px box, measured in Chrome. The band had no slack to redistribute
+  either (14 top + 82 content + 12 bottom was exactly its 108px floor), so
+  `justify-content` had nothing to do and every one of those 8.5px read as a gap
+  under the title. Since 3.0.3 the titles carry
+  `text-box:trim-both cap alphabetic` so their boxes *are* the caps, the band is
+  `justify-content:center`, and its floor is measured in the trimmed title. The
+  day number cannot be trimmed with it — its digits are absolutely positioned so
+  one can slide out while the next slides in, and an absolute child has no line
+  box — so it is given `--title-cap * 1em` by hand and its digits are pulled up
+  by the half-leading it no longer has. Anything new that sits on the wordmark's
+  row owes the same, or it centres 8.5px below the letters beside it.
 - **Every home header is `.h-top`, and Shell lifts it out of the scroller.**
   At boot each view becomes band + `.view-body`; `#s-home > .h-top` is the
   band. A new app's header must be a `.h-top` directly under `#s-home` — its
@@ -729,14 +744,27 @@ both say so, and a new device needs the `.apkg` imported again.
   Set type and colour in the app sheet; never the box, and never a
   `--title-base` of its own. A harness check enforces it.
 - **Anything in the band that shares the wordmark's row needs a fixed
-  height.** DO's tab strip is 32px by declaration, not by padding: at a high
-  density a padded chip grew past the wordmark and made DO's band the odd one
-  out, which is exactly what the shared rule exists to prevent.
+  height** — and since 3.0.3 the row itself has one, `--band-row`, which is what
+  actually enforces it. DO's chips are 32px by declaration rather than by
+  padding, but the *rail* around them is 40px once its border and its
+  density-scaled padding are counted, and the moment the wordmark was trimmed
+  from 54px to its 35px of caps that rail became the tallest thing in the row and
+  made DO's band 2px taller than the other nine. The row is now
+  `max(--band-row, trimmed title)` for every app and DO's rail is pinned to
+  `--band-row`, so density cannot push one band out of step with the rest.
 - **The gap under the band is the shell's, and an app must not add to it.**
   `.view-body #s-home` sets it and zeroes the first child's top margin. A
   section that can be hidden breaks `:first-child` — DO's
   `markFirstSection()` marks the first one on screen instead, and its rule
   needs the specificity to beat `.tt.hidden + .tt`.
+  **It zeroes the margin and not the padding, which is the hole STORE fell
+  through**: every other app's `.cnt` is horizontal padding only, STORE's padded
+  all four sides, and on its home screen that box is the first thing under the
+  band — 18px from the shell plus 18px of its own, which is the gap between the
+  wordmark and the counter widget that anyone would notice first. Padding cannot
+  be zeroed blanketly (LEARN's drop zone is 22px of padding that is the control's
+  own shape, not a gap), so it is `§`-rule and a check rather than a stylesheet
+  sweep: `.ns-store #s-home > .cnt{padding-top:0}`.
 - **`position:fixed` inside `#track` is still forbidden**, for a new reason:
   the track no longer carries a transform, but the title morph animates one
   on `.h-logo` / `.hd-title` and PLAN's FLIP animates them on its tiles, and
@@ -1096,7 +1124,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 755 checks covering boot, every theme and panel, the
+through DOM events: 765 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1391,6 +1419,61 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.0.3 — 2026-09-06 — the bands centre on their ink, and the counter travels
+
+> center the elements in the sticky titles on every tab … there is a big gap
+> between the title card and the calculator … also add the slide right/left
+> animation that the titles / dates have. add it to the counter.
+
+Measured in Chrome before touching anything, which turned up **two** causes for
+one gap.
+
+**The titles were centring their line boxes, not their letters.** A wordmark is
+all caps, and caps in a `line-height:1` box leave the descender space empty
+underneath: `STORE.` is 35.1px of ink in a 54px box. The band had no slack to
+redistribute either — 14 top + 82 content + 12 bottom was exactly its 108px
+floor — so `justify-content:flex-end` had nothing to do and all of that empty
+space sat under the title. The titles now carry
+`text-box:trim-both cap alphabetic` so their boxes *are* the caps, the band is
+`justify-content:center`, and the floor is measured in the trimmed title. Every
+band went from 108px to 94px, and what is centred is what you can see.
+
+**And STORE was adding a second gap under its own band.** §6 has said since 2.19
+that the gap under the band is the shell's and an app must not add to it — the
+rule zeroes the first child's top *margin*, and STORE's `.cnt` was *padding*, on
+all four sides. Every other app's `.cnt` is horizontal padding only. So the
+counter widget sat 18px from the shell plus 18px of STORE's own: the gap between
+the title card and the calculator, exactly as reported. Wordmark to widget is
+32px now rather than 56px.
+
+**One row height for every band.** Trimming the wordmark had a consequence worth
+naming: DO's tab rail is 40px once its border and density-scaled padding are
+counted, and the moment the title stopped being 54px that rail became the tallest
+thing in the row and made DO's band 2px taller than the other nine. One band
+shape for every app is what makes the title morph read as one title being pushed
+along, so the row is now `max(--band-row, trimmed title)` everywhere and DO's
+rail is pinned to `--band-row`. All ten bands are 94px at every title size.
+
+**The counter travels with the titles.** `.h-cost` joins `.h-logo`, `.hd-title`
+and `.h-daynum` in the morph: it slides in from the side you are moving towards
+and the outgoing one leaves the other way, instead of appearing where the last
+one left. Reduced motion takes it off with the rest.
+
+**Verified** — `test/harness.mjs`, **765 checks, all green**, 8 new; and measured
+in headless Chrome rather than argued from the stylesheet:
+
+```
+before   every band 108px   ink 8.5px above the bottom padding   store: 18+18 under the band
+after    every band  94px   content centred, ink trimmed          store: 18
+         wordmark sits at the same y on all ten tabs
+         .h-cost animation: title-out leaving, title-in entering
+```
+
+One of the new checks was written with `[\s\S]*?` and passed against the wrong
+rule three lines further down — the trap §6 already warns about, caught here by
+the check failing rather than by luck. All five in this batch are bounded with
+`[^}]` now.
 
 ### 3.0.2 — 2026-09-06 — the total says which way it went, with a sign
 

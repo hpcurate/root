@@ -37,6 +37,10 @@
    frozen under a finger. Shell's scrollsSideways() sees the same overflow and
    declines the app-level swipe, so a drag on the strip moves the strip instead
    of sliding the whole app to LOG. */
+/* In the band its height is declared (`--band-row`), not left to its padding:
+   at a high density a padded chip grew past the row and made DO's band the odd
+   one out, which is the thing the shared band shape exists to prevent. */
+.ns-do > .h-top .tabs{height:var(--band-row);box-sizing:border-box}
 .ns-do .tabs{position:relative;display:flex;background:var(--s1);
       border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:calc(3px * var(--dens));
       flex:0 1 auto;min-width:0;max-width:100%;
