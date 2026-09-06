@@ -23,7 +23,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads the open Todoist tasks carrying one label, grouped by section. That tab is the one networked thing in the app and it only ever reads. The day's hours also reach LOG's note and both reports. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app and it only ever reads. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have — and a work's progress is one tick per checklist item instead of a rail with a ratio printed beside it. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -170,6 +170,8 @@ on the evening form.
 Shell.toast(msg)                       // the one toast
 Shell.undo(label, restore)             // the one undo pill — offered *instead of* a toast
 Shell.hideUndo()                       // take it back down early
+Shell.rollNum(box, text, sort)         // a number in a .h-daynum box, shuffled
+Shell.dayNum(box, iso)                 // …the day of the month, which is rollNum with the date as its sort
 Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
 Shell.confirm(msg, onOk)               // the app's own dialog; honours "confirm before clearing"
 Shell.confirm(msg)                     // …the same question as a promise, for async callers
@@ -430,7 +432,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
-| `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read, which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
+| `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read (the project's name and colour and its groups), which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -1154,9 +1156,24 @@ both say so, and a new device needs the `.apkg` imported again.
   rail, the flat chips, the sliding glider — is written twice, once in `do.css`
   for the title band and once in `create.css` for the content. They are the same
   control and they have to keep looking like it, so a change to one is a change
-  to both. DO's differs in exactly one way: it lives in the wordmark's row, so
-  its height is `--band-row` and its chips are a fixed 32px (§4). CREATE's takes
-  its height from its own padding because nothing is sharing its row.
+  to both **unless it is one of the two places they deliberately differ**, and
+  both are about the room each one has:
+  DO's lives in the wordmark's row, so its height is `--band-row` and its chips
+  are a fixed 32px (§4); CREATE's takes its height from its own padding.
+  DO's chips are `flex:0 0 auto` — sized to their own text, because the strip
+  shares its row with a wordmark and has no width of its own to share out;
+  CREATE's are `flex:1 1 0` with `min-width:max-content`, so they split the rail
+  evenly when there is room and it scrolls when there is not.
+- **A strip rebuilt on every tap has a glider that cannot slide.** The glider
+  is an element that travels by CSS transition, so it has to be *the same
+  element* before and after — and 4.1 rewrote `.cr-areas`'s innerHTML on every
+  selection, which handed it a brand-new node already at its destination. The
+  one element whose entire job is to move did not move, and nothing failed.
+  Both strips (the shelf's and the session log's) keep a `data-sig` of their
+  chips now and only rewrite the markup when *that* changes; a selection moves
+  the `.active` class and asks the glider to travel. DO's `setTab` has always
+  worked this way. Anything else animated across a re-render owes the same
+  care: check whether the node survived.
 - **A block styled by class and marked up by id alone is styled by nothing.**
   `#cr-hero` and `#cr-sorts` had rules written for `.cr-hero` and `.cr-sorts`
   and neither class was ever in the markup, so the shelf's number was never
@@ -1232,7 +1249,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 865 checks covering boot, every theme and panel, the
+through DOM events: 885 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1531,6 +1548,98 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.1.1 — 2026-09-06 — the glider slides, the count moves into the band, and curate is a whole project
+
+Six things, all asked for in one message, all on CREATE.
+
+**CURATE is the whole project now, not a label.** `create.curate.project` —
+`02 | curate` — read in the order it is arranged in over there: section order,
+then each task's own order inside its section, with **subtasks nested** under
+the task they belong to. A section with nothing open in it is not drawn, because
+an empty heading is a row of furniture saying "nothing here"; a task with no
+section gets its project's own unsectioned group, which sorts first, because
+that is where Todoist puts it. The project name is matched folded, the way PLAN
+matches every project it sends to, so the punctuation in `02 | curate` is not
+load-bearing — and the chip wears what is after the last pipe, since the number
+and the pipe are how it sorts in a sidebar and neither is worth a chip's width.
+
+Still read-only, and the harness still holds that line.
+
+**The glider actually slides, which was a real bug.** 4.1 rewrote the rail's
+`innerHTML` on every selection, so the glider was a brand-new element already at
+its destination — it had nothing to transition *from*. The one element whose
+entire job is to move did not move, and nothing failed. Both strips keep a
+signature of their chips now and only rewrite the markup when *that* changes; a
+selection moves the `.active` class and asks the glider to travel. §6 carries
+it, because anything animated across a re-render can make the same mistake.
+
+The session log's strip moved out of the body it filters into a box of its own
+(`#cr-log-tabs`) for the same reason — it was being rebuilt with the sessions
+under it.
+
+**The chips are even and centred.** `flex:1 1 0` gives every chip the same share
+of the rail whatever its label is, and `min-width:max-content` is the floor that
+stops the share squashing a word — so four chips split the width when there is
+width to split and the rail scrolls when there is not. Sized to their own text
+they were four different widths with the words hard against the left of each.
+
+DO's copy deliberately does *not* do this: it shares the title band with a
+wordmark and has no width of its own to share out. That is now one of the two
+places the two strips are allowed to differ, and §6 names both.
+
+**The count moved into the band.** It was a 74px block under it — most of a
+phone screen spent on one digit, on the screen whose job is to list what is on
+the shelf. It is a number at the right end of the wordmark's row now, in the
+same `.h-daynum` box LOG's and DAY's big day numbers live in: same size, same
+shadow, and **the same shuffle**, which is what was asked for. The label above
+the wordmark says what it is counting — `in progress`, or the area it is
+narrowed to, or the curate project.
+
+`Shell.dayNum` was the only thing that could do that roll, and it only knew
+about dates. It is `Shell.rollNum(box, text, sort)` now, unchanged in every
+other respect, and `dayNum` is one line on top of it. Three boxes, one function.
+
+The total the hero also carried is not lost: the "Finished" fold below says how
+many are done, which is the same subtraction.
+
+**Progress is ticks, not a bar.** It was a full-width 4px rail with `1 / 7`
+printed beside it on a line of its own — three shapes saying one thing, and the
+widest of them carrying the least. A rail can only say *what fraction*; the
+number next to it existed because the fraction was not enough.
+
+One segment per checklist item says both at once and needs no number: how far
+along, and out of how many. It is also the shape the stage strip at the top of
+the shelf already uses, so the screen has one way of drawing "some of these, not
+all of them" instead of two. The count is still there for a screen reader
+(`aria-label="1 of 7 done"`), which is what the ratio was actually for. Past
+sixteen items the segments would be thinner than the gaps between them, so it
+falls back to a rail — a checklist that long is a fraction again.
+
+The week's split bars went to the same 5px, so the two bars on that screen are
+one weight rather than two. They stay continuous, because a share of the week is
+a proportion and not a count of anything.
+
+**And the band is redrawn on every screen**, not only the shelf. It belongs to
+the slide — the shell lifts it out of `#s-home` at boot — and moving a work to
+its finished stage happens on the work screen and changes the number.
+
+**Verified** — `test/harness.mjs`, **885 checks, all green** (865 at 4.1), 20
+new: the glider surviving a selection and being rebuilt only when the chips
+change; the chips' flex; the count in the band, in the shared box, shuffling
+when it changes, saying which area it counts; the progress ticks, their count,
+their `aria-label` and the long fallback; and the curate tab against a stubbed
+Todoist — a whole project, sections in their order, an empty section not drawn,
+subtasks nested in their own order, the group count including them, the folded
+project match, and a missing project saying so.
+
+Read back through `test/peek.mjs` as well: the band, the tab strip, the curate
+tab printed as an indented tree, and the progress of every row on the shelf
+drawn as `█░░░`.
+
+**Not looked at.** The browser extension was still not connected, so the glider
+sliding — the one thing here that is purely an animation — has been reasoned
+about and its cause fixed, but not *watched*.
 
 ### 4.1 — 2026-09-06 — the areas become a real tab strip, CREATE reaches Todoist and LOG, and clearing can be taken back
 

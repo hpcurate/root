@@ -57,6 +57,17 @@ w.CREATE.go('home');
 const clean = el => String(el.textContent || '').replace(/[ \t]+/g, ' ').trim();
 const line = s => s.replace(/\s*\n\s*/g, ' · ');
 
+/* The band prints its live number only: a `.dn-out` on its way out is still in
+   the DOM for half a second after a roll, and reading the two together makes a
+   4 that rolled up from 0 look like a 40. */
+function band() {
+  const t = d.querySelector('.ns-create > .h-top');
+  console.log('\n── band ' + '─'.repeat(54));
+  if (!t) { console.log('  (nothing)'); return; }
+  console.log('  ' + clean(t.querySelector('.h-label')) + '  |  ' +
+    clean(t.querySelector('.h-logo')) + '  ' + clean(t.querySelector('.dn-cur')));
+}
+
 function show(title, sel) {
   const el = d.querySelector(sel);
   console.log('\n── ' + title + ' ' + '─'.repeat(Math.max(0, 60 - title.length)));
@@ -65,8 +76,8 @@ function show(title, sel) {
 }
 
 console.log('════ CREATE · the shelf, combined ' + '═'.repeat(30));
-show('hero',        '.ns-create #cr-hero');
-show('area filter', '.ns-create #cr-areas');
+band();
+show('tab strip',   '.ns-create #cr-areas');
 show('stage strips','.ns-create #cr-stages');
 show('heading',     '.ns-create #s-home .cr-sec');
 show('sorts',       '.ns-create #cr-sorts');
@@ -79,7 +90,7 @@ show('the week',    '.ns-create #cr-week');
 
 console.log('\n\n════ narrowed to mixing ' + '═'.repeat(40));
 w.CREATE.area('mixing');
-show('hero',        '.ns-create #cr-hero');
+band();
 show('stage strips','.ns-create #cr-stages');
 console.log('\n── rows ' + '─'.repeat(54));
 d.querySelectorAll('.ns-create #cr-list .cr-work').forEach(r =>
@@ -93,6 +104,7 @@ show('the screen',  '.ns-create #cr-work');
 
 console.log('\n\n════ the session log ' + '═'.repeat(43));
 w.CREATE.go('sessions');
+show('filter',      '.ns-create #cr-log-tabs');
 show('log',         '.ns-create #cr-sessions');
 
 /* ── 4.1 ─────────────────────────────────────────────────────────────────── */
@@ -101,15 +113,20 @@ w.Creds.save('a-token-for-peek');
 w.fetch = async (url) => {
   const u = String(url);
   const body = /\/tasks\?/.test(u) ? [
-    { id:'t3', content:'watch tutorial',    project_id:'p1', section_id:'s2', labels:['curate'], order:2 },
-    { id:'t1', content:'IMANU patreon',     project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:1 },
-    { id:'t4', content:'plugins',           project_id:'p2', section_id:null, labels:['curate','quick'], order:1 },
-    { id:'t2', content:'buunshin patreon',  project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:2 },
-    { id:'t5', content:'library full organization', project_id:'p1', section_id:'s3', labels:['curate','milestone'], order:1 },
+    { id:'t3', content:'watch tutorial',    project_id:'p1', section_id:'s2', labels:[], order:2 },
+    { id:'t6', content:'deep dnb noise basses', project_id:'p1', section_id:'s2', labels:[], order:1 },
+    { id:'t1', content:'IMANU patreon',     project_id:'p1', section_id:'s1', labels:['purchase'], order:1 },
+    { id:'t9', content:'pick the tier',     project_id:'p1', section_id:'s1', labels:[], order:2, parent_id:'t1' },
+    { id:'t8', content:'check the archive', project_id:'p1', section_id:'s1', labels:[], order:1, parent_id:'t1' },
+    { id:'t4', content:'plugins',           project_id:'p1', section_id:null, labels:['quick'], order:1 },
+    { id:'t2', content:'buunshin patreon',  project_id:'p1', section_id:'s1', labels:['purchase'], order:2 },
+    { id:'t5', content:'library full organization', project_id:'p1', section_id:'s3',
+      labels:['milestone'], order:1, due:{ date:'2026-09-30' } },
   ] : /\/projects/.test(u) ? [
-    { id:'p2', name:'inbox',  color:'grey',  order:2 },
-    { id:'p1', name:'curate', color:'grape', order:1 },
+    { id:'p2', name:'04 | life',   color:'green', order:2 },
+    { id:'p1', name:'02 | curate', color:'grape', order:1 },
   ] : /\/sections/.test(u) ? [
+    { id:'s7', project_id:'p1', name:'nothing open here', section_order:4 },
     { id:'s3', project_id:'p1', name:'library',  section_order:3 },
     { id:'s2', project_id:'p1', name:'watch',    section_order:2 },
     { id:'s1', project_id:'p1', name:'purchase', section_order:1 },
@@ -119,13 +136,27 @@ w.fetch = async (url) => {
 w.CREATE.area('curate');
 w.CREATE.go('home');
 await w.CREATE.refreshCurate();
-show('hero',   '.ns-create #cr-hero');
-show('strip',  '.ns-create #cr-areas');
+band();
+show('tab strip', '.ns-create #cr-areas');
 d.querySelectorAll('.ns-create #cr-curate .cr-cgroup').forEach(g => {
   console.log('  ' + line(clean(g.querySelector('.cr-chead'))));
-  g.querySelectorAll('.cr-ctask').forEach(t => console.log('      · ' + line(clean(t))));
+  g.querySelectorAll('.cr-ctask').forEach(t =>
+    console.log('      ' + (t.classList.contains('sub') ? '    ↳ ' : '· ') + line(clean(t))));
 });
 w.CREATE.area('all');
+
+console.log('\n\n════ CREATE · progress, as ticks ' + '═'.repeat(31));
+w.CREATE.area('all');
+w.CREATE.go('home');
+d.querySelectorAll('.ns-create #cr-list .cr-work').forEach(r => {
+  const p = r.querySelector('.cr-prog');
+  const nm = clean(r.querySelector('.nm'));
+  if (!p) { console.log('  ' + nm.padEnd(18) + ' (no checklist)'); return; }
+  const ticks = [...p.querySelectorAll('i')];
+  console.log('  ' + nm.padEnd(18) + ' ' +
+    (p.classList.contains('long') ? '[rail]' : ticks.map(i => i.classList.contains('on') ? '█' : '░').join('')) +
+    '   ' + p.getAttribute('aria-label'));
+});
 
 console.log('\n\n════ CREATE · a mix has no key chip ' + '═'.repeat(28));
 w.CREATE.open('w4');

@@ -47,12 +47,15 @@
 .ns-create .cr-sec em{font-style:normal;color:var(--bd-2)}
 .ns-create .cr-empty{font:400 11px/1.7 var(--mono);color:var(--tx-2);padding:calc(18px * var(--dens)) 0;text-align:center}
 
-/* ── the shelf's head ──────────────────────────────────────────────────────── */
-.ns-create .cr-hero{text-align:center;margin:calc(8px * var(--dens)) 0 calc(18px * var(--dens))}
-.ns-create .cr-hero .n{font:800 74px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
-.ns-create .cr-hero .n .of{color:var(--bd-2);font-size:26px;vertical-align:super}
-.ns-create .cr-hero .k{font:400 10px/1 var(--mono);letter-spacing:3px;color:var(--tx-2);
-  text-transform:var(--caps);margin-top:calc(10px * var(--dens))}
+/* ── the band ─────────────────────────────────────────────────────────────
+   The count sits at the right end of the wordmark's row, in the shared
+   `.h-daynum` box LOG and DAY use — same size, same shadow, same shuffle. The
+   row itself is `shell.css`'s; this is only the two things that are CREATE's,
+   which is the same three lines DO, LOG and STORE each carry. A 74px hero
+   under the band was most of a phone screen spent on one digit. */
+.ns-create .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 
 /* ── the tab strip ─────────────────────────────────────────────────────────
    DO's DAILY / MEDIA / OTHER selector, here: one bordered rail, flat chips
@@ -76,10 +79,22 @@
 .ns-create .cr-tglide{position:absolute;top:calc(3px * var(--dens));bottom:calc(3px * var(--dens));
   left:0;width:0;background:var(--y);border-radius:var(--r2);z-index:1;
   transition:transform .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1)}
+/* **Even, and centred.** `flex:1 1 0` gives every chip the same share of the
+   rail whatever its label is long, and `min-width:max-content` is the floor
+   that stops the share squashing a word — so four chips split the width when
+   there is width to split and the rail scrolls when there is not. Sized to
+   their own text they were four different widths with the text hard against
+   the left of each, which is what "not separating every item evenly and the
+   items are not centered" was.
+
+   DO's copy of this strip deliberately does *not* do it: it shares the title
+   band with the wordmark and has no width of its own to share out. That is the
+   one place the two diverge, and ROOT.md §6 says so. */
 .ns-create .cr-tab{position:relative;z-index:2;background:none;border:none;cursor:pointer;
-  flex:0 0 auto;white-space:nowrap;display:flex;align-items:center;
+  flex:1 1 0;min-width:max-content;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;text-align:center;
   font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
-  color:var(--mu);padding:calc(11px * var(--dens)) calc(15px * var(--dens));
+  color:var(--mu);padding:calc(11px * var(--dens)) calc(13px * var(--dens));
   border-radius:var(--r2);transition:color .25s}
 .ns-create .cr-tab.active{color:var(--on-y)}
 /* on the log the strip follows the header rather than the hero, so it needs
@@ -140,10 +155,32 @@
 .ns-create .cr-work .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);
   margin-top:calc(5px * var(--dens))}
 .ns-create .cr-work .mt s{text-decoration:none;color:var(--mu)}
-.ns-create .cr-prog{display:flex;align-items:center;gap:calc(9px * var(--dens));margin-top:calc(10px * var(--dens))}
-.ns-create .cr-prog .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
-.ns-create .cr-prog .rail i{display:block;height:100%;background:var(--st-c,var(--y));border-radius:var(--r-pill)}
-.ns-create .cr-prog .v{font:400 9px/1 var(--mono);letter-spacing:.08em;color:var(--tx-2);flex:0 0 auto}
+
+/* ── Progress, as ticks rather than a bar ─────────────────────────────────
+   It was a full-width 4px rail with "1 / 7" printed beside it, on a line of
+   its own — three shapes saying one thing, and the widest of them the one
+   carrying the least. A rail can only say *what fraction*; the number beside
+   it existed because the fraction was not enough.
+
+   One segment per checklist item says both at once and needs no number: how
+   far along, and out of how many. It is also the shape the stage strip at the
+   top of the shelf already uses, so the screen has one way of drawing "some of
+   these, not all of them" instead of two.
+
+   It falls back to a rail past `.long` — set by create.js at 16 items, where
+   the segments would be thinner than the gaps between them — because a
+   checklist that long is a fraction again. */
+.ns-create .cr-prog{display:flex;align-items:center;gap:2px;margin-top:calc(9px * var(--dens));height:5px}
+.ns-create .cr-prog i{flex:1 1 0;min-width:2px;height:100%;border-radius:1px;
+  background:var(--bd);transition:background var(--dur-1) ease}
+.ns-create .cr-prog i.on{background:var(--st-c,var(--y))}
+/* the last tick of a finished list gets the whole thing lit, which is the one
+   state worth reading from across the room */
+.ns-create .cr-prog.full i{background:var(--st-c,var(--y))}
+.ns-create .cr-prog.long{gap:0;background:var(--s2);border-radius:var(--r-pill);overflow:hidden}
+.ns-create .cr-prog.long i{display:none}
+.ns-create .cr-prog.long::before{content:'';display:block;height:100%;width:var(--pct,0%);
+  background:var(--st-c,var(--y));border-radius:var(--r-pill)}
 
 /* One button per area on screen, so starting a mix is never something you have
    to change screens to do. They share the row equally rather than each taking
@@ -187,7 +224,10 @@
   padding:calc(7px * var(--dens)) 0}
 .ns-create .cr-srow .l{flex:0 0 auto;min-width:74px;font:400 9.5px/1 var(--mono);letter-spacing:.08em;
   text-transform:var(--caps);color:var(--tx-2)}
-.ns-create .cr-srow .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
+/* the same 5px the shelf rows use, so the two bars on this screen are one
+   weight rather than two — this one stays continuous because it is a
+   proportion of the week and not a count of anything */
+.ns-create .cr-srow .rail{flex:1;height:5px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
 .ns-create .cr-srow .rail i{display:block;height:100%;border-radius:var(--r-pill);background:var(--ar-c,var(--y))}
 .ns-create .cr-srow .r{flex:0 0 auto;font:800 12px/1 var(--head);color:var(--tx);
   font-variant-numeric:tabular-nums}
@@ -322,6 +362,16 @@
   overflow-wrap:anywhere}
 .ns-create .cr-ctask .tg{display:block;font:400 9px/1.4 var(--mono);letter-spacing:.08em;
   text-transform:var(--caps);color:var(--tx-2);margin-top:calc(5px * var(--dens))}
+/* a subtask, under the task it belongs to: indented, quieter, and without the
+   rail — the rail says "this is a thing on the list" and a subtask is part of
+   one that already said it */
+.ns-create .cr-ctask.sub{margin-left:calc(16px * var(--dens));background:none;
+  border-color:transparent;border-left-color:transparent;
+  padding:calc(7px * var(--dens)) calc(14px * var(--dens));margin-bottom:0;
+  position:relative}
+.ns-create .cr-ctask.sub::before{content:'';position:absolute;left:calc(4px * var(--dens));
+  top:0;bottom:0;width:var(--bw);background:var(--bd)}
+.ns-create .cr-ctask.sub .nm{font-size:11px;color:var(--tx-2)}
 
 @media (hover:hover) and (pointer:fine){
   .ns-create .hd-back:hover,.ns-create .hd-action:hover{color:var(--y)}

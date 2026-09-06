@@ -72,7 +72,7 @@ const CONTENT = [
       .concat((a.stages || []).flatMap(st => [{ name: st.label, sub: 'stage · ' + a.label }]
         .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + a.label + ' · ' + st.label })))))) },
   { path:'create.curate',      app:'create',
-    rows: v => (v && v.label) ? [{ name: v.label, sub:'the curate tab · todoist label' }] : [] },
+    rows: v => (v && v.project) ? [{ name: v.project, sub:'the curate tab · todoist project' }] : [] },
 ];
 
 function contentHits(q) {

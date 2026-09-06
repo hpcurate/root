@@ -1320,20 +1320,30 @@ window.Shell = (function () {
      mid-shuffle would otherwise compare against the digits on their way out
      and play the whole thing a second time. */
   const dnState = new WeakMap();
-  function dayNum(box, iso) {
+  /* The general form: any number in a `.h-daynum` box, shuffled. `sort` is what
+     decides which way it goes — a date string for LOG and DAY, the number
+     itself for a count — and it is compared against the last one this box was
+     given rather than read back off the DOM, because a re-render mid-shuffle
+     would otherwise compare against the digits on their way out and play the
+     whole thing a second time.
+
+     4.1.1 pulled this out of `dayNum` unchanged so CREATE's in-progress count
+     could have it. The three boxes are the same object doing the same job: a
+     number at the right end of the wordmark's row that moves when it changes. */
+  function rollNum(box, text, sort) {
     if (!box) return;
     const cur = box.querySelector('.dn-cur');
     if (!cur) return;
-    const num = String(Number(String(iso).slice(8, 10)) || '');
+    const num = String(text == null ? '' : text);
     const was = dnState.get(box) || null;
     if (was && was.num === num) { cur.textContent = num; return; }
     /* The cleanup timer is part of the per-box state, not a module-level one:
-       LOG and DAY each have a box, and a single shared timer meant whichever
-       shuffled second cancelled the first one's cleanup — leaving its outgoing
-       digits in the DOM to pile up behind the live one. */
-    dnState.set(box, { num, iso: String(iso), timer: was ? was.timer : null });
+       LOG, DAY and CREATE each have a box, and a single shared timer meant
+       whichever shuffled second cancelled the first one's cleanup — leaving its
+       outgoing digits in the DOM to pile up behind the live one. */
+    dnState.set(box, { num, sort, timer: was ? was.timer : null });
     if (!was || cur.textContent === '') { cur.textContent = num; return; }   // first paint: nothing to shuffle from
-    box.style.setProperty('--dn-dir', String(iso) >= was.iso ? 1 : -1);
+    box.style.setProperty('--dn-dir', sort >= was.sort ? 1 : -1);
     /* Exactly one number is ever on its way out. A finger held on the arrow
        steps faster than the animation runs, and appending one of these per step
        stacked them all against the same right edge — a smear of digits behind
@@ -1356,8 +1366,12 @@ window.Shell = (function () {
       cur.classList.remove('shuffling');
     }, 520);
   }
+  /* The day of the month, which is what LOG and DAY put there. The ISO string
+     is both the text's source and the thing that says which way time went. */
+  const dayNum = (box, iso) =>
+    rollNum(box, String(Number(String(iso).slice(8, 10)) || ''), String(iso));
 
-  return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum,
+  return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
            hashTarget, searchApps,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,

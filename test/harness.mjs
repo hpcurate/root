@@ -4093,14 +4093,14 @@ check('a work on its area’s finished stage leaves the shelf for the fold',
 // the log is filtered by the same areas, and totals per area
 w.CREATE.go('sessions');
 check('the session log carries the same filter, so "where did the week go" has an answer',
-  [...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].map(b => b.dataset.a).join(',')
+  [...d.querySelectorAll('.ns-create #cr-log-tabs .cr-tab')].map(b => b.dataset.a).join(',')
     === ['all'].concat(crAreas().map(a => a.key)).join(','),
   $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
-click([...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].find(b => b.dataset.a === 'mixing'));
+click([...d.querySelectorAll('.ns-create #cr-log-tabs .cr-tab')].find(b => b.dataset.a === 'mixing'));
 check('... and filtering it to an area with no hours says so rather than drawing nothing',
   !!$('.ns-create #cr-sessions .cr-empty'),
   $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
-click([...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].find(b => b.dataset.a === 'all'));
+click([...d.querySelectorAll('.ns-create #cr-log-tabs .cr-tab')].find(b => b.dataset.a === 'all'));
 
 // deleting a work asks first, and takes its sessions with it
 w.CREATE.go('home');
@@ -4587,7 +4587,7 @@ check('the shelf’s filter is DO’s selector: a rail, flat chips and a glider'
   /\.ns-create \.cr-areas\{[^}]*border:var\(--bw\) solid var\(--bd\)/.test(createCss41) &&
   /\.ns-create \.cr-tab\.active\{color:var\(--on-y\)\}/.test(createCss41));
 check('… and the session log uses the same strip rather than a second control',
-  (w.CREATE.go('sessions'), !!$('.ns-create #cr-sessions .cr-tglide')));
+  (w.CREATE.go('sessions'), !!$('.ns-create #cr-log-tabs .cr-tglide')));
 w.CREATE.go('home');
 
 /* An area names which meta chips it asks for. A song has a key; a DJ set has
@@ -4623,6 +4623,11 @@ check('… and the editor has a checkbox per field, read back with the rest of t
 /* CURATE: the Todoist label, grouped by section, read only. */
 check('curate is a chip on the same strip, after the areas',
   [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].pop().dataset.a === 'curate');
+/* The chip wears what is after the last pipe: "02 | curate" is a filing name
+   and the number and the pipe are how it sorts in Todoist's sidebar. */
+check('… and the chip wears the project name without its filing prefix',
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].pop().textContent.trim() === 'curate',
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].pop().textContent.trim());
 w.CREATE.area('curate');
 w.CREATE.go('home');
 check('… and picking it puts the list where the shelf was, not beside it',
@@ -4630,22 +4635,26 @@ check('… and picking it puts the list where the shelf was, not beside it',
   $('.ns-create #cr-list').classList.contains('hidden') &&
   $('.ns-create #cr-add').classList.contains('hidden') &&
   $('.ns-create #cr-week').classList.contains('hidden'));
-/* Sorted the way Todoist is sorted: project order, then section order, then
-   the task's own order inside its section. Fed a deliberately jumbled answer. */
+/* The whole project, in the order it is arranged in: section order, then each
+   task's own order inside its section, subtasks under their parent. Fed a
+   deliberately jumbled answer, and one section with nothing open in it. */
 w.Creds.save('tok-for-curate');
 fetchScript = async (url) => {
   const u = String(url);
   const body = /\/tasks\?/.test(u) ? [
-    { id:'t3', content:'watch tutorial', project_id:'p1', section_id:'s2', labels:['curate'], order:2 },
-    { id:'t1', content:'IMANU patreon',  project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:1 },
-    { id:'t4', content:'plugins',        project_id:'p2', section_id:null, labels:['curate'], order:1 },
-    { id:'t2', content:'buunshin patreon', project_id:'p1', section_id:'s1', labels:['curate'], order:2 },
+    { id:'t3', content:'watch tutorial',   project_id:'p1', section_id:'s2', labels:[], order:2 },
+    { id:'t1', content:'IMANU patreon',    project_id:'p1', section_id:'s1', labels:['purchase'], order:1 },
+    { id:'t9', content:'pick the tier',    project_id:'p1', section_id:'s1', labels:[], order:2, parent_id:'t1' },
+    { id:'t8', content:'check the archive',project_id:'p1', section_id:'s1', labels:[], order:1, parent_id:'t1' },
+    { id:'t4', content:'plugins',          project_id:'p1', section_id:null, labels:['quick'], order:1 },
+    { id:'t2', content:'buunshin patreon', project_id:'p1', section_id:'s1', labels:['purchase'], order:2 },
   ] : /\/projects/.test(u) ? [
-    { id:'p2', name:'inbox',  color:'grey', order:2 },
-    { id:'p1', name:'curate', color:'grape', order:1 },
+    { id:'p2', name:'04 | life',  color:'green', order:2 },
+    { id:'p1', name:'02 | curate', color:'grape', order:1 },
   ] : /\/sections/.test(u) ? [
-    { id:'s2', project_id:'p1', name:'watch',    section_order:2 },
-    { id:'s1', project_id:'p1', name:'purchase', section_order:1 },
+    { id:'s4', project_id:'p1', name:'empty one', section_order:1 },
+    { id:'s2', project_id:'p1', name:'watch',     section_order:3 },
+    { id:'s1', project_id:'p1', name:'purchase',  section_order:2 },
   ] : [];
   return { ok:true, status:200, text: async () => JSON.stringify(body) };
 };
@@ -4653,25 +4662,55 @@ await w.CREATE.refreshCurate();
 await tick(30);
 const groupNames = () => [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup .cr-chead')]
   .map(h => h.textContent.replace(/\s+/g, ' ').trim());
-check('the curate tab groups by section, in Todoist’s own order',
+check('the curate tab draws the whole project, grouped by section in its own order',
   groupNames().length === 3 &&
-  /curate purchase 2/.test(groupNames()[0]) &&
-  /curate watch 1/.test(groupNames()[1]) &&
-  /inbox no section 1/.test(groupNames()[2]),
+  /^no section 1$/.test(groupNames()[0]) &&
+  /^purchase 4$/.test(groupNames()[1]) &&
+  /^watch 1$/.test(groupNames()[2]),
   groupNames().join(' | '));
+check('… a section with nothing open in it is not drawn as an empty heading',
+  !groupNames().some(n => /empty one/.test(n)), groupNames().join(' | '));
 check('… and the tasks inside a section keep their own order',
-  [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup')][0]
-    .querySelectorAll('.cr-ctask .nm')[0].textContent === 'IMANU patreon',
+  [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup')][1]
+    .querySelectorAll('.cr-ctask:not(.sub) .nm')[0].textContent === 'IMANU patreon',
   [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .nm')].map(x => x.textContent).join(' | '));
-check('… the label every row carries is not repeated as a tag on it',
-  ![...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .tg')].some(t => /curate/.test(t.textContent)),
-  [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .tg')].map(x => x.textContent).join(','));
+/* A subtask is a task of the same project and arrives in the same answer, so
+   it is filed under its parent rather than beside it. */
+const subNames = () => [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask.sub .nm')]
+  .map(x => x.textContent);
+check('… subtasks nest under the task they belong to, in their own order',
+  subNames().join(',') === 'check the archive,pick the tier' &&
+  [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup')][1]
+    .querySelectorAll('.cr-ctask')[1].classList.contains('sub'),
+  subNames().join(','));
+check('… the group count is every row in it, subtasks included',
+  /purchase 4/.test(groupNames()[1]), groupNames()[1]);
 check('… it is cached, so the tab draws before the network answers',
   (JSON.parse(w.localStorage.getItem('create_v1')).curate.groups || []).length === 3 &&
-  JSON.parse(w.localStorage.getItem('create_v1')).curate.fetched > 0);
+  JSON.parse(w.localStorage.getItem('create_v1')).curate.fetched > 0 &&
+  JSON.parse(w.localStorage.getItem('create_v1')).curate.project === '02 | curate');
+check('… the band counts what is open in it, and says which project',
+  $('.ns-create #cr-daynum .dn-cur').textContent === '6' &&
+  $('.ns-create #cr-label').textContent === '02 | curate',
+  $('.ns-create #cr-daynum').textContent + ' / ' + $('.ns-create #cr-label').textContent);
 check('… and the screen says out loud that nothing here is written',
   /read only/i.test($('.ns-create #cr-curate').textContent),
   $('.ns-create #cr-curate .cr-cnote')?.textContent);
+/* The project is matched folded, the way PLAN matches every project it sends
+   to — so the punctuation in "02 | curate" is not load-bearing. */
+w.Config.set('create.curate', { project: '02curate', maxAgeMin: 60 });
+await w.CREATE.refreshCurate();
+await tick(30);
+check('… the project name is matched folded, so its punctuation is not load-bearing',
+  (DB41 => DB41.curate.groups.length === 3)(JSON.parse(w.localStorage.getItem('create_v1'))),
+  $('.ns-create #cr-curate .cr-empty')?.textContent || 'matched');
+w.Config.set('create.curate', { project: 'no such project', maxAgeMin: 60 });
+await w.CREATE.refreshCurate();
+await tick(30);
+check('… and a project that is not there says so rather than drawing nothing',
+  /no project called/.test($('.ns-create #cr-curate').textContent),
+  $('.ns-create #cr-curate .cr-empty')?.textContent);
+w.Config.set('create.curate', { project: '02 | curate', maxAgeMin: 60 });
 w.CREATE.area('all');
 w.CREATE.go('home');
 fetchScript = async () => ({ ok:false, status:599, json: async () => ({}), text: async () => '' });
@@ -4679,19 +4718,23 @@ fetchScript = async () => ({ ok:false, status:599, json: async () => ({}), text:
 /* ── The shelf’s own boxes carry the classes their rules are written for ────
    `#cr-hero` and `#cr-sorts` were styled by class and marked up by id alone,
    so the hero was never centred and the sort chips were never a row. That is
-   what "the spacing is off" was. */
+   what "the spacing is off" was. The hero itself is gone at 4.1.1 — the count
+   moved into the band — so what is checked is the rule, over what is left. */
 check('every block on the shelf carries the class its rules are written for',
-  $('.ns-create #cr-hero').classList.contains('cr-hero') &&
   $('.ns-create #cr-sorts').classList.contains('cr-sorts') &&
   $('.ns-create #cr-add').classList.contains('cr-adds') &&
-  $('.ns-create #cr-areas').classList.contains('cr-areas'),
-  [...$('.ns-create #cr-hero').classList].join(' ') + ' / ' +
+  $('.ns-create #cr-areas').classList.contains('cr-areas') &&
+  !$('.ns-create #cr-hero'),
   [...$('.ns-create #cr-sorts').classList].join(' '));
-/* §4: a literal pixel gap is a gap the Spacing dial cannot reach. */
+/* §4: a literal pixel gap is a gap the Spacing dial cannot reach. The two
+   exceptions are hairlines between segments, not gaps in a layout: the stage
+   strip's 3px and the progress ticks' 2px stay put at every density because a
+   gap that scales below a pixel stops being a gap. */
 const crSpace = createCss41.replace(/\/\*[\s\S]*?\*\//g, '')
   .match(/(?:margin|padding|gap)(?:-top|-bottom|-left|-right)?:[^;}]*/g) || [];
 const crLiteral = crSpace.filter(x =>
-  /\d+px/.test(x) && !/var\(--dens\)/.test(x) && !/var\(--hd-pad\)/.test(x) && !/gap:3px/.test(x));
+  /\d+px/.test(x) && !/var\(--dens\)/.test(x) && !/var\(--hd-pad\)/.test(x) &&
+  !/^gap:3px$/.test(x) && !/^gap:2px$/.test(x));
 check('… and every gap in the sheet is a ratio of --dens, so Spacing reaches all of it',
   crLiteral.length === 0, crLiteral.join(' | '));
 
@@ -4719,6 +4762,130 @@ check('the two reports carry the hours as well, from CREATE or from a parsed not
   /createTotals\(days, ?dd\)/.test(logJs41) &&
   (logJs41.match(/createSection\(create\)/g) || []).length === 2 &&
   (logJs41.match(/at the desk/g) || []).length >= 2);
+
+
+/* ══ 4.1.1 ════════════════════════════════════════════════════════════════════
+   The glider actually slides, the chips are even and centred, and the count
+   moved into the band with the shuffle the other apps' numbers have. */
+const createCss411 = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
+const shellJs411   = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
+
+w.Shell.go('create');
+w.CREATE.area('all');
+w.CREATE.go('home');
+
+/* **This is the whole bug.** 4.1 rewrote the rail's innerHTML on every
+   selection, so the glider was a brand-new element at its final position and
+   had nothing to transition from — the one element whose job is to slide did
+   not slide. The markup is only rewritten when the chips themselves change. */
+const stripEl = () => $('.ns-create #cr-areas');
+const glider  = () => $('.ns-create #cr-tglide') || stripEl().querySelector('.cr-tglide');
+const markGlider = () => { glider().dataset.same = '1'; };
+markGlider();
+click([...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].find(b => b.dataset.a === 'mixing'));
+check('changing tab moves the glider rather than rebuilding it — which is why it can slide',
+  glider().dataset.same === '1' &&
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].find(b => b.dataset.a === 'mixing')
+    .classList.contains('active'),
+  glider().dataset.same === '1' ? 'same node' : 'rebuilt');
+check('… and it is the transition on the glider that does the sliding',
+  /\.ns-create \.cr-tglide\{[^}]*transition:transform [^}]*width /.test(createCss411));
+/* An area renamed in Settings does have to rebuild the rail — that is a
+   different strip, not a different selection. */
+const areasNow = JSON.parse(JSON.stringify(w.Config.get('create.areas')));
+const renamed = JSON.parse(JSON.stringify(areasNow));
+renamed[1].label = 'dj sets';
+w.Config.set('create.areas', renamed);
+check('… but a chip renamed in the editor does rebuild it, because the strip changed',
+  glider().dataset.same !== '1' &&
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].map(b => b.textContent.trim()).includes('dj sets'),
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].map(b => b.textContent.trim()).join(','));
+w.Config.set('create.areas', areasNow);
+w.CREATE.area('all');
+w.CREATE.go('home');
+
+/* Even, and centred. `flex:1 1 0` splits the rail equally; `min-width:max-content`
+   is the floor that stops the share squashing a word, so the rail scrolls
+   instead of cramming. */
+check('the chips split the rail evenly and centre their own text',
+  /\.ns-create \.cr-tab\{[^}]*flex:1 1 0/.test(createCss411) &&
+  /\.ns-create \.cr-tab\{[^}]*min-width:max-content/.test(createCss411) &&
+  /\.ns-create \.cr-tab\{[^}]*justify-content:center/.test(createCss411) &&
+  !/\.ns-create \.cr-tab\{[^}]*flex:0 0 auto/.test(createCss411));
+
+/* The count moved out of a 74px block under the band and into the box LOG's
+   and DAY's day numbers live in — same size, same shadow, same shuffle. */
+check('the count sits at the right end of the wordmark’s row, not in a hero under it',
+  !$('.ns-create #cr-hero') &&
+  !!$('.ns-create > #s-home .h-logo-row #cr-daynum .dn-cur') === false ||
+  !!$('.ns-create #cr-daynum .dn-cur'),
+  $('.ns-create #cr-daynum') ? 'in the band' : 'missing');
+check('… in the same box LOG and DAY use, so the three read as one thing',
+  $('.ns-create #cr-daynum').classList.contains('h-daynum') &&
+  $('.ns-create #cr-daynum').parentElement.classList.contains('h-logo-row'));
+check('… and it counts what is in progress, with the label saying so',
+  $('.ns-create #cr-daynum .dn-cur').textContent === String(w.CREATE.works().filter(
+    x => !/released|played|finished/.test(w.CREATE.progress(x).stage.label)).length) &&
+  $('.ns-create #cr-label').textContent === 'in progress',
+  $('.ns-create #cr-daynum').textContent + ' / ' + $('.ns-create #cr-label').textContent);
+w.CREATE.area('mixing');
+w.CREATE.go('home');
+check('… and narrowing to an area says which area it is counting',
+  /mixing/.test($('.ns-create #cr-label').textContent),
+  $('.ns-create #cr-label').textContent);
+w.CREATE.area('all');
+w.CREATE.go('home');
+
+/* The shuffle is Shell's, pulled out of dayNum unchanged so all three boxes
+   are the same object doing the same job. */
+check('the roll is one function for all three numbers, not a second copy of it',
+  typeof w.Shell.rollNum === 'function' &&
+  /const dayNum = \(box, iso\) =>\s*\n?\s*rollNum\(/.test(shellJs411) &&
+  (shellJs411.match(/\.dn-out'\)\.forEach/g) || []).length === 2,
+  'one rollNum, dayNum delegates to it');
+const dnBox = () => $('.ns-create #cr-daynum');
+w.CREATE.addWork('production');
+settle();
+$('#ask-input').value = 'a fifth thing';
+click($('#ask-yes'));
+await tick();
+w.CREATE.go('home');
+check('… and CREATE’s number shuffles when it changes, like the day numbers do',
+  !!dnBox().querySelector('.dn-out') && dnBox().querySelector('.dn-cur').classList.contains('shuffling'),
+  dnBox().innerHTML.replace(/\s+/g, ' ').slice(0, 90));
+
+/* Progress is ticks now: one per checklist item, filled for done. A rail could
+   only say what fraction, which is why there was a "1 / 7" printed beside it. */
+const progOf = () => $('.ns-create #cr-list .cr-work .cr-prog');
+check('a work’s progress is one tick per checklist item, not a rail and a ratio',
+  !!progOf() && progOf().querySelectorAll('i').length > 0 &&
+  !progOf().querySelector('.rail') && !progOf().querySelector('.v'),
+  progOf() ? progOf().querySelectorAll('i').length + ' ticks' : 'none');
+check('… as many ticks as the stage asks for, and the done ones lit',
+  [...d.querySelectorAll('.ns-create #cr-list .cr-work')].every(row => {
+    const p = row.querySelector('.cr-prog');
+    if (!p) return true;
+    const n = p.querySelectorAll('i').length, on = p.querySelectorAll('i.on').length;
+    return n > 0 && on <= n && /^\d+ of \d+ done$/.test(p.getAttribute('aria-label')) &&
+           +p.getAttribute('aria-label').split(' ')[2] === n;
+  }));
+check('… and it still says the count to a screen reader, which is what the ratio was for',
+  /aria-label="\d+ of \d+ done"/.test($('.ns-create #cr-list').innerHTML));
+/* Past 16 items the segments would be thinner than the gaps between them, so
+   it falls back to a rail — a checklist that long is a fraction again. */
+const longAreas = JSON.parse(JSON.stringify(areasNow));
+longAreas.forEach(a => a.stages.forEach(st => {
+  if (st.terminal) return;                       // a finished stage asks for nothing
+  st.items = Array.from({ length: 20 }, (_, i) => 'item ' + (i + 1));
+}));
+w.Config.set('create.areas', longAreas);
+w.CREATE.go('home');
+check('… and a checklist too long to draw as ticks falls back to a rail',
+  [...d.querySelectorAll('.ns-create #cr-list .cr-prog')].some(p => p.classList.contains('long')) &&
+  /\.ns-create \.cr-prog\.long::before\{[^}]*width:var\(--pct/.test(createCss411),
+  [...d.querySelectorAll('.ns-create #cr-list .cr-prog')].map(p => p.className).join(' | '));
+w.Config.set('create.areas', areasNow);
+w.CREATE.go('home');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

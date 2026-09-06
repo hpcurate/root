@@ -620,19 +620,22 @@ const DEFAULTS = {
        screen lists, and how far back "this week" reaches. */
     home: { sort:'touched', sessionCount: 6, weekDays: 7 },
     /* ── The one networked thing in CREATE ──
-       A tab beside the areas that reads the open Todoist tasks carrying this
-       label and lists them under the section they sit in. It is **read only**:
-       CREATE never closes, moves or writes a task — that is DO's job and PLAN's
-       — so nothing here can be lost by looking at it.
+       A tab beside the areas that reads a whole Todoist **project** and lists
+       it under the sections it is arranged into. It is **read only**: CREATE
+       never closes, moves or writes a task — that is DO's job and PLAN's — so
+       nothing here can be lost by looking at it.
 
-       Why it is in CREATE at all, when the module's own header says "no network
-       at all": the label is the pile of records to find, patreons to renew and
-       tutorials to watch that a song or a set gets made out of. It is the same
-       question the shelf answers, kept somewhere else, and CREATE is where you
-       are standing when you want it. `label` is the Todoist label without its
-       `@`; `maxAgeMin` is how stale the cached list may get before a visit
-       refetches it. */
-    curate: { label: 'curate', maxAgeMin: 60 },
+       Why it is in CREATE at all, when the shelf has no network: that project
+       is the pile of records to find, subscriptions to renew and tutorials to
+       watch that a song or a set gets made out of. It is the same question the
+       shelf answers, kept somewhere else, and CREATE is where you are standing
+       when you want it.
+
+       `project` is matched the way every other project name in ROOT is —
+       folded, so "02 | curate" and "02curate" are the same project. Blank
+       switches the tab off. `maxAgeMin` is how stale the cached list may get
+       before a visit refetches it; the refresh button ignores it. */
+    curate: { project: '02 | curate', maxAgeMin: 60 },
   },
 };
 

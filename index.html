@@ -1110,11 +1110,20 @@
        fixed here is the order the parts come in. ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
-      <div class="h-label">production · mixing</div>
-      <div class="h-logo">CREATE<em>.</em></div>
+      <!-- what the number opposite the wordmark is counting: "in progress",
+           the area it is narrowed to, or the curate project -->
+      <div class="h-label" id="cr-label">in progress</div>
+      <!-- The count sits at the right end of the wordmark's row, in the same
+           box LOG's and DAY's big day numbers use, and it shuffles the same
+           way — Shell.rollNum() owns all three. It was a 74px block under the
+           band until 4.1.1, which was most of a phone screen spent on one
+           digit. -->
+      <div class="h-logo-row">
+        <div class="h-logo">CREATE<em>.</em></div>
+        <div class="h-daynum" id="cr-daynum" aria-hidden="true"><span class="dn-cur"></span></div>
+      </div>
     </div>
     <div class="cnt">
-      <div class="cr-hero" id="cr-hero"></div>
       <!-- the tab strip: all, one per area, then curate. DO's DAILY/MEDIA/OTHER
            selector — a bordered rail with a glider under the live chip. -->
       <div class="cr-areas" id="cr-areas"></div>
@@ -1147,7 +1156,12 @@
       <button class="hd-back" data-act="home">← shelf</button>
       <div class="hd-title">SESSIONS</div>
     </div>
-    <div class="cnt" id="cr-sessions"></div>
+    <div class="cnt">
+      <!-- the same strip the shelf has, in its own box so switching the filter
+           moves the glider instead of rebuilding the rail underneath it -->
+      <div class="cr-areas cr-areas-log hidden" id="cr-log-tabs"></div>
+      <div id="cr-sessions"></div>
+    </div>
   </div>
 </section>
 
@@ -1875,9 +1889,9 @@
 
       <div class="sec"><span>The curate tab</span></div>
       <div class="setRow">
-        <div class="sl">Todoist label<s>the tab lists every open task carrying it, grouped by section — blank switches the tab off</s></div>
-        <input type="text" id="cr-set-label" spellcheck="false"
-               data-cfg="create.curate" data-sub="label" aria-label="curate label">
+        <div class="sl">Todoist project<s>the tab lists the whole project, grouped by its sections and in their order — blank switches the tab off</s></div>
+        <input type="text" id="cr-set-project" spellcheck="false"
+               data-cfg="create.curate" data-sub="project" aria-label="curate project">
       </div>
       <div class="setRow">
         <div class="sl">Refresh after<s>minutes before a visit re-reads Todoist; the refresh button ignores it</s></div>
