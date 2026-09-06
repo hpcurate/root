@@ -214,27 +214,131 @@
     padding:5px 8px calc(5px + env(safe-area-inset-bottom));
     height:calc(var(--nav-fh) + env(safe-area-inset-bottom))}
   [data-nav="bar"] #nav.chrome-off{transform:translateY(100%)}
-  [data-nav="bar"] .tab-b::before{border-radius:var(--r3)}
+  [data-nav="bar"][data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
   [data-nav="bar"] .nav-arrow{display:none}
   [data-nav="minimal"] #nav{display:none}
 }
 [data-tab-labels="off"] .tb-l{display:none}
 [data-tab-labels="off"] .tab-b svg{width:21px;height:21px}
 
-/* Colour-coded tabs: each app keeps its own hue on the active pill instead of
+/* === THE TAB BAR'S ACTIVE MARK ==============================================
+   Three dials, and they are three because they answer three questions: which
+   colours the tabs wear, what shape the mark around the selected one is, and
+   how that mark arrives. Every rule here sets one of the variables declared on
+   `.tab-b` in shell.css — the mark itself is drawn once, there, and never
+   redrawn per option. Adding a palette is ten custom properties; adding a
+   shape is one rule.
+
+   -- Palettes ----------------------------------------------------------------
+   Colour-coded tabs: each app keeps its own hue on the active mark instead of
    everything sharing the accent. Keyed on the app, not the position — the
-   order is the user's to change. */
-[data-color-tabs="on"] #nav .tab-b[data-app="do"]::before{background:#A78BFA}
-[data-color-tabs="on"] #nav .tab-b[data-app="log"]::before{background:#5cdb7d}
-[data-color-tabs="on"] #nav .tab-b[data-app="plan"]::before{background:#5e8cff}
-[data-color-tabs="on"] #nav .tab-b[data-app="store"]::before{background:#e8a33d}
-[data-color-tabs="on"] #nav .tab-b[data-app="tend"]::before{background:#3fc9b0}
-[data-color-tabs="on"] #nav .tab-b[data-app="track"]::before{background:#f0709a}
-[data-color-tabs="on"] #nav .tab-b[data-app="learn"]::before{background:#5ad4e6}
-[data-color-tabs="on"] #nav .tab-b[data-app="cal"]::before{background:#c98b3f}
-[data-color-tabs="on"] #nav .tab-b[data-app="create"]::before{background:#e6c34a}
-[data-color-tabs="on"] #nav .tab-b[data-app="settings"]::before{background:var(--mu)}
-[data-color-tabs="on"] #nav .tab-b.on{color:#0e0e0e}
+   order is the user's to change. `--tab-on-c` travels with each palette,
+   because what reads on top of a hue is part of choosing the hue: near-black
+   on the five bright sets, and the page's own ground on `mono`, whose tabs are
+   cut from the text colour and so flip with the theme. */
+:root{--tab-do:#A78BFA;--tab-log:#5cdb7d;--tab-plan:#5e8cff;--tab-store:#e8a33d;
+      --tab-tend:#3fc9b0;--tab-track:#f0709a;--tab-learn:#5ad4e6;--tab-cal:#c98b3f;
+      --tab-create:#e6c34a;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
+/* warm — one sunset, so the bar reads as a run across itself rather than nine
+   unrelated hues */
+[data-tab-palette="warm"]{--tab-do:#ff9e57;--tab-log:#ffc861;--tab-plan:#ff7a5c;
+      --tab-store:#e8a33d;--tab-tend:#d9b26a;--tab-track:#ff6b81;--tab-learn:#ffb38a;
+      --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-on-c:#1a0d05}
+/* cool — the same idea at the other end, and the quietest of the five */
+[data-tab-palette="cool"]{--tab-do:#8ea8ff;--tab-log:#5fd0c4;--tab-plan:#5e8cff;
+      --tab-store:#7fb3e8;--tab-tend:#3fc9b0;--tab-track:#a78bfa;--tab-learn:#5ad4e6;
+      --tab-cal:#6fa0d8;--tab-create:#9ad8e8;--tab-on-c:#05121c}
+/* candy — the app palette washed out: coloured, but not loud */
+[data-tab-palette="candy"]{--tab-do:#cbb6ff;--tab-log:#a8e6b8;--tab-plan:#a9c6ff;
+      --tab-store:#ffd9a3;--tab-tend:#a6e5da;--tab-track:#ffb3c9;--tab-learn:#b3e9f2;
+      --tab-cal:#eccba3;--tab-create:#f6e6a8;--tab-on-c:#171514}
+/* neon — full saturation. Too much on a light theme on purpose; it is here
+   because a phone at night is the screen this app is mostly read on. */
+[data-tab-palette="neon"]{--tab-do:#b026ff;--tab-log:#39ff14;--tab-plan:#2979ff;
+      --tab-store:#ff9100;--tab-tend:#00e5c0;--tab-track:#ff2d95;--tab-learn:#00e5ff;
+      --tab-cal:#ff6d00;--tab-create:#ffe600;--tab-on-c:#05050a}
+/* mono — no hues at all, a ramp cut from the text colour. Colour-coding
+   without colour: the tabs still differ, by weight rather than by hue, and it
+   is the one palette that is as legible in a light theme as in a dark one. */
+[data-tab-palette="mono"]{
+      --tab-do:color-mix(in srgb,var(--tx) 96%,transparent);
+      --tab-log:color-mix(in srgb,var(--tx) 88%,transparent);
+      --tab-plan:color-mix(in srgb,var(--tx) 80%,transparent);
+      --tab-store:color-mix(in srgb,var(--tx) 72%,transparent);
+      --tab-tend:color-mix(in srgb,var(--tx) 64%,transparent);
+      --tab-track:color-mix(in srgb,var(--tx) 56%,transparent);
+      --tab-learn:color-mix(in srgb,var(--tx) 48%,transparent);
+      --tab-cal:color-mix(in srgb,var(--tx) 40%,transparent);
+      --tab-create:color-mix(in srgb,var(--tx) 33%,transparent);
+      --tab-set:color-mix(in srgb,var(--tx) 26%,transparent);
+      --tab-on-c:var(--bg)}
+
+[data-color-tabs="on"] #nav .tab-b[data-app="do"]{--tab-app-c:var(--tab-do)}
+[data-color-tabs="on"] #nav .tab-b[data-app="log"]{--tab-app-c:var(--tab-log)}
+[data-color-tabs="on"] #nav .tab-b[data-app="plan"]{--tab-app-c:var(--tab-plan)}
+[data-color-tabs="on"] #nav .tab-b[data-app="store"]{--tab-app-c:var(--tab-store)}
+[data-color-tabs="on"] #nav .tab-b[data-app="tend"]{--tab-app-c:var(--tab-tend)}
+[data-color-tabs="on"] #nav .tab-b[data-app="track"]{--tab-app-c:var(--tab-track)}
+[data-color-tabs="on"] #nav .tab-b[data-app="learn"]{--tab-app-c:var(--tab-learn)}
+[data-color-tabs="on"] #nav .tab-b[data-app="cal"]{--tab-app-c:var(--tab-cal)}
+[data-color-tabs="on"] #nav .tab-b[data-app="create"]{--tab-app-c:var(--tab-create)}
+[data-color-tabs="on"] #nav .tab-b[data-app="settings"]{--tab-app-c:var(--tab-set)}
+[data-color-tabs="on"] #nav .tab-b{--tab-app-ink:var(--tab-on-c)}
+
+/* -- Shapes -------------------------------------------------------------------
+   `pill` is the default and is the bar as it has always been: the mark fills
+   the whole button. `round` and `square` are that same box with different
+   corners. The other three change what the mark *is* rather than how it is
+   cornered, so they say so in more than a radius. */
+[data-nav-shape="round"]  .tab-b{--tab-r:var(--r2)}
+[data-nav-shape="square"] .tab-b{--tab-r:0}
+/* circle — a disc behind the icon rather than a fill behind the button. It has
+   to size and place itself, and it centres with a transform, which is the
+   reason the transform the animation composes with is a variable at all. The
+   button is taller when the labels are on, so the disc is hung off the top
+   rather than the middle: the icon is what it is a disc around. */
+[data-nav-shape="circle"]{--tab-disc:34px}
+[data-nav-shape="circle"] .tab-b{--tab-r:50%;--tab-t:translateX(-50%)}
+[data-nav-shape="circle"] .tab-b::before{
+  inset:auto auto auto 50%;top:calc(50% - var(--tab-disc)/2);
+  width:var(--tab-disc);height:var(--tab-disc)}
+[data-nav-shape="circle"][data-tab-labels="on"] .tab-b::before{
+  top:calc(50% - var(--tab-disc)/2 - 5px)}
+/* ring — the outline of the shape instead of the shape. The icon keeps the
+   colour rather than inverting into it: there is no filled ground to read on. */
+[data-nav-shape="ring"] .tab-b{--tab-ink:var(--tab-c)}
+[data-nav-shape="ring"] .tab-b::before{background:none;border-width:max(1.5px,var(--bw))}
+/* under — a rule beneath the tab. The quietest of the six, and the only one
+   that leaves the icon exactly where an unselected icon is. */
+[data-nav-shape="under"] .tab-b{--tab-ink:var(--tab-c)}
+[data-nav-shape="under"] .tab-b::before{inset:auto 26% 3px;height:3px}
+[data-nav="bar"][data-nav-shape="under"] .tab-b::before{bottom:0}
+/* On a wide window the bar is a side rail and a tab is a wide box, not an
+   icon-sized square. A disc measured against the icon and a rule under it are
+   both drawn for a bar along the bottom and neither survives being stood on
+   its side — a 50% radius on a wide box is an ellipse, and an underline is a
+   line down the middle of nothing. Those two fall back to the box the other
+   four already are; ring is the outline of whatever box it is given, so it
+   needs nothing. */
+@media (min-width:880px){
+  [data-nav-shape="circle"] .tab-b,
+  [data-nav-shape="under"]  .tab-b{--tab-r:var(--r3);--tab-t:translate(0,0);
+                                   --tab-ink:var(--tab-app-ink,var(--on-y))}
+  [data-nav-shape="circle"] .tab-b::before,
+  [data-nav-shape="under"]  .tab-b::before{inset:0;width:auto;height:auto}
+}
+
+/* -- How it arrives -----------------------------------------------------------
+   The mark is always transformed into place; these change what it is
+   transformed *from*, and on what curve. Motion: none still switches all of it
+   off unless "keep the bar moving" is on (tokens.css) — and that rule forces a
+   duration with !important, so `none` has to answer in kind, or the one option
+   that asks for stillness would be the one option that could not have it. */
+[data-nav-anim="pop"]  .tab-b{--tab-s0:.2;--tab-dur:.34s;--tab-ease:cubic-bezier(.2,1.7,.4,1)}
+[data-nav-anim="fade"] .tab-b{--tab-s0:1;--tab-dur:.2s;--tab-ease:ease}
+[data-nav-anim="rise"] .tab-b{--tab-s0:1;--tab-y0:7px;--tab-dur:.26s;
+                              --tab-ease:cubic-bezier(.2,.85,.3,1)}
+[data-nav-anim="none"] .tab-b::before{transition:none!important}
 
 
 /* ═══ LIGHT-MODE CORRECTIONS ══════════════════════════════════════════════════

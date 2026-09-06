@@ -933,6 +933,20 @@ check('the rows are the project\'s sections, in its colour',
 check('the colour is a rail down the row, not a wash over it — three rows stopped reading as three slabs',
   /\.ns-plan \.ps-rail\{flex:0 0 3px/.test(planCss) &&
   /\.ns-plan \.proj-sec\{[^}]*background:var\(--s1\)/.test(planCss));
+/* 3.1.0 — every box on this screen clips its own text so a long name cannot
+   push its row wider than the grid. Against `line-height:1` that clip lands on
+   the baseline and cuts the tail off a g, p, y or q: the row fitted, the word
+   in it did not. Anything that hides its overflow carries a real line-height
+   now, and nothing got taller for it — the rows are sized by `min-height`. */
+check('a name with a descender in it is not cut off flat at the bottom of its box',
+  [/\.ns-plan \.ps-name\{/, /\.ns-plan \.proj-name\{/].every(re => re.test(planCss)) &&
+  /\.ns-plan \.proj-sec\{[^}]*font:400 12px\/1\.4 /.test(planCss) &&
+  /\.ns-plan \.proj-name\{font:700 13px\/1\.35 /.test(planCss) &&
+  /\.ns-plan \.dstep-w\{[^}]*font:400 13px\/1\.35 /.test(planCss) &&
+  /\.ns-plan \.dstep-d\{[^}]*font:400 8px\/1\.4 /.test(planCss));
+check('… and the rows are no taller for it, because their height was never the text',
+  /\.ns-plan \.proj-sec\{[^}]*min-height:var\(--tile-h\)/.test(planCss) &&
+  /--tile-h:46px/.test(planCss));
 check('the other projects stay on screen as chips, so switching is one tap and not three',
   [...d.querySelectorAll('.ns-plan .proj-jump')].map(b => b.textContent.replace(/\s+/g, '')).join(',')
     === w.Config.get('plan.types').filter(t => t.key !== 'curate').map(t => t.label).join(','),
@@ -1835,9 +1849,24 @@ check('planning one block for tomorrow answers it: PLAN\'s icon goes back',
   planIcon() === '#tab-plan' && !planBtn().classList.contains('has-alert') &&
   logIcon() === '#tab-log' && !logBtn().classList.contains('has-alert'),
   JSON.stringify(w.PLAN.plannedOn(offset(1))) + ' / ' + planIcon());
-check('an alerting tab wears a filled pill, not only a "!"',
-  /\.tab-b\.has-alert::before\{[^}]*opacity:1/.test(fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8')) &&
-  /\.tab-b\.has-alert::before\{[^}]*background:var\(--or\)/.test(fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8')));
+const shellCssA = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+check('an alerting tab wears a filled mark, not only a "!"',
+  /\.tab-b\.has-alert::before\{[^}]*opacity:1/.test(shellCssA) &&
+  /\.tab-b\.has-alert\{[^}]*--tab-c:var\(--or\)/.test(shellCssA));
+/* Through the variable rather than `background`, so the warning reaches a shape
+   that draws its colour as a border — and so it outranks the colour-coded
+   palette, which as a bare `background` on `::before` it did not: a
+   colour-coded tab used to alert in its own app hue, which is the one moment
+   its own hue is not what the bar is trying to say. Not by out-weighing the
+   palette's selector, which cannot be done — a rule that names one app in one
+   bar is always heavier than `.tab-b.has-alert`. The palette writes its own
+   property and --tab-c falls back to it, so the two never compete. */
+const themesCssA = fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8');
+check('… and the warning colour beats the palette, on any shape',
+  !/\.tab-b\.has-alert::before\{[^}]*background:/.test(shellCssA) &&
+  /--tab-c:var\(--tab-app-c,var\(--y\)\)/.test(shellCssA) &&
+  !/\[data-color-tabs="on"\][^\n]*\{--tab-c:/.test(themesCssA) &&
+  /\[data-color-tabs="on"\] #nav \.tab-b\[data-app="plan"\]\{--tab-app-c:/.test(themesCssA));
 w.LOG.testAlert('evening');
 check('the settings preview really changes the tab, and says which rule it is showing',
   logIcon() === '#tab-alert' && /preview/.test($('.ns-log #al-status').textContent),
@@ -3221,6 +3250,82 @@ check('… and the appearance reset knows about them',
   /'motion','motionSpeed','navMotion','contrast'/.test(
     fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 
+/* ── 3.1.0 · the mark around the selected tab ────────────────────────────────
+   Three dials, because they are three questions: what shape it is, how it
+   arrives, and — with colour-coding on — which hues the tabs wear. All three
+   are values swapped into the variables `.tab-b` declares, so the sheets never
+   carry a second copy of the rules that draw it. */
+const shellCssN  = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const themesCssN = fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8');
+check('the bar keeps its old look until asked otherwise',
+  w.Prefs.SCHEMA.navShape.def === 'pill' && w.Prefs.SCHEMA.navAnim.def === 'grow' &&
+  w.Prefs.SCHEMA.tabPalette.def === 'app' &&
+  d.documentElement.dataset.navShape === 'pill' &&
+  d.documentElement.dataset.navAnim === 'grow' &&
+  d.documentElement.dataset.tabPalette === 'app',
+  [d.documentElement.dataset.navShape, d.documentElement.dataset.navAnim,
+   d.documentElement.dataset.tabPalette].join(' / '));
+check('the mark is drawn once, from variables — a shape is a value, not a second copy',
+  /--tab-c:var\(--y\);--tab-ink:var\(--on-y\)/.test(shellCssN) &&
+  /\.tab-b::before\{[^}]*border-radius:var\(--tab-r\)/.test(shellCssN) &&
+  /\.tab-b::before\{[^}]*background:var\(--tab-c\)/.test(shellCssN) &&
+  /transform:var\(--tab-t\) translateY\(var\(--tab-y0\)\) scale\(var\(--tab-s0\)\)/.test(shellCssN) &&
+  /transition:transform var\(--tab-dur\) var\(--tab-ease\)/.test(shellCssN));
+w.Prefs.set('navShape', 'ring');
+check('… so every shape is one rule, and the six are all there',
+  d.documentElement.dataset.navShape === 'ring' &&
+  w.Prefs.SCHEMA.navShape.values.join(',') === 'pill,round,square,circle,ring,under' &&
+  w.Prefs.SCHEMA.navShape.values.every(v =>
+    v === 'pill' || new RegExp('\\[data-nav-shape="' + v + '"\\]').test(themesCssN)));
+check('… and a ring or an underline leaves the icon in the colour, having no ground to invert on',
+  /\[data-nav-shape="ring"\] \.tab-b\{[^}]*--tab-ink:var\(--tab-c\)/.test(themesCssN) &&
+  /\[data-nav-shape="under"\] \.tab-b\{[^}]*--tab-ink:var\(--tab-c\)/.test(themesCssN));
+/* The two that are drawn for a bar along the bottom do not survive the side
+   rail: a 50% radius on a wide box is an ellipse, and a rule under a row is a
+   line down the middle of nothing. */
+check('… and the two that are shaped for the bottom fall back to a box on the side rail',
+  /@media \(min-width:880px\)\{\s*\n\s*\[data-nav-shape="circle"\] \.tab-b,\s*\n\s*\[data-nav-shape="under"\][^}]*--tab-r:var\(--r3\)/.test(themesCssN) &&
+  /\[data-nav-shape="under"\]  \.tab-b::before\{inset:0/.test(themesCssN));
+w.Prefs.set('navShape', 'pill');
+w.Prefs.set('navAnim', 'rise');
+check('how it arrives is the same variables, read from the other end',
+  d.documentElement.dataset.navAnim === 'rise' &&
+  w.Prefs.SCHEMA.navAnim.values.join(',') === 'grow,pop,fade,rise,none' &&
+  /\[data-nav-anim="rise"\] \.tab-b\{[^}]*--tab-y0:7px/.test(themesCssN));
+/* "keep the bar moving" forces a duration with !important, so the one option
+   that asks for stillness has to answer in kind or it could never have it. */
+check('… and `none` can still win at Motion: none with the bar kept moving',
+  /\[data-nav-anim="none"\] \.tab-b::before\{transition:none!important\}/.test(themesCssN));
+w.Prefs.set('navAnim', 'grow');
+const TAB_KEYS = ['do','log','plan','store','tend','track','learn','cal','create','set'];
+check('a palette is ten custom properties, and every one of them defines all ten',
+  w.Prefs.SCHEMA.tabPalette.values.join(',') === 'app,warm,cool,candy,neon,mono' &&
+  TAB_KEYS.every(k => new RegExp('--tab-' + k + ':').test(themesCssN)) &&
+  w.Prefs.SCHEMA.tabPalette.values.filter(v => v !== 'app').every(v => {
+    const m = themesCssN.match(new RegExp('\\[data-tab-palette="' + v + '"\\]\\{([^}]*)\\}'));
+    return m && ['do','log','plan','store','tend','track','learn','cal','create','on-c']
+      .every(k => new RegExp('--tab-' + k + ':').test(m[1]));
+  }));
+w.Prefs.set('tabPalette', 'mono');
+check('… and the palette only reaches the tabs through colour-coding, which is still the gate',
+  d.documentElement.dataset.tabPalette === 'mono' &&
+  /\[data-color-tabs="on"\] #nav \.tab-b\[data-app="do"\]\{--tab-app-c:var\(--tab-do\)\}/.test(themesCssN) &&
+  w.Prefs.SCHEMA.colorfulTabs.kind === 'bool');
+/* mono is cut from the text colour rather than from a hue, which is the only
+   way a nine-step ramp can be as legible on paper as it is at night. */
+check('… mono has no hues in it at all',
+  !/\[data-tab-palette="mono"\]\{[^}]*#[0-9a-f]{3,6}/i.test(themesCssN) &&
+  /\[data-tab-palette="mono"\]\{[^}]*--tab-on-c:var\(--bg\)/.test(themesCssN));
+w.Prefs.set('tabPalette', 'app');
+w.SET.panel('layout');
+check('all three are controls on the layout panel, under Navigation',
+  !!$('.ns-set .chip[data-pref="navShape"]') &&
+  !!$('.ns-set .chip[data-pref="navAnim"]') &&
+  !!$('.ns-set .chip[data-pref="tabPalette"]'));
+check('… and the appearance reset knows about them too',
+  /'navShape','navAnim','tabPalette'/.test(
+    fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+
 /* ══ 2.24 — the band, the hints, and DO's cards ═══════════════════════════════ */
 
 /* ── The blurred title ──
@@ -4023,16 +4128,31 @@ click(evBtn());
 check('ticking a row on DAY leaves a mark at the time it was ticked',
   marks().length === before + 1 && /^\d\d:\d\d$/.test(marks()[marks().length - 1].at),
   JSON.stringify(marks()));
-check('... and the mark is drawn on the day, small, over the rows',
-  markEls().length >= 1 &&
-  /--mark-y:/.test(markEls()[0].getAttribute('style') || '') &&
-  /\.ns-cal \.cal-mark\{[^}]*pointer-events:none/.test(calCss6),
-  markEls().length + ' marks drawn');
+/* 3.1.0 — it used to float at that minute whatever else was there, and for a
+   row ticked on the day itself that minute is inside its own row: the time and
+   the name printed straight across the name already sitting there. A
+   completion that has a row is written into the row. */
+const stamp = () => d.querySelector('.ns-cal .cal-ev.done .ev-done-at');
+check('... and the time is written on the row it belongs to, not floated over its name',
+  !!stamp() && /^\d\d:\d\d$/.test(stamp().textContent.trim()) &&
+  markEls().length === 0,
+  (stamp() ? stamp().textContent : 'no stamp') + ' / ' + markEls().length + ' floating');
+check('... the meta line makes room for it rather than sharing one clipped box',
+  /\.ns-cal \.ev-meta\{[^}]*display:flex/.test(calCss6) &&
+  /\.ns-cal \.ev-meta em\{[^}]*text-overflow:ellipsis/.test(calCss6) &&
+  /\.ns-cal \.ev-done-at\{[^}]*flex:0 0 auto/.test(calCss6));
 click(evBtn());
-check('unticking takes its mark back', marks().length === before, JSON.stringify(marks()));
+check('unticking takes its mark back', marks().length === before && !stamp(),
+  JSON.stringify(marks()));
 
 /* DO's ticks are completions too, and they are the ones that mostly happen. */
 w.CAL.markDone('a job from do', true);
+check('a completion with no row of its own still floats at its minute, on a band',
+  markEls().length >= 1 &&
+  /--mark-y:/.test(markEls()[0].getAttribute('style') || '') &&
+  /\.ns-cal \.cal-mark\{[^}]*pointer-events:none/.test(calCss6) &&
+  /\.ns-cal \.cal-mark\{[^}]*background:var\(--bg\)/.test(calCss6),
+  markEls().length + ' marks drawn');
 check("anything that finishes a task can leave one — DO calls it on both its lists",
   marks().some(m => m.name === 'a job from do') &&
   /CAL\.markDone\(task\.content, task\.done\)/.test(fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8')) &&

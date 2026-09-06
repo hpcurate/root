@@ -514,6 +514,8 @@ function dayHTML() {
     Prefs.get('calColorBlocks') === true ? 'lit-task' : '',
     Prefs.get('calColorOther')  === true ? 'lit-fixed' : '',
   ].filter(Boolean).join(' ');
+  /* Which completions belong to a row on this day, and which are floating. */
+  const { byRow, used } = stampsFor(evs);
   return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }) => {
     const h = Math.max(18, Math.round((e.dur / 60) * per));
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
@@ -535,34 +537,81 @@ function dayHTML() {
     const del = e.kind === 'idle' ? '' :
       `<span class="ev-del" role="button" tabindex="0" data-act="del" data-i="${i}"
              aria-label="delete ${esc(e.name)}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2L8 8M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>`;
+    /* The minute this row was ticked, if it was — written into the row rather
+       than floated over it. See stampsFor(). */
+    const at = byRow.get(i);
     return `<${tag} class="cal-ev ${e.kind}${e.done ? ' done' : ''}"${style}${
       tickable(e) ? ` data-act="tick" data-i="${i}" aria-pressed="${!!e.done}"` : ''}>
       <span class="ev-at">${esc(e.from)}<b>${esc(e.to)}${e.over ? ' +1' : ''}</b></span>
       <span class="ev-box">
         <span class="ev-name">${esc(e.name)}</span>
-        ${meta ? `<span class="ev-meta">${esc(meta)}</span>` : ''}
+        ${meta || at ? `<span class="ev-meta">${meta ? `<em>${esc(meta)}</em>` : ''}${
+          at ? `<b class="ev-done-at">${esc(at)}</b>` : ''}</span>` : ''}
       </span>
       ${del}
       ${tickable(e) ? `<span class="ev-check"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
     </${tag}>`;
   }).join('')}${nowY == null ? '' :
     `<div class="cal-now" id="cal-now" style="--now-y:${nowY}px" aria-hidden="true"><span>${esc(nowLabel())}</span></div>`
-  }${markHTML(evs, per)}</div>` + notesHTML(rec);
+  }${markHTML(evs, per, used)}</div>` + notesHTML(rec);
 }
 
-/* Small, and visible: a dot on the rail at the minute it happened, with the
-   time beside it. It is deliberately not a row — the rows are the plan, and a
-   mark is a note written on top of it. Marks for a time the day does not reach
+/* ── A completion, on the row it belongs to ───────────────────────────────
+   A mark is drawn at the minute it happened. For a task ticked off the day
+   itself that minute is almost always *inside its own row* — so the dot, the
+   time and the name printed straight across the name already sitting there,
+   and the one row you had just finished was the one row you could not read.
+
+   A completion that has a row is written into that row instead: the time, on
+   the row's meta line, beside what the row already says it is. Same fact, in
+   the place that already names it, with nothing left to collide with — and a
+   row carrying its own finish time is what "when did I get that done" was
+   asking in the first place.
+
+   Only a completion with nowhere to sit stays floating: a block ticked on DO,
+   a `@quick` card, anything finished that the day was not drawing. Those are
+   the ones the rail was always for.
+
+   Matched by name, newest first, one mark to a row: the same routine finished
+   twice is two marks, and two rows of that name take one each rather than both
+   claiming the later time. `used` is the set of marks that found a row, so
+   markHTML knows not to draw them twice. */
+function stampsFor(evs) {
+  const byRow = new Map(), used = new Set();
+  if (sel !== Shell.today()) return { byRow, used };
+  const marks = marksOn(sel);
+  evs.forEach(({ e, i }) => {
+    if (!tickable(e) || !e.done) return;
+    const nm = String(e.name == null ? '' : e.name).trim();
+    for (let k = marks.length - 1; k >= 0; k--) {
+      if (used.has(k) || marks[k].name !== nm) continue;
+      used.add(k); byRow.set(i, marks[k].at); break;
+    }
+  });
+  return { byRow, used };
+}
+
+/* Small, and visible: a dot at the minute it happened, with the time and the
+   name beside it. It is deliberately not a row — the rows are the plan, and a
+   mark is a note written across it. Marks for a time the day does not reach
    (finished after the last row, or before the first) are dropped rather than
-   piled at an edge, where they would claim a time they did not happen at. */
-function markHTML(evs, per) {
+   piled at an edge, where they would claim a time they did not happen at.
+
+   Only the completions that found no row of their own get here — the rest are
+   stamped on their row (stampsFor). It is drawn on an opaque band for the same
+   reason: what is left is by definition a task the day is not showing, so it
+   has to cross a row that is about something else, and a cut through that row
+   reads as a note over the day where loose words over its words read as two
+   things printed on top of each other. */
+function markHTML(evs, per, used) {
   if (sel !== Shell.today()) return '';
   /* Grouped by the minute, not one element per completion: three things ticked
      off in the same minute are one moment, and drawn separately they land on
      the same pixel and overwrite each other — which is exactly what the first
      version did. */
   const byMin = new Map();
-  marksOn(sel).forEach(m => {
+  marksOn(sel).forEach((m, k) => {
+    if (used && used.has(k)) return;          // it is written on its own row
     if (!byMin.has(m.at)) byMin.set(m.at, []);
     byMin.get(m.at).push(m.name);
   });

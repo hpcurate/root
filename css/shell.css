@@ -337,18 +337,46 @@ body{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   padding:0;color:var(--mu);
   border-radius:var(--r-pill);
-  transition:color .18s ease}
+  transition:color .18s ease;
+  /* ── The active indicator, in six variables ───────────────────────────────
+     What the mark around the selected tab is, what colour it is and how it
+     arrives are three separate dials now (appearance → layout → Navigation),
+     and every one of them is a value swapped here rather than a second copy of
+     the rules below. themes.css sets them; this file never has to know which
+     shape or which palette won.
+
+       --tab-c    the colour of the mark — the accent, or the app's own hue
+       --tab-ink  what reads *on* that colour, on the selected tab
+       --tab-r    its corner radius
+       --tab-t    a transform it always carries (a circle centres itself)
+       --tab-s0   the scale it starts from, before it is selected
+       --tab-y0   the offset it rises from
+       --tab-dur / --tab-ease   how long that takes, and on what curve
+
+     Colour-coding writes --tab-app-c rather than --tab-c, and --tab-c reads it
+     with the accent as its fallback. That is not indirection for its own sake:
+     it is what keeps an alerting tab orange. A palette has to be claimed by a
+     selector heavy enough to name one app in one bar, and anything that heavy
+     outweighs `.tab-b.has-alert` — so as long as both wrote the same property
+     the palette won, and a colour-coded tab alerted in its own hue. Two
+     properties, and the question stops being about specificity at all: the
+     palette answers "what colour is this app", the alert answers "what colour
+     is this mark", and the second is the one the mark is drawn from. */
+  --tab-c:var(--tab-app-c,var(--y));--tab-ink:var(--tab-app-ink,var(--on-y));
+  --tab-r:var(--r-pill);--tab-t:translate(0,0);
+  --tab-s0:.55;--tab-y0:0px;--tab-dur:.24s;--tab-ease:cubic-bezier(.34,1.4,.5,1)}
 .tab-b svg,.tab-b .tb-l{position:relative;z-index:1}
 .tab-b svg{width:19px;height:19px;flex-shrink:0}
 .tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
 /* the filled pill IS the active indicator, and it grows into place */
 .tab-b::before{
   content:'';position:absolute;inset:0;z-index:0;
-  border-radius:var(--r-pill);background:var(--y);
-  transform:scale(.55);opacity:0;
-  transition:transform .24s cubic-bezier(.34,1.4,.5,1), opacity .18s ease}
-.tab-b.on{color:var(--on-y)}
-.tab-b.on::before{transform:scale(1);opacity:1}
+  border-radius:var(--tab-r);background:var(--tab-c);
+  border:0 solid var(--tab-c);
+  transform:var(--tab-t) translateY(var(--tab-y0)) scale(var(--tab-s0));opacity:0;
+  transition:transform var(--tab-dur) var(--tab-ease), opacity .18s ease}
+.tab-b.on{color:var(--tab-ink)}
+.tab-b.on::before{transform:var(--tab-t) translateY(0) scale(1);opacity:1}
 /* the open-count badge (Shell.badge): top-right of the icon, in the accent on
    an idle tab and inverted on the active one */
 .tab-b .tb-badge{position:absolute;z-index:2;top:4px;left:calc(50% + 6px);
@@ -363,10 +391,13 @@ body{
    alone was a thin mark in a bar of thin marks and read as another icon. The
    pill is the warning colour on an idle tab; on the active tab it is already
    the accent, so only the glyph inverts. */
-.tab-b.has-alert{color:var(--on-y)}
-.tab-b.has-alert::before{transform:scale(1);opacity:1;background:var(--or)}
-.tab-b.on.has-alert{color:var(--on-y)}
-.tab-b.on.has-alert::before{background:var(--y)}
+/* Through --tab-c, not `background`: a ring or an underline draws its colour as
+   a border rather than a fill, and the warning has to reach those too. It is
+   also what puts the warning above the palette — see the note on --tab-app-c:
+   these two rules are the only things in the app that set --tab-c outright. */
+.tab-b.has-alert{color:var(--on-y);--tab-c:var(--or);--tab-ink:var(--on-y)}
+.tab-b.has-alert::before{transform:var(--tab-t) translateY(0) scale(1);opacity:1}
+.tab-b.on.has-alert{--tab-c:var(--y);--tab-ink:var(--on-y)}
 /* on the active tab the count takes the icon's place: the pill is already the
    accent, so a badge on top of it only ever looked like a hole */
 .tab-b.on.has-badge svg{display:none}
@@ -582,7 +613,9 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
   .tab-b svg{width:20px;height:20px}
   .tab-b .tb-l{font-size:8px}
-  .tab-b::before{border-radius:var(--r3)}
+  /* the rail's tabs are wide boxes, so the default pill squares off here — a
+     shape the user picked outright keeps whatever it picked (themes.css) */
+  [data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
   #nav-prev{left:calc(var(--rail-w) + 14px)}
   #toast{bottom:28px;left:calc(50% + var(--rail-w)/2)}
   .sheet,.npad,.ns-store .pad{left:var(--rail-w)}
@@ -604,7 +637,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
    with a real pointer that leaves everything feeling dead until it is clicked. */
 @media (hover:hover) and (pointer:fine){
   .tab-b:hover{color:var(--tx)}
-  .tab-b.on:hover{color:var(--on-y)}
+  .tab-b.on:hover{color:var(--tab-ink)}
   .nav-arrow:hover{color:var(--y);border-color:var(--y)}
   .ns-do .card:hover,.ns-log .card:hover,.ns-store .card:hover,
   .ns-store .cat-card:hover,.ns-do .tv-list-card:hover,

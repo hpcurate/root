@@ -62,6 +62,16 @@
   padding:0 calc(10px * var(--dens)) 0 calc(4px * var(--dens))}
 .ns-plan .pre-x:active{color:var(--re)}
 
+/* ── Descenders ───────────────────────────────────────────────────────────────
+   Every box on this screen clips its own text — `overflow:hidden` is what keeps
+   a long section name from pushing its row wider than the grid. Set against
+   `line-height:1` that clip lands on the baseline, so the tail of a g, p, y or
+   q was cut off flat at the bottom of the box: the row still fitted, the word
+   in it did not. The line box has to be taller than the type for the ellipsis
+   trick to be safe, so anything that hides its overflow now carries a real
+   line-height. Nothing gets taller — the rows are sized by `min-height` and
+   their padding, not by the text. */
+
 /* ── Project tiles ── */
 .ns-plan .projects{padding:0 calc(18px * var(--dens));margin-bottom:26px}
 /* One tile is the unit the expanded states are measured in. The tile is a
@@ -85,7 +95,7 @@
 .ns-plan .proj-tile.has{background:color-mix(in srgb,var(--proj-color,var(--bd)) 22%,var(--s1))}
 .ns-plan .proj-head{display:flex;align-items:center;gap:calc(9px * var(--dens));min-width:0}
 .ns-plan .proj-dot{width:9px;height:9px;border-radius:50%;background:var(--proj-color,var(--mu));flex-shrink:0}
-.ns-plan .proj-name{font:700 13px/1 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx);
+.ns-plan .proj-name{font:700 13px/1.35 var(--head);letter-spacing:.08em;text-transform:var(--caps);color:var(--tx);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* the "n sections" line reads in the tile's own colour, like its outline. It
    sits at the right end of the row rather than under the name — the tile is
@@ -112,7 +122,7 @@
 .ns-plan .proj-tile.open .proj-head{width:100%}
 .ns-plan .proj-tile.open .proj-dot{width:11px;height:11px}
 .ns-plan .proj-tile.open .proj-name{min-width:0;overflow:hidden;white-space:nowrap;
-  font-size:24px;line-height:1.1;letter-spacing:.03em}
+  font-size:24px;line-height:1.3;letter-spacing:.03em}
 /* "n sections" is what the rows below now say */
 .ns-plan .proj-tile.open .proj-meta{display:none}
 /* The open tile drops its box, which also dropped the only thing on screen
@@ -175,13 +185,13 @@
   display:flex;align-items:stretch;gap:calc(11px * var(--dens));
   background:var(--s1);
   border:var(--bw) solid var(--bd);border-radius:var(--r2);
-  color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.05em;text-align:left;
+  color:var(--tx);font:400 12px/1.4 var(--mono);letter-spacing:.05em;text-align:left;
   padding:calc(9px * var(--dens)) calc(13px * var(--dens));cursor:pointer;user-select:none;
   transition:background .12s,border-color .12s}
 .ns-plan .ps-rail{flex:0 0 3px;border-radius:var(--r1);background:var(--proj-color)}
 .ns-plan .ps-name{flex:1 1 auto;min-width:0;align-self:center;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ns-plan .ps-n{flex:0 0 auto;align-self:center;font:400 9.5px/1 var(--mono);font-style:normal;
+.ns-plan .ps-n{flex:0 0 auto;align-self:center;font:400 9.5px/1.4 var(--mono);font-style:normal;
   letter-spacing:.04em;color:var(--proj-color);font-variant-numeric:tabular-nums}
 .ns-plan .proj-sec i{flex:0 0 auto;align-self:center;font-style:normal;color:var(--proj-color)}
 .ns-plan .proj-sec.has{border-color:color-mix(in srgb,var(--proj-color) 55%,var(--bd))}
@@ -302,10 +312,10 @@
        color:var(--tx);padding:calc(9px * var(--dens)) calc(10px * var(--dens));
        cursor:pointer;text-align:center;transition:all .1s;min-width:0;overflow:hidden}
 .ns-plan .dstep-v.on{background:var(--yd);border-color:var(--y);color:var(--y)}
-.ns-plan .dstep-w{display:block;font:400 13px/1 var(--mono);letter-spacing:.05em;
+.ns-plan .dstep-w{display:block;font:400 13px/1.35 var(--mono);letter-spacing:.05em;
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ns-plan .dstep-d{display:block;font:400 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
-       color:var(--mu);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-plan .dstep-d{display:block;font:400 8px/1.4 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
+       color:var(--mu);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ns-plan .dstep-v.on .dstep-d{color:inherit;opacity:.72}
 
 /* ── Toggle (subtasks) ── */

@@ -186,6 +186,17 @@ const SCHEMA = {
   contrast:     { kind:'enum',   def:'normal', values:['normal','more','max'],         attr:'data-contrast' },
   caps:         { kind:'enum',   def:'on',     values:['on','off'],                    attr:'data-caps' },
   navStyle:     { kind:'enum',   def:'pill',   values:['pill','bar','minimal'],        attr:'data-nav' },
+  /* The three things the tab bar's active indicator can be asked about, kept
+     apart because they are three questions and not one: what shape the mark
+     around the tab is, how it arrives, and — once `colorfulTabs` is on — which
+     set of hues the tabs wear. `colorfulTabs` stays the gate it always was, so
+     an install that had colour-coded tabs before still has them, in the palette
+     it already had (`app`). */
+  navShape:     { kind:'enum',   def:'pill',   values:['pill','round','square','circle','ring','under'],
+                                                                                attr:'data-nav-shape' },
+  navAnim:      { kind:'enum',   def:'grow',   values:['grow','pop','fade','rise','none'], attr:'data-nav-anim' },
+  tabPalette:   { kind:'enum',   def:'app',    values:['app','warm','cool','candy','neon','mono'],
+                                                                                attr:'data-tab-palette' },
   cardStyle:    { kind:'enum',   def:'outline',values:['outline','fill','ghost','line'],attr:'data-cards' },
   accentUse:    { kind:'enum',   def:'normal', values:['subtle','normal','loud'],      attr:'data-accent-use' },
   titleSize:    { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-title' },
@@ -527,6 +538,9 @@ function apply() {
   root.setAttribute('data-contrast',prefs.contrast);
   root.setAttribute('data-caps',    prefs.caps);
   root.setAttribute('data-nav',     prefs.navStyle);
+  root.setAttribute('data-nav-shape',   prefs.navShape);
+  root.setAttribute('data-nav-anim',    prefs.navAnim);
+  root.setAttribute('data-tab-palette', prefs.tabPalette);
   root.setAttribute('data-cards',   prefs.cardStyle);
   root.setAttribute('data-accent-use', prefs.accentUse);
   root.setAttribute('data-title',      prefs.titleSize);

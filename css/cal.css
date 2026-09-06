@@ -135,8 +135,16 @@ body:has(#nav.chrome-off) .cal-steps,
    and the name after that in the muted colour so the mark reads as an
    annotation rather than as another row. It sits over the rows and takes no
    pointer events — the row underneath is still the thing you tap. */
+/* A band, not loose words: it is cut through the row it crosses, with a
+   hairline in the completion colour along its top edge at the exact minute.
+   It used to be `height:0` — the chips carried their own background and the
+   row's text showed through the gaps between them, which read as two things
+   printed on top of each other rather than as a note written across the day.
+   Centred on the minute, so the hairline is still the truth of it. */
 .ns-cal .cal-mark{position:absolute;left:0;right:0;top:var(--mark-y,0);z-index:3;
-  height:0;display:flex;align-items:center;gap:5px;pointer-events:none;
+  height:13px;margin-top:-6.5px;background:var(--bg);
+  border-top:var(--bw) solid color-mix(in srgb,var(--gr) 40%,transparent);
+  display:flex;align-items:center;gap:5px;pointer-events:none;
   /* Inset past the time column on the left (which ends around 53px) and the
      now line's own badge (which ends around 36px), and past the row's delete
      and tick on the right. Measured, not guessed — without it the mark and the
@@ -146,11 +154,10 @@ body:has(#nav.chrome-off) .cal-steps,
   padding-right:calc(56px + 10px * var(--dens))}
 .ns-cal .cal-mark i{flex:0 0 auto;width:7px;height:7px;border-radius:var(--r-pill);
   background:var(--gr);box-shadow:0 0 0 2px var(--bg)}
-.ns-cal .cal-mark span{flex:0 0 auto;font:700 8px/1 var(--mono);letter-spacing:.06em;
-  color:var(--gr);background:var(--bg);padding:0 3px;border-radius:var(--r1)}
+.ns-cal .cal-mark span{flex:0 0 auto;font:700 8px/1.4 var(--mono);letter-spacing:.06em;
+  color:var(--gr)}
 .ns-cal .cal-mark b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font:400 8px/1 var(--mono);letter-spacing:.04em;color:var(--mu);background:var(--bg);
-  padding:0 3px;border-radius:var(--r1)}
+  font:400 8px/1.4 var(--mono);letter-spacing:.04em;color:var(--mu)}
 
 .ns-cal .cal-ev{display:flex;align-items:stretch;gap:calc(10px * var(--dens));
   min-height:var(--ev-h,40px);border-top:var(--bw) solid var(--bd);
@@ -222,9 +229,22 @@ body:has(#nav.chrome-off) .cal-steps,
   border-left:3px solid var(--ev-color,var(--bd));border-radius:var(--r1)}
 .ns-cal .ev-name{font:600 12.5px/1.35 var(--head);color:var(--tx);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ns-cal .ev-meta{font:400 8.5px/1.3 var(--mono);letter-spacing:1px;
-  text-transform:var(--caps);color:var(--tx-2);
+/* The meta line carries two things now: what the row is (slot, project) and —
+   once it has been ticked — the minute it was finished. The first shrinks and
+   ellipses, the second never does: a time is four characters and half a time
+   is not a time. */
+.ns-cal .ev-meta{display:flex;align-items:baseline;gap:calc(7px * var(--dens));
+  font:400 8.5px/1.4 var(--mono);letter-spacing:1px;
+  text-transform:var(--caps);color:var(--tx-2);min-width:0}
+.ns-cal .ev-meta em{min-width:0;font-style:normal;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* the same green dot the floating mark wears, so a completion reads the same
+   whichever of the two places it ended up in */
+.ns-cal .ev-done-at{flex:0 0 auto;display:flex;align-items:center;gap:4px;
+  font-weight:700;letter-spacing:.06em;text-transform:none;color:var(--gr);
+  font-variant-numeric:tabular-nums}
+.ns-cal .ev-done-at::before{content:'';width:5px;height:5px;flex:0 0 auto;
+  border-radius:var(--r-pill);background:var(--gr)}
 
 /* a task is the day's substance; the template around it is not, and an
    unclaimed slot is the least of the three */

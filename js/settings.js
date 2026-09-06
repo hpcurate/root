@@ -353,7 +353,19 @@ function layoutHTML() {
       { v:'pill', l:'floating pill' }, { v:'bar', l:'bottom bar' }, { v:'minimal', l:'hidden' },
     ], 'Tab bar', 'on a wide window it becomes a side rail regardless')}
     ${toggle('showTabLabels', 'Show tab names', 'off leaves the icons alone')}
+    ${chips('navShape', [
+      { v:'pill', l:'pill' }, { v:'round', l:'rounded' }, { v:'square', l:'square' },
+      { v:'circle', l:'circle' }, { v:'ring', l:'ring' }, { v:'under', l:'underline' },
+    ], 'Selected tab', 'the mark around the tab you are on — ring and underline leave the icon in its own colour')}
+    ${chips('navAnim', [
+      { v:'grow', l:'grow' }, { v:'pop', l:'pop' }, { v:'fade', l:'fade' },
+      { v:'rise', l:'rise' }, { v:'none', l:'none' },
+    ], 'How it arrives', 'how that mark moves into place when you change tab')}
     ${toggle('colorfulTabs', 'Colour-code the tabs', 'each app keeps its own hue instead of the accent')}
+    ${chips('tabPalette', [
+      { v:'app', l:'app' }, { v:'warm', l:'warm' }, { v:'cool', l:'cool' },
+      { v:'candy', l:'candy' }, { v:'neon', l:'neon' }, { v:'mono', l:'mono' },
+    ], 'Tab palette', 'which set of hues those are — only does anything with colour-coding on')}
     ${slider('chromeAlpha', 'Chrome opacity', v => pct(v))}
     ${toggle('chromeBlur', 'Blur behind the bar', 'off is flatter, and cheaper on a tired phone')}
     ${toggle('autoHideChrome', 'Get out of the way', 'the bar steps aside while you scroll down')}
@@ -1837,7 +1849,8 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-appearance') {
     confirmed('Reset every appearance setting?', () => {
       ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
-       'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle','cardStyle',
+       'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle',
+       'navShape','navAnim','tabPalette','cardStyle',
        'accentUse','radius','border',
        'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));

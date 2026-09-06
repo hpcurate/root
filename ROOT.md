@@ -24,7 +24,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
 | **CREATE** | The songs being made. Each sits on a stage — idea, sketch, arrangement, mix, master, released — and each stage asks its own checklist of it; the hours at the desk are written down as sessions. Three screens: the shelf, one song, the session log. No network at all: a song is not a task and a shelf of them is the normal state of things, not a backlog to clear. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -49,7 +49,7 @@ repaint a layout whose shape was hardcoded in five stylesheets.
    what the app is about     what the app looks like    how the app responds
    ────────────────────      ──────────────────────     ─────────────────────
       js/config.js               js/prefs.js               js/prefs.js
-   editable in Settings       15 presets + 39 dials      one delegated reader
+   editable in Settings       15 presets + 42 dials      one delegated reader
    → content panel            → look / layout panels     → behave panel
 ```
 
@@ -1437,6 +1437,116 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.1 — 2026-09-06 — the finish time moves onto its row, and the tab bar gets three dials
+
+> text in section boxes is clipped at the bottom · when a task is completed, the
+> completed time overlaps the scheduled tat name. fix that. · tasks completed on
+> the schedule should have their completed time / name on the schedule · add more
+> colour palette options for tab icon logos (in the pill/bottom bar). also add
+> options for the shape of the circle around selected tabs. also animation options.
+
+**PLAN's boxes were cutting the tails off their own text.** Every box on that
+screen hides its overflow, which is what keeps a long section name from pushing
+its row wider than the grid it sits in. Set against `line-height:1` that clip
+lands on the baseline, so the descender of a g, p, y or q was sliced off flat at
+the bottom of the box: the row fitted, the word inside it did not. The five
+elements that hide their overflow carry a real line-height now — the section
+row and its count, the project tile's name, the open project's heading and the
+date stepper's two lines. Nothing got taller for it, because the height of those
+rows was never the text: they are sized by `min-height: var(--tile-h)` and their
+own padding, and the tallest of the five now measures 34.8px inside a 46px row.
+
+This is the same defect as 3.0.4's clipped day number, arriving from the other
+direction — there a box was trimmed under text that still laid out in full line
+boxes, here the text was trimmed under a box that was already the right size.
+Both are `overflow:hidden` cutting an axis nobody was thinking about.
+
+**A completion is written on its row now, not floated across it.** 3.0.4 drew
+every completion as a mark at the minute it happened. For a task ticked off the
+day itself that minute is, almost by definition, *inside its own row* — so the
+dot, the time and the name printed straight over the name already sitting
+there, and the one row you had just finished was the one row you could no longer
+read. The two requests above are one change read from both ends: the collision
+is the bug, and the answer is not to drop the time but to put it where it
+belongs.
+
+So a completion that matches a row on the day is stamped **into that row**: the
+time, in the completion green with the same small dot the floating mark wears,
+on the row's meta line beside what the row already says it is. Same fact, in the
+place that already names it, with nothing left to collide with — and a row
+carrying its own finish time is what "when did I actually get that done" was
+asking in the first place. The meta line is a flex row rather than one clipped
+box, so what the row *is* shrinks and ellipses while the time never does: four
+characters, and half a time is not a time.
+
+Matched by name, newest first, one mark to a row — the same routine finished
+twice is still two things that happened, and two rows of that name take one each
+rather than both claiming the later time.
+
+*What still floats.* A completion with no row of its own: a block ticked on DO,
+a `@quick` card, anything finished that the day was not drawing. Those are the
+ones the rail was always for, and they by definition cross a row that is about
+something else — so the mark is a **band** now rather than loose words. It used
+to be `height:0` with each chip carrying its own background, which meant the
+row's text showed through the gaps between them and read as two things printed
+on top of each other. It is 13px of the page's own ground, centred on the
+minute, with a hairline in the completion colour along its top edge: a note
+written *across* the day rather than words dropped onto it.
+
+**The mark around the selected tab is three dials, in appearance → layout →
+Navigation.** *Selected tab* — pill (what it has always been), rounded, square,
+circle, ring, underline. *How it arrives* — grow, pop, fade, rise, none. *Tab
+palette* — app (the hues it already had), warm, cool, candy, neon, mono. All
+three default to exactly what the bar looked like yesterday.
+
+*One drawing, eight variables.* The indicator is drawn once, in `shell.css`,
+from `--tab-c`, `--tab-ink`, `--tab-r`, `--tab-t`, `--tab-s0`, `--tab-y0`,
+`--tab-dur` and `--tab-ease`. Every option is a value swapped into those, so
+adding a palette is ten custom properties and adding a shape is one rule —
+`shell.css` never learns which shape or which palette won. That is §4's rule
+about tokens rather than literals, applied to a component that had grown
+eighteen literal declarations.
+
+*mono is the interesting one.* Colour-coding without colour: a nine-step ramp
+cut from `--tx` with `color-mix`, so the tabs still differ — by weight rather
+than by hue — and it is the one palette as legible on a light theme as at night.
+Its `--tab-on-c` is `var(--bg)`, so it flips with the theme rather than being a
+hex that happens to work on one of them.
+
+*A bug found on the way.* An alerting tab is supposed to wear the warning
+colour, and with colour-coding on it did not — it alerted in its own app hue,
+which is the one moment its own hue is not what the bar is trying to say. The
+palette claimed `background` on `::before` from a selector naming one app in one
+bar, which outweighs `.tab-b.has-alert` and always will; no amount of
+re-weighting the alert fixes that. The palette writes `--tab-app-c` instead and
+`--tab-c` falls back to it, so the two stopped competing: the palette answers
+"what colour is this app", the alert answers "what colour is this mark", and the
+mark is drawn from the second. It also means the warning reaches ring and
+underline, which draw their colour as a border rather than a fill.
+
+*Two shapes do not survive the side rail.* On a wide window a tab is a wide box,
+not an icon-sized square — a 50% radius on one is an ellipse, and an underline
+is a rule down the middle of nothing. Circle and underline fall back to the box
+the other four already are above 880px; ring is the outline of whatever box it
+is given and needs nothing. `none` answers the "keep the bar moving" exception
+with its own `!important`, or the one option that asks for stillness would be
+the one option that could not have it.
+
+**Verified** — `test/harness.mjs`, **791 checks, all green**, 17 new: the
+descenders and that the rows did not grow for them; the stamp on its row and no
+floating mark for it; the band for one that has no row; the eight variables; all
+six shapes present and the two that fall back on the rail; all five animations
+and `none`'s `!important`; every palette defining all ten properties; mono
+carrying no hex at all; the three controls on the layout panel and in the
+appearance reset; and the alert outranking the palette.
+
+**Not looked at.** The browser was not available in this session, so unlike
+every version since 3.0 nothing here was seen on a real screen. Everything above
+is verified at the source and DOM level and nowhere else. That matters most for
+the PLAN clip: a descender being cut off is a thing you can only *see*, so its
+Todoist task is left open for Hugo to confirm rather than closed on a
+line-height that ought to be enough.
 
 ### 3.0.4 — 2026-09-06 — nothing is cut any more, and the day records what was finished
 
