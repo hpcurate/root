@@ -63,10 +63,14 @@ const CONTENT = [
   { path:'track.curriculum',   app:'track', rows: v => (v || []).map(t => ({ name: t.t, sub: `topic ${t.id} · ${t.dom}` })) },
   { path:'learn.ratings',      app:'learn', rows: v => (v || []).map(r => ({ name: r, sub:'rating' })) },
   { path:'cal.eventColors',    app:'cal',   rows: v => Object.keys(v || {}).map(k => ({ name: k, sub:'event colour' })) },
-  { path:'create.stages',      app:'create',
-    rows: v => (v || []).flatMap(st => [{ name: st.label, sub:'stage' }]
-      .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + st.label })))) },
-  { path:'create.sessionKinds', app:'create', rows: v => (v || []).map(k => ({ name: k, sub:'session kind' })) },
+  /* One source for the whole tree: an area, its stages, their checklists and
+     the words its sessions are called. A stage label is ambiguous across areas
+     — both may have an `idea` — so each row says whose it is. */
+  { path:'create.areas',       app:'create',
+    rows: v => (v || []).flatMap(a => [{ name: a.label, sub:'area' }]
+      .concat((a.kinds || []).map(k => ({ name: k, sub: 'session kind · ' + a.label })))
+      .concat((a.stages || []).flatMap(st => [{ name: st.label, sub: 'stage · ' + a.label }]
+        .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + a.label + ' · ' + st.label })))))) },
 ];
 
 function contentHits(q) {

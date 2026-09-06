@@ -56,7 +56,7 @@ const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND',
                     create:'CREATE' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
                     tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day',
-                    create:'music in progress' };
+                    create:'songs and mixes' };
 
 /* Which storage keys belong to which app — read-only bookkeeping for the
    storage report. The shell never writes to another app's keys. LEARN's decks
@@ -1099,75 +1099,126 @@ const EDITORS = {
      A task row is already the colour of its project — PLAN resolves that at
      export time and it travels with the day. What is editable here is the
      template around it, which is grouped by calendar rather than by project. */
-  /* ── CREATE · the stages and their checklists ──────────────────────────────
-     A stage's key is what a song's stage and every one of its ticks is filed
+  /* ── CREATE · the areas, their stages and their checklists ─────────────────
+     One editor for the whole tree, because the tree is one thing: an area is
+     its name, its colour, the noun for one of its things, the words its
+     sessions are called and the path its work walks. Splitting it into an
+     "areas" editor and a "stages" editor would have meant picking which area
+     you were editing in one panel to see its stages in another.
+
+     A stage's key is what a work's stage and every one of its ticks is filed
      under, so it is shown but never edited: relabel and recolour freely,
-     delete only a stage nothing sits on. The items are plain lines, and a tick
-     is filed under the item's own text — reordering a list keeps every tick,
-     rewording a line drops that one line's. */
-  'create.stages': {
-    title: 'Stages and their checklists',
-    note: 'The path a song walks, in order, and what each stage asks of it. One item per line. The last stage is the finished one — a song there is filed under "released" and is asked for nothing.',
+     delete only a stage nothing sits on. Keys are unique inside an area and
+     not across them, so both areas may have an `idea`. The items are plain
+     lines, and a tick is filed under the item's own text — reordering a list
+     keeps every tick, rewording a line drops that one line's. */
+  'create.areas': {
+    title: 'Areas, stages and checklists',
+    note: 'The kinds of work CREATE holds, and for each one the path it walks and what every stage asks of it. One checklist item per line. An area\'s last stage is its finished one — work there is filed under "finished" and is asked for nothing.',
     render() {
-      const stages = Config.get('create.stages') || [];
-      return stages.map(st => `<div class="ed-card" data-key="${esc(st.key)}">
+      const areas = Config.get('create.areas') || [];
+      return areas.map(a => `<div class="ed-area" data-area="${esc(a.key)}">
           <div class="ed-head">
-            <input type="text" data-field="label" value="${esc(st.label)}" placeholder="stage" aria-label="stage name">
-            <input type="color" class="ed-swatch" data-field="color" value="${esc(st.color || '#888888')}" aria-label="${esc(st.label)} colour">
-            <button class="ed-del" data-del="${esc(st.key)}" aria-label="delete stage">×</button>
+            <input type="text" data-afield="label" value="${esc(a.label)}" placeholder="area" aria-label="area name">
+            <input type="color" class="ed-swatch" data-afield="color" value="${esc(a.color || '#888888')}" aria-label="${esc(a.label)} colour">
+            <button class="ed-del" data-del="${esc(a.key)}" aria-label="delete area">×</button>
           </div>
-          <textarea data-field="items" rows="${Math.min(12, Math.max(2, (st.items || []).length))}"
-                    spellcheck="false" aria-label="${esc(st.label)} checklist">${esc((st.items || []).join('\n'))}</textarea>
-          <div class="ed-hint">key <code>${esc(st.key)}</code>${st.terminal ? ' · the finished stage' : ''}</div>
-        </div>`).join('') + `<button class="ed-add" data-add="1">+ add a stage</button>`;
+          <div class="ed-pair">
+            <input type="text" data-afield="noun" value="${esc(a.noun || '')}" placeholder="song" aria-label="one of them is called">
+            <input type="text" data-afield="plural" value="${esc(a.plural || '')}" placeholder="songs" aria-label="several are called">
+          </div>
+          <div class="ed-hint">one is a <b>${esc(a.noun || 'thing')}</b>, several are <b>${esc(a.plural || 'things')}</b> — the words the app uses about it</div>
+          <input type="text" data-afield="kinds" value="${esc((a.kinds || []).join(', '))}"
+                 placeholder="writing, mixing, listening" aria-label="session kinds">
+          <div class="ed-hint">session chips, comma separated — a shortcut, not a limit on what you can type</div>
+          ${(a.stages || []).map(st => `<div class="ed-card" data-key="${esc(st.key)}">
+            <div class="ed-head">
+              <input type="text" data-field="label" value="${esc(st.label)}" placeholder="stage" aria-label="stage name">
+              <input type="color" class="ed-swatch" data-field="color" value="${esc(st.color || '#888888')}" aria-label="${esc(st.label)} colour">
+              <button class="ed-del" data-del="${esc(a.key)}/${esc(st.key)}" aria-label="delete stage">×</button>
+            </div>
+            <textarea data-field="items" rows="${Math.min(12, Math.max(2, (st.items || []).length))}"
+                      spellcheck="false" aria-label="${esc(st.label)} checklist">${esc((st.items || []).join('\n'))}</textarea>
+            <div class="ed-hint">key <code>${esc(st.key)}</code>${st.terminal ? ' · the finished stage' : ''}</div>
+          </div>`).join('')}
+          <button class="ed-add" data-add="${esc(a.key)}">+ add a stage to ${esc(a.label)}</button>
+        </div>`).join('') + `<button class="ed-add ed-add-area" data-add="1">+ add an area</button>`;
     },
     read(box) {
-      const was = Config.get('create.stages') || [];
+      const was = Config.get('create.areas') || [];
       const out = [];
-      box.querySelectorAll('.ed-card').forEach(card => {
-        const key = card.dataset.key;
+      box.querySelectorAll('.ed-area').forEach(el => {
+        const key = el.dataset.area;
         const old = was.find(x => x.key === key) || {};
-        const st = {
+        const noun = el.querySelector('[data-afield=noun]').value.trim() || 'thing';
+        const stages = [];
+        el.querySelectorAll('.ed-card').forEach(card => {
+          const sk = card.dataset.key;
+          const prev = (old.stages || []).find(x => x.key === sk) || {};
+          const st = {
+            key: sk,
+            label: card.querySelector('[data-field=label]').value.trim() || sk,
+            color: card.querySelector('[data-field=color]').value,
+            items: lines(card.querySelector('[data-field=items]').value),
+          };
+          if (prev.terminal) st.terminal = true;
+          stages.push(st);
+        });
+        /* An area's finished stage is found by `terminal`, never by its key or
+           its position, so deleting it would leave a shelf with no way to
+           finish anything. If it has gone, the last stage becomes it. */
+        if (stages.length && !stages.some(x => x.terminal)) stages[stages.length - 1].terminal = true;
+        out.push({
           key,
-          label: card.querySelector('[data-field=label]').value.trim() || key,
-          color: card.querySelector('[data-field=color]').value,
-          items: lines(card.querySelector('[data-field=items]').value),
-        };
-        if (old.terminal) st.terminal = true;
-        out.push(st);
+          label: el.querySelector('[data-afield=label]').value.trim() || key,
+          color: el.querySelector('[data-afield=color]').value,
+          noun,
+          plural: el.querySelector('[data-afield=plural]').value.trim() || (noun + 's'),
+          kinds: el.querySelector('[data-afield=kinds]').value.split(',').map(x => x.trim()).filter(Boolean),
+          newItem: Object.assign({}, old.newItem || {},
+                                 stages.length ? { stage: (old.newItem || {}).stage || stages[0].key } : {}),
+          stages,
+        });
       });
-      /* The finished stage is found by `terminal`, never by its key or its
-         position, so deleting it would leave a shelf with no way to finish a
-         song. If it has gone, the last stage becomes it. */
-      if (out.length && !out.some(x => x.terminal)) out[out.length - 1].terminal = true;
-      Config.set('create.stages', out);
+      Config.set('create.areas', out);
     },
-    add() {
-      const st = Config.get('create.stages') || [];
-      const key = uniqueKey('stage', st.map(x => x.key));
-      /* In front of the finished one: a new stage is more work to do, and work
-         after "released" is not a stage. */
-      const at = st.findIndex(x => x.terminal);
-      st.splice(at < 0 ? st.length : at, 0, { key, label:'New stage', color:'#7a8699', items:['first thing'] });
-      Config.set('create.stages', st);
+    /* `+ add a stage` carries the area it belongs to; the one at the very
+       bottom carries "1" and means a new area. */
+    add(which) {
+      const areas = Config.get('create.areas') || [];
+      const a = areas.find(x => x.key === which);
+      if (!a) {
+        const key = uniqueKey('area', areas.map(x => x.key));
+        areas.push({ key, label:'New area', color:'#7a8699', noun:'thing', plural:'things',
+                     kinds:[], newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
+                     stages:[{ key:'idea', label:'idea', color:'#7a8699', items:['first thing'] },
+                             { key:'done', label:'finished', color:'#5cdb7d', terminal:true, items:[] }] });
+      } else {
+        a.stages = a.stages || [];
+        const key = uniqueKey('stage', a.stages.map(x => x.key));
+        /* In front of the finished one: a new stage is more work to do, and
+           work after "finished" is not a stage. */
+        const at = a.stages.findIndex(x => x.terminal);
+        a.stages.splice(at < 0 ? a.stages.length : at, 0,
+                        { key, label:'New stage', color:'#7a8699', items:['first thing'] });
+      }
+      Config.set('create.areas', areas);
     },
-    del(key) {
-      const st = (Config.get('create.stages') || []).filter(x => x.key !== key);
-      Config.set('create.stages', st);
+    /* "areaKey" deletes an area, "areaKey/stageKey" one of its stages. The
+       last area is never deleted — a shelf with nowhere to put anything is not
+       a state the app can draw. */
+    del(what) {
+      const areas = Config.get('create.areas') || [];
+      const [ak, sk] = String(what).split('/');
+      if (sk === undefined) {
+        if (areas.length <= 1) return;
+        Config.set('create.areas', areas.filter(x => x.key !== ak));
+        return;
+      }
+      const a = areas.find(x => x.key === ak); if (!a) return;
+      a.stages = (a.stages || []).filter(x => x.key !== sk);
+      Config.set('create.areas', areas);
     },
-  },
-
-  /* ── CREATE · what a session is called ─────────────────────────────────── */
-  'create.sessionKinds': {
-    title: 'Session kinds',
-    note: 'The chips offered when you log an hour at the desk. They are only a shortcut — the field takes any words you type.',
-    render() {
-      return `<div class="f">
-        <label class="lbl">Kinds <em>comma separated</em></label>
-        <input type="text" data-cfg="create.sessionKinds" data-list="1" value="${esc((Config.get('create.sessionKinds') || []).join(', '))}">
-      </div>`;
-    },
-    read() {},
   },
 
   'cal.eventColors': {
@@ -1196,7 +1247,7 @@ const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors',
-                      'create.stages','create.sessionKinds'];
+                      'create.areas'];
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -1815,7 +1866,10 @@ view.addEventListener('click', e => {
   if (t.dataset.prefNull)                   { Prefs.reset(t.dataset.prefNull); renderLayout(); return; }
 
   // content editors
-  if (t.dataset.add) { const box = groupOf(t); EDITORS[box.dataset.group].add(); renderContent(); return; }
+  /* The value is passed through: most editors add one thing and ignore it,
+     CREATE's adds a stage to the area the button names — or, from the button
+     at the bottom, a whole area. */
+  if (t.dataset.add) { const box = groupOf(t); EDITORS[box.dataset.group].add(t.dataset.add); renderContent(); return; }
   if (t.dataset.del !== undefined && groupOf(t)) {
     const box = groupOf(t), which = t.dataset.del;
     confirmed('Remove this?', () => { EDITORS[box.dataset.group].del(which); renderContent(); });

@@ -1,13 +1,15 @@
 /* ── CREATE ───────────────────────────────────────────────────────────────────
-   The songs being made. Three screens: the shelf, one song, and the session
-   log. Nothing here is a fixed pixel value that a preset should own — every
-   radius is a ratio of --r-base, every hairline is --bw, every gap is scaled by
-   --dens, and every label says text-transform:var(--caps) rather than
-   uppercase, so the caps switch reaches this sheet like the other nine.
+   The work being made — songs in one area, DJ mixes in the other. Three
+   screens: the shelf, one piece of work, and the session log. Nothing here is
+   a fixed pixel value that a preset should own — every radius is a ratio of
+   --r-base, every hairline is --bw, every gap is scaled by --dens, and every
+   label says text-transform:var(--caps) rather than uppercase, so the caps
+   switch reaches this sheet like the other nine.
 
-   A stage's colour is the one thing this sheet does not know: it comes out of
-   Config and is written onto the element as --st-c by create.js. There is one
-   rule per shape, not one per stage, so a stage added in the editor needs no
+   Two colours are the ones this sheet does not know, and both come out of
+   Config written onto the element by create.js: --st-c is the stage's, --ar-c
+   is the area's. There is one rule per shape, never one per stage and never
+   one per area, so a stage or a whole third area added in the editor needs no
    CSS at all. */
 
 .ns-create .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
@@ -45,7 +47,44 @@
 .ns-create .cr-hero .k{font:400 10px/1 var(--mono);letter-spacing:3px;color:var(--tx-2);
   text-transform:var(--caps);margin-top:10px}
 
-/* the stage strip: one segment per stage, as wide as the songs sitting on it.
+/* ── the area filter ───────────────────────────────────────────────────────
+   "all" and then one pill per area, and it is the whole of what makes the
+   shelf combined rather than split: the default answers "what is on the desk",
+   and one tap narrows it to the kind of work you are actually sitting down to.
+   Built from Config, so it scrolls sideways rather than assuming three fit —
+   and it claims the gesture itself, or it is dead under a finger (ROOT.md §6).
+   The lit pill wears its area's colour; "all" has none of its own and wears
+   the accent, which is the correct answer to "whose colour is everything". */
+.ns-create .cr-areas{display:flex;gap:calc(6px * var(--dens));margin:0 0 calc(16px * var(--dens));
+  overflow-x:auto;touch-action:pan-x pan-y;scrollbar-width:none}
+.ns-create .cr-areas::-webkit-scrollbar{display:none}
+.ns-create .cr-area{flex:0 0 auto;display:flex;align-items:center;gap:calc(7px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
+  padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;
+  transition:color var(--dur-1),border-color var(--dur-1)}
+.ns-create .cr-area:active{background:var(--press)}
+.ns-create .cr-area b{font:800 11px/1 var(--head);color:var(--bd-2);letter-spacing:0;
+  font-variant-numeric:tabular-nums}
+.ns-create .cr-area.on{color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
+.ns-create .cr-area.on b{color:var(--ar-c,var(--y))}
+/* on the log the filter follows the header rather than the hero, so it needs
+   the top margin the shelf's copy gets from the hero above it */
+.ns-create .cr-areas-log{margin-top:calc(4px * var(--dens))}
+
+/* one strip per area on screen: on "all" that is both of them, one under the
+   other, which is the combined view doing the thing it exists for — two shapes
+   in one glance rather than two screens to remember to compare. */
+.ns-create .cr-abar{margin-bottom:calc(16px * var(--dens))}
+.ns-create .cr-abar:last-child{margin-bottom:0}
+.ns-create .cr-alab{display:flex;align-items:center;gap:calc(7px * var(--dens));
+  font:400 9px/1 var(--mono);letter-spacing:2px;text-transform:var(--caps);color:var(--tx-2);
+  margin-bottom:calc(8px * var(--dens))}
+.ns-create .cr-alab i{width:7px;height:7px;flex:0 0 auto;border-radius:var(--r-pill);background:var(--ar-c,var(--bd-2))}
+.ns-create .cr-alab b{margin-left:auto;font:800 11px/1 var(--head);color:var(--tx);letter-spacing:0;
+  font-variant-numeric:tabular-nums}
+
+/* the stage strip: one segment per stage, as wide as the works sitting on it.
    Built from Config, so it has no fixed width and no fixed number of parts. */
 .ns-create .cr-bar{display:flex;gap:3px;height:10px;margin:0 0 12px;border-radius:var(--r-pill);overflow:hidden}
 .ns-create .cr-bar i{display:block;background:var(--st-c,var(--bd-2));min-width:4px}
@@ -66,26 +105,39 @@
 .ns-create .cr-sort:active{background:var(--press)}
 .ns-create .cr-sort.on{color:var(--y);border-color:var(--y)}
 
-/* ── a song on the shelf ──────────────────────────────────────────────────── */
-.ns-create .cr-song{display:block;width:100%;text-align:left;background:var(--s1);
+/* ── a piece of work on the shelf ─────────────────────────────────────────
+   The rail down its left edge is the *stage's* colour, because on a shelf of
+   things at different points the stage is what you are scanning for. The area
+   is a dot in front of the name — small, because on a filtered shelf every row
+   has the same one, and on the combined shelf it is the only thing that has to
+   say which of the two you are looking at. */
+.ns-create .cr-work{display:block;width:100%;text-align:left;background:var(--s1);
   border:var(--bw) solid var(--bd);border-left:3px solid var(--st-c,var(--bd-2));border-radius:var(--r2);
   padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:calc(8px * var(--dens));cursor:pointer}
-.ns-create .cr-song:active{background:var(--press)}
-.ns-create .cr-song .t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.ns-create .cr-song .nm{font:800 15px/1.25 var(--head);color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ns-create .cr-song .st{flex:0 0 auto;font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);
+.ns-create .cr-work:active{background:var(--press)}
+.ns-create .cr-work .t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ns-create .cr-work .nm{font:800 15px/1.25 var(--head);color:var(--tx);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-work .nm .ar{display:inline-block;width:6px;height:6px;border-radius:var(--r-pill);
+  background:var(--ar-c,var(--bd-2));margin-right:calc(7px * var(--dens));vertical-align:middle}
+.ns-create .cr-work .st{flex:0 0 auto;font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);
   color:var(--st-c,var(--tx-2))}
-.ns-create .cr-song .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin-top:5px}
-.ns-create .cr-song .mt s{text-decoration:none;color:var(--mu)}
+.ns-create .cr-work .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin-top:5px}
+.ns-create .cr-work .mt s{text-decoration:none;color:var(--mu)}
 .ns-create .cr-prog{display:flex;align-items:center;gap:calc(9px * var(--dens));margin-top:calc(10px * var(--dens))}
 .ns-create .cr-prog .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
 .ns-create .cr-prog .rail i{display:block;height:100%;background:var(--st-c,var(--y));border-radius:var(--r-pill)}
 .ns-create .cr-prog .v{font:400 9px/1 var(--mono);letter-spacing:.08em;color:var(--tx-2);flex:0 0 auto}
 
-.ns-create .cr-add{width:100%;background:none;border:var(--bw) dashed var(--bd-2);border-radius:var(--r2);
+/* One button per area on screen, so starting a mix is never something you have
+   to change screens to do. They share the row equally rather than each taking
+   a line: two dashed slabs stacked read as one control that got taller. */
+.ns-create .cr-adds{display:flex;gap:calc(8px * var(--dens));margin-top:calc(4px * var(--dens))}
+.ns-create .cr-add{flex:1 1 0;min-width:0;background:none;border:var(--bw) dashed var(--bd-2);border-radius:var(--r2);
   color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
-  padding:calc(14px * var(--dens));cursor:pointer;margin-top:calc(4px * var(--dens))}
-.ns-create .cr-add:active{background:var(--press);color:var(--y)}
+  padding:calc(14px * var(--dens)) calc(8px * var(--dens));cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-add:active{background:var(--press);color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
 
 /* released: a fold, because a shelf of finished songs is a nice thing to have
    and a bad thing to scroll past every time */
@@ -109,8 +161,30 @@
 .ns-create .cr-stat .k{font:400 8.5px/1.3 var(--mono);letter-spacing:1.4px;color:var(--tx-2);
   text-transform:var(--caps);margin-top:5px}
 
-/* ── one song ─────────────────────────────────────────────────────────────── */
+/* where the week's hours went, when there is more than one place they could
+   have gone. Hours only: three numbers per area is a table, and a glance at
+   the week is not a table. The bars are relative to the biggest of them, not
+   to the total — the question is which of the two got the time, and a pair of
+   slivers against a 24-hour scale answers nothing. */
+.ns-create .cr-split{margin-top:calc(12px * var(--dens))}
+.ns-create .cr-srow{display:flex;align-items:center;gap:calc(10px * var(--dens));
+  padding:calc(7px * var(--dens)) 0}
+.ns-create .cr-srow .l{flex:0 0 auto;min-width:74px;font:400 9.5px/1 var(--mono);letter-spacing:.08em;
+  text-transform:var(--caps);color:var(--tx-2)}
+.ns-create .cr-srow .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
+.ns-create .cr-srow .rail i{display:block;height:100%;border-radius:var(--r-pill);background:var(--ar-c,var(--y))}
+.ns-create .cr-srow .r{flex:0 0 auto;font:800 12px/1 var(--head);color:var(--tx);
+  font-variant-numeric:tabular-nums}
+
+/* ── one piece of work ────────────────────────────────────────────────────── */
 .ns-create .cr-head{margin:calc(4px * var(--dens)) 0 calc(18px * var(--dens))}
+/* which area it belongs to, over its name. It is the one thing on this screen
+   that is not editable from it — a song does not become a mix — so it is a
+   label and not a chip. */
+.ns-create .cr-atag{display:flex;align-items:center;gap:calc(7px * var(--dens));
+  font:400 9px/1 var(--mono);letter-spacing:2px;text-transform:var(--caps);color:var(--tx-2);
+  margin-bottom:calc(11px * var(--dens))}
+.ns-create .cr-atag i{width:7px;height:7px;border-radius:var(--r-pill);background:var(--ar-c,var(--bd-2))}
 .ns-create .cr-meta{display:flex;flex-wrap:wrap;gap:calc(7px * var(--dens))}
 .ns-create .cr-mchip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.06em;
@@ -197,6 +271,7 @@
 
 @media (hover:hover) and (pointer:fine){
   .ns-create .hd-back:hover,.ns-create .hd-action:hover{color:var(--y)}
-  .ns-create .cr-sort:hover,.ns-create .cr-step:hover,.ns-create .cr-kind:hover{color:var(--tx)}
-  .ns-create .cr-add:hover{color:var(--y);border-color:var(--y)}
+  .ns-create .cr-sort:hover,.ns-create .cr-step:hover,.ns-create .cr-kind:hover,
+  .ns-create .cr-area:hover{color:var(--tx)}
+  .ns-create .cr-add:hover{color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
 }

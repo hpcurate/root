@@ -293,6 +293,16 @@ input[type=range].sl::-moz-range-thumb{
   color:var(--tx-2);font:400 11px/1 var(--mono);letter-spacing:.08em;padding:13px;cursor:pointer;
   transition:all var(--dur-1);margin-bottom:6px}
 .ed-add:active,.ed-add:hover{color:var(--y);border-color:var(--y)}
+/* An area is a card holding cards: CREATE's editor edits a tree, not a list —
+   an area's own fields, and then the stages it walks nested inside it. The
+   nesting is a rail down the left edge in the area's own colour rather than a
+   second border, so three levels of box do not stack up on a phone. */
+.ed-area{border-left:2px solid var(--bd);border-radius:var(--r1);
+  padding:12px 0 4px 12px;margin-bottom:14px}
+.ed-area > input[type=text]{width:100%;font-size:12px;padding:9px 10px}
+.ed-area .ed-hint b{color:var(--tx-2);font-weight:400}
+.ed-area .ed-add{margin-top:8px}
+.ed-add-area{border-style:solid}
 .ed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .ed-toggle{display:flex;align-items:center;justify-content:space-between;gap:8px;
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:10px 12px}

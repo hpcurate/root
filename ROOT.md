@@ -23,7 +23,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The songs being made. Each sits on a stage — idea, sketch, arrangement, mix, master, released — and each stage asks its own checklist of it; the hours at the desk are written down as sessions. Three screens: the shelf, one song, the session log. No network at all: a song is not a task and a shelf of them is the normal state of things, not a backlog to clear. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. No network at all: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -80,6 +80,11 @@ root/
 ├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
 ├── test/
 │   ├── harness.mjs    jsdom boot + behaviour checks — see §7
+│   ├── peek.mjs       prints a screen as words: what is on it and in what
+│   │                  order. jsdom has no layout, so it cannot say whether
+│   │                  anything is the right size — it answers the half of
+│   │                  "did that come out right" that does not need eyes,
+│   │                  which is the half you still have without a browser
 │   └── package.json   its one dev dependency (jsdom); not part of the site
 ├── css/
 │   ├── tokens.css     the token system + every global consequence of a dial
@@ -149,8 +154,9 @@ and one document-level listener, filtered on `.closest('.ns-tend')`, dispatches
 and that is the one listener that reaches all of them. CAL is built the same
 way and for the same reason — its markup is in the slide and in the settings
 panel, and a day name interpolated into an inline handler is one more thing to
-get wrong. CREATE is the third, for the third time the same reason: a song's
-name is the user's own text and it is in three screens and a settings panel.
+get wrong. CREATE is the third, for the third time the same reason: the name of
+a song or a mix is the user's own text and it is in three screens and a
+settings panel.
 
 Any *user-editable* value that is interpolated into an inline handler —
 `onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
@@ -411,7 +417,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
-| `create_v1` | CREATE | the songs (name, stage, tempo, key, tags, notes and every tick), the session log and the shelf's own two switches. A tick is filed under `<stageKey>\|<item text>` — see §6. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
+| `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, and the shelf's own three switches. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -1083,20 +1089,43 @@ both say so, and a new device needs the `.apkg` imported again.
   rather than recreated. The digits carry no colour of their own on purpose —
   an inherited value follows the parent's transition frame by frame, so they
   are linked to `.h-cost` for free and cannot drift from it.
-- **CREATE files a tick under `stageKey|item text`.** Reordering a checklist in
-  the editor keeps every tick; rewording a line drops that one line's. The
-  alternative was a key column in the editor, which is worse to live with than
-  the thing it protects. Stage *keys* are identities and are shown but never
-  edited — a song's stage is filed under one.
+- **CREATE files a tick under `areaKey|stageKey|item text`.** Reordering a
+  checklist in the editor keeps every tick; rewording a line drops that one
+  line's. The alternative was a key column in the editor, which is worse to
+  live with than the thing it protects. Stage *keys* are identities and are
+  shown but never edited — a work's stage is filed under one. The area segment
+  is what lets a stage key be unique inside its area rather than across the
+  app: both areas ship an `idea`-shaped first stage, and neither has to know
+  about the other to add one.
 - **CREATE's finished stage is found by `terminal`, never by its key or its
-  position.** A song on it is filed under "released" rather than in flight, and
-  is asked for no checklist. The editor preserves the flag across a rename and
-  hands it to the last stage if the one carrying it is deleted — without that,
-  deleting one row would leave a shelf with no way to finish anything.
-- **A stage a song sits on can be deleted out from under it.** CREATE falls
-  back to the first stage for drawing and leaves the song's own `stage` string
-  alone, the way TEND leaves a plant's group key alone: the stage may come
-  back, and rewriting it on read would be the one edit that cannot be undone.
+  position** — and there is one per area. Work on it is filed under the
+  "finished" fold rather than in progress, and is asked for no checklist. The
+  editor preserves the flag across a rename and hands it to the last stage of
+  that area if the one carrying it is deleted — without that, deleting one row
+  would leave a shelf with no way to finish anything.
+- **A stage a work sits on can be deleted out from under it, and so can its
+  whole area.** CREATE falls back to the first stage, and to the first area,
+  for *drawing*, and leaves the work's own `stage` and `area` strings alone —
+  the way TEND leaves a plant's group key alone: either may come back, and
+  rewriting it on read would be the one edit that cannot be undone. The editor
+  refuses to delete the last area for the same reason it hands `terminal` on: a
+  shelf with nowhere to put anything is not a state the app can draw.
+- **CREATE's v1 → v2 lift runs in the reader, not behind a repair flag.**
+  `normalise()` reads a pre-4.0 record — `songs` instead of `works`, tick keys
+  of two segments instead of three — and lifts it every time, because reading
+  is idempotent and a migration that runs on read cannot be skipped by an
+  install that never opens Settings. It must read the shape off the **raw**
+  parse and never off the object merged onto `blank()`: `blank()` supplies an
+  empty `works`, so asking the merge whether it has one always says yes, and a
+  v1 shelf is then read as an empty v2 one — which is to say, silently thrown
+  away. That was a real bug for the length of one harness run. `load()` writes
+  the lifted record straight back so the old shape does not sit on disk for as
+  long as the shelf goes untouched.
+- **A production song's stage `mix` is labelled "mixdown".** The key is `mix`
+  and never changes — every tick ever filed is under it — but the word moved in
+  4.0, because there is now an *area* called mixing and that one is DJ mixing.
+  A stage and an area reading as the same thing is the confusion 4.0 exists to
+  remove, so do not "tidy" the label back.
 
 ---
 
@@ -1437,6 +1466,140 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.0 — 2026-09-06 — CREATE holds two kinds of work, and the shelf holds both
+
+> add a mixing section for root, i'm talking a major update new tab. you did a
+> good job with create. i think it would be good if you also changed the "in
+> flight" text and actually redo the home page.
+>
+> — and then, on being asked what MIX should be: *mix is for dj mixing not
+> actual track mixing, that's production* · *i want to be able to log my
+> sessions when mixing, what i did, how much time, make it function like
+> CREATE. but now that i think of it could be just a slide in "CREATE"
+> something unified maybe a combined view and then a per area view*
+
+**Not a tenth tab.** The brief started as one and changed inside the same
+message, which is the better answer and is the one built. A DJ set and a song
+are the same object: a thing that sits on a stage, gets asked a checklist by
+that stage, and eats hours at a desk. Two tabs running that machine twice would
+have been two shelves, two session logs and two answers to "what am I working
+on" — and the second one is a question with only one true answer.
+
+So CREATE holds **areas**. `production` is the songs being made; `mixing` is the
+DJ sets being built. An area is its name, its colour, the noun for one of its
+things, the stages it walks and the words its sessions are called — and that is
+the whole of it. Nothing in `create.js` is written for two of them: it walks
+`AREAS`, whatever is in it, and a harness check greps the module for the string
+`production` or `mixing` and fails if either appears outside a comment. A third
+area is a block in Config and no code at all.
+
+#### mixing
+
+Five stages, and they are a DJ's, not a mix engineer's: **crate** (tracks
+pulled, keys and tempos written down, the ones that do not fit cut, something in
+it you have not played), **order** (opener chosen, the arc drawn, the peak
+placed, the way out written), **drill** (every transition tried once, cue points
+set, the hard one drilled, played end to end), **record**, and **played**, which
+is its terminal stage. Its session chips are *digging · practice · recording ·
+playing out · listening back*.
+
+*The word that had to move.* Production's fourth stage was called `mix`, which
+next to an area called mixing reads as the same thing and is the exact confusion
+this version exists to remove. Its label is **mixdown** now. Its key is still
+`mix`, because every tick ever filed is filed under it, and §6 says so in as
+many words so nobody tidies it back.
+
+#### the home page, redone
+
+One shelf, with the areas as its filter — the "combined view and then a per
+area view" the brief asked for, done as one screen rather than three.
+
+- A pill per area with `all` in front of them. `all` is the default and the
+  point: what is on the desk is one question.
+- **One stage strip per area on screen.** On `all` that is both of them, one
+  under the other — two shapes in one glance, which is the thing a combined
+  view is *for* and the thing two tabs could never have done.
+- The list is every area's work together, each row wearing a dot in its area's
+  colour in front of its name. The rail down its left edge stays the *stage's*
+  colour: on a shelf of things at different points, the stage is what you scan
+  for.
+- **One add button per area on screen**, so starting a mix is never something
+  you change screens to do.
+- The week's hours are split by area underneath the three tiles — hours only,
+  because three numbers per area is a table and a glance at the week is not a
+  table. The bars are relative to the biggest of them rather than to the total:
+  the question is which of the two got the time, and a pair of slivers against a
+  24-hour scale answers nothing.
+- The session log carries the same filter, and totals per area. "Where did the
+  week go" now has an answer with two halves.
+- Picking an area is remembered, because it is where you were working.
+
+**"In flight" is gone**, and not only from the heading it was a heading for: it
+was CREATE's name for work that was not released and it never said anything the
+plain word does not. It is **in progress**, the fold is **finished** rather than
+**released**, and a harness check greps the module, the sheet and the markup so
+it cannot creep back in.
+
+#### what a v1 shelf becomes
+
+A record written before this version is a list of `songs` whose ticks are filed
+under `stageKey|item` — there was only one area to file them under. `normalise()`
+lifts both: every song becomes a work in the first area, and every tick key
+gains its area segment. Nothing is unticked by upgrading and nothing is thrown
+away.
+
+It runs in the **reader**, not behind a repair flag, because reading is
+idempotent and a migration that runs on read cannot be skipped by an install
+that never opens Settings — and `load()` writes the lifted record straight back
+so the old shape does not sit on disk for as long as the shelf goes untouched.
+
+*The one real bug in this version, caught by its own test.* The lift read the
+shape off the object already merged onto `blank()`. `blank()` supplies an empty
+`works`, so the question "does this record have a `works`?" always answered yes,
+and a v1 shelf was read as an empty v2 one — which is to say, silently deleted.
+§6 carries it, because it is the shape of mistake any future migration in this
+codebase can make.
+
+#### the editor
+
+`create.stages` and `create.sessionKinds` are gone; there is one editor,
+`create.areas`, and it edits a tree: an area's name, colour, singular and
+plural, its session chips, and then its stages nested inside it. Two editors
+would have meant picking which area you were editing in one panel in order to
+see its stages in another. `+ add a stage` carries the area whose button it is;
+the button at the bottom adds a whole area. The last area cannot be deleted —
+a shelf with nowhere to put anything is not a state the app can draw.
+
+Search reaches the whole tree, and every row says which area it belongs to,
+because a stage label is ambiguous across areas by design.
+
+#### a second thing in `test/`
+
+`test/peek.mjs` prints a screen as words: what is on it, in what order, and
+what it reads like. jsdom has no layout, so it cannot say whether anything is
+the right size — it answers the half of "did that come out right" that does not
+need eyes, which is the half you still have when there is no browser. It is what
+caught `mix` sitting next to `mixing` on a row.
+
+**Verified** — `test/harness.mjs`, **816 checks, all green**, 44 new across
+CREATE: two areas out of Config with a terminal stage each; mixing being a DJ
+set and not a mixdown; a tick filed under all three segments and surviving a
+reorder; a session carrying its work's area; the area's own session chips; the
+combined shelf drawing both areas, one strip each, one add button each; the
+filter narrowing list, strip and button together and being remembered; a work
+whose stage *or whole area* was deleted falling back without throwing; the log's
+filter and its empty state; the v1 lift, its tick keys, its sessions and its
+write-back; the editor's tree, its per-area add, its terminal hand-off, its
+whole-area add and its refusal to delete the last one; an area colour being one
+variable rather than a rule per area; and "in flight" being gone from all three
+files. Also read back through `test/peek.mjs`: the combined shelf, the shelf
+narrowed to mixing, one mix, and the session log.
+
+**Not looked at.** The browser was not available in this session, so nothing
+here was seen on a real screen — no version since 3.0 has shipped that way, and
+the area pills, the stacked strips, the paired add buttons and the week's split
+bars are all new shapes that have been read but not *looked at*.
 
 ### 3.1 — 2026-09-06 — the finish time moves onto its row, and the tab bar gets three dials
 

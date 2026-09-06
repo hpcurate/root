@@ -540,46 +540,74 @@ const DEFAULTS = {
   },
 
   /* ── CREATE ─────────────────────────────────────────────────────────────────
-     The songs themselves, their ticks, their notes and the session log live in
-     `create_v1`. What is here is the vocabulary CREATE reasons with: the stages
-     a song moves through and the checklist each stage carries.
+     The work itself, its ticks, its notes and the session log live in
+     `create_v1`. What is here is the vocabulary CREATE reasons with.
 
-     A stage's `key` is an identity — a song's stage and every tick it has are
-     filed under it — so a stage can be relabelled and recoloured freely and is
-     never renumbered. `items` are plain strings, the way DO's routine items
-     are, and a tick is filed under `key|item text`: reordering a checklist
-     keeps every tick, rewording an item drops that one item's ticks. The
+     An **area** is a kind of work, and 4.0 is the version that made there be
+     more than one of them: `production` is the songs being made, `mixing` is
+     the DJ sets being built. They are the same machine — a thing sits on a
+     stage, the stage asks a checklist of it, and the hours go in the log — so
+     an area is only its own name, its own colour, its own path and its own
+     words for a session. A third area is a block in this list and nothing else.
+
+     A stage's `key` is an identity: a work's stage and every tick it has are
+     filed under it, so a stage can be relabelled and recoloured freely and is
+     never renumbered. Keys only have to be unique *within* an area — a tick is
+     filed under the area, the stage key and the item's own text — so both
+     areas are free to have a stage called `idea`.
+
+     `items` are plain strings, the way DO's routine items are: reordering a
+     checklist keeps every tick, rewording an item drops that one item's. The
      alternative was a key column in the editor, which is worse to live with
      than the thing it protects.
 
-     `done` is the terminal stage and carries no checklist: a finished song is
-     not a song with more to do. It is the one stage the home screen files under
-     "released" rather than "in flight", and it is found by `terminal:true`, not
-     by its key — rename it to "released" and nothing moves. */
+     The last stage of an area is its terminal one and carries no checklist: a
+     finished work is not a work with more to do. It is the stage the shelf
+     files under "done" rather than "in progress", and it is found by
+     `terminal:true`, not by its key or its position. */
   create: {
-    stages: [
-      { key:'idea',    label:'idea',        color:'#a78bfa',
-        items:['reference picked','tempo and key set','the hook exists','voice memo kept'] },
-      { key:'sketch',  label:'sketch',      color:'#5e8cff',
-        items:['drums in','bass in','chords in','melody in','eight bars that loop'] },
-      { key:'arrange', label:'arrangement', color:'#3fc9b0',
-        items:['intro','first drop','breakdown','second drop','outro','transitions written','nothing is copy-pasted'] },
-      { key:'mix',     label:'mix',         color:'#e8a33d',
-        items:['gain staged','low end cleared','drums glued','bass and kick share nothing','vocals sit','sends and space','automation passed','mono checked','reference matched','listened on the phone'] },
-      { key:'master',  label:'master',      color:'#f0709a',
-        items:['limiter set','loudness checked','top and tail','exported','listened all the way through'] },
-      { key:'done',    label:'released',    color:'#5cdb7d', terminal:true, items:[] },
+    areas: [
+      { key:'production', label:'production', noun:'song', plural:'songs', color:'#a78bfa',
+        /* What a new song is pre-filled with. `bpm` and `key` are blank rather
+           than guessed — a wrong tempo written down is worse than no tempo. */
+        newItem: { stage:'idea', bpm:'', key:'', tags:'' },
+        kinds: ['writing','sound design','recording','arranging','mixing','mastering','listening'],
+        stages: [
+          { key:'idea',    label:'idea',        color:'#a78bfa',
+            items:['reference picked','tempo and key set','the hook exists','voice memo kept'] },
+          { key:'sketch',  label:'sketch',      color:'#5e8cff',
+            items:['drums in','bass in','chords in','melody in','eight bars that loop'] },
+          { key:'arrange', label:'arrangement', color:'#3fc9b0',
+            items:['intro','first drop','breakdown','second drop','outro','transitions written','nothing is copy-pasted'] },
+          /* "mixdown", not "mix": the key stays `mix` because every tick ever
+             filed is under it, but the *word* had to move — 4.0 put an area
+             called mixing next to it, and that one is DJ mixing. A stage and
+             an area reading as the same thing is the one confusion this
+             version exists to remove. */
+          { key:'mix',     label:'mixdown',     color:'#e8a33d',
+            items:['gain staged','low end cleared','drums glued','bass and kick share nothing','vocals sit','sends and space','automation passed','mono checked','reference matched','listened on the phone'] },
+          { key:'master',  label:'master',      color:'#f0709a',
+            items:['limiter set','loudness checked','top and tail','exported','listened all the way through'] },
+          { key:'done',    label:'released',    color:'#5cdb7d', terminal:true, items:[] },
+        ] },
+      { key:'mixing', label:'mixing', noun:'mix', plural:'mixes', color:'#5ad4e6',
+        newItem: { stage:'crate', bpm:'', key:'', tags:'' },
+        kinds: ['digging','practice','recording','playing out','listening back'],
+        stages: [
+          { key:'crate',  label:'crate',  color:'#5ad4e6',
+            items:['tracks pulled','keys and tempos written down','the ones that do not fit cut','something in it you have not played'] },
+          { key:'order',  label:'order',  color:'#5e8cff',
+            items:['opener chosen','the arc drawn','the peak placed','the way out written'] },
+          { key:'drill',  label:'drill',  color:'#a78bfa',
+            items:['every transition tried once','cue points set','the hard one drilled','played end to end'] },
+          { key:'record', label:'record', color:'#e8a33d',
+            items:['recorded in one take','listened back','levels checked','tracklist written down'] },
+          { key:'played', label:'played', color:'#5cdb7d', terminal:true, items:[] },
+        ] },
     ],
-    /* What a new song is pre-filled with. `bpm` and `key` are blank rather
-       than guessed — a wrong tempo written down is worse than no tempo. */
-    newTrack: { stage:'idea', bpm:'', key:'', tags:'' },
-    /* How the home screen is drawn: the default sort, how many sessions a
-       song's own screen lists, and how far back "this week" reaches. */
+    /* How the shelf is drawn: the default sort, how many sessions a work's own
+       screen lists, and how far back "this week" reaches. */
     home: { sort:'touched', sessionCount: 6, weekDays: 7 },
-    /* The tick that says a session happened. A session is minutes and a word
-       about what was done; these are the words offered as chips, and any of
-       them can be typed over. */
-    sessionKinds: ['writing','sound design','recording','arranging','mixing','mastering','listening'],
   },
 };
 

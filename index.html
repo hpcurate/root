@@ -1091,7 +1091,9 @@
      ═════════════════════════════════════════════════════════════════════════ -->
 <section class="view ns-create" id="view-create" aria-label="CREATE">
 
-  <!-- ── HOME — the shelf ── -->
+  <!-- ── HOME — the shelf: one shelf for every area, the areas as its filter.
+       Everything under .cnt is written by CREATE.renderHome(); the only thing
+       fixed here is the order the parts come in. ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label">production · mixing</div>
@@ -1099,23 +1101,25 @@
     </div>
     <div class="cnt">
       <div id="cr-hero"></div>
+      <div class="cr-areas" id="cr-areas"></div>
       <div id="cr-stages"></div>
-      <div class="cr-sec"><span>In flight</span><em id="cr-count"></em></div>
+      <div class="cr-sec"><span>In progress</span><em id="cr-count"></em></div>
       <div id="cr-sorts"></div>
       <div id="cr-list"></div>
-      <button class="cr-add" data-act="add">+ new song</button>
+      <div class="cr-adds" id="cr-add"></div>
       <div id="cr-released"></div>
       <div id="cr-week"></div>
     </div>
   </div>
 
-  <!-- ── ONE SONG ── -->
-  <div id="s-song" class="scr">
+  <!-- ── ONE PIECE OF WORK — a song or a mix; which one it is comes off its
+       area, and every word on the screen with it ── -->
+  <div id="s-work" class="scr">
     <div class="hd">
       <button class="hd-back" data-act="home">← shelf</button>
-      <div class="hd-title" id="cr-song-title">SONG</div>
+      <div class="hd-title" id="cr-work-title">WORK</div>
     </div>
-    <div class="cnt" id="cr-song"></div>
+    <div class="cnt" id="cr-work"></div>
   </div>
 
   <!-- ── THE SESSION LOG ── -->
@@ -1832,7 +1836,7 @@
     <div class="set-panel ns-create" data-panel="create">
       <div class="sec"><span>The shelf</span></div>
       <div class="setRow">
-        <div class="sl">Sort by<s>how the songs in flight are ordered</s></div>
+        <div class="sl">Sort by<s>how the shelf is ordered</s></div>
         <select id="cr-set-sort" data-cfg="create.home" data-sub="sort" aria-label="sort songs by">
           <option value="touched">last worked on</option>
           <option value="stage">stage</option>
@@ -1840,7 +1844,7 @@
         </select>
       </div>
       <div class="setRow">
-        <div class="sl">Sessions listed<s>how many of a song's own sessions its screen shows</s></div>
+        <div class="sl">Sessions listed<s>how many of a song's or a mix's own sessions its screen shows</s></div>
         <input type="number" min="1" max="40" step="1" id="cr-set-sessions"
                data-cfg="create.home" data-sub="sessionCount" aria-label="sessions listed">
       </div>
@@ -1853,9 +1857,9 @@
       <div class="sec"><span>Stored</span></div>
       <div class="settings-status idle" id="cr-status">nothing on the shelf yet</div>
       <div class="data-warn">
-        CREATE has no network. The songs, their ticks, their notes and every
-        session are in this browser under <code>create_v1</code>, and the ROOT
-        backup under <strong>data</strong> carries them as well.
+        CREATE has no network. The songs, the mixes, their ticks, their notes
+        and every session are in this browser under <code>create_v1</code>, and
+        the ROOT backup under <strong>data</strong> carries them as well.
       </div>
 
       <div class="sec"><span>Backup</span></div>
@@ -1867,7 +1871,7 @@
 
       <div class="sec"><span>Reset</span></div>
       <div class="setting-row">
-        <span class="setting-lbl">Reset all data<small>every song, every tick and the whole session log</small></span>
+        <span class="setting-lbl">Reset all data<small>every song, every mix, every tick and the whole session log</small></span>
         <button class="setting-btn danger" data-act="reset">reset</button>
       </div>
       <div class="set-content" data-content-for="create"></div>

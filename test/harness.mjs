@@ -3898,148 +3898,315 @@ check('CREATE is the tenth app, wired everywhere an app has to be wired',
   !!$('.tab-b[data-app="create"]') && !!$('.ns-set .set-panel[data-panel="create"]') &&
   w.Prefs.APPS.includes('create'),
   w.Shell.TABS.join(','));
-check('an empty shelf says so rather than drawing nothing',
-  !w.CREATE.songs().length && !!$('.ns-create .cr-empty'),
-  $('.ns-create #cr-list').textContent.trim().slice(0, 40));
 
-// a song is started through the app's own dialog, never the platform's
-click($('.ns-create .cr-add'));
-check('starting a song asks in the app, with a field',
-  askOpen() && !$('#ask-field').classList.contains('hidden'));
+/* ── 4.0 · two areas, one shelf ──────────────────────────────────────────────
+   production is the songs, mixing is the DJ sets, and they are the same machine
+   with different words. Everything below is asserted through `areas` rather
+   than against two hard-coded blocks: a third area must need no code. */
+const crAreas = () => w.CREATE.areas();
+check('CREATE holds more than one kind of work, and every one of them is Config',
+  crAreas().length >= 2 &&
+  crAreas().map(a => a.key).join(',') === w.Config.get('create.areas').map(a => a.key).join(',') &&
+  crAreas().every(a => a.noun && a.plural && a.color && a.stages.length &&
+                       a.stages.some(st => st.terminal)),
+  crAreas().map(a => a.key + ':' + a.stages.length).join(' '));
+check('... and mixing is a DJ set being built, not a mixdown of a song',
+  crAreas().some(a => a.key === 'mixing' && a.noun === 'mix') &&
+  crAreas().find(a => a.key === 'mixing').stages.some(st => st.key === 'crate'),
+  crAreas().find(a => a.key === 'mixing').stages.map(st => st.key).join(','));
+check('a stage key only has to be unique inside its own area',
+  crAreas().every(a => new Set(a.stages.map(st => st.key)).size === a.stages.length));
+check('an empty shelf says so rather than drawing nothing',
+  !w.CREATE.works().length && !!$('.ns-create .cr-empty'),
+  $('.ns-create #cr-list').textContent.trim().slice(0, 40));
+check('the filter is the areas themselves, with "all" in front of them',
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-area')].map(b => b.dataset.a).join(',')
+    === ['all'].concat(crAreas().map(a => a.key)).join(','),
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-area')].map(b => b.dataset.a).join(','));
+check('... and one add button per area on screen, so a mix never needs another screen',
+  [...d.querySelectorAll('.ns-create #cr-add .cr-add')].map(b => b.dataset.a).join(',')
+    === crAreas().map(a => a.key).join(','),
+  [...d.querySelectorAll('.ns-create #cr-add .cr-add')].map(b => b.textContent.trim()).join(' / '));
+
+// a work is started through the app's own dialog, never the platform's
+const crAdd = key => click([...d.querySelectorAll('.ns-create #cr-add .cr-add')].find(b => b.dataset.a === key));
+crAdd('production');
+check("starting a song asks in the app, with a field, in that area's own noun",
+  askOpen() && !$('#ask-field').classList.contains('hidden') && /song/.test($('#ask-title').textContent),
+  $('#ask-title').textContent);
 $('#ask-input').value = 'night bus';
 click($('#ask-yes'));
 await tick();
-check('... and lands on that song, on the first stage',
-  w.CREATE.songs().length === 1 && $('.ns-create #s-song').classList.contains('on') &&
-  $('.ns-create #cr-song-title').textContent === 'night bus' &&
-  w.CREATE.songs()[0].stage === w.CREATE.stages()[0].key,
-  w.CREATE.songs()[0] && w.CREATE.songs()[0].stage);
+const prodStages = () => w.CREATE.stages('production');
+check('... and lands on that work, in that area, on its first stage',
+  w.CREATE.works().length === 1 && $('.ns-create #s-work').classList.contains('on') &&
+  $('.ns-create #cr-work-title').textContent === 'night bus' &&
+  w.CREATE.works()[0].area === 'production' &&
+  w.CREATE.works()[0].stage === prodStages()[0].key,
+  w.CREATE.works()[0] && w.CREATE.works()[0].area + '/' + w.CREATE.works()[0].stage);
 const crItems = () => [...d.querySelectorAll('.ns-create .cr-item')];
-const crSong  = () => w.CREATE.songs()[0];
+const crWork  = () => w.CREATE.works()[0];
 check("the checklist on screen is the stage's, out of Config, not a list in the module",
-  crItems().length > 0 && crItems().length === w.Config.get('create.stages')[0].items.length,
+  crItems().length > 0 && crItems().length === prodStages()[0].items.length,
   crItems().length + ' rows');
 
-// a tick is filed under stage|item, which is what survives a reorder
+// a tick is filed under area|stage|item, which is what survives a reorder
 click(crItems()[1]);
-const crStageKey   = w.Config.get('create.stages')[0].key;
-const crItemTwo = w.Config.get('create.stages')[0].items[1];
-check("a tick is filed under the stage and the item's own text",
-  !!crSong().done[crStageKey + '|' + crItemTwo] && crItems()[1].classList.contains('on'),
-  Object.keys(crSong().done).join(','));
-const stagesWas = JSON.parse(JSON.stringify(w.Config.get('create.stages')));
-const reordered = JSON.parse(JSON.stringify(stagesWas));
-reordered[0].items = reordered[0].items.slice().reverse();
-w.Config.set('create.stages', reordered);
+const crStageKey = prodStages()[0].key;
+const crItemTwo  = prodStages()[0].items[1];
+const crTick     = 'production|' + crStageKey + '|' + crItemTwo;
+check("a tick is filed under the area, the stage and the item's own text",
+  !!crWork().done[crTick] && crItems()[1].classList.contains('on'),
+  Object.keys(crWork().done).join(','));
+const areasWas = JSON.parse(JSON.stringify(w.Config.get('create.areas')));
+const reordered = JSON.parse(JSON.stringify(areasWas));
+reordered[0].stages[0].items = reordered[0].stages[0].items.slice().reverse();
+w.Config.set('create.areas', reordered);
 check('... so reordering a checklist keeps every tick',
-  !!crSong().done[crStageKey + '|' + crItemTwo] &&
+  !!crWork().done[crTick] &&
   crItems().filter(el => el.classList.contains('on')).length === 1,
-  Object.keys(crSong().done).join(','));
-w.Config.set('create.stages', stagesWas);
+  Object.keys(crWork().done).join(','));
+w.Config.set('create.areas', areasWas);
 
 // the stages are a path, and moving along it changes what is asked
 const crSteps = () => [...d.querySelectorAll('.ns-create .cr-step')];
-check('every stage is offered as a step, the current one lit',
-  crSteps().length === w.CREATE.stages().length && crSteps()[0].classList.contains('on'),
+check("every stage of that work's own area is offered as a step, the current one lit",
+  crSteps().length === prodStages().length && crSteps()[0].classList.contains('on'),
   crSteps().length + ' steps');
 click(crSteps()[3]);
-check('moving a song changes the stage and the checklist under it',
-  crSong().stage === w.CREATE.stages()[3].key &&
-  crItems().length === w.CREATE.stages()[3].items.length,
-  crSong().stage + ' / ' + crItems().length);
+check('moving a work changes the stage and the checklist under it',
+  crWork().stage === prodStages()[3].key &&
+  crItems().length === prodStages()[3].items.length,
+  crWork().stage + ' / ' + crItems().length);
 check('... and the tick left behind on the earlier stage is still filed',
-  !!crSong().done[crStageKey + '|' + crItemTwo]);
+  !!crWork().done[crTick]);
 
-// a session is hours at the desk, and the shelf counts them
+// a session is hours at the desk, and it remembers which area they went into
 const typeIn = (sel, v) => { const el = $(sel); el.value = v;
   el.dispatchEvent(new w.Event('input', { bubbles: true })); };
 typeIn('.ns-create #cr-hours', '1.5');
 typeIn('.ns-create #cr-what', 'drums');
 click($('.ns-create .cr-go'));
-check('a session is logged against the song, dated today',
+check('a session is logged against the work, dated today, in that work’s area',
   w.CREATE.sessions().length === 1 && w.CREATE.sessions()[0].hours === 1.5 &&
-  w.CREATE.sessions()[0].date === today && w.CREATE.sessions()[0].what === 'drums',
+  w.CREATE.sessions()[0].date === today && w.CREATE.sessions()[0].what === 'drums' &&
+  w.CREATE.sessions()[0].area === 'production' &&
+  w.CREATE.sessions()[0].work === crWork().id,
   JSON.stringify(w.CREATE.sessions()[0]));
 check('... and the form is emptied rather than left holding the last one',
   $('.ns-create #cr-hours').value === '');
+check("the session chips are the area's own words, not one list for both",
+  [...d.querySelectorAll('.ns-create .cr-kind')].map(b => b.dataset.k).join(',')
+    === crAreas()[0].kinds.join(','),
+  [...d.querySelectorAll('.ns-create .cr-kind')].map(b => b.dataset.k).join(','));
 w.CREATE.go('home');
 check("the shelf reads the week's hours off the log",
   /1h30/.test($('.ns-create #cr-week').textContent),
   $('.ns-create #cr-week').textContent.replace(/\s+/g, ' ').trim().slice(0, 70));
-check('a song in flight is drawn with its stage and its progress',
-  d.querySelectorAll('.ns-create .cr-song').length === 1 &&
-  !!$('.ns-create .cr-song .cr-prog'));
+check('a work in progress is drawn with its stage and its progress',
+  d.querySelectorAll('.ns-create .cr-work').length === 1 &&
+  !!$('.ns-create .cr-work .cr-prog'));
+
+/* A mix is started the same way, on the same shelf, and the shelf is combined:
+   both of them are on it until the filter says otherwise. */
+crAdd('mixing');
+$('#ask-input').value = 'friday warm-up';
+click($('#ask-yes'));
+await tick();
+w.CREATE.go('home');
+const crRows = () => [...d.querySelectorAll('.ns-create .cr-work')];
+check('a mix is started on the same shelf, and the shelf shows both areas at once',
+  w.CREATE.works().length === 2 &&
+  w.CREATE.works()[1].area === 'mixing' &&
+  w.CREATE.works()[1].stage === w.CREATE.stages('mixing')[0].key &&
+  crRows().length === 2,
+  w.CREATE.works().map(x => x.area + ':' + x.name).join(' / '));
+check('... and each row says which area it is, so the combined shelf is readable',
+  crRows().every(r => !!r.querySelector('.nm .ar')) &&
+  /mixing/.test(crRows().find(r => /friday/.test(r.textContent)).textContent),
+  crRows().map(r => r.textContent.replace(/\s+/g, ' ').trim().slice(0, 34)).join(' | '));
+check('... and there is one stage strip per area, which is what "combined" means',
+  d.querySelectorAll('.ns-create #cr-stages .cr-abar').length === 2,
+  d.querySelectorAll('.ns-create #cr-stages .cr-abar').length + ' strips');
+
+// the filter narrows the same shelf rather than opening a second one
+click([...d.querySelectorAll('.ns-create #cr-areas .cr-area')].find(b => b.dataset.a === 'mixing'));
+check('picking an area narrows the shelf, the strip and the add button together',
+  crRows().length === 1 && /friday/.test(crRows()[0].textContent) &&
+  d.querySelectorAll('.ns-create #cr-stages .cr-abar').length === 1 &&
+  d.querySelectorAll('.ns-create #cr-add .cr-add').length === 1,
+  crRows().length + ' rows');
+check('... and the choice is remembered, because it is where you were working',
+  JSON.parse(w.localStorage.getItem('create_v1')).settings.area === 'mixing');
+click([...d.querySelectorAll('.ns-create #cr-areas .cr-area')].find(b => b.dataset.a === 'all'));
+check('... "all" puts it back', crRows().length === 2);
 
 // built from Config: a stage added in the editor needs no code and no CSS
-const withExtra = JSON.parse(JSON.stringify(stagesWas));
-withExtra.splice(1, 0, { key: 'stage_x', label: 'sound design', color: '#8888ff', items: ['a patch'] });
-w.Config.set('create.stages', withExtra);
+const withExtra = JSON.parse(JSON.stringify(areasWas));
+withExtra[0].stages.splice(1, 0, { key: 'stage_x', label: 'sound design', color: '#8888ff', items: ['a patch'] });
+w.Config.set('create.areas', withExtra);
 check('a stage added in the editor reaches the stepper with no code change',
-  w.CREATE.stages().length === stagesWas.length + 1 && w.CREATE.stages()[1].key === 'stage_x',
-  w.CREATE.stages().map(x => x.key).join(','));
-// a stage deleted from under a song falls back rather than throwing
-w.Config.set('create.stages', stagesWas.slice(0, 2));
+  prodStages().length === areasWas[0].stages.length + 1 && prodStages()[1].key === 'stage_x',
+  prodStages().map(x => x.key).join(','));
+// a stage deleted from under a work falls back rather than throwing
+const cut = JSON.parse(JSON.stringify(areasWas));
+cut[0].stages = cut[0].stages.slice(0, 2);
+w.Config.set('create.areas', cut);
 errors.length = 0;
 w.CREATE.go('home');
-check('a song on a stage the editor deleted falls back, and nothing throws',
-  errors.length === 0 && !!$('.ns-create .cr-song'), errors.slice(0, 2).join(' | '));
-w.Config.set('create.stages', stagesWas);
+check('a work on a stage the editor deleted falls back, and nothing throws',
+  errors.length === 0 && !!$('.ns-create .cr-work'), errors.slice(0, 2).join(' | '));
+// and so does a work whose whole area has gone
+w.Config.set('create.areas', [areasWas[0]]);
+errors.length = 0;
+w.CREATE.go('home');
+check('a work whose area the editor deleted falls back to the first one, and nothing throws',
+  errors.length === 0 && crRows().length === 2 &&
+  !d.querySelector('.ns-create #cr-areas .cr-area[data-a="mixing"]'),
+  errors.slice(0, 2).join(' | '));
+w.Config.set('create.areas', areasWas);
 
-// the songs are not in Config, so search reaches them through the module's hook
-check("search finds a song by name, through the module's own hook",
-  w.SEARCH.results('night').some(r => r.title === 'night bus'),
-  w.SEARCH.results('night').map(r => r.title).join(','));
+// the works are not in Config, so search reaches them through the module's hook
+check("search finds a work by name, through the module's own hook",
+  w.SEARCH.results('night').some(r => r.title === 'night bus') &&
+  w.SEARCH.results('friday').some(r => /mix/.test(r.sub)),
+  w.SEARCH.results('friday').map(r => r.title + ' — ' + r.sub).join(','));
 
 // the finished stage is found by `terminal`, never by its key or its position
-w.CREATE.open(crSong().id);
+w.CREATE.open(w.CREATE.works()[1].id);
 click(crSteps()[crSteps().length - 1]);
 w.CREATE.go('home');
-check('a song on the finished stage leaves the shelf for "released"',
-  !d.querySelector('.ns-create .cr-song') && !!$('.ns-create .cr-fold'),
+check('a work on its area’s finished stage leaves the shelf for the fold',
+  crRows().length === 1 && !!$('.ns-create .cr-fold'),
   $('.ns-create #cr-released').textContent.replace(/\s+/g, ' ').trim().slice(0, 40));
 
-// deleting a song asks first, and takes its sessions with it
-w.CREATE.open(crSong().id);
+// the log is filtered by the same areas, and totals per area
+w.CREATE.go('sessions');
+check('the session log carries the same filter, so "where did the week go" has an answer',
+  [...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].map(b => b.dataset.a).join(',')
+    === ['all'].concat(crAreas().map(a => a.key)).join(','),
+  $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
+click([...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].find(b => b.dataset.a === 'mixing'));
+check('... and filtering it to an area with no hours says so rather than drawing nothing',
+  !!$('.ns-create #cr-sessions .cr-empty'),
+  $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
+click([...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].find(b => b.dataset.a === 'all'));
+
+// deleting a work asks first, and takes its sessions with it
+w.CREATE.go('home');
+w.CREATE.open(crWork().id);
 click($('.ns-create .cr-act.danger'));
-check('deleting a song asks in the app and says what goes with it',
+check('deleting a work asks in the app and says what goes with it',
   askOpen() && /night bus/.test($('#ask-title').textContent) && /1 session/.test($('#ask-body').textContent),
   $('#ask-title').textContent + ' | ' + $('#ask-body').textContent);
 settle(true);
 check('... and its sessions go with it, so nothing is left pointing at nothing',
-  !w.CREATE.songs().length && !w.CREATE.sessions().length,
-  w.CREATE.songs().length + ' songs / ' + w.CREATE.sessions().length + ' sessions');
+  w.CREATE.works().length === 1 && !w.CREATE.sessions().length,
+  w.CREATE.works().length + ' works / ' + w.CREATE.sessions().length + ' sessions');
 check('CREATE keeps its own storage key', !!w.localStorage.getItem('create_v1'));
+
+/* ── 4.0 · what a v1 shelf becomes ───────────────────────────────────────────
+   A record written before there were areas is a list of `songs` whose ticks are
+   filed under `stage|item`, because there was only one area to file them under.
+   The reader lifts both — there is no repair flag, because a migration that
+   runs in the reader cannot be skipped by an install that never opens
+   settings. */
+const v1 = { v:1, songs:[{ id:'sg_old', name:'old tune', stage:'sketch',
+               bpm:'120', key:'Am', tags:'', notes:'kept', added:'2026-01-02', touched:'2026-01-03',
+               done:{ 'sketch|drums in': '2026-01-03' } }],
+             sessions:[{ id:'se_old', song:'sg_old', date:'2026-01-03', hours:2, what:'drums' }],
+             settings:{ sort:'name', showDone:true } };
+w.localStorage.setItem('create_v1', JSON.stringify(v1));
+w.CREATE.reload();
+const lifted = w.CREATE.works()[0];
+check('a shelf written before 4.0 is lifted whole, into the first area',
+  w.CREATE.works().length === 1 && lifted.area === crAreas()[0].key &&
+  lifted.name === 'old tune' && lifted.notes === 'kept' && lifted.bpm === '120' &&
+  lifted.added === '2026-01-02' && lifted.touched === '2026-01-03',
+  JSON.stringify(lifted).slice(0, 90));
+check('... its ticks keep their stage and gain the area, so nothing is unticked by upgrading',
+  !!lifted.done['production|sketch|drums in'] &&
+  Object.keys(lifted.done).length === 1,
+  Object.keys(lifted.done).join(','));
+check('... and its sessions follow the work they were logged against',
+  w.CREATE.sessions().length === 1 && w.CREATE.sessions()[0].work === 'sg_old' &&
+  w.CREATE.sessions()[0].area === 'production' && w.CREATE.sessions()[0].hours === 2,
+  JSON.stringify(w.CREATE.sessions()[0]));
+check('... and what is written back is the new shape, so it is lifted once and not every boot',
+  JSON.parse(w.localStorage.getItem('create_v1')).v === 2 &&
+  Array.isArray(JSON.parse(w.localStorage.getItem('create_v1')).works) &&
+  JSON.parse(w.localStorage.getItem('create_v1')).songs === undefined,
+  w.localStorage.getItem('create_v1').slice(0, 60));
+w.CREATE.resetAll(); settle(true);
 
 // the content editors, at the end of CREATE's own panel like every other app's
 w.SET.panel('create');
-check("CREATE's stage editor lives at the end of its own panel",
-  !!$('.ns-set [data-content-for="create"] [data-group="create.stages"]') &&
-  !!$('.ns-set [data-content-for="create"] input[data-cfg="create.sessionKinds"]') &&
-  d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-card').length === w.CREATE.stages().length,
-  d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-card').length + ' cards');
-const stageKeysWere = w.CREATE.stages().map(x => x.key).join(',');
-click($('.ns-set [data-group="create.stages"] .ed-add'));
-check('a stage is added in front of the finished one, never after it',
-  w.CREATE.stages().length === stagesWas.length + 1 &&
-  w.CREATE.stages()[w.CREATE.stages().length - 1].terminal === true,
-  w.CREATE.stages().map(x => x.key).join(','));
-click(d.querySelectorAll('.ns-set [data-group="create.stages"] .ed-del')[w.CREATE.stages().length - 1]);
+const edAreas = () => [...d.querySelectorAll('.ns-set [data-group="create.areas"] .ed-area')];
+check("CREATE's area editor lives at the end of its own panel, and edits the tree",
+  !!$('.ns-set [data-content-for="create"] [data-group="create.areas"]') &&
+  edAreas().length === crAreas().length &&
+  edAreas()[0].querySelectorAll('.ed-card').length === crAreas()[0].stages.length &&
+  !!edAreas()[0].querySelector('[data-afield="noun"]') &&
+  !!edAreas()[0].querySelector('[data-afield="kinds"]'),
+  edAreas().length + ' areas, ' + edAreas()[0].querySelectorAll('.ed-card').length + ' stages in the first');
+const stageKeysWere = prodStages().map(x => x.key).join(',');
+click(edAreas()[0].querySelector('.ed-add'));
+check('a stage is added to the area whose button it was, in front of its finished one',
+  prodStages().length === areasWas[0].stages.length + 1 &&
+  prodStages()[prodStages().length - 1].terminal === true &&
+  w.CREATE.stages('mixing').length === areasWas[1].stages.length,
+  prodStages().map(x => x.key).join(','));
+click(edAreas()[0].querySelectorAll('.ed-del')[edAreas()[0].querySelectorAll('.ed-del').length - 1]);
+settle(true);
 check('... and deleting the finished stage leaves the last one finished, or the shelf has no end',
-  w.CREATE.stages().some(x => x.terminal),
-  w.CREATE.stages().map(x => x.key + (x.terminal ? '*' : '')).join(','));
-w.Config.reset('create.stages');
-check('reset puts the shipped stages back',
-  w.CREATE.stages().map(x => x.key).join(',') === stageKeysWere,
-  w.CREATE.stages().map(x => x.key).join(','));
+  prodStages().some(x => x.terminal),
+  prodStages().map(x => x.key + (x.terminal ? '*' : '')).join(','));
+w.Config.reset('create.areas');
+check('reset puts the shipped areas back',
+  prodStages().map(x => x.key).join(',') === stageKeysWere &&
+  crAreas().length === areasWas.length,
+  prodStages().map(x => x.key).join(','));
+click($('.ns-set [data-group="create.areas"] .ed-add-area'));
+check('a whole area can be added from the editor, and it arrives usable',
+  crAreas().length === areasWas.length + 1 &&
+  crAreas()[crAreas().length - 1].stages.some(st => st.terminal),
+  crAreas().map(a => a.key).join(','));
+w.Config.reset('create.areas');
+check('... and the last area can never be deleted, because a shelf needs somewhere to put things',
+  (() => { w.Config.set('create.areas', [areasWas[0]]);
+           const one = $('.ns-set [data-group="create.areas"] .ed-area .ed-head .ed-del');
+           click(one); settle(true);
+           const n = crAreas().length; w.Config.reset('create.areas'); return n === 1; })(),
+  crAreas().length + ' areas');
 
 const createCss = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
 const createJs  = fs.readFileSync(path.join(ROOT, 'js/create.js'), 'utf8');
 check('a stage colour is one rule and a variable, not one rule per stage',
   /--st-c/.test(createCss) && !/#a78bfa/i.test(createCss),
   (createCss.match(/--st-c/g) || []).length + ' uses');
-check("CREATE's two sideways scrollers claim the gesture, or they are dead under a finger",
+check('... and so is an area colour, or a third area would need a stylesheet change',
+  /--ar-c/.test(createCss) && !/#5ad4e6/i.test(createCss) &&
+  !/\[data-area|\.area-production|\.area-mixing/.test(createCss),
+  (createCss.match(/--ar-c/g) || []).length + ' uses');
+check("CREATE's three sideways scrollers claim the gesture, or they are dead under a finger",
   /\.ns-create \.cr-steps\{[^}]*touch-action:pan-x pan-y/.test(createCss) &&
-  /\.ns-create \.cr-sorts\{[^}]*touch-action:pan-x pan-y/.test(createCss));
+  /\.ns-create \.cr-sorts\{[^}]*touch-action:pan-x pan-y/.test(createCss) &&
+  /\.ns-create \.cr-areas\{[^}]*touch-action:pan-x pan-y/.test(createCss));
+/* The word Hugo asked to be rid of in 4.0: "in flight" was CREATE's name for
+   work that was not released, and it never said anything the plainer word did
+   not. It is gone from the app, not merely from the one heading. */
+check('the shelf says what it means — nothing anywhere still says "in flight"',
+  !/in flight/i.test(createJs) && !/in flight/i.test(createCss) &&
+  !/in flight/i.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')) &&
+  /In progress/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')));
+check("search reaches the whole areas tree, and says which area a stage belongs to",
+  w.SEARCH.results('crate').some(r => /stage · mixing/.test(r.sub)) &&
+  w.SEARCH.results('cue points').some(r => /checklist · mixing/.test(r.sub)),
+  w.SEARCH.results('crate').map(r => r.title + ' — ' + r.sub).join(' | '));
+check('nothing in CREATE is written for two areas — it walks the list, whatever is in it',
+  !/'production'|"production"|'mixing'|"mixing"/.test(
+    createJs.replace(/\/\*[\s\S]*?\*\//g, '')),
+  (createJs.replace(/\/\*[\s\S]*?\*\//g, '').match(/production|mixing/g) || []).join(','));
 check('CREATE has no network at all — a song is not a task',
   !/fetch\s*\(|todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs));
 

@@ -1,25 +1,41 @@
 /* ── CREATE ───────────────────────────────────────────────────────────────────
-   The songs being made, and what was done to them.
+   The work being made, and what was done to it.
 
-   The shape of the app, in one sentence: a song sits on a stage, a stage asks
-   a checklist of it, and every hour at the desk is written down. Three screens
-   — the shelf, one song, the session log — and no network at all. CREATE never
-   talks to Todoist: a song is not a task, it is not due, and a backlog of them
-   is the normal state of things rather than something to clear.
+   The shape of the app, in one sentence: a piece of work sits on a stage, the
+   stage asks a checklist of it, and every hour at the desk is written down.
+   Three screens — the shelf, one work, the session log — and no network at
+   all. CREATE never talks to Todoist: a song is not a task, it is not due, and
+   a shelf of unfinished things is the normal state of the room rather than a
+   backlog to clear.
+
+   ── Areas ───────────────────────────────────────────────────────────────────
+   4.0 is the version that made there be more than one kind of work in here.
+   **production** is the songs being made; **mixing** is the DJ sets being
+   built. They are not two apps: the machine is identical — a thing on a stage,
+   a checklist, hours in the log — and only the vocabulary differs. So an area
+   is a block in `create.areas`: its name, its colour, the noun for one of its
+   things, the stages it walks and the words its sessions are called. A third
+   area needs no code and no CSS.
+
+   Nothing in this file is written for two areas. Everything walks `AREAS`, and
+   the home screen is a combined view with the areas as its filter — which is
+   the whole reason the shelf can hold both without becoming two shelves.
 
    What is Config's and what is this file's:
-     · the stages, their colours and their checklists are Config (`create.*`),
-       so the path a song walks is editable from Settings → create
-     · the songs, their ticks, their notes and every session are in `create_v1`
-   A stage's `key` is the identity a song's stage and every one of its ticks is
-   filed under. A tick is filed under `stageKey|item text`, so reordering a
-   checklist keeps every tick and rewording a line drops that one line's — the
-   trade written up in ROOT.md §6.
+     · the areas, their stages, their checklists and their session words are
+       Config (`create.areas`), so the path a work walks is editable in
+       Settings → create
+     · the works, their ticks, their notes and every session are in `create_v1`
+   A stage's `key` is the identity a work's stage and every one of its ticks is
+   filed under, and it only has to be unique inside its own area — a tick is
+   filed under `areaKey|stageKey|item text`, so both areas may have a stage
+   called `idea`. Reordering a checklist keeps every tick and rewording a line
+   drops that one line's — the trade written up in ROOT.md §6.
 
    Markup is in two places (the slide and the settings panel), so every button
    carries `data-act` and one document-level listener filtered on
    `.closest('.ns-create')` dispatches — TEND's pattern, and for TEND's reason:
-   a song's name interpolated into an inline handler is one more thing to get
+   a work's name interpolated into an inline handler is one more thing to get
    wrong. */
 window.CREATE = (function () {
 'use strict';
@@ -35,69 +51,127 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 const KEY = 'create_v1';
 
 /* ── Content ───────────────────────────────────────────────────────────────── */
-let STAGES, NEWT, HOME, KINDS;
+let AREAS, HOME;
 function readConfig() {
-  STAGES = (Config.get('create.stages') || []).map(st => Object.assign({}, st, {
-    key: String(st.key), label: String(st.label == null ? st.key : st.label),
-    items: Array.isArray(st.items) ? st.items.slice() : [],
-  }));
-  if (!STAGES.length) STAGES = [{ key:'idea', label:'idea', color:'#7a8699', items:[], terminal:true }];
-  if (!STAGES.some(st => st.terminal)) STAGES[STAGES.length - 1].terminal = true;
-  NEWT  = Object.assign({ stage:STAGES[0].key, bpm:'', key:'', tags:'' }, Config.get('create.newTrack') || {});
-  HOME  = Object.assign({ sort:'touched', sessionCount:6, weekDays:7 }, Config.get('create.home') || {});
-  KINDS = (Config.get('create.sessionKinds') || []).filter(Boolean);
+  AREAS = (Config.get('create.areas') || []).map(a => {
+    const stages = (Array.isArray(a.stages) ? a.stages : []).map(st => Object.assign({}, st, {
+      key: String(st.key), label: String(st.label == null ? st.key : st.label),
+      items: Array.isArray(st.items) ? st.items.slice() : [],
+    }));
+    if (!stages.length) stages.push({ key:'idea', label:'idea', color:'#7a8699', items:[], terminal:true });
+    if (!stages.some(st => st.terminal)) stages[stages.length - 1].terminal = true;
+    return {
+      key: String(a.key), label: String(a.label == null ? a.key : a.label),
+      noun: String(a.noun || 'thing'), plural: String(a.plural || (a.noun ? a.noun + 's' : 'things')),
+      color: a.color || '#7a8699',
+      kinds: (Array.isArray(a.kinds) ? a.kinds : []).filter(Boolean),
+      newItem: Object.assign({ stage: stages[0].key, bpm:'', key:'', tags:'' }, a.newItem || {}),
+      stages,
+    };
+  });
+  /* An area list edited down to nothing would be a shelf with nowhere to put
+     anything, which is not a state the app can draw. One is the floor. */
+  if (!AREAS.length) AREAS = [{ key:'work', label:'work', noun:'thing', plural:'things', color:'#7a8699',
+    kinds:[], newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
+    stages:[{ key:'idea', label:'idea', color:'#7a8699', items:[], terminal:true }] }];
+  HOME = Object.assign({ sort:'touched', sessionCount:6, weekDays:7 }, Config.get('create.home') || {});
 }
 readConfig();
 
-const stageAt   = i => STAGES[Math.max(0, Math.min(STAGES.length - 1, i))];
-const stageIx   = k => { const i = STAGES.findIndex(s => s.key === k); return i < 0 ? 0 : i; };
-/* A stage a song sits on that the editor has since deleted falls back to the
-   first one, the way TEND falls back for a plant whose type has gone. The
-   song's own `stage` is left alone: the stage may come back. */
-const stageOf   = s => STAGES[stageIx(s && s.stage)];
-const isDone    = s => !!stageOf(s).terminal;
-const tickKey   = (k, item) => k + '|' + item;
-const colorOf   = st => (st && st.color) || '#7a8699';
+/* An area a work sits in that the editor has since deleted falls back to the
+   first one, the way a stage does and the way TEND falls back for a plant
+   whose type has gone. The work's own `area` is left alone: it may come back. */
+const areaIx  = k => { const i = AREAS.findIndex(a => a.key === k); return i < 0 ? 0 : i; };
+const areaOf  = w => AREAS[areaIx(w && w.area)];
+const stageIx = (area, k) => { const i = area.stages.findIndex(s => s.key === k); return i < 0 ? 0 : i; };
+const stageOf = w => { const a = areaOf(w); return a.stages[stageIx(a, w && w.stage)]; };
+const isDone  = w => !!stageOf(w).terminal;
+const tickKey = (areaKey, stageKey, item) => areaKey + '|' + stageKey + '|' + item;
+const colorOf = st => (st && st.color) || '#7a8699';
 
 /* ── State ─────────────────────────────────────────────────────────────────── */
-const blank = () => ({ v:1, songs:[], sessions:[], settings:{ sort:null, showDone:false } });
+const blank = () => ({ v:2, works:[], sessions:[], settings:{ sort:null, showDone:false, area:'all' } });
 let DB = blank();
 let uid = 0;
 const newId = p => p + '_' + Date.now().toString(36) + '_' + (uid++).toString(36);
 
+/* ── Reading what is stored ────────────────────────────────────────────────
+   A v1 record is a shelf of `songs`, every one of them a production song, and
+   its ticks are filed under `stageKey|item` because there was only ever one
+   area to file them under. Both are lifted here rather than left to a repair
+   flag: the shape is read on every boot anyway, and a migration that runs in
+   the reader cannot be skipped by an install that never opens the settings.
+   The originals are not kept — `works` is `songs` with one field added, and a
+   tick key gains one segment. Nothing is thrown away. */
 function normalise(raw) {
-  const db = Object.assign(blank(), raw || {});
-  db.songs = (Array.isArray(db.songs) ? db.songs : []).map(s => ({
-    id:    String(s.id || newId('sg')),
-    name:  String(s.name || 'untitled'),
-    stage: String(s.stage || NEWT.stage),
-    bpm:   String(s.bpm == null ? '' : s.bpm),
-    key:   String(s.key == null ? '' : s.key),
-    tags:  String(s.tags == null ? '' : s.tags),
-    notes: String(s.notes == null ? '' : s.notes),
-    added: s.added || Shell.today(),
-    touched: s.touched || s.added || Shell.today(),
-    done:  (s.done && typeof s.done === 'object') ? s.done : {},
-  }));
-  db.sessions = (Array.isArray(db.sessions) ? db.sessions : []).map(e => ({
-    id:   String(e.id || newId('se')),
-    song: e.song ? String(e.song) : null,
-    date: e.date || Shell.today(),
-    hours: Math.max(0, +e.hours || 0),
-    what: String(e.what == null ? '' : e.what),
-  })).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  db.settings = Object.assign({ sort:null, showDone:false }, db.settings || {});
+  const src = raw || {};
+  const db  = Object.assign(blank(), src);
+  const first = AREAS[0].key;
+  /* Read off `raw`, never off the merged object: `blank()` supplies an empty
+     `works`, so asking the merge whether it has one always says yes and a v1
+     shelf would be read as an empty v2 one — which is to say, thrown away. */
+  const rows = Array.isArray(src.works) ? src.works
+             : Array.isArray(src.songs) ? src.songs : [];
+
+  db.works = rows.map(s => {
+    const area = String(s.area || first);
+    const done = {};
+    Object.keys((s.done && typeof s.done === 'object') ? s.done : {}).forEach(k => {
+      /* Two segments is a v1 key: it names a stage and an item and assumes the
+         area. Three is already ours. */
+      done[k.split('|').length < 3 ? area + '|' + k : k] = s.done[k];
+    });
+    return {
+      id:    String(s.id || newId('wk')),
+      area,
+      name:  String(s.name || 'untitled'),
+      stage: String(s.stage || ''),
+      bpm:   String(s.bpm == null ? '' : s.bpm),
+      key:   String(s.key == null ? '' : s.key),
+      tags:  String(s.tags == null ? '' : s.tags),
+      notes: String(s.notes == null ? '' : s.notes),
+      added: s.added || Shell.today(),
+      touched: s.touched || s.added || Shell.today(),
+      done,
+    };
+  });
+  delete db.songs;
+
+  db.sessions = (Array.isArray(db.sessions) ? db.sessions : []).map(e => {
+    const work = e.work ? String(e.work) : (e.song ? String(e.song) : null);
+    const owner = work ? db.works.find(w => w.id === work) : null;
+    return {
+      id:   String(e.id || newId('se')),
+      work,
+      /* Denormalised so the log can be filtered and totalled without walking
+         the shelf for every row. It follows the work when there is one. */
+      area: String(owner ? owner.area : (e.area || first)),
+      date: e.date || Shell.today(),
+      hours: Math.max(0, +e.hours || 0),
+      what: String(e.what == null ? '' : e.what),
+    };
+  }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  db.settings = Object.assign({ sort:null, showDone:false, area:'all' }, db.settings || {});
+  db.v = 2;
   return db;
 }
 function load() {
   let raw = null;
   try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { raw = null; }
+  const lifted = !!raw && !Array.isArray(raw.works) && Array.isArray(raw.songs);
   DB = normalise(raw);
+  /* Written back the moment it is lifted, rather than left to the next edit.
+     Reading is idempotent, so nothing breaks either way — but a shelf nobody
+     has touched since the upgrade would sit on disk in the old shape for as
+     long as it went untouched, and "when did this actually migrate" is not a
+     question worth being able to ask. */
+  if (lifted) save();
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} }
 
-const songById = id => DB.songs.find(s => s.id === id) || null;
-function touch(song) { song.touched = Shell.today(); }
+const workById = id => DB.works.find(w => w.id === id) || null;
+function touch(work) { work.touched = Shell.today(); }
 
 /* ── Dates ─────────────────────────────────────────────────────────────────── */
 const D = s => { const p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12, 0, 0); };
@@ -119,34 +193,34 @@ function hrs(h) {
 }
 
 /* ── Progress ──────────────────────────────────────────────────────────────── */
-function progress(song) {
-  const st = stageOf(song);
+function progress(work) {
+  const a = areaOf(work), st = stageOf(work);
   const items = st.items || [];
-  const done = items.filter(i => song.done[tickKey(st.key, i)]).length;
-  return { done, total: items.length, stage: st };
+  const done = items.filter(i => work.done[tickKey(a.key, st.key, i)]).length;
+  return { done, total: items.length, stage: st, area: a };
 }
 
 /* ── Sessions ──────────────────────────────────────────────────────────────── */
-const sessionsFor = id => DB.sessions.filter(e => e.song === id);
+const sessionsFor = id => DB.sessions.filter(e => e.work === id);
 function weekWindow() {
   const days = Math.max(1, +HOME.weekDays || 7);
   const from = new Date(D(Shell.today()).getTime() - (days - 1) * 864e5);
   const pad = n => String(n).padStart(2, '0');
   return from.getFullYear() + '-' + pad(from.getMonth() + 1) + '-' + pad(from.getDate());
 }
-function weekStats() {
+function weekStats(areaKey) {
   const from = weekWindow();
-  const rows = DB.sessions.filter(e => e.date >= from);
+  const rows = DB.sessions.filter(e => e.date >= from && (!areaKey || e.area === areaKey));
   return { n: rows.length,
            hours: rows.reduce((a, b) => a + b.hours, 0),
-           songs: new Set(rows.map(e => e.song).filter(Boolean)).size };
+           works: new Set(rows.map(e => e.work).filter(Boolean)).size };
 }
 
 /* ── Screens ───────────────────────────────────────────────────────────────── */
 let screen = 'home';
 let openId = null;
 /* The log form's own state, kept here rather than in the DOM so a tick or a
-   Config edit can re-render the song's screen underneath it without emptying
+   Config edit can re-render the work's screen underneath it without emptying
    the field someone is halfway through. PLAN's form does the same. */
 let form = { hours:'', what:'' };
 
@@ -161,141 +235,198 @@ function go(name) {
 }
 
 function render() {
-  if (screen === 'song' && !songById(openId)) { screen = 'home'; openId = null; go('home'); return; }
+  if (screen === 'work' && !workById(openId)) { screen = 'home'; openId = null; go('home'); return; }
   if (screen === 'home') renderHome();
-  if (screen === 'song') renderSong();
+  if (screen === 'work') renderWork();
   if (screen === 'sessions') renderSessions();
 }
 
-/* ── The shelf ─────────────────────────────────────────────────────────────── */
+/* ── The shelf ─────────────────────────────────────────────────────────────
+   One shelf holding every area, with the areas as its filter. That is the
+   whole argument for not making mixing its own tab: what is on the desk this
+   week is one question, and it stops being answerable the moment the answer
+   is split across two screens you have to remember to visit. Narrowing to one
+   area is a tap; seeing the lot is the default. */
 const sortMode = () => DB.settings.sort || HOME.sort || 'touched';
-function inFlight() { return DB.songs.filter(s => !isDone(s)); }
-function released() { return DB.songs.filter(isDone)
+/* 'all', or an area key. An area the editor has deleted falls back to 'all'
+   rather than to an empty shelf that looks like a bug. */
+function areaSel() {
+  const s = DB.settings.area || 'all';
+  return (s === 'all' || AREAS.some(a => a.key === s)) ? s : 'all';
+}
+const inSel = w => areaSel() === 'all' || areaOf(w).key === areaSel();
+const areasShown = () => areaSel() === 'all' ? AREAS : AREAS.filter(a => a.key === areaSel());
+function inProgress() { return DB.works.filter(w => !isDone(w) && inSel(w)); }
+function finished() { return DB.works.filter(w => isDone(w) && inSel(w))
   .sort((a, b) => (a.touched < b.touched ? 1 : a.touched > b.touched ? -1 : 0)); }
 
-function sortSongs(rows) {
+function sortWorks(rows) {
   const m = sortMode();
   const by = {
     touched: (a, b) => (a.touched < b.touched ? 1 : a.touched > b.touched ? -1 : 0) || (a.name > b.name ? 1 : -1),
-    stage:   (a, b) => stageIx(a.stage) - stageIx(b.stage) || (a.name > b.name ? 1 : -1),
+    stage:   (a, b) => areaIx(a.area) - areaIx(b.area) ||
+                       stageIx(areaOf(a), a.stage) - stageIx(areaOf(b), b.stage) || (a.name > b.name ? 1 : -1),
     name:    (a, b) => (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1),
   };
   return rows.slice().sort(by[m] || by.touched);
 }
 
 function renderHome() {
-  const flight = inFlight(), done = released();
+  const sel = areaSel();
+  const live = inProgress(), done = finished();
+  const mine = DB.works.filter(inSel);
 
   const hero = $id('cr-hero');
   if (hero) hero.innerHTML =
-    `<div class="n">${flight.length}<span class="of">/${DB.songs.length}</span></div>
-     <div class="k">${flight.length === 1 ? 'song in flight' : 'songs in flight'}</div>`;
+    `<div class="n">${live.length}<span class="of">/${mine.length}</span></div>
+     <div class="k">in progress${sel === 'all' ? '' : ' · ' + esc(AREAS[areaIx(sel)].label)}</div>`;
 
-  /* The strip is one segment per stage that has something on it, as wide as
-     the count. Built from Config, so it has no fixed number of parts — see
-     ROOT.md §6 on anything built from Config having no fixed width. */
-  const counts = STAGES.map(st => ({ st, n: DB.songs.filter(s => stageOf(s).key === st.key).length }));
-  const live = counts.filter(c => c.n > 0);
+  /* The filter is the areas themselves, "all" in front of them. Built from
+     Config, so it scrolls sideways rather than assuming it fits — and it says
+     `touch-action` for it, or it is dead under a finger (ROOT.md §6). */
+  const tabs = $id('cr-areas');
+  if (tabs) tabs.innerHTML = [{ key:'all', label:'all', color:null }].concat(AREAS).map(a => {
+    const n = a.key === 'all' ? DB.works.filter(w => !isDone(w)).length
+                              : DB.works.filter(w => !isDone(w) && areaOf(w).key === a.key).length;
+    return `<button class="cr-area${sel === a.key ? ' on' : ''}" data-act="area" data-a="${esc(a.key)}"
+      ${a.color ? `style="--ar-c:${esc(a.color)}"` : ''}>${esc(a.label)}<b>${n}</b></button>`;
+  }).join('');
+
+  /* One strip per area in view, each a segment per stage that has something on
+     it, as wide as the count. On "all" that is both areas one under the other,
+     which is the combined view doing the thing it exists to do: two shapes,
+     side by side, in one glance. */
   const bar = $id('cr-stages');
-  if (bar) bar.innerHTML = live.length
-    ? `<div class="cr-bar">${live.map(c =>
-         `<i style="flex:${c.n};--st-c:${esc(colorOf(c.st))}"></i>`).join('')}</div>
-       <div class="cr-keys">${live.map(c =>
-         `<span class="cr-key"><i style="--st-c:${esc(colorOf(c.st))}"></i>${esc(c.st.label)} <b>${c.n}</b></span>`).join('')}</div>`
-    : '';
+  if (bar) bar.innerHTML = areasShown().map(a => {
+    const counts = a.stages.map(st => ({ st, n: DB.works.filter(w => areaOf(w).key === a.key && stageOf(w).key === st.key).length }));
+    const on = counts.filter(c => c.n > 0);
+    if (!on.length) return '';
+    const total = on.reduce((s, c) => s + c.n, 0);
+    return `<div class="cr-abar" style="--ar-c:${esc(a.color)}">
+      ${AREAS.length > 1 ? `<div class="cr-alab"><i></i>${esc(a.label)}<b>${total}</b></div>` : ''}
+      <div class="cr-bar">${on.map(c =>
+        `<i style="flex:${c.n};--st-c:${esc(colorOf(c.st))}"></i>`).join('')}</div>
+      <div class="cr-keys">${on.map(c =>
+        `<span class="cr-key"><i style="--st-c:${esc(colorOf(c.st))}"></i>${esc(c.st.label)} <b>${c.n}</b></span>`).join('')}</div>
+    </div>`;
+  }).join('');
 
   const cnt = $id('cr-count');
-  if (cnt) cnt.textContent = flight.length ? sortMode().replace('touched', 'last worked on') : '';
+  if (cnt) cnt.textContent = live.length ? sortMode().replace('touched', 'last worked on') : '';
 
   const sorts = $id('cr-sorts');
-  if (sorts) sorts.innerHTML = flight.length ? [
+  if (sorts) sorts.innerHTML = live.length ? [
     ['touched', 'recent'], ['stage', 'stage'], ['name', 'name'],
   ].map(([k, lb]) => `<button class="cr-sort${sortMode() === k ? ' on' : ''}" data-act="sort" data-s="${k}">${lb}</button>`).join('') : '';
 
   const list = $id('cr-list');
-  if (list) list.innerHTML = flight.length
-    ? sortSongs(flight).map(songRow).join('')
-    : `<div class="cr-empty">Nothing on the shelf yet.<br>A song starts as an idea and a name.</div>`;
+  if (list) list.innerHTML = live.length
+    ? sortWorks(live).map(workRow).join('')
+    : `<div class="cr-empty">${sel === 'all'
+        ? 'Nothing on the shelf yet.<br>It starts as an idea and a name.'
+        : 'Nothing in ' + esc(AREAS[areaIx(sel)].label) + ' yet.'}</div>`;
+
+  /* One button per area in view: on "all" that is one for each, so starting a
+     mix is never a thing you have to switch screens to do. */
+  const add = $id('cr-add');
+  if (add) add.innerHTML = areasShown().map(a =>
+    `<button class="cr-add" data-act="add" data-a="${esc(a.key)}" style="--ar-c:${esc(a.color)}">+ new ${esc(a.noun)}</button>`).join('');
 
   const rel = $id('cr-released');
   if (rel) rel.innerHTML = done.length ? `
     <button class="cr-fold" data-act="fold">
-      <span>Released</span><b>${done.length} · ${DB.settings.showDone ? 'hide' : 'show'}</b>
+      <span>Finished</span><b>${done.length} · ${DB.settings.showDone ? 'hide' : 'show'}</b>
     </button>
-    ${DB.settings.showDone ? done.map(s => `
-      <button class="cr-done" data-act="open" data-id="${esc(s.id)}">
-        <span class="nm">${esc(s.name)}</span><span class="dt">${esc(fmtDay(s.touched))}</span>
+    ${DB.settings.showDone ? done.map(w => `
+      <button class="cr-done" data-act="open" data-id="${esc(w.id)}">
+        <span class="nm">${esc(w.name)}</span><span class="dt">${esc(fmtDay(w.touched))}</span>
       </button>`).join('') : ''}` : '';
 
-  const w = weekStats();
+  const days = Math.max(1, +HOME.weekDays || 7);
+  const w = weekStats(sel === 'all' ? null : sel);
+  /* The split is only worth drawing when there is more than one area to split
+     between, and only for the hours — three numbers per area is a table, and a
+     table is not what a glance at the week wants to be. */
+  const split = sel === 'all' && AREAS.length > 1
+    ? AREAS.map(a => ({ a, h: weekStats(a.key).hours })).filter(r => r.h > 0) : [];
+  const most = split.reduce((m, r) => Math.max(m, r.h), 0);
   const wk = $id('cr-week');
   if (wk) wk.innerHTML = `
-    <div class="cr-sec"><span>Last ${Math.max(1, +HOME.weekDays || 7)} days</span>
+    <div class="cr-sec"><span>Last ${days} days</span>
       <em>${DB.sessions.length ? DB.sessions.length + ' sessions logged' : ''}</em></div>
     <div class="cr-stats">
       <div class="cr-stat card"><div class="v acc">${hrs(w.hours)}</div><div class="k">at the desk</div></div>
       <div class="cr-stat card"><div class="v">${w.n}</div><div class="k">sessions</div></div>
-      <div class="cr-stat card"><div class="v">${w.songs}</div><div class="k">songs touched</div></div>
+      <div class="cr-stat card"><div class="v">${w.works}</div><div class="k">touched</div></div>
     </div>
+    ${split.length ? `<div class="cr-split">${split.map(r => `
+      <div class="cr-srow" style="--ar-c:${esc(r.a.color)}">
+        <span class="l">${esc(r.a.label)}</span>
+        <span class="rail"><i style="width:${Math.round(r.h / most * 100)}%"></i></span>
+        <span class="r">${hrs(r.h)}</span>
+      </div>`).join('')}</div>` : ''}
     <button class="cr-act" data-act="open-sessions">the whole session log →</button>`;
 }
 
-function songRow(s) {
-  const p = progress(s);
+function workRow(w) {
+  const p = progress(w);
   const c = colorOf(p.stage);
-  const meta = [s.bpm ? s.bpm + ' bpm' : '', s.key, s.tags].filter(Boolean).join(' · ');
-  return `<button class="cr-song" data-act="open" data-id="${esc(s.id)}" style="--st-c:${esc(c)}">
-    <div class="t"><span class="nm">${esc(s.name)}</span><span class="st">${esc(p.stage.label)}</span></div>
-    <div class="mt">${meta ? esc(meta) + ' <s>·</s> ' : ''}<s>${esc(ago(s.touched))}</s></div>
+  const meta = [AREAS.length > 1 ? p.area.label : '', w.bpm ? w.bpm + ' bpm' : '', w.key, w.tags]
+    .filter(Boolean).join(' · ');
+  return `<button class="cr-work" data-act="open" data-id="${esc(w.id)}"
+                  style="--st-c:${esc(c)};--ar-c:${esc(p.area.color)}">
+    <div class="t"><span class="nm">${AREAS.length > 1 ? '<i class="ar"></i>' : ''}${esc(w.name)}</span><span class="st">${esc(p.stage.label)}</span></div>
+    <div class="mt">${meta ? esc(meta) + ' <s>·</s> ' : ''}<s>${esc(ago(w.touched))}</s></div>
     ${p.total ? `<div class="cr-prog">
       <span class="rail"><i style="width:${Math.round(p.done / p.total * 100)}%"></i></span>
       <span class="v">${p.done} / ${p.total}</span></div>` : ''}
   </button>`;
 }
 
-/* ── One song ──────────────────────────────────────────────────────────────── */
-function renderSong() {
-  const s = songById(openId); if (!s) return;
-  const st = stageOf(s), c = colorOf(st);
-  const title = $id('cr-song-title');
-  if (title) title.textContent = s.name;
+/* ── One work ──────────────────────────────────────────────────────────────── */
+function renderWork() {
+  const w = workById(openId); if (!w) return;
+  const a = areaOf(w), st = stageOf(w), c = colorOf(st);
+  const title = $id('cr-work-title');
+  if (title) title.textContent = w.name;
 
-  const box = $id('cr-song'); if (!box) return;
+  const box = $id('cr-work'); if (!box) return;
   const items = st.items || [];
   const chip = (act, label, value, unit) => value
     ? `<button class="cr-mchip" data-act="${act}"><b>${esc(value)}</b>${unit ? ' ' + unit : ''}</button>`
     : `<button class="cr-mchip empty" data-act="${act}">+ ${label}</button>`;
 
   box.innerHTML = `
-    <div class="cr-head" style="--st-c:${esc(c)}">
+    <div class="cr-head" style="--st-c:${esc(c)};--ar-c:${esc(a.color)}">
+      ${AREAS.length > 1 ? `<div class="cr-atag"><i></i>${esc(a.label)}</div>` : ''}
       <div class="cr-meta">
-        ${chip('edit-name', 'name', s.name, '')}
-        ${chip('edit-bpm', 'tempo', s.bpm, 'bpm')}
-        ${chip('edit-key', 'key', s.key, '')}
-        ${chip('edit-tags', 'tags', s.tags, '')}
+        ${chip('edit-name', 'name', w.name, '')}
+        ${chip('edit-bpm', 'tempo', w.bpm, 'bpm')}
+        ${chip('edit-key', 'key', w.key, '')}
+        ${chip('edit-tags', 'tags', w.tags, '')}
       </div>
     </div>
 
-    <div class="cr-sec"><span>Stage</span><em>${esc(ago(s.touched))}</em></div>
-    <div class="cr-steps">${STAGES.map((x, i) => `
-      <button class="cr-step${x.key === st.key ? ' on' : ''}${i < stageIx(s.stage) ? ' past' : ''}"
+    <div class="cr-sec"><span>Stage</span><em>${esc(ago(w.touched))}</em></div>
+    <div class="cr-steps">${a.stages.map((x, i) => `
+      <button class="cr-step${x.key === st.key ? ' on' : ''}${i < stageIx(a, w.stage) ? ' past' : ''}"
               data-act="stage" data-k="${esc(x.key)}" style="--st-c:${esc(colorOf(x))}">${esc(x.label)}</button>`).join('')}</div>
 
-    <div class="cr-sec"><span>${esc(st.label)}</span><em>${items.length ? progress(s).done + ' / ' + items.length : ''}</em></div>
+    <div class="cr-sec"><span>${esc(st.label)}</span><em>${items.length ? progress(w).done + ' / ' + items.length : ''}</em></div>
     <div class="cr-check" style="--st-c:${esc(c)}">
       ${items.length ? items.map(i => {
-        const on = !!s.done[tickKey(st.key, i)];
+        const on = !!w.done[tickKey(a.key, st.key, i)];
         return `<button class="cr-item${on ? ' on' : ''}" data-act="tick" data-i="${esc(i)}">
           <span class="bx"></span><span class="lb">${esc(i)}</span></button>`;
       }).join('') : `<div class="cr-check-done">${st.terminal
-        ? 'Released. Nothing more is asked of it.'
+        ? 'Finished. Nothing more is asked of it.'
         : 'This stage has no checklist. Settings → create gives it one.'}</div>`}
     </div>
 
     <div class="cr-sec"><span>Notes</span><em>saved as you type</em></div>
     <textarea class="cr-notes" id="cr-note" data-act="note" spellcheck="false"
               placeholder="what it needs, what it is missing, what the reference does that this does not"
-              aria-label="notes">${esc(s.notes)}</textarea>
+              aria-label="notes">${esc(w.notes)}</textarea>
 
     <div class="cr-sec"><span>Log a session</span><em>hours then minutes — 130 is 1h30</em></div>
     <div class="cr-form">
@@ -305,102 +436,115 @@ function renderSong() {
         <input type="text" id="cr-what" data-pad="off" value="${esc(form.what)}"
                placeholder="what you did" aria-label="what you did">
       </div>
-      ${KINDS.length ? `<div class="cr-kinds">${KINDS.map(k =>
+      ${a.kinds.length ? `<div class="cr-kinds">${a.kinds.map(k =>
         `<button class="cr-kind" data-act="kind" data-k="${esc(k)}">${esc(k)}</button>`).join('')}</div>` : ''}
       <button class="cr-go" data-act="log">log it</button>
     </div>
 
     ${(() => {
-      const rows = sessionsFor(s.id).slice(0, Math.max(1, +HOME.sessionCount || 6));
-      const total = sessionsFor(s.id).reduce((a, b) => a + b.hours, 0);
+      const rows = sessionsFor(w.id).slice(0, Math.max(1, +HOME.sessionCount || 6));
+      const total = sessionsFor(w.id).reduce((x, y) => x + y.hours, 0);
       return rows.length ? `
-        <div class="cr-sec"><span>Sessions</span><em>${hrs(total)} on this song</em></div>
-        ${rows.map(sesRow).join('')}` : '';
+        <div class="cr-sec"><span>Sessions</span><em>${hrs(total)} on this ${esc(a.noun)}</em></div>
+        ${rows.map(e => sesRow(e)).join('')}` : '';
     })()}
 
     <div class="cr-acts">
       <button class="cr-act" data-act="edit-name">rename</button>
-      <button class="cr-act danger" data-act="delete">delete this song</button>
+      <button class="cr-act danger" data-act="delete">delete this ${esc(a.noun)}</button>
     </div>`;
 }
 
-const sesRow = (e, withSong) => `<div class="cr-ses">
+const sesRow = (e, withWork) => `<div class="cr-ses">
   <span class="l">${esc(e.what || 'session')}
-    <s>${esc(fmtDay(e.date))}${withSong ? ' · ' + esc((songById(e.song) || { name:'—' }).name) : ''}</s></span>
+    <s>${esc(fmtDay(e.date))}${withWork ? ' · ' + esc((workById(e.work) || { name:'—' }).name) : ''}</s></span>
   <span class="r">${hrs(e.hours)}</span>
   <button class="x" data-act="del-session" data-e="${esc(e.id)}" aria-label="remove session">×</button>
 </div>`;
 
-/* ── The session log ───────────────────────────────────────────────────────── */
+/* ── The session log ───────────────────────────────────────────────────────
+   The same filter the shelf has, for the same reason: the hours are one
+   number until you want to know which of the two things ate the week. */
+let logArea = 'all';
 function renderSessions() {
   const box = $id('cr-sessions'); if (!box) return;
   if (!DB.sessions.length) {
-    box.innerHTML = `<div class="cr-empty">No sessions yet.<br>Open a song and log the first one.</div>`;
+    box.innerHTML = `<div class="cr-empty">No sessions yet.<br>Open something and log the first one.</div>`;
     return;
   }
-  const w = weekStats();
-  const total = DB.sessions.reduce((a, b) => a + b.hours, 0);
-  const days = [...new Set(DB.sessions.map(e => e.date))];
+  if (logArea !== 'all' && !AREAS.some(a => a.key === logArea)) logArea = 'all';
+  const rows  = DB.sessions.filter(e => logArea === 'all' || e.area === logArea);
+  const w     = weekStats(logArea === 'all' ? null : logArea);
+  const total = rows.reduce((a, b) => a + b.hours, 0);
+  const days  = [...new Set(rows.map(e => e.date))];
   box.innerHTML = `
+    ${AREAS.length > 1 ? `<div class="cr-areas cr-areas-log">${
+      [{ key:'all', label:'all', color:null }].concat(AREAS).map(a => {
+        const n = a.key === 'all' ? DB.sessions.length : DB.sessions.filter(e => e.area === a.key).length;
+        return `<button class="cr-area${logArea === a.key ? ' on' : ''}" data-act="log-area" data-a="${esc(a.key)}"
+          ${a.color ? `style="--ar-c:${esc(a.color)}"` : ''}>${esc(a.label)}<b>${n}</b></button>`;
+      }).join('')}</div>` : ''}
     <div class="cr-stats">
       <div class="cr-stat card"><div class="v acc">${hrs(w.hours)}</div><div class="k">last ${Math.max(1, +HOME.weekDays || 7)} days</div></div>
       <div class="cr-stat card"><div class="v">${hrs(total)}</div><div class="k">all time</div></div>
-      <div class="cr-stat card"><div class="v">${DB.sessions.length}</div><div class="k">sessions</div></div>
+      <div class="cr-stat card"><div class="v">${rows.length}</div><div class="k">sessions</div></div>
     </div>
-    ${days.map(d => `<div class="cr-day">${esc(fmtDay(d))} · ${esc(ago(d))}</div>
-      ${DB.sessions.filter(e => e.date === d).map(e => sesRow(e, true)).join('')}`).join('')}`;
+    ${days.length ? days.map(d => `<div class="cr-day">${esc(fmtDay(d))} · ${esc(ago(d))}</div>
+      ${rows.filter(e => e.date === d).map(e => sesRow(e, true)).join('')}`).join('')
+      : `<div class="cr-empty">Nothing logged in ${esc(AREAS[areaIx(logArea)].label)} yet.</div>`}`;
 }
 
 /* ── Doing things ──────────────────────────────────────────────────────────── */
-function addSong() {
-  Shell.prompt('Name the song\nIt can be a working title — it is renamed from its own screen.', '', name => {
+function addWork(areaKey) {
+  const a = AREAS[areaIx(areaKey)];
+  Shell.prompt('Name the ' + a.noun + '\nIt can be a working title — it is renamed from its own screen.', '', name => {
     const nm = String(name || '').trim();
     if (!nm) return;
-    const s = {
-      id: newId('sg'), name: nm, stage: NEWT.stage,
-      bpm: String(NEWT.bpm || ''), key: String(NEWT.key || ''), tags: String(NEWT.tags || ''),
+    const w = {
+      id: newId('wk'), area: a.key, name: nm, stage: a.newItem.stage,
+      bpm: String(a.newItem.bpm || ''), key: String(a.newItem.key || ''), tags: String(a.newItem.tags || ''),
       notes: '', added: Shell.today(), touched: Shell.today(), done: {},
     };
-    DB.songs.push(s); save();
-    openId = s.id; form = { hours:'', what:'' };
-    go('song');
+    DB.works.push(w); save();
+    openId = w.id; form = { hours:'', what:'' };
+    go('work');
     toast('“' + nm + '” started');
   });
 }
 
 function editField(field, label, value) {
-  const s = songById(openId); if (!s) return;
+  const w = workById(openId); if (!w) return;
   Shell.prompt(label, value, v => {
     const next = String(v == null ? '' : v).trim();
-    if (field === 'name' && !next) return;          // a song with no name cannot be found again
-    s[field] = next;
-    touch(s); save(); render();
+    if (field === 'name' && !next) return;          // a work with no name cannot be found again
+    w[field] = next;
+    touch(w); save(); render();
   });
 }
 
 function setStage(key) {
-  const s = songById(openId); if (!s) return;
-  if (s.stage === key) return;
-  s.stage = key; touch(s); save(); render();
-  toast(s.name + ' → ' + stageOf(s).label);
+  const w = workById(openId); if (!w) return;
+  if (w.stage === key) return;
+  w.stage = key; touch(w); save(); render();
+  toast(w.name + ' → ' + stageOf(w).label);
 }
 
 function tick(item) {
-  const s = songById(openId); if (!s) return;
-  const k = tickKey(stageOf(s).key, item);
-  if (s.done[k]) delete s.done[k]; else s.done[k] = Shell.today();
-  touch(s); save(); renderSong();
+  const w = workById(openId); if (!w) return;
+  const k = tickKey(areaOf(w).key, stageOf(w).key, item);
+  if (w.done[k]) delete w.done[k]; else w.done[k] = Shell.today();
+  touch(w); save(); renderWork();
 }
 
 function logSession() {
-  const s = songById(openId); if (!s) return;
+  const w = workById(openId); if (!w) return;
   const h = Math.max(0, parseFloat(String(form.hours).replace(',', '.')) || 0);
   if (!h) { toast('how long was it?'); return; }
-  DB.sessions.unshift({ id: newId('se'), song: s.id, date: Shell.today(), hours: h,
-                        what: String(form.what || '').trim() });
+  DB.sessions.unshift({ id: newId('se'), work: w.id, area: areaOf(w).key, date: Shell.today(),
+                        hours: h, what: String(form.what || '').trim() });
   form = { hours:'', what:'' };
-  touch(s); save(); renderSong();
-  toast(hrs(h) + ' on ' + s.name);
+  touch(w); save(); renderWork();
+  toast(hrs(h) + ' on ' + w.name);
 }
 
 function delSession(id) {
@@ -410,15 +554,15 @@ function delSession(id) {
   toast('session removed');
 }
 
-function deleteSong() {
-  const s = songById(openId); if (!s) return;
-  const n = sessionsFor(s.id).length;
-  Shell.confirm('Delete “' + s.name + '”?\n' + (n ? 'Its ' + n + ' session' + (n === 1 ? '' : 's') +
+function deleteWork() {
+  const w = workById(openId); if (!w) return;
+  const n = sessionsFor(w.id).length;
+  Shell.confirm('Delete “' + w.name + '”?\n' + (n ? 'Its ' + n + ' session' + (n === 1 ? '' : 's') +
     ' go with it. ' : '') + 'This cannot be undone.', () => {
-    DB.songs = DB.songs.filter(x => x.id !== s.id);
-    DB.sessions = DB.sessions.filter(e => e.song !== s.id);
+    DB.works = DB.works.filter(x => x.id !== w.id);
+    DB.sessions = DB.sessions.filter(e => e.work !== w.id);
     save(); openId = null; go('home');
-    toast('“' + s.name + '” deleted');
+    toast('“' + w.name + '” deleted');
   });
 }
 
@@ -430,18 +574,20 @@ document.addEventListener('click', ev => {
   if (!act) return;
 
   if (act === 'home')          { go('home'); return; }
-  if (act === 'open')          { openId = t.dataset.id; form = { hours:'', what:'' }; go('song'); return; }
+  if (act === 'open')          { openId = t.dataset.id; form = { hours:'', what:'' }; go('work'); return; }
   if (act === 'open-sessions') { go('sessions'); return; }
-  if (act === 'add')           { addSong(); return; }
+  if (act === 'add')           { addWork(t.dataset.a); return; }
+  if (act === 'area')          { DB.settings.area = t.dataset.a; save(); renderHome(); return; }
+  if (act === 'log-area')      { logArea = t.dataset.a; renderSessions(); return; }
   if (act === 'sort')          { DB.settings.sort = t.dataset.s; save(); renderHome(); return; }
   if (act === 'fold')          { DB.settings.showDone = !DB.settings.showDone; save(); renderHome(); return; }
   if (act === 'stage')         { setStage(t.dataset.k); return; }
   if (act === 'tick')          { tick(t.dataset.i); return; }
   if (act === 'log')           { logSession(); return; }
   if (act === 'del-session')   { delSession(t.dataset.e); return; }
-  if (act === 'delete')        { deleteSong(); return; }
+  if (act === 'delete')        { deleteWork(); return; }
   if (act === 'kind') {
-    /* A chip fills the field rather than replacing what is in it, so "mixing"
+    /* A chip fills the field rather than replacing what is in it, so "practice"
        and then a word of your own is two taps and a sentence. */
     const el = $id('cr-what');
     const cur = String(form.what || '').trim();
@@ -449,11 +595,11 @@ document.addEventListener('click', ev => {
     if (el) el.value = form.what;
     return;
   }
-  const s = songById(openId);
-  if (act === 'edit-name') { editField('name', 'Name', s ? s.name : ''); return; }
-  if (act === 'edit-bpm')  { editField('bpm',  'Tempo\nIn bpm. Blank if it is not decided.', s ? s.bpm : ''); return; }
-  if (act === 'edit-key')  { editField('key',  'Key\nHowever you write it — F#m, 6A, whatever the DAW says.', s ? s.key : ''); return; }
-  if (act === 'edit-tags') { editField('tags', 'Tags\nA word or two: the project, the label, the set it is for.', s ? s.tags : ''); return; }
+  const w = workById(openId);
+  if (act === 'edit-name') { editField('name', 'Name', w ? w.name : ''); return; }
+  if (act === 'edit-bpm')  { editField('bpm',  'Tempo\nIn bpm. Blank if it is not decided.', w ? w.bpm : ''); return; }
+  if (act === 'edit-key')  { editField('key',  'Key\nHowever you write it — F#m, 6A, whatever the DAW says.', w ? w.key : ''); return; }
+  if (act === 'edit-tags') { editField('tags', 'Tags\nA word or two: the project, the label, the set it is for.', w ? w.tags : ''); return; }
 
   if (act === 'export')      { exportData(); return; }
   if (act === 'pick-import') { const f = $id('cr-file'); if (f) f.click(); return; }
@@ -468,10 +614,10 @@ document.addEventListener('input', ev => {
   if (el.id === 'cr-hours') { form.hours = el.value; return; }
   if (el.id === 'cr-what')  { form.what  = el.value; return; }
   if (el.id === 'cr-note') {
-    const s = songById(openId); if (!s) return;
-    s.notes = el.value;
+    const w = workById(openId); if (!w) return;
+    w.notes = el.value;
     clearTimeout(noteT);
-    noteT = setTimeout(() => { touch(s); save(); }, 400);
+    noteT = setTimeout(() => { touch(w); save(); }, 400);
   }
 });
 document.addEventListener('change', ev => {
@@ -494,10 +640,16 @@ function renderSettings() {
 
   const st = document.querySelector('.ns-create #cr-status');
   if (st) {
-    const n = DB.songs.length, h = DB.sessions.reduce((a, b) => a + b.hours, 0);
+    const n = DB.works.length, h = DB.sessions.reduce((a, b) => a + b.hours, 0);
+    /* Counted per area, in the area's own noun: "2 songs · 1 mix" says more
+       about what is on the shelf than "3 things" ever could. */
+    const per = AREAS.map(a => {
+      const c = DB.works.filter(w => areaOf(w).key === a.key).length;
+      return c ? c + ' ' + (c === 1 ? a.noun : a.plural) : '';
+    }).filter(Boolean).join(' · ');
     st.className = 'settings-status ' + (n ? 'ok' : 'idle');
     st.textContent = n
-      ? n + (n === 1 ? ' song' : ' songs') + ' · ' + DB.sessions.length + ' sessions · ' + hrs(h) + ' logged'
+      ? per + ' · ' + DB.sessions.length + ' sessions · ' + hrs(h) + ' logged'
       : 'nothing on the shelf yet';
   }
 }
@@ -520,18 +672,22 @@ function importData(ev) {
   r.onload = () => {
     let raw = null;
     try { raw = JSON.parse(r.result); } catch { toast('that file is not CREATE data'); return; }
-    if (!raw || !Array.isArray(raw.songs)) { toast('that file is not CREATE data'); return; }
+    /* A file exported before 4.0 has `songs` and no `works`; both are CREATE
+       data and `normalise` lifts either. */
+    const rows = Array.isArray(raw && raw.works) ? raw.works
+               : Array.isArray(raw && raw.songs) ? raw.songs : null;
+    if (!rows) { toast('that file is not CREATE data'); return; }
     /* Not a merge. Two shelves interleaved by id is a guess about which copy of
-       a song is the real one, and there is no answer to that question here. */
+       a work is the real one, and there is no answer to that question here. */
     Shell.ask({
       title: 'Replace the shelf?',
-      body: 'The file holds ' + raw.songs.length + ' song' + (raw.songs.length === 1 ? '' : 's') +
+      body: 'The file holds ' + rows.length + (rows.length === 1 ? ' thing' : ' things') +
             '. Importing replaces everything CREATE currently holds.',
       yes: 'replace', no: 'cancel', danger: true,
       done: ok => {
         if (!ok) return;
         DB = normalise(raw); save(); openId = null; go('home'); renderSettings();
-        toast('imported ' + DB.songs.length + ' songs');
+        toast('imported ' + DB.works.length);
       },
     });
   };
@@ -539,7 +695,7 @@ function importData(ev) {
 }
 
 function resetAll() {
-  Shell.confirm('Reset CREATE?\nEvery song, every tick, every note and the whole session log go. The stages themselves are settings and stay.', () => {
+  Shell.confirm('Reset CREATE?\nEvery song, every mix, every tick and the whole session log go. The areas and their stages are settings and stay.', () => {
     DB = blank(); save(); openId = null; go('home'); renderSettings();
     toast('CREATE reset');
   });
@@ -559,16 +715,23 @@ Shell.register('create', {
   /* The week's numbers and every "3 days ago" move at midnight. */
   onDayChange: render,
   home: () => go('home'),
-  /* The songs are in create_v1, not in Config, so search asks for them here.
+  /* The works are in create_v1, not in Config, so search asks for them here.
      Tags match too: "for the set" is how a song gets looked for. */
-  search: q => DB.songs
-    .filter(s => [s.name, s.tags, s.key].some(v => String(v || '').toLowerCase().includes(q)))
-    .map(s => ({ title: s.name, sub: 'song · ' + stageOf(s).label + (s.tags ? ' · ' + s.tags : ''),
+  search: q => DB.works
+    .filter(w => [w.name, w.tags, w.key].some(v => String(v || '').toLowerCase().includes(q)))
+    .map(w => ({ title: w.name, sub: areaOf(w).noun + ' · ' + stageOf(w).label + (w.tags ? ' · ' + w.tags : ''),
                  go: () => { Shell.TABS.includes('create') ? Shell.go('create') : Shell.open('create');
-                             openId = s.id; go('song'); } })),
+                             openId = w.id; go('work'); } })),
 });
 
-return { render, renderSettings, go, addSong, exportData, importData, resetAll,
-         songs: () => DB.songs.slice(), sessions: () => DB.sessions.slice(),
-         progress, stages: () => STAGES.slice(), open: id => { openId = id; go('song'); } };
+return { render, renderSettings, go, addWork, exportData, importData, resetAll,
+         /* Re-read what is stored. Only the harness has a reason to ask — the
+            app reads once at boot and is the only thing that writes after. */
+         reload: () => { load(); openId = null; render(); renderSettings(); },
+         works: () => DB.works.slice(), sessions: () => DB.sessions.slice(),
+         areas: () => AREAS.slice(),
+         /* The stages of one area, by key; with no key, of the first one. */
+         stages: k => AREAS[areaIx(k)].stages.slice(),
+         area: k => { DB.settings.area = k; save(); if (screen === 'home') renderHome(); },
+         progress, open: id => { openId = id; go('work'); } };
 })();
