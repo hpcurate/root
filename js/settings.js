@@ -89,6 +89,9 @@ const uniqueKey = (base, taken) => {
   return k;
 };
 const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+/* CREATE's three optional meta chips. The module owns their prompts and their
+   units; this list is only what the area editor draws a checkbox for. */
+const CREATE_FIELDS = [{ k:'bpm', label:'tempo' }, { k:'key', label:'key' }, { k:'tags', label:'tags' }];
 
 /* ── PLAN's day templates, as text ────────────────────────────────────────────
    A row is an offset from the day's start and a duration, both in minutes, and
@@ -444,6 +447,8 @@ function behaveHTML() {
     ${sectionHead('Safety')}
     ${toggle('confirmDestructive', 'Confirm before clearing', 'off makes reset and clear buttons act immediately')}
     ${slider('toastMs', 'Toast duration', v => (v / 1000).toFixed(1) + 's')}
+    ${slider('undoSec', 'Undo window', v => (+v ? v + 's' : 'until you tap it'))}
+    <div class="set-note">Clearing a list, a queue, a day or a counter offers the way back instead of a toast. Nothing else is undoable — a delete still asks first.</div>
 
     ${sectionHead('Formats')}
     ${chips('dateFormat', [
@@ -1112,6 +1117,10 @@ const EDITORS = {
      not across them, so both areas may have an `idea`. The items are plain
      lines, and a tick is filed under the item's own text — reordering a list
      keeps every tick, rewording a line drops that one line's. */
+  /* The three optional meta chips, named here as well as in create.js. The
+     module owns the prompts and the units; this owns the checkboxes. Two short
+     lists rather than one shared export, because settings.js already renders
+     every other editor without asking its module anything. */
   'create.areas': {
     title: 'Areas, stages and checklists',
     note: 'The kinds of work CREATE holds, and for each one the path it walks and what every stage asks of it. One checklist item per line. An area\'s last stage is its finished one — work there is filed under "finished" and is asked for nothing.',
@@ -1131,6 +1140,11 @@ const EDITORS = {
           <input type="text" data-afield="kinds" value="${esc((a.kinds || []).join(', '))}"
                  placeholder="writing, mixing, listening" aria-label="session kinds">
           <div class="ed-hint">session chips, comma separated — a shortcut, not a limit on what you can type</div>
+          <div class="ed-flags">${CREATE_FIELDS.map(f => `
+            <label class="ed-flag"><input type="checkbox" data-aflag="${esc(f.k)}"
+              ${(a.fields || CREATE_FIELDS.map(x => x.k)).includes(f.k) ? 'checked' : ''}
+              aria-label="${esc(a.label)} asks for ${esc(f.label)}"><span>${esc(f.label)}</span></label>`).join('')}</div>
+          <div class="ed-hint">which chips this area's things carry — a song has a key, a DJ set does not. Switching one off only stops it being asked: what is already written stays and comes back if you switch it on again.</div>
           ${(a.stages || []).map(st => `<div class="ed-card" data-key="${esc(st.key)}">
             <div class="ed-head">
               <input type="text" data-field="label" value="${esc(st.label)}" placeholder="stage" aria-label="stage name">
@@ -1175,6 +1189,10 @@ const EDITORS = {
           noun,
           plural: el.querySelector('[data-afield=plural]').value.trim() || (noun + 's'),
           kinds: el.querySelector('[data-afield=kinds]').value.split(',').map(x => x.trim()).filter(Boolean),
+          fields: CREATE_FIELDS.map(f => f.k).filter(k => {
+            const box = el.querySelector('[data-aflag="' + k + '"]');
+            return box ? box.checked : true;
+          }),
           newItem: Object.assign({}, old.newItem || {},
                                  stages.length ? { stage: (old.newItem || {}).stage || stages[0].key } : {}),
           stages,
@@ -1192,7 +1210,8 @@ const EDITORS = {
         areas.push({ key, label:'New area', color:'#7a8699', noun:'thing', plural:'things',
                      kinds:[], newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
                      stages:[{ key:'idea', label:'idea', color:'#7a8699', items:['first thing'] },
-                             { key:'done', label:'finished', color:'#5cdb7d', terminal:true, items:[] }] });
+                             { key:'done', label:'finished', color:'#5cdb7d', terminal:true, items:[] }],
+                     fields: CREATE_FIELDS.map(f => f.k) });
       } else {
         a.stages = a.stages || [];
         const key = uniqueKey('stage', a.stages.map(x => x.key));
@@ -1914,7 +1933,7 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-behaviour') {
     confirmed('Reset every behaviour setting?', () => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','confirmDestructive','numpad',
-       'toastMs','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
+       'toastMs','undoSec','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });
   }
@@ -1950,6 +1969,7 @@ view.addEventListener('pointercancel', () => Prefs.revert());
 function readoutFor(key, v) {
   const s = Prefs.SCHEMA[key];
   if (key === 'toastMs')       return (v / 1000).toFixed(1) + 's';
+  if (key === 'undoSec')       return +v ? v + 's' : 'until you tap it';
   if (key === 'swipeStrength') return Math.round(v * 100) + '% of the width';
   if (key === 'iconStroke')    return v.toFixed(1);
   if (['density','textureAmount','chromeAlpha'].includes(key)) return Math.round(v * 100) + '%';

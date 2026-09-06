@@ -302,12 +302,17 @@
    something a nudge should do. The middle is the way back to today, and wears
    the accent while it is on any other day, the way a picked chip does. */
 .ns-plan .dstep{display:grid;grid-template-columns:auto 1fr auto;gap:calc(5px * var(--dens))}
+/* The day stepper in the task sheet is the same control LOG's date arrows are,
+   so it wears the same treatment: the display face at the title's weight, in
+   title ink, with the title's hard offset copy behind it. Composed at the
+   point of use — see the note in log.css and ROOT.md §6. */
 .ns-plan .dstep-a{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
-       color:var(--mu);font:400 14px/1 var(--mono);
+       color:var(--tx);font:800 14px/1 var(--head);
+       text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
        padding:calc(12px * var(--dens)) calc(16px * var(--dens));cursor:pointer;transition:all .1s}
 .ns-plan .dstep-a:active{border-color:var(--y);color:var(--y)}
 .ns-plan .dstep-a:disabled{opacity:.32;cursor:default}
-.ns-plan .dstep-a:disabled:active{border-color:var(--bd);color:var(--mu)}
+.ns-plan .dstep-a:disabled:active{border-color:var(--bd);color:var(--tx)}
 .ns-plan .dstep-v{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
        color:var(--tx);padding:calc(9px * var(--dens)) calc(10px * var(--dens));
        cursor:pointer;text-align:center;transition:all .1s;min-width:0;overflow:hidden}

@@ -588,7 +588,14 @@ function plannedOn(iso) {
 function removeFromQueue(i) { queue.splice(i,1); saveQueue(); renderQueue(); renderProjects(); }
 function clearQueue() {
   Shell.confirm('Clear all queued tasks?', () => {
-    queue=[]; saveQueue(); renderQueue(); renderProjects(); toast('Queue cleared');
+    /* A queue is half an hour of typing that has not been sent anywhere yet —
+       it exists nowhere but here, so clearing it is the one action in PLAN
+       with nothing behind it. Hence the way back. */
+    const was = queue.slice();
+    queue=[]; saveQueue(); renderQueue(); renderProjects();
+    Shell.undo(`${was.length} queued task${was.length === 1 ? '' : 's'} cleared`, () => {
+      queue = was; saveQueue(); renderQueue(); renderProjects();
+    });
   });
 }
 
@@ -1487,9 +1494,13 @@ async function doExport() {
 function clearSent() {
   if (!sentLog.length) return;
   Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.', () => {
+    const was = sentLog.slice();
     sentLog = []; sentSel.clear(); expSlots = {};
     if (expOpen) { expOpen = false; renderProjects(); }
-    saveHistory(); renderSent(); toast('history cleared');
+    saveHistory(); renderSent();
+    Shell.undo(`${was.length} sent task${was.length === 1 ? '' : 's'} cleared`, () => {
+      sentLog = was; saveHistory(); renderSent();
+    });
   });
 }
 /* Queue first, then what was sent today; one entry per name, with the

@@ -17,7 +17,28 @@
    row's own type and the wordmark's weight. */
 .ns-log .h-meta{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-log .h-date-txt{flex:1}
-.ns-log .h-arr{background:none;border:none;color:var(--tx-2);font:400 13px/1 var(--mono);cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s,opacity .26s ease}
+/* ── The date arrows wear the title's treatment ───────────────────────────────
+   They are the app's navigation, sitting a few pixels under the wordmark, and
+   they were a thin mono glyph next to a heavy display one — two different
+   voices in the same band. They read as the title now: the display face at the
+   wordmark's weight, in title ink, with the same hard offset copy behind them.
+
+   The shadow is composed here rather than through a token that pre-resolves
+   its colour — §6, and the reason `--title-sh` no longer exists. `--title-sh-x`
+   is em-relative with a 1px floor, so at this size it is exactly one pixel and
+   an offset rather than a smear.
+
+   A caveat worth writing down: `←` and `→` are typed characters, so whichever
+   face `--head` resolves to may not carry them and the browser will fall back
+   per glyph. The weight, the ink and the shadow all still land — those are not
+   the font's to refuse — but on a display face with no arrow the glyph itself
+   is the fallback's. DAY's stepper solved that by drawing its arrows from the
+   sprite; these stay typed because what was asked for here is the title's
+   *treatment*, and an icon cannot wear a text-shadow. */
+.ns-log .h-arr{background:none;border:none;color:var(--tx);
+  font:800 13px/1 var(--head);
+  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
+  cursor:pointer;padding:calc(2px * var(--dens)) calc(6px * var(--dens));transition:color .12s,opacity .26s ease}
 .ns-log .h-arr:active{color:var(--y)}
 /* ── The arrows step aside, the way DAY's stepper does ────────────────────────
    Same rule and the same dial (`calStepsHide`): they are controls you use in
@@ -129,12 +150,15 @@
    hues that stay apart from each other in every one of the fifteen themes, and
    an accent-relative palette cannot promise that; these are the same three the
    app already uses for the med slots. */
+/* Since 4.1 the colour of a line is written onto its <g> as --s-c by log.js,
+   so there is one rule per shape rather than one per series and a seventh
+   chart needs nothing here. --lc-yax is the gutter the labels sit in. */
 .ns-log .lc-trend{flex:0 0 auto;margin-top:calc(12px * var(--dens));
-  cursor:pointer;-webkit-tap-highlight-color:transparent;
-  --lc-nrg:#6ec5e0;--lc-mood:#5cdb7d;--lc-stress:#e0806b;--lc-yax:16px}
+  -webkit-tap-highlight-color:transparent;--lc-yax:16px}
 .ns-log .lc-trend.empty{font:400 9px/1.5 var(--mono);color:var(--bd-2);letter-spacing:.04em;text-align:center;
   padding:calc(10px * var(--dens)) 0 0;cursor:default}
-.ns-log .lc-plot{display:flex;align-items:stretch;min-height:0}
+.ns-log .lc-plot{display:flex;align-items:stretch;min-height:0;position:relative;
+  background:none;border:none;padding:0;width:100%;cursor:pointer}
 .ns-log .lc-spark{display:block;flex:1;min-width:0;width:100%;height:58px;overflow:visible}
 
 /* ── Opened over the month ───────────────────────────────────────────────────
@@ -169,18 +193,28 @@
 .ns-log .lc-d,.ns-log .lc-dh{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .ns-log .lc-dh{stroke:var(--s1);stroke-width:6.5}
 .ns-log .lc-d{stroke-width:4.5}
-.ns-log .lc-l.nrg{stroke:var(--lc-nrg)}      .ns-log .lc-d.nrg{stroke:var(--lc-nrg)}
-.ns-log .lc-l.mood{stroke:var(--lc-mood)}    .ns-log .lc-d.mood{stroke:var(--lc-mood)}
-.ns-log .lc-l.stress{stroke:var(--lc-stress)}.ns-log .lc-d.stress{stroke:var(--lc-stress)}
-.ns-log .lc-key{display:flex;align-items:baseline;gap:calc(9px * var(--dens));margin-top:calc(6px * var(--dens))}
+.ns-log .lc-l{stroke:var(--s-c,var(--y))}
+.ns-log .lc-d{stroke:var(--s-c,var(--y))}
+/* "close" in the corner of the opened chart. The plot is the button that shuts
+   it, and this is the word that says so — it only exists while it is open. */
+.ns-log .lc-shut{position:absolute;top:0;right:0;font:400 8px/1 var(--mono);letter-spacing:.1em;
+  text-transform:var(--caps);color:var(--bd-2);pointer-events:none}
+/* ── The key is the cycle ────────────────────────────────────────────────────
+   It names the series, which makes it the one place on the chart where "these,
+   or a different set" is already the question. Tapping it moves to the next
+   chart; the plot keeps opening over the month. Two controls, two elements —
+   a corner button on the plot would have been a third thing to aim at on a
+   fortnight that is 58px tall. */
+.ns-log .lc-key{display:flex;align-items:baseline;flex-wrap:wrap;
+  gap:calc(4px * var(--dens)) calc(9px * var(--dens));margin-top:calc(6px * var(--dens));
+  width:100%;background:none;border:none;padding:calc(3px * var(--dens)) 0;cursor:pointer;text-align:left}
 .ns-log .lc-kk{display:flex;align-items:center;gap:4px;
   font:400 8px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
 /* the key's swatch is the same dot the chart draws, so the two are read together */
-.ns-log .lc-kk::before{content:'';width:6px;height:6px;border-radius:50%;flex:0 0 auto}
-.ns-log .lc-kk.nrg::before{background:var(--lc-nrg)}
-.ns-log .lc-kk.mood::before{background:var(--lc-mood)}
-.ns-log .lc-kk.stress::before{background:var(--lc-stress)}
-.ns-log .lc-kk b{font-weight:700;color:var(--tx)}
+.ns-log .lc-kk::before{content:'';width:6px;height:6px;border-radius:50%;flex:0 0 auto;
+  background:var(--s-c,var(--y))}
+.ns-log .lc-kk b{font-weight:700;color:var(--tx);margin-left:3px}
+.ns-log .lc-key:active .lc-kn{color:var(--y)}
 .ns-log .lc-kn{margin-left:auto;font:400 8px/1 var(--mono);letter-spacing:.1em;
   text-transform:var(--caps);color:var(--bd-2)}
 
@@ -264,9 +298,20 @@
 /* one colour per block; mixing/production/content deliberately reuse the
    three curate-output purples, since they are the same three streams */
 .ns-log .blk-b.on{background:var(--blk-bg);border-color:var(--blk-c);color:var(--blk-c)}
-/* PLAN's queued/sent tasks, offered as extra blocks: the task name, then the
-   project and time block it was planned under */
+/* PLAN's queued/sent tasks, offered as blocks: the task name, then the
+   project and time block it was planned under. Since 4.1 these come *first* —
+   they are what the evening is nearly always made of — and the nine standing
+   blocks are folded away underneath. */
 .ns-log .blk-plan-lbl{margin-top:calc(10px * var(--dens))}
+/* the fold's own row: a label on the left that reads like every other .lbl,
+   and the word that says what a tap will do on the right */
+.ns-log .blk-fold{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:none;border:none;padding:calc(10px * var(--dens)) 0 calc(7px * var(--dens));cursor:pointer;
+  font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--mu);text-align:left}
+.ns-log #blk-plan-wrap:not(.hidden) + .blk-fold{border-top:var(--bw) solid var(--bd);
+  margin-top:calc(12px * var(--dens))}
+.ns-log .blk-fold b{flex:0 0 auto;font-weight:400;color:var(--tx-2);letter-spacing:.08em}
+.ns-log .blk-fold:active b{color:var(--y)}
 .ns-log .blk-b.plan{display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;
   white-space:normal;overflow-wrap:anywhere;min-height:0}
 .ns-log .blk-b.plan small{font:400 8px/1.2 var(--mono);letter-spacing:.06em;opacity:.7;text-transform:none}

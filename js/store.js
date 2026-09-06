@@ -261,9 +261,16 @@ function addCart(amt, note) {
 function resetCart() {
   if (state.cart === 0 && !state.cartLog.length) { toast('cart already at 0'); return; }
   Shell.confirm(`Reset cart counter to ${CUR()}0.00?`, () => {
+    /* What it was, held for as long as the undo pill is up. A trip's running
+       total is the one number in here that cannot be worked out again from
+       anything else, so zeroing it by accident is the expensive mistake. */
+    const was = state.cart, log = state.cartLog.slice();
     state.cart = 0; state.cartLog = [];
     saveState(); renderCart();
-    toast('cart reset');
+    Shell.undo(`cart reset from ${CUR()}${was.toFixed(2)}`, () => {
+      state.cart = was; state.cartLog = log;
+      saveState(); renderCart();
+    });
   });
 }
 /* ── The counter, pinned ───────────────────────────────────────────────────────
@@ -625,10 +632,13 @@ function deleteItem(idx) {
 function confirmClearList() {
   if (!state.list.length) { toast('list is empty'); return; }
   Shell.confirm(`Clear all ${state.list.length} items from list?`, () => {
+    const was = state.list.slice();
     state.list = [];
     saveState();
     renderList();
-    toast('list cleared');
+    Shell.undo(`${was.length} item${was.length === 1 ? '' : 's'} cleared`, () => {
+      state.list = was; saveState(); renderList();
+    });
   });
 }
 /* Saving and renaming share one sheet: renameIdx === null means "save the
@@ -919,9 +929,13 @@ function deleteTrip(i) {
 function clearHistory() {
   if (!state.history.length) { toast('history is empty'); return; }
   Shell.confirm(`Clear all ${state.history.length} past trips?`, () => {
+    const was = state.history.slice();
     state.history = [];
     saveState();
     renderHistory();
+    Shell.undo(`${was.length} trip${was.length === 1 ? '' : 's'} cleared`, () => {
+      state.history = was; saveState(); renderHistory();
+    });
   });
 }
 

@@ -309,6 +309,12 @@ input[type=range].sl::-moz-range-thumb{
 .ed-toggle span{font:400 10px/1 var(--mono);color:var(--tx-2);letter-spacing:.04em}
 .ed-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
 .ed-pair .lbl{margin-bottom:5px}
+/* which of an area's optional chips it asks for — a row of real checkboxes,
+   because three of them read as one question and three toggles would not */
+.ed-flags{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px}
+.ed-flag{display:flex;align-items:center;gap:6px;cursor:pointer;
+  font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:var(--caps);color:var(--tx-2)}
+.ed-flag input{accent-color:var(--y);width:14px;height:14px;margin:0;cursor:pointer}
 .ed-badge{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.06em;
   border:var(--bw) solid var(--bd);border-radius:var(--r-pill);padding:4px 8px;flex:0 0 auto}
 

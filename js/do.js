@@ -517,9 +517,13 @@ function toggleAll() {
 
 function resetDay() {
   Shell.confirm('Reset all items for today?', () => {
+    const was = JSON.parse(JSON.stringify(state));
     state = blankState();
     saveState();
     go('home');
+    Shell.undo('today’s ticks cleared', () => {
+      state = was; saveState(); renderChecklist(); renderHome();
+    });
   });
 }
 

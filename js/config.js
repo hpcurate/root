@@ -568,6 +568,13 @@ const DEFAULTS = {
   create: {
     areas: [
       { key:'production', label:'production', noun:'song', plural:'songs', color:'#a78bfa',
+        /* Which of the three meta chips this area asks for. A song has a
+           musical key; a DJ set does not — it has as many keys as it has
+           tracks — so `key` is production's and not mixing's. Off is only
+           "not asked": a value already written stays in the record and comes
+           back the moment the field is switched on again, exactly the rule
+           `log.fields` follows. */
+        fields: ['bpm', 'key', 'tags'],
         /* What a new song is pre-filled with. `bpm` and `key` are blank rather
            than guessed — a wrong tempo written down is worse than no tempo. */
         newItem: { stage:'idea', bpm:'', key:'', tags:'' },
@@ -591,6 +598,10 @@ const DEFAULTS = {
           { key:'done',    label:'released',    color:'#5cdb7d', terminal:true, items:[] },
         ] },
       { key:'mixing', label:'mixing', noun:'mix', plural:'mixes', color:'#5ad4e6',
+        /* No key. A mix is an hour of other people's records and its key is a
+           different one every four minutes; the field was asking a question
+           with no answer. */
+        fields: ['bpm', 'tags'],
         newItem: { stage:'crate', bpm:'', key:'', tags:'' },
         kinds: ['digging','practice','recording','playing out','listening back'],
         stages: [
@@ -608,6 +619,20 @@ const DEFAULTS = {
     /* How the shelf is drawn: the default sort, how many sessions a work's own
        screen lists, and how far back "this week" reaches. */
     home: { sort:'touched', sessionCount: 6, weekDays: 7 },
+    /* ── The one networked thing in CREATE ──
+       A tab beside the areas that reads the open Todoist tasks carrying this
+       label and lists them under the section they sit in. It is **read only**:
+       CREATE never closes, moves or writes a task — that is DO's job and PLAN's
+       — so nothing here can be lost by looking at it.
+
+       Why it is in CREATE at all, when the module's own header says "no network
+       at all": the label is the pile of records to find, patreons to renew and
+       tutorials to watch that a song or a set gets made out of. It is the same
+       question the shelf answers, kept somewhere else, and CREATE is where you
+       are standing when you want it. `label` is the Todoist label without its
+       `@`; `maxAgeMin` is how stale the cached list may get before a visit
+       refetches it. */
+    curate: { label: 'curate', maxAgeMin: 60 },
   },
 };
 

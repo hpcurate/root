@@ -257,6 +257,12 @@ const SCHEMA = {
      and a pad sheet over every settings dial there would be in the way. */
   numpad:       { kind:'enum',   def:'auto', values:['auto','always','off'] },
   toastMs:      { kind:'range',  def:1800, min:800, max:5000, step:100 },
+  /* How long the shared undo pill stays after something is cleared. It is a
+     *seconds* dial rather than a milliseconds one because it is a window you
+     wait inside, not a message you read past — the toast's number is the one
+     you never think about and this is the one you might. 0 pins it: it stays
+     until it is tapped or the next clear replaces it. */
+  undoSec:      { kind:'range',  def:5,    min:0,   max:30,   step:1, unit:'s' },
   keyboardNav:  { kind:'bool',   def:true },
   lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
 

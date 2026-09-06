@@ -849,9 +849,12 @@ function renderSettings() {
 function clearAll() {
   if (!allDays().length) { Shell.toast('nothing to clear'); return; }
   Shell.confirm('Clear every stored day? The tasks themselves stay in Todoist.', () => {
+    const was = JSON.parse(JSON.stringify(DB)), at = sel;
     DB = { days:{}, marks:{} }; sel = null;
     save(); render(); renderSettings();
-    Shell.toast('calendar cleared');
+    Shell.undo('calendar cleared', () => {
+      DB = was; sel = at; save(); render(); renderSettings();
+    });
   });
 }
 
@@ -863,9 +866,12 @@ function clearDay() {
   if (!sel || !DB.days[sel]) { Shell.toast('nothing to clear'); return; }
   const name = lower(Prefs.formatDate(sel, 'short'));
   Shell.confirm(`Clear ${name}? The tasks themselves stay in Todoist.`, () => {
+    const at = sel, was = JSON.parse(JSON.stringify(DB.days[sel]));
     delete DB.days[sel];
     save(); render(); renderSettings();
-    Shell.toast('day cleared');
+    Shell.undo(`${name} cleared`, () => {
+      DB.days[at] = was; sel = at; save(); render(); renderSettings();
+    });
   });
 }
 

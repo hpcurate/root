@@ -176,6 +176,8 @@ window.Shell = (function () {
   const prevBtn  = document.getElementById('nav-prev');
   const nextBtn  = document.getElementById('nav-next');
   const toastEl  = document.getElementById('toast');
+  const undoEl   = document.getElementById('undo-pill');
+  const undoTxt  = document.getElementById('undo-txt');
   let transient  = null;               // an app kept out of the bar, opened from settings — see open()
 
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
@@ -413,6 +415,46 @@ window.Shell = (function () {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), pref('toastMs', 1800));
   }
+
+  // ── Undo ────────────────────────────────────────────────────────────────────
+  /* One pill for the whole app, the way there is one toast. A module that is
+     about to clear something takes a copy of what it is clearing, clears it,
+     and hands the way back to `Shell.undo(label, restore)`:
+
+         const was = state.list.slice();
+         state.list = []; save(); render();
+         Shell.undo(`${was.length} items cleared`, () => { state.list = was; save(); render(); });
+
+     It is offered *instead of* a toast, never as well as one — they occupy the
+     same spot, and "list cleared" said twice in two shapes is one message too
+     many. The restore is a closure over what was already read, so nothing has
+     to be stored: the way back lives exactly as long as the pill does, and a
+     reload is allowed to lose it. That is the honest lifetime — an undo that
+     survived a restart would be an edit history, which this is not.
+
+     One at a time, deliberately. A stack of undos on a phone is a stack of
+     pills, and the second clear is the one you meant. */
+  let undoTimer = null, undoFn = null;
+  function undo(label, restore) {
+    if (!undoEl) { if (typeof restore === 'function') toast(label); return; }
+    undoFn = typeof restore === 'function' ? restore : null;
+    if (undoTxt) undoTxt.textContent = label;
+    undoEl.classList.add('show');
+    clearTimeout(undoTimer);
+    /* 0 pins it: it stays until it is tapped, or until the next clear takes
+       its place. Every other value is a window in seconds. */
+    const secs = +pref('undoSec', 5);
+    if (secs > 0) undoTimer = setTimeout(hideUndo, secs * 1000);
+  }
+  function hideUndo() { clearTimeout(undoTimer); undoFn = null; if (undoEl) undoEl.classList.remove('show'); }
+  if (undoEl) undoEl.addEventListener('click', () => {
+    const fn = undoFn;
+    hideUndo();
+    if (!fn) return;
+    fn();
+    if (window.Prefs && Prefs.tap) Prefs.tap();
+    toast('undone');
+  });
 
   // ── Floating chrome ─────────────────────────────────────────────────────────
   /* The pill and arrows hover over the content, so they step aside while you
@@ -1315,7 +1357,7 @@ window.Shell = (function () {
     }, 520);
   }
 
-  return { toast, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum,
+  return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
            hashTarget, searchApps,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,

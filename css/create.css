@@ -35,42 +35,56 @@
 
 .ns-create .cnt{padding:0 calc(18px * var(--dens))}
 
+/* The section heading sets the vertical rhythm of all three screens, so its
+   own margins are the one place that rhythm is written down. They were literal
+   pixels, which meant the Spacing dial moved every pad on the page and left
+   the gaps *between* the sections exactly where they were — the screen got
+   denser and looser at the same time, which is what "the spacing is off" looks
+   like. Every number in this sheet is a ratio of --dens now (ROOT.md §4). */
 .ns-create .cr-sec{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps);
-  margin:26px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  margin:calc(26px * var(--dens)) 0 calc(10px * var(--dens));
+  display:flex;justify-content:space-between;align-items:baseline;gap:calc(10px * var(--dens))}
 .ns-create .cr-sec em{font-style:normal;color:var(--bd-2)}
 .ns-create .cr-empty{font:400 11px/1.7 var(--mono);color:var(--tx-2);padding:calc(18px * var(--dens)) 0;text-align:center}
 
 /* ── the shelf's head ──────────────────────────────────────────────────────── */
-.ns-create .cr-hero{text-align:center;margin:8px 0 18px}
+.ns-create .cr-hero{text-align:center;margin:calc(8px * var(--dens)) 0 calc(18px * var(--dens))}
 .ns-create .cr-hero .n{font:800 74px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
 .ns-create .cr-hero .n .of{color:var(--bd-2);font-size:26px;vertical-align:super}
 .ns-create .cr-hero .k{font:400 10px/1 var(--mono);letter-spacing:3px;color:var(--tx-2);
-  text-transform:var(--caps);margin-top:10px}
+  text-transform:var(--caps);margin-top:calc(10px * var(--dens))}
 
-/* ── the area filter ───────────────────────────────────────────────────────
-   "all" and then one pill per area, and it is the whole of what makes the
-   shelf combined rather than split: the default answers "what is on the desk",
-   and one tap narrows it to the kind of work you are actually sitting down to.
-   Built from Config, so it scrolls sideways rather than assuming three fit —
-   and it claims the gesture itself, or it is dead under a finger (ROOT.md §6).
-   The lit pill wears its area's colour; "all" has none of its own and wears
-   the accent, which is the correct answer to "whose colour is everything". */
-.ns-create .cr-areas{display:flex;gap:calc(6px * var(--dens));margin:0 0 calc(16px * var(--dens));
-  overflow-x:auto;touch-action:pan-x pan-y;scrollbar-width:none}
+/* ── the tab strip ─────────────────────────────────────────────────────────
+   DO's DAILY / MEDIA / OTHER selector, here: one bordered rail, flat chips
+   inside it, and a glider that slides under the live one. It is a deliberate
+   copy of `.ns-do .tabs` / `.tab` / `.tab-glider` — ROOT.md §6 names the pair,
+   because two copies of one shape are two things that can drift.
+
+   It differs from DO's in one way and only one: DO's lives in the title band,
+   so its height is `--band-row` and its chips are a fixed 32px. This one lives
+   in the content, where nothing else is sharing its row, so it takes its
+   height from its own padding like every other control on the page.
+
+   `all`, one chip per area, then curate. Built from Config, so it scrolls
+   sideways rather than assuming three fit — and it claims the gesture itself,
+   or it is dead under a finger (ROOT.md §6). */
+.ns-create .cr-areas{position:relative;display:flex;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:calc(3px * var(--dens));
+  margin:0 0 calc(18px * var(--dens));
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x pan-y}
 .ns-create .cr-areas::-webkit-scrollbar{display:none}
-.ns-create .cr-area{flex:0 0 auto;display:flex;align-items:center;gap:calc(7px * var(--dens));
-  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
-  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
-  padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;
-  transition:color var(--dur-1),border-color var(--dur-1)}
-.ns-create .cr-area:active{background:var(--press)}
-.ns-create .cr-area b{font:800 11px/1 var(--head);color:var(--bd-2);letter-spacing:0;
-  font-variant-numeric:tabular-nums}
-.ns-create .cr-area.on{color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
-.ns-create .cr-area.on b{color:var(--ar-c,var(--y))}
-/* on the log the filter follows the header rather than the hero, so it needs
+.ns-create .cr-tglide{position:absolute;top:calc(3px * var(--dens));bottom:calc(3px * var(--dens));
+  left:0;width:0;background:var(--y);border-radius:var(--r2);z-index:1;
+  transition:transform .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1)}
+.ns-create .cr-tab{position:relative;z-index:2;background:none;border:none;cursor:pointer;
+  flex:0 0 auto;white-space:nowrap;display:flex;align-items:center;
+  font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
+  color:var(--mu);padding:calc(11px * var(--dens)) calc(15px * var(--dens));
+  border-radius:var(--r2);transition:color .25s}
+.ns-create .cr-tab.active{color:var(--on-y)}
+/* on the log the strip follows the header rather than the hero, so it needs
    the top margin the shelf's copy gets from the hero above it */
-.ns-create .cr-areas-log{margin-top:calc(4px * var(--dens))}
+.ns-create .cr-areas-log{margin-top:calc(6px * var(--dens))}
 
 /* one strip per area on screen: on "all" that is both of them, one under the
    other, which is the combined view doing the thing it exists for — two shapes
@@ -86,11 +100,12 @@
 
 /* the stage strip: one segment per stage, as wide as the works sitting on it.
    Built from Config, so it has no fixed width and no fixed number of parts. */
-.ns-create .cr-bar{display:flex;gap:3px;height:10px;margin:0 0 12px;border-radius:var(--r-pill);overflow:hidden}
+.ns-create .cr-bar{display:flex;gap:3px;height:10px;margin:0 0 calc(12px * var(--dens));
+  border-radius:var(--r-pill);overflow:hidden}
 .ns-create .cr-bar i{display:block;background:var(--st-c,var(--bd-2));min-width:4px}
 .ns-create .cr-bar.none i{background:var(--bd)}
 .ns-create .cr-keys{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens)) calc(12px * var(--dens))}
-.ns-create .cr-key{display:flex;align-items:center;gap:6px;font:400 9.5px/1 var(--mono);letter-spacing:.08em;
+.ns-create .cr-key{display:flex;align-items:center;gap:calc(6px * var(--dens));font:400 9.5px/1 var(--mono);letter-spacing:.08em;
   color:var(--tx-2);text-transform:var(--caps)}
 .ns-create .cr-key i{width:8px;height:8px;border-radius:var(--r-pill);background:var(--st-c,var(--bd-2));flex:0 0 auto}
 .ns-create .cr-key b{color:var(--tx);font-weight:800;font-family:var(--head)}
@@ -115,14 +130,15 @@
   border:var(--bw) solid var(--bd);border-left:3px solid var(--st-c,var(--bd-2));border-radius:var(--r2);
   padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:calc(8px * var(--dens));cursor:pointer}
 .ns-create .cr-work:active{background:var(--press)}
-.ns-create .cr-work .t{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ns-create .cr-work .t{display:flex;align-items:baseline;justify-content:space-between;gap:calc(10px * var(--dens))}
 .ns-create .cr-work .nm{font:800 15px/1.25 var(--head);color:var(--tx);min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ns-create .cr-work .nm .ar{display:inline-block;width:6px;height:6px;border-radius:var(--r-pill);
   background:var(--ar-c,var(--bd-2));margin-right:calc(7px * var(--dens));vertical-align:middle}
 .ns-create .cr-work .st{flex:0 0 auto;font:400 9px/1 var(--mono);letter-spacing:.12em;text-transform:var(--caps);
   color:var(--st-c,var(--tx-2))}
-.ns-create .cr-work .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin-top:5px}
+.ns-create .cr-work .mt{font:400 9.5px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);
+  margin-top:calc(5px * var(--dens))}
 .ns-create .cr-work .mt s{text-decoration:none;color:var(--mu)}
 .ns-create .cr-prog{display:flex;align-items:center;gap:calc(9px * var(--dens));margin-top:calc(10px * var(--dens))}
 .ns-create .cr-prog .rail{flex:1;height:4px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden}
@@ -141,11 +157,11 @@
 
 /* released: a fold, because a shelf of finished songs is a nice thing to have
    and a bad thing to scroll past every time */
-.ns-create .cr-fold{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+.ns-create .cr-fold{width:100%;display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   background:none;border:none;padding:calc(12px * var(--dens)) 0;cursor:pointer;
   font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps)}
 .ns-create .cr-fold b{color:var(--tx-2);font-weight:400}
-.ns-create .cr-done{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;
+.ns-create .cr-done{display:flex;align-items:baseline;justify-content:space-between;gap:calc(10px * var(--dens));width:100%;
   text-align:left;background:none;border:none;border-top:var(--bw) solid var(--bd);
   padding:calc(11px * var(--dens)) 0;cursor:pointer}
 .ns-create .cr-done:active{background:var(--press)}
@@ -159,7 +175,7 @@
 .ns-create .cr-stat .v{font:800 21px/1.2 var(--head);color:var(--tx)}
 .ns-create .cr-stat .v.acc{color:var(--y)}
 .ns-create .cr-stat .k{font:400 8.5px/1.3 var(--mono);letter-spacing:1.4px;color:var(--tx-2);
-  text-transform:var(--caps);margin-top:5px}
+  text-transform:var(--caps);margin-top:calc(5px * var(--dens))}
 
 /* where the week's hours went, when there is more than one place they could
    have gone. Hours only: three numbers per area is a table, and a glance at
@@ -196,7 +212,7 @@
 /* the stage stepper: every stage, in order, the one it is on lit in its own
    colour. Tapping one moves the song there. */
 .ns-create .cr-steps{display:flex;gap:calc(6px * var(--dens));overflow-x:auto;touch-action:pan-x pan-y;
-  scrollbar-width:none;padding-bottom:2px}
+  scrollbar-width:none;padding-bottom:calc(2px * var(--dens))}
 .ns-create .cr-steps::-webkit-scrollbar{display:none}
 .ns-create .cr-step{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
@@ -253,9 +269,10 @@
 .ns-create .cr-ses:first-of-type{border-top:none}
 .ns-create .cr-ses .l{font:400 11px/1.5 var(--mono);color:var(--tx);min-width:0}
 .ns-create .cr-ses .l s{display:block;text-decoration:none;color:var(--tx-2);font-size:9.5px;
-  letter-spacing:.06em;margin-top:3px}
+  letter-spacing:.06em;margin-top:calc(3px * var(--dens))}
 .ns-create .cr-ses .r{flex:0 0 auto;font:800 14px/1 var(--head);color:var(--tx)}
-.ns-create .cr-ses .r small{font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:.08em;margin-left:2px}
+.ns-create .cr-ses .r small{font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:.08em;
+  margin-left:calc(2px * var(--dens))}
 .ns-create .cr-ses .x{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;
   padding:0 0 0 calc(8px * var(--dens));flex:0 0 auto}
 .ns-create .cr-ses .x:active{color:var(--re)}
@@ -269,9 +286,49 @@
 .ns-create .cr-act:active{background:var(--press)}
 .ns-create .cr-act.danger{color:var(--re)}
 
+/* ── CURATE ────────────────────────────────────────────────────────────────
+   The Todoist label, grouped by section. Read only, so nothing in here is a
+   control except the refresh and the link out: a row is a record you are going
+   to go and find, and there is nothing here to tick.
+
+   One rule per shape and the project's colour written on the group as --pr-c,
+   the way the shelf writes --st-c and --ar-c: a fourth project costs no CSS. */
+.ns-create .cr-cref{width:100%;background:var(--s2);border:var(--bw) solid var(--bd);
+  border-radius:var(--r1);color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;
+  text-transform:var(--caps);padding:calc(11px * var(--dens));cursor:pointer;
+  margin-bottom:calc(14px * var(--dens))}
+.ns-create .cr-cref:active{background:var(--press);color:var(--y)}
+.ns-create .cr-cref:disabled{color:var(--mu);cursor:default}
+.ns-create .cr-cnote{font:400 9px/1.6 var(--mono);letter-spacing:.06em;color:var(--mu);
+  text-transform:var(--caps);margin-bottom:calc(14px * var(--dens))}
+.ns-create .cr-cgroup{margin-bottom:calc(18px * var(--dens))}
+.ns-create .cr-cgroup:last-child{margin-bottom:0}
+.ns-create .cr-chead{display:flex;align-items:center;gap:calc(7px * var(--dens));
+  font:400 9px/1 var(--mono);letter-spacing:2px;text-transform:var(--caps);color:var(--tx-2);
+  margin-bottom:calc(9px * var(--dens))}
+.ns-create .cr-chead i{width:7px;height:7px;flex:0 0 auto;border-radius:var(--r-pill);
+  background:var(--pr-c,var(--bd-2))}
+.ns-create .cr-chead .pj{color:var(--mu);flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-chead .sc{color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-chead .sc.none{color:var(--mu);font-style:italic}
+.ns-create .cr-chead b{margin-left:auto;flex:0 0 auto;font:800 11px/1 var(--head);color:var(--tx);
+  letter-spacing:0;font-variant-numeric:tabular-nums}
+.ns-create .cr-ctask{display:block;text-decoration:none;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-left:3px solid var(--pr-c,var(--bd-2));
+  border-radius:var(--r2);padding:calc(12px * var(--dens)) calc(14px * var(--dens));
+  margin-bottom:calc(6px * var(--dens))}
+.ns-create .cr-ctask:active{background:var(--press)}
+.ns-create .cr-ctask .nm{display:block;font:400 12px/1.45 var(--mono);color:var(--tx);letter-spacing:.02em;
+  overflow-wrap:anywhere}
+.ns-create .cr-ctask .tg{display:block;font:400 9px/1.4 var(--mono);letter-spacing:.08em;
+  text-transform:var(--caps);color:var(--tx-2);margin-top:calc(5px * var(--dens))}
+
 @media (hover:hover) and (pointer:fine){
   .ns-create .hd-back:hover,.ns-create .hd-action:hover{color:var(--y)}
   .ns-create .cr-sort:hover,.ns-create .cr-step:hover,.ns-create .cr-kind:hover,
-  .ns-create .cr-area:hover{color:var(--tx)}
+  .ns-create .cr-cref:hover{color:var(--tx)}
+  .ns-create .cr-tab:hover{color:var(--tx)}
+  .ns-create .cr-tab.active:hover{color:var(--on-y)}
   .ns-create .cr-add:hover{color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
+  .ns-create .cr-ctask:hover{border-color:var(--pr-c,var(--bd-2))}
 }

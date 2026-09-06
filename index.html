@@ -139,6 +139,11 @@
   <symbol id="ico-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <line x1="20" y1="12" x2="5" y2="12"/><polyline points="11 5 4 12 11 19"/>
   </symbol>
+  <!-- the undo arrow: a hook back on itself, which is the shape everything
+       else in the world uses for "put that back" -->
+  <symbol id="ico-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 5 3 11 9 17"/><path d="M3 11h9a7 7 0 0 1 0 14h-3"/>
+  </symbol>
 
   <!-- LOG -->
   <symbol id="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -557,14 +562,23 @@
         <div class="caf-row" id="caf-row"></div>
         <button class="caf-reset" onclick="LOG.resetCaf()">reset caffeine</button>
       </div>
+      <!-- What was planned comes first and the full vocabulary is folded away
+           behind it: on most evenings the blocks that were done are the blocks
+           that were planned, and the nine standing ones are a list to scroll
+           past. The fold opens on a tap, and opens itself if any of them is
+           already ticked — a tick you cannot see is worse than a long form. -->
       <div class="f" data-field="blocks">
-        <label class="lbl">Blocks completed <span class="lbl-hint" id="blk-max-hint"></span></label>
-        <div class="blk-g" id="blk-g"></div>
-        <!-- what PLAN queued or sent today, offered as extra blocks — LOG.renderPlanned() -->
+        <!-- what PLAN queued or sent today, offered as blocks — LOG.renderPlanned() -->
         <div id="blk-plan-wrap" class="hidden">
-          <label class="lbl blk-plan-lbl">planned in PLAN</label>
+          <label class="lbl">Planned in PLAN</label>
           <div class="blk-g" id="blk-plan"></div>
         </div>
+        <button type="button" class="blk-fold" id="blk-fold" aria-expanded="false" aria-controls="blk-g"
+                onclick="LOG.toggleBlockFold()">
+          <span>Blocks completed <span class="lbl-hint" id="blk-max-hint"></span></span>
+          <b id="blk-fold-b">show</b>
+        </button>
+        <div class="blk-g hidden" id="blk-g"></div>
       </div>
       <div class="f" data-field="curate">
         <label class="lbl">Curate output</label>
@@ -1100,15 +1114,20 @@
       <div class="h-logo">CREATE<em>.</em></div>
     </div>
     <div class="cnt">
-      <div id="cr-hero"></div>
+      <div class="cr-hero" id="cr-hero"></div>
+      <!-- the tab strip: all, one per area, then curate. DO's DAILY/MEDIA/OTHER
+           selector — a bordered rail with a glider under the live chip. -->
       <div class="cr-areas" id="cr-areas"></div>
       <div id="cr-stages"></div>
-      <div class="cr-sec"><span>In progress</span><em id="cr-count"></em></div>
-      <div id="cr-sorts"></div>
+      <div class="cr-sec" id="cr-sec-live"><span>In progress</span><em id="cr-count"></em></div>
+      <div class="cr-sorts" id="cr-sorts"></div>
       <div id="cr-list"></div>
       <div class="cr-adds" id="cr-add"></div>
       <div id="cr-released"></div>
       <div id="cr-week"></div>
+      <!-- CURATE: the Todoist label, read and never written. Hidden unless its
+           chip is the live one; everything above is hidden while it is. -->
+      <div id="cr-curate" class="hidden"></div>
     </div>
   </div>
 
@@ -1854,12 +1873,30 @@
                data-cfg="create.home" data-sub="weekDays" aria-label="days in a week">
       </div>
 
+      <div class="sec"><span>The curate tab</span></div>
+      <div class="setRow">
+        <div class="sl">Todoist label<s>the tab lists every open task carrying it, grouped by section — blank switches the tab off</s></div>
+        <input type="text" id="cr-set-label" spellcheck="false"
+               data-cfg="create.curate" data-sub="label" aria-label="curate label">
+      </div>
+      <div class="setRow">
+        <div class="sl">Refresh after<s>minutes before a visit re-reads Todoist; the refresh button ignores it</s></div>
+        <input type="number" min="1" max="1440" step="1" id="cr-set-curate-age"
+               data-cfg="create.curate" data-sub="maxAgeMin" aria-label="curate refresh minutes">
+      </div>
+      <div class="data-warn">
+        This is the only part of CREATE that uses the network, and it only
+        <strong>reads</strong>. Nothing here closes, moves or creates a task —
+        DO closes them and PLAN files them.
+      </div>
+
       <div class="sec"><span>Stored</span></div>
       <div class="settings-status idle" id="cr-status">nothing on the shelf yet</div>
       <div class="data-warn">
-        CREATE has no network. The songs, the mixes, their ticks, their notes
-        and every session are in this browser under <code>create_v1</code>, and
-        the ROOT backup under <strong>data</strong> carries them as well.
+        The songs, the mixes, their ticks, their notes and every session are in
+        this browser under <code>create_v1</code>, and the ROOT backup under
+        <strong>data</strong> carries them as well. Nothing on the shelf is ever
+        sent anywhere.
       </div>
 
       <div class="sec"><span>Backup</span></div>
@@ -1946,6 +1983,17 @@
      app's namespace class, so the scoped CSS and $id lookups still find it. -->
 
 <div id="toast"></div>
+
+<!-- UNDO — the shared one. A clear anywhere in the app offers it here rather
+     than toasting: Shell.undo(label, restore) puts the label on it and holds
+     the way back for as long as the "Undo window" dial says. It is a sibling
+     of #views for the same reason the toast is — nothing position:fixed may
+     live inside #track. The whole pill is the button; the arrow is the thing
+     you aim at and the words say what it would take back. -->
+<button id="undo-pill" class="undo-pill" aria-live="polite">
+  <svg class="up-ico" aria-hidden="true"><use href="#ico-undo"/></svg>
+  <span class="up-txt" id="undo-txt"></span>
+</button>
 
 <!-- ASK — the app's own confirm and prompt.
      window.confirm arrives in the platform's typeface, ignores every dial in

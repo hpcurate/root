@@ -427,7 +427,7 @@ body::before{
   background-size:16px 16px}
 /* the slides and every piece of floating chrome sit above the overlay; each of
    these already carries a position of its own, so only the stacking is set */
-#views,#nav,.nav-arrow,#toast,.sheet,.pad,.sheet-back,.modal-overlay{z-index:1}
+#views,#nav,.nav-arrow,#toast,.undo-pill,.sheet,.pad,.sheet-back,.modal-overlay{z-index:1}
 
 /* ── Shared toast ─────────────────────────────────────────────────────────────
    One element for all five views. Every module's toast() forwards here, so a
@@ -455,3 +455,43 @@ body::before{
   transform:translateX(-50%) translateY(0);
   opacity:1;visibility:visible;
   transition:opacity var(--dur-1) ease,transform var(--dur-1) ease,visibility 0s}
+
+/* ── The shared undo pill ─────────────────────────────────────────────────────
+   Clearing something is the one destructive act you do on purpose and still
+   regret, so it does not toast — it offers the way back. `Shell.undo(label,
+   restore)` shows this, and it fades on the "Undo window" dial (behaviour;
+   0 pins it until it is tapped or another one replaces it).
+
+   It sits where the toast sits, because it *is* the toast for that action:
+   nothing calls both, so the two can never stack on the same spot.
+
+   Its type is the title's, which is what was asked for: the display face at
+   the wordmark's weight, with the same hard offset copy behind it — composed
+   at the point of use (`--title-sh-x` / `--title-sh-c`), never through a
+   token that bakes the colour in. §6 says why that matters. The arrow is an
+   SVG, so it takes the same offset as a drop-shadow rather than a text-shadow
+   — the one filter that is the same effect on a stroked path. */
+.undo-pill{
+  position:fixed;
+  bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 22px);
+  left:50%;
+  transform:translateX(-50%) translateY(8px);
+  opacity:0;visibility:hidden;pointer-events:none;
+  display:flex;align-items:center;gap:calc(11px * var(--dens));
+  background:var(--s2);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
+  padding:calc(9px * var(--dens)) calc(17px * var(--dens));
+  color:var(--tx);cursor:pointer;
+  font:800 12px/1 var(--head);letter-spacing:.04em;
+  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
+  transition:opacity var(--dur-2) ease,transform var(--dur-2) ease,visibility 0s linear var(--dur-2);
+  z-index:122;white-space:nowrap;max-width:84vw;box-shadow:var(--shadow-lift)}
+.undo-pill .up-ico{width:17px;height:17px;flex:0 0 auto;color:var(--y);
+  filter:drop-shadow(var(--title-sh-x) 0 0 var(--title-sh-c))}
+.undo-pill .up-txt{overflow:hidden;text-overflow:ellipsis}
+.undo-pill.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity var(--dur-1) ease,transform var(--dur-1) ease,visibility 0s}
+.undo-pill:active{background:var(--yd)}
+[data-glow="on"] .undo-pill{box-shadow:var(--glow)}
+@media (hover:hover) and (pointer:fine){ .undo-pill:hover{background:var(--yd)} }

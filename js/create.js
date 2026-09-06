@@ -51,7 +51,18 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 const KEY = 'create_v1';
 
 /* ── Content ───────────────────────────────────────────────────────────────── */
-let AREAS, HOME;
+let AREAS, HOME, CURATE;
+/* The three meta chips a work can carry. An area names which of them it asks
+   for — a song has a key, a DJ set does not — and an unnamed field is simply
+   not asked: what is already stored is kept and comes back if it is switched
+   back on. `log.fields` has worked that way since 2.0 and this is the same
+   rule for the same reason. */
+const FIELDS = [
+  { k:'bpm',  label:'tempo', unit:'bpm', prompt:'Tempo\nIn bpm. Blank if it is not decided.' },
+  { k:'key',  label:'key',   unit:'',    prompt:'Key\nHowever you write it — F#m, 6A, whatever the DAW says.' },
+  { k:'tags', label:'tags',  unit:'',    prompt:'Tags\nA word or two: the project, the label, the set it is for.' },
+];
+const FIELD_KEYS = FIELDS.map(f => f.k);
 function readConfig() {
   AREAS = (Config.get('create.areas') || []).map(a => {
     const stages = (Array.isArray(a.stages) ? a.stages : []).map(st => Object.assign({}, st, {
@@ -65,6 +76,10 @@ function readConfig() {
       noun: String(a.noun || 'thing'), plural: String(a.plural || (a.noun ? a.noun + 's' : 'things')),
       color: a.color || '#7a8699',
       kinds: (Array.isArray(a.kinds) ? a.kinds : []).filter(Boolean),
+      /* An area with no `fields` at all is one written before 4.1 (or by hand),
+         and it gets all three — the shape it had. */
+      fields: Array.isArray(a.fields) ? a.fields.map(String).filter(f => FIELD_KEYS.includes(f))
+                                      : FIELD_KEYS.slice(),
       newItem: Object.assign({ stage: stages[0].key, bpm:'', key:'', tags:'' }, a.newItem || {}),
       stages,
     };
@@ -72,9 +87,11 @@ function readConfig() {
   /* An area list edited down to nothing would be a shelf with nowhere to put
      anything, which is not a state the app can draw. One is the floor. */
   if (!AREAS.length) AREAS = [{ key:'work', label:'work', noun:'thing', plural:'things', color:'#7a8699',
-    kinds:[], newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
+    kinds:[], fields:FIELD_KEYS.slice(), newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
     stages:[{ key:'idea', label:'idea', color:'#7a8699', items:[], terminal:true }] }];
   HOME = Object.assign({ sort:'touched', sessionCount:6, weekDays:7 }, Config.get('create.home') || {});
+  CURATE = Object.assign({ label:'curate', maxAgeMin:60 }, Config.get('create.curate') || {});
+  CURATE.label = String(CURATE.label || '').trim().replace(/^@/, '');
 }
 readConfig();
 
@@ -90,7 +107,11 @@ const tickKey = (areaKey, stageKey, item) => areaKey + '|' + stageKey + '|' + it
 const colorOf = st => (st && st.color) || '#7a8699';
 
 /* ── State ─────────────────────────────────────────────────────────────────── */
-const blank = () => ({ v:2, works:[], sessions:[], settings:{ sort:null, showDone:false, area:'all' } });
+/* `curate` is a *cache*, not data: what the last read of Todoist returned, so
+   the tab draws instantly and refetches in the background. Nothing in it is
+   ever authored here and losing it costs one network call. */
+const blank = () => ({ v:2, works:[], sessions:[], curate:{ fetched:0, groups:[] },
+                       settings:{ sort:null, showDone:false, area:'all' } });
 let DB = blank();
 let uid = 0;
 const newId = p => p + '_' + Date.now().toString(36) + '_' + (uid++).toString(36);
@@ -153,6 +174,13 @@ function normalise(raw) {
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   db.settings = Object.assign({ sort:null, showDone:false, area:'all' }, db.settings || {});
+  /* The cache from the last Todoist read, rebuilt from its known keys rather
+     than trusted: it is the only thing in this record that did not come from
+     the app itself, and a half-written cache should cost a refetch, not a
+     throw on the shelf. */
+  const cur = (db.curate && typeof db.curate === 'object') ? db.curate : {};
+  db.curate = { fetched: +cur.fetched || 0,
+                groups: Array.isArray(cur.groups) ? cur.groups : [] };
   db.v = 2;
   return db;
 }
@@ -208,6 +236,31 @@ function weekWindow() {
   const pad = n => String(n).padStart(2, '0');
   return from.getFullYear() + '-' + pad(from.getMonth() + 1) + '-' + pad(from.getDate());
 }
+/* The hours behind a set of days, split by area and naming what was worked on.
+   LOG's note and its two reports are the callers; the shape is theirs to read
+   and nothing here is stored on their behalf. */
+function rangeStats(days) {
+  const want = new Set(days);
+  const rows = DB.sessions.filter(e => want.has(e.date));
+  if (!rows.length) return null;
+  const byArea = AREAS.map(a => ({
+    key: a.key, label: a.label,
+    hours: rows.filter(e => e.area === a.key).reduce((x, y) => x + y.hours, 0),
+  })).filter(r => r.hours > 0);
+  const works = [];
+  rows.forEach(e => {
+    const w = workById(e.work);
+    if (!w || works.some(x => x.id === w.id)) return;
+    works.push({ id: w.id, name: w.name, area: areaOf(w).label, stage: stageOf(w).label });
+  });
+  return {
+    hours: rows.reduce((x, y) => x + y.hours, 0),
+    sessions: rows.length,
+    areas: byArea,
+    works,
+    what: [...new Set(rows.map(e => e.what).filter(Boolean))],
+  };
+}
 function weekStats(areaKey) {
   const from = weekWindow();
   const rows = DB.sessions.filter(e => e.date >= from && (!areaKey || e.area === areaKey));
@@ -252,8 +305,12 @@ const sortMode = () => DB.settings.sort || HOME.sort || 'touched';
    rather than to an empty shelf that looks like a bug. */
 function areaSel() {
   const s = DB.settings.area || 'all';
-  return (s === 'all' || AREAS.some(a => a.key === s)) ? s : 'all';
+  return (s === 'all' || s === 'curate' || AREAS.some(a => a.key === s)) ? s : 'all';
 }
+/* CURATE is not an area — nothing on it is a piece of work and none of the
+   shelf's machinery applies to it — so it is asked about by name in the two
+   places that care rather than being faked into AREAS. */
+const onCurate = () => areaSel() === 'curate';
 const inSel = w => areaSel() === 'all' || areaOf(w).key === areaSel();
 const areasShown = () => areaSel() === 'all' ? AREAS : AREAS.filter(a => a.key === areaSel());
 function inProgress() { return DB.works.filter(w => !isDone(w) && inSel(w)); }
@@ -271,26 +328,74 @@ function sortWorks(rows) {
   return rows.slice().sort(by[m] || by.touched);
 }
 
+/* ── The tab strip ────────────────────────────────────────────────────────
+   DO's DAILY / MEDIA / OTHER selector, in CREATE: one bordered rail, flat
+   chips inside it, and a glider that slides under the selected one. The shape
+   lives in create.css and is a deliberate copy of `.ns-do .tabs` — ROOT.md §6
+   names the pair, because two copies of one shape is two things to keep in
+   step.
+
+   `all`, then one chip per area, then **curate** — which is not an area at
+   all: it is the Todoist label read as a list. It sits at the end because it
+   is a different kind of thing, and it sits in this strip because it answers
+   the same question the shelf does. */
+function tabList() {
+  return [{ key:'all', label:'all' }]
+    .concat(AREAS.map(a => ({ key:a.key, label:a.label })))
+    .concat(CURATE.label ? [{ key:'curate', label:CURATE.label }] : []);
+}
+/* The markup of one strip. Both screens use it — the shelf's filter and the
+   session log's — so the two cannot end up as two different controls doing the
+   same job, which is what they were until 4.1. */
+const stripHTML = (items, sel, act) =>
+  `<div class="cr-tglide"></div>` + items.map(t =>
+    `<button class="cr-tab${t.key === sel ? ' active' : ''}" data-act="${act}" data-a="${esc(t.key)}"
+             >${esc(t.label)}</button>`).join('');
+
+function renderTabs() {
+  const bar = $id('cr-areas');
+  if (!bar) return;
+  const items = tabList();
+  bar.innerHTML = stripHTML(items, areaSel(), 'area');
+  // a single chip is not a choice — the same rule DO's strip follows
+  bar.classList.toggle('hidden', items.length < 2);
+  positionGlider(bar);
+}
+/* jsdom has no layout, so every offset here is 0 and the glider simply sits at
+   the left edge — which is why this can never be the thing that decides what
+   is selected. That is the class on the chip. */
+function positionGlider(bar) {
+  if (!bar) return;
+  const active = bar.querySelector('.cr-tab.active');
+  const glider = bar.querySelector('.cr-tglide');
+  if (!active || !glider) return;
+  glider.style.width = active.offsetWidth + 'px';
+  glider.style.transform = `translateX(${active.offsetLeft}px)`;
+  /* Enough chips and the rail scrolls, so the selected one can be off its
+     edge. The rail's own scrollLeft is nudged rather than scrollIntoView(),
+     which would also scroll the slide — DO's revealTab(), same reasoning. */
+  if (bar.scrollWidth <= bar.clientWidth) return;
+  const left = active.offsetLeft, right = left + active.offsetWidth;
+  if (left < bar.scrollLeft) bar.scrollLeft = left;
+  else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth;
+}
+
 function renderHome() {
   const sel = areaSel();
+  renderTabs();
+
+  /* CURATE takes the whole screen under the strip: it is a list of somebody
+     else's records, not a shelf, and none of the shelf's furniture — the
+     count, the stage strips, the sort chips, the add buttons, the week —
+     means anything about it. */
+  const shelf = ['cr-stages','cr-sec-live','cr-sorts','cr-list','cr-add','cr-released','cr-week'];
+  shelf.forEach(id => { const el = $id(id); if (el) el.classList.toggle('hidden', onCurate()); });
+  const curBox = $id('cr-curate');
+  if (curBox) curBox.classList.toggle('hidden', !onCurate());
+  if (onCurate()) { renderHero(); renderCurate(); return; }
+
   const live = inProgress(), done = finished();
-  const mine = DB.works.filter(inSel);
-
-  const hero = $id('cr-hero');
-  if (hero) hero.innerHTML =
-    `<div class="n">${live.length}<span class="of">/${mine.length}</span></div>
-     <div class="k">in progress${sel === 'all' ? '' : ' · ' + esc(AREAS[areaIx(sel)].label)}</div>`;
-
-  /* The filter is the areas themselves, "all" in front of them. Built from
-     Config, so it scrolls sideways rather than assuming it fits — and it says
-     `touch-action` for it, or it is dead under a finger (ROOT.md §6). */
-  const tabs = $id('cr-areas');
-  if (tabs) tabs.innerHTML = [{ key:'all', label:'all', color:null }].concat(AREAS).map(a => {
-    const n = a.key === 'all' ? DB.works.filter(w => !isDone(w)).length
-                              : DB.works.filter(w => !isDone(w) && areaOf(w).key === a.key).length;
-    return `<button class="cr-area${sel === a.key ? ' on' : ''}" data-act="area" data-a="${esc(a.key)}"
-      ${a.color ? `style="--ar-c:${esc(a.color)}"` : ''}>${esc(a.label)}<b>${n}</b></button>`;
-  }).join('');
+  renderHero();
 
   /* One strip per area in view, each a segment per stage that has something on
      it, as wide as the count. On "all" that is both areas one under the other,
@@ -368,6 +473,22 @@ function renderHome() {
     <button class="cr-act" data-act="open-sessions">the whole session log →</button>`;
 }
 
+/* The number at the top of the shelf, and what it is counting. On CURATE it is
+   the open tasks; on a shelf it is what is in progress out of what is there. */
+function renderHero() {
+  const hero = $id('cr-hero'); if (!hero) return;
+  const sel = areaSel();
+  if (onCurate()) {
+    const n = curateTasks().length;
+    hero.innerHTML = `<div class="n">${n}</div><div class="k">to ${esc(CURATE.label)}</div>`;
+    return;
+  }
+  const live = inProgress(), mine = DB.works.filter(inSel);
+  hero.innerHTML =
+    `<div class="n">${live.length}<span class="of">/${mine.length}</span></div>
+     <div class="k">in progress${sel === 'all' ? '' : ' · ' + esc(AREAS[areaIx(sel)].label)}</div>`;
+}
+
 function workRow(w) {
   const p = progress(w);
   const c = colorOf(p.stage);
@@ -382,6 +503,153 @@ function workRow(w) {
       <span class="v">${p.done} / ${p.total}</span></div>` : ''}
   </button>`;
 }
+
+/* ── CURATE — the one thing in here that reaches the network ──────────────────
+   Every open Todoist task carrying `create.curate.label`, grouped under the
+   section it sits in, in Todoist's own order: project order, then section
+   order, then the task's own order inside the section. That is what "sorted
+   properly by section" means — the order you arranged them in over there, not
+   an order invented here.
+
+   **It reads and never writes.** CREATE does not close, move, reschedule or
+   create a task: closing a curate task is DO's job and filing one is PLAN's,
+   and a third app with an opinion about the same list is how two of them end
+   up disagreeing. So there is nothing here that a bad network can lose.
+
+   The module header says CREATE has no network at all. That stopped being true
+   at 4.1 and this is the exception, kept to one function and one cache: the
+   label is the pile of records to find, subscriptions to renew and tutorials
+   to watch that a song or a set is *made out of*, which is the same question
+   the shelf answers, kept somewhere else.
+
+   The cache is `DB.curate`, drawn immediately on every visit and refreshed
+   behind it when it is older than `maxAgeMin`. A first visit with nothing
+   cached shows the empty state and the spinner together, which is the honest
+   thing for a screen whose content lives on someone else's server. */
+let curateBusy = false, curateErr = '';
+
+const curateTasks = () => (DB.curate.groups || []).flatMap(g => g.tasks || []);
+const curateAge   = () => Date.now() - (DB.curate.fetched || 0);
+const curateStale = () => curateAge() > Math.max(1, +CURATE.maxAgeMin || 60) * 60000;
+
+/* Todoist's v1 collections carry an order under one of two names depending on
+   which half of the old API a field came from; both are read, and the name is
+   the tie-break so an unordered collection is at least stable. */
+const ord = (o, k) => { const v = o && (o[k] != null ? o[k] : o['child_order']); return v == null ? 1e9 : +v; };
+
+async function fetchCurate() {
+  if (curateBusy || !CURATE.label) return;
+  if (!Creds.token()) { curateErr = 'no Todoist key saved — add one under settings → data'; renderCurate(); return; }
+  curateBusy = true; curateErr = ''; renderCurate();
+  try {
+    /* Three calls, not one per project: the label query says which tasks, and
+       the two collections say what everything is called and in what order.
+       Fetching the sections of each project separately would be one call per
+       project for information one call already has. */
+    const [tasks, projects, sections] = await Promise.all([
+      Todoist.getAll('/tasks', { label: CURATE.label }),
+      Todoist.getAll('/projects'),
+      Todoist.getAll('/sections'),
+    ]);
+    const proj = {}; projects.forEach(p => { proj[String(p.id)] = p; });
+    const sect = {}; sections.forEach(s => { sect[String(s.id)] = s; });
+
+    /* One group per (project, section) pair that actually has something in it.
+       A task with no section is not dropped and is not smuggled into someone
+       else's group — it gets its project's own unsectioned group, which sorts
+       first, because that is where Todoist itself puts it. */
+    const groups = new Map();
+    tasks.forEach(t => {
+      const pid = t.project_id == null ? '' : String(t.project_id);
+      const sid = t.section_id == null ? '' : String(t.section_id);
+      const p = proj[pid], sc = sect[sid];
+      const gk = pid + '/' + sid;
+      if (!groups.has(gk)) groups.set(gk, {
+        key: gk,
+        project: p ? String(p.name) : 'todoist',
+        section: sc ? String(sc.name) : '',
+        color: (p && Todoist.COLORS[p.color]) || '#7a8699',
+        po: p ? ord(p, 'order') : 1e9,
+        so: sc ? ord(sc, 'section_order') : -1,   // no section sorts above the sections
+        tasks: [],
+      });
+      groups.get(gk).tasks.push({
+        id: String(t.id),
+        content: String(t.content || ''),
+        /* the labels that are not the one every row here carries by
+           definition — those are what tell two rows apart */
+        tags: (t.labels || []).map(String).filter(n => Todoist.name(n) !== Todoist.name(CURATE.label)),
+        priority: +t.priority || 1,
+        to: ord(t, 'order'),
+      });
+    });
+    const out = [...groups.values()].sort((a, b) =>
+      a.po - b.po || a.so - b.so || (a.section > b.section ? 1 : a.section < b.section ? -1 : 0));
+    out.forEach(g => g.tasks.sort((a, b) => a.to - b.to || a.content.localeCompare(b.content)));
+    DB.curate = { fetched: Date.now(), groups: out };
+    save();
+  } catch (e) {
+    curateErr = (e && e.message) || 'could not reach Todoist';
+  } finally {
+    curateBusy = false;
+    renderCurate();
+    if (onCurate()) renderHero();
+  }
+}
+
+/* Older than the window, and on screen: refresh behind whatever is cached. */
+function maybeFetchCurate() {
+  if (!onCurate() || !CURATE.label) return;
+  if (curateBusy || !curateStale()) return;
+  fetchCurate();
+}
+
+const agoMin = ms => {
+  const m = Math.round(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60);
+  return h < 24 ? h + 'h ago' : Math.round(h / 24) + 'd ago';
+};
+
+function renderCurate() {
+  const box = $id('cr-curate'); if (!box) return;
+  const groups = DB.curate.groups || [];
+  const n = curateTasks().length;
+  const head = `<div class="cr-sec"><span>${esc(CURATE.label)}</span>
+    <em>${curateBusy ? 'reading todoist…'
+        : DB.curate.fetched ? esc(agoMin(curateAge())) : ''}</em></div>
+    <button class="cr-cref" data-act="curate-refresh"${curateBusy ? ' disabled' : ''}>${
+      curateBusy ? 'refreshing…' : 'refresh'}</button>`;
+
+  if (curateErr) {
+    box.innerHTML = head + `<div class="cr-empty">${esc(curateErr)}</div>` +
+      (groups.length ? curateGroups(groups) : '');
+    return;
+  }
+  if (!groups.length) {
+    box.innerHTML = head + `<div class="cr-empty">${curateBusy
+      ? 'reading todoist…'
+      : `Nothing open with @${esc(CURATE.label)} on it.<br>This tab reads Todoist and never writes to it.`}</div>`;
+    return;
+  }
+  box.innerHTML = head + `<div class="cr-cnote">${n} open · read only — nothing here is ticked or closed from CREATE</div>` +
+    curateGroups(groups);
+}
+
+const curateGroups = groups => groups.map(g => `
+  <div class="cr-cgroup" style="--pr-c:${esc(g.color)}">
+    <div class="cr-chead">
+      <i></i><span class="pj">${esc(g.project)}</span>
+      ${g.section ? `<span class="sc">${esc(g.section)}</span>` : '<span class="sc none">no section</span>'}
+      <b>${g.tasks.length}</b>
+    </div>
+    ${g.tasks.map(t => `<a class="cr-ctask" href="https://app.todoist.com/app/task/${esc(t.id)}"
+        target="_blank" rel="noopener noreferrer">
+      <span class="nm">${esc(t.content)}</span>
+      ${t.tags.length ? `<span class="tg">${t.tags.map(x => esc(x)).join(' · ')}</span>` : ''}
+    </a>`).join('')}
+  </div>`).join('');
 
 /* ── One work ──────────────────────────────────────────────────────────────── */
 function renderWork() {
@@ -401,9 +669,8 @@ function renderWork() {
       ${AREAS.length > 1 ? `<div class="cr-atag"><i></i>${esc(a.label)}</div>` : ''}
       <div class="cr-meta">
         ${chip('edit-name', 'name', w.name, '')}
-        ${chip('edit-bpm', 'tempo', w.bpm, 'bpm')}
-        ${chip('edit-key', 'key', w.key, '')}
-        ${chip('edit-tags', 'tags', w.tags, '')}
+        ${FIELDS.filter(f => a.fields.includes(f.k))
+                .map(f => chip('edit-' + f.k, f.label, w[f.k], f.unit)).join('')}
       </div>
     </div>
 
@@ -479,11 +746,8 @@ function renderSessions() {
   const days  = [...new Set(rows.map(e => e.date))];
   box.innerHTML = `
     ${AREAS.length > 1 ? `<div class="cr-areas cr-areas-log">${
-      [{ key:'all', label:'all', color:null }].concat(AREAS).map(a => {
-        const n = a.key === 'all' ? DB.sessions.length : DB.sessions.filter(e => e.area === a.key).length;
-        return `<button class="cr-area${logArea === a.key ? ' on' : ''}" data-act="log-area" data-a="${esc(a.key)}"
-          ${a.color ? `style="--ar-c:${esc(a.color)}"` : ''}>${esc(a.label)}<b>${n}</b></button>`;
-      }).join('')}</div>` : ''}
+      stripHTML([{ key:'all', label:'all' }].concat(AREAS.map(a => ({ key:a.key, label:a.label }))),
+                logArea, 'log-area')}</div>` : ''}
     <div class="cr-stats">
       <div class="cr-stat card"><div class="v acc">${hrs(w.hours)}</div><div class="k">last ${Math.max(1, +HOME.weekDays || 7)} days</div></div>
       <div class="cr-stat card"><div class="v">${hrs(total)}</div><div class="k">all time</div></div>
@@ -492,6 +756,7 @@ function renderSessions() {
     ${days.length ? days.map(d => `<div class="cr-day">${esc(fmtDay(d))} · ${esc(ago(d))}</div>
       ${rows.filter(e => e.date === d).map(e => sesRow(e, true)).join('')}`).join('')
       : `<div class="cr-empty">Nothing logged in ${esc(AREAS[areaIx(logArea)].label)} yet.</div>`}`;
+  positionGlider(box.querySelector('.cr-areas'));
 }
 
 /* ── Doing things ──────────────────────────────────────────────────────────── */
@@ -577,8 +842,10 @@ document.addEventListener('click', ev => {
   if (act === 'open')          { openId = t.dataset.id; form = { hours:'', what:'' }; go('work'); return; }
   if (act === 'open-sessions') { go('sessions'); return; }
   if (act === 'add')           { addWork(t.dataset.a); return; }
-  if (act === 'area')          { DB.settings.area = t.dataset.a; save(); renderHome(); return; }
-  if (act === 'log-area')      { logArea = t.dataset.a; renderSessions(); return; }
+  if (act === 'area')          { DB.settings.area = t.dataset.a; save(); renderHome(); maybeFetchCurate(); return; }
+  if (act === 'curate-refresh'){ fetchCurate(); return; }
+  if (act === 'log-area')      { logArea = t.dataset.a; renderSessions();
+                                 positionGlider($id('cr-sessions') && $id('cr-sessions').querySelector('.cr-areas')); return; }
   if (act === 'sort')          { DB.settings.sort = t.dataset.s; save(); renderHome(); return; }
   if (act === 'fold')          { DB.settings.showDone = !DB.settings.showDone; save(); renderHome(); return; }
   if (act === 'stage')         { setStage(t.dataset.k); return; }
@@ -597,9 +864,15 @@ document.addEventListener('click', ev => {
   }
   const w = workById(openId);
   if (act === 'edit-name') { editField('name', 'Name', w ? w.name : ''); return; }
-  if (act === 'edit-bpm')  { editField('bpm',  'Tempo\nIn bpm. Blank if it is not decided.', w ? w.bpm : ''); return; }
-  if (act === 'edit-key')  { editField('key',  'Key\nHowever you write it — F#m, 6A, whatever the DAW says.', w ? w.key : ''); return; }
-  if (act === 'edit-tags') { editField('tags', 'Tags\nA word or two: the project, the label, the set it is for.', w ? w.tags : ''); return; }
+  /* One handler for the three optional chips, off the same table the chips are
+     drawn from — so an area that does not ask for a field has no button *and*
+     no way in, rather than a hidden button with a live handler behind it. */
+  const fld = FIELDS.find(f => act === 'edit-' + f.k);
+  if (fld) {
+    if (w && !areaOf(w).fields.includes(fld.k)) return;
+    editField(fld.k, fld.prompt, w ? w[fld.k] : '');
+    return;
+  }
 
   if (act === 'export')      { exportData(); return; }
   if (act === 'pick-import') { const f = $id('cr-file'); if (f) f.click(); return; }
@@ -637,6 +910,10 @@ function renderSettings() {
   if (ses) ses.value = Math.max(1, +HOME.sessionCount || 6);
   const wk = document.querySelector('.ns-create #cr-set-week');
   if (wk) wk.value = Math.max(1, +HOME.weekDays || 7);
+  const lb = document.querySelector('.ns-create #cr-set-label');
+  if (lb && document.activeElement !== lb) lb.value = CURATE.label;
+  const ca = document.querySelector('.ns-create #cr-set-curate-age');
+  if (ca) ca.value = Math.max(1, +CURATE.maxAgeMin || 60);
 
   const st = document.querySelector('.ns-create #cr-status');
   if (st) {
@@ -696,8 +973,9 @@ function importData(ev) {
 
 function resetAll() {
   Shell.confirm('Reset CREATE?\nEvery song, every mix, every tick and the whole session log go. The areas and their stages are settings and stay.', () => {
+    const was = JSON.parse(JSON.stringify(DB));
     DB = blank(); save(); openId = null; go('home'); renderSettings();
-    toast('CREATE reset');
+    Shell.undo('CREATE cleared', () => { DB = was; save(); render(); renderSettings(); });
   });
 }
 
@@ -711,7 +989,9 @@ Config.subscribe(path => {
 });
 
 Shell.register('create', {
-  onShow: render,
+  /* A visit redraws, and refreshes the curate cache behind what is already on
+     screen when it is older than the window. Nothing waits on the network. */
+  onShow: () => { render(); maybeFetchCurate(); },
   /* The week's numbers and every "3 days ago" move at midnight. */
   onDayChange: render,
   home: () => go('home'),
@@ -730,6 +1010,16 @@ return { render, renderSettings, go, addWork, exportData, importData, resetAll,
          reload: () => { load(); openId = null; render(); renderSettings(); },
          works: () => DB.works.slice(), sessions: () => DB.sessions.slice(),
          areas: () => AREAS.slice(),
+         /* ── What LOG reads ──
+            One day's work at the desk, and the same over a range. Synchronous
+            readers over `create_v1`, the shape TRACK.doneOn and
+            LEARN.dailyStats already have: LOG stores nothing of CREATE's, it
+            asks at note time and at report time. `null` when nothing was
+            logged, so the note's section only appears on a day that had one. */
+         dayStats: iso => rangeStats([iso]),
+         rangeStats,
+         curate: () => ({ fetched: DB.curate.fetched, groups: DB.curate.groups.slice() }),
+         refreshCurate: fetchCurate,
          /* The stages of one area, by key; with no key, of the first one. */
          stages: k => AREAS[areaIx(k)].stages.slice(),
          area: k => { DB.settings.area = k; save(); if (screen === 'home') renderHome(); },

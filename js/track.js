@@ -370,8 +370,10 @@ async function importData(e) {
   } catch { toast('could not read that file'); }
 }
 function resetAll() {
-  Shell.confirm('Reset every tick and every date? This cannot be undone.', () => {
-    S = Object.assign({}, DEF, { done:{}, open:{} }); save(); render(); toast('reset');
+  Shell.confirm('Reset every tick and every date?', () => {
+    const was = JSON.parse(JSON.stringify(S));
+    S = Object.assign({}, DEF, { done:{}, open:{} }); save(); render();
+    Shell.undo('every tick cleared', () => { S = was; save(); render(); });
   });
 }
 

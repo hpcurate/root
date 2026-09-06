@@ -100,6 +100,10 @@ function fresh() {
     m: { wt:'', sl:'', nrg:'', mood:'', cs_on:null, cs:'', wkg:'', km:'', wo:'', tkg:'', tmin:'' },
     e: Object.assign(medFields(), { kme:'', nrg:'', mood:'', stress:'', meals:[],
          caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[],
+         /* which of `blocks` were ticked on the planned strip rather than on
+            the standing one — a marker over the same names, never a second
+            list, and never exported. See toggleBlock(). */
+         blocksPlan:[],
          /* what was finished on DO's media tab: { name, kind, sub } — a title,
             its label (movie / show / podcast / music) and the second label if any */
          media:[] }),
@@ -198,6 +202,9 @@ function initData() {
     if (!raw) { data = fresh(); return; }
     data = JSON.parse(raw);
     if (!Array.isArray(data.e.blocks))       data.e.blocks = [];
+    /* absent on every day written before 4.1 — no marker means every ticked
+       block was ticked on the standing strip, which is what it was */
+    if (!Array.isArray(data.e.blocksPlan))   data.e.blocksPlan = [];
     if (!Array.isArray(data.e.media))        data.e.media  = [];
     if (!Array.isArray(data.e.meals))        data.e.meals  = [];
     if (typeof data.e.caf_c  !== 'number')   data.e.caf_c  = 0;
@@ -449,28 +456,153 @@ function renderMonth() {
   box.innerHTML = (trendBig ? '' : month) + trendHTML();
 }
 
-/* Fourteen days of energy, mood and stress, as three lines with a dot on every
-   day that has a value. Stress is the third: it is recorded in the evening
-   beside the other two, and reading the three together is most of what a
-   fortnight is *for* — a good mood at high stress is a different fortnight from
-   a good mood at low stress, and the two lines alone could not say so.
+/* ── The fortnight, and the six questions it can answer ───────────────────────
+   Fourteen days as lines with a dot on every day that has a value. It started
+   as one chart — energy, mood and stress — because those three are what the
+   morning and the evening actually ask about, and reading them together is
+   most of what a fortnight is *for*: a good mood at high stress is a different
+   fortnight from a good mood at low stress.
+
+   4.1 makes it six. Tapping the key row underneath moves to the next one; the
+   plot itself still opens over the month, on every chart. Nothing new is
+   stored for any of them — every series here is a field the day record already
+   holds, read the same way the reports read it.
+
+   **One unit per chart, always.** A shared y-axis is a claim that two numbers
+   are comparable, so hours never share an axis with counts and counts never
+   share one with a 1–5 answer. That is the whole rule, and it is why there are
+   six charts rather than two crowded ones.
 
    The dots matter as much as the lines. A bare line says which way it went; a
    line of dots also says how often you actually answered, and a fortnight with
-   four readings draws the same line as one with fourteen. */
+   four readings draws the same line as one with fourteen.
+
+   A chart with nothing in it is dropped from the cycle rather than shown
+   empty: switch a field off, or never walk anywhere, and that chart is simply
+   not one of the ones you tap through. */
+const N_TREND = 14;
+let trendIx = 0;                     // which chart; not stored, like trendBig
+
+/* The colours are literal hex, for the reason the three originals were: three
+   or four lines have to stay apart from each other in every one of the fifteen
+   themes, and an accent-relative palette cannot promise that. They are written
+   onto the element as `--s-c` so there is one CSS rule per shape rather than
+   one per series — a seventh chart needs no stylesheet. */
+const TR = { nrg:'#6ec5e0', mood:'#5cdb7d', stress:'#e0806b', nrg2:'#4a8fa8', mood2:'#3f9a58',
+             sleep:'#a78bfa', wake:'#e0a060', kmm:'#5ad4e6', kme:'#5e8cff',
+             blocks:'#c4b5fd', mix:'#c4b5fd', prod:'#a78bfa', cont:'#8b5cf6',
+             coffee:'#c9a227', energy:'#e0806b', meals:'#5cdb7d' };
+
+/* A reading, or null for "not answered". The half has to have been logged at
+   all before a 0 counts: `caf_c` is 0 in every fresh record, so without this a
+   fortnight of untouched days would draw a confident flat line along zero. */
+const numOr = v => { const n = parseFloat(v); return (v == null || v === '' || !isFinite(n)) ? null : n; };
+function trendDays() {
+  return Array.from({ length: N_TREND }, (_, i) => readDay(dateOffset(REAL_TODAY, -(N_TREND - 1 - i))));
+}
+/* "07:30" as 7.5 — a wake-up time is a point on the same hours axis sleep is
+   measured in, which is the only reason the two share a chart.
+
+   **Not `hourOf`.** There is already one of those further down, for the alert
+   rules, and it answers *minutes since midnight* — a different unit for the
+   same-looking question. Two function declarations of one name in this module
+   is the later one winning silently, and the chart drew an average wake-up of
+   441 until `test/peek.mjs` printed the number out loud. */
+function wakeHour(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+  return m ? (+m[1]) + (+m[2]) / 60 : null;
+}
+
+/* Each chart: a name, its unit, how its number reads, and its series. `pick`
+   is given the day record and answers a value or null. */
+const TRENDS = [
+  { key:'day', name:'energy · mood · stress', min:1, max:5, stat:'avg', series:[
+      { k:'nrg',    label:'energy', pick:d => morningLogged(d) ? numOr(d.m.nrg)  : null },
+      { k:'mood',   label:'mood',   pick:d => morningLogged(d) ? numOr(d.m.mood) : null },
+      { k:'stress', label:'stress', pick:d => eveningLogged(d) ? numOr(d.e.stress) : null },
+  ] },
+  /* The same two questions, asked twice a day. What it answers is whether the
+     day takes it out of you — which neither half can say on its own. */
+  { key:'halves', name:'morning vs evening', min:1, max:5, stat:'avg', series:[
+      { k:'nrg',   label:'energy am', pick:d => morningLogged(d) ? numOr(d.m.nrg)  : null },
+      { k:'nrg2',  label:'energy pm', pick:d => eveningLogged(d) ? numOr(d.e.nrg)  : null },
+      { k:'mood',  label:'mood am',   pick:d => morningLogged(d) ? numOr(d.m.mood) : null },
+      { k:'mood2', label:'mood pm',   pick:d => eveningLogged(d) ? numOr(d.e.mood) : null },
+  ] },
+  { key:'sleep', name:'sleep', min:0, unit:'h', stat:'avg', series:[
+      { k:'sleep', label:'hours',   pick:d => numOr(d.m.sl) },
+      { k:'wake',  label:'woke at', pick:d => wakeHour(d.m.wt) },
+  ] },
+  { key:'walk', name:'walking', min:0, unit:'km', stat:'sum', series:[
+      { k:'kmm', label:'morning', pick:d => numOr(d.m.km) },
+      { k:'kme', label:'evening', pick:d => numOr(d.e.kme) },
+  ] },
+  /* What came out of the day. Blocks and the three curate counters are all
+     counts of finished things, so they belong on one axis. */
+  { key:'output', name:'output', min:0, stat:'sum', series:[
+      { k:'blocks', label:'blocks', pick:d => eveningLogged(d) ? (d.e.blocks || []).length : null },
+      { k:'mix',    label:'mix',    pick:d => eveningLogged(d) ? (+d.e.cur_mix  || 0) : null },
+      { k:'prod',   label:'prod',   pick:d => eveningLogged(d) ? (+d.e.cur_prod || 0) : null },
+      { k:'cont',   label:'cont',   pick:d => eveningLogged(d) ? (+d.e.cur_cont || 0) : null },
+  ] },
+  { key:'intake', name:'intake', min:0, stat:'sum', series:[
+      { k:'coffee', label:'coffee', pick:d => eveningLogged(d) ? (+d.e.caf_c  || 0) : null },
+      { k:'energy', label:'energy', pick:d => eveningLogged(d) ? (+d.e.caf_ed || 0) : null },
+      { k:'meals',  label:'meals',  pick:d => eveningLogged(d) ? (d.e.meals || []).length : null },
+  ] },
+];
+
+/* Read one chart against the last fortnight, and work out the axis it needs.
+   A chart that declares no `max` takes it from its own data, rounded up to
+   something round, with a floor of 1 so a fortnight of ones is not drawn as a
+   flat line along the ceiling. */
+function readTrend(def, days) {
+  const series = def.series.map(sd => {
+    const vals = days.map(d => (d ? sd.pick(d) : null));
+    return Object.assign({}, sd, { vals, color: TR[sd.k] || '#7a8699',
+                                   any: vals.some(v => v != null) });
+  });
+  const seen = [];
+  series.forEach(sd => sd.vals.forEach(v => { if (v != null) seen.push(v); }));
+  const min = def.min == null ? 0 : def.min;
+  let max = def.max;
+  if (max == null) {
+    const top = seen.length ? Math.max.apply(null, seen) : 1;
+    max = Math.max(1, top <= 5 ? Math.ceil(top) : Math.ceil(top / 2) * 2);
+  }
+  return Object.assign({}, def, { series, min, max, any: seen.length > 0 });
+}
+/* Only the charts with something in them, in their declared order. Empty for
+   a device with no days on it at all — trendHTML() draws the empty state. */
+function liveTrends() {
+  const days = trendDays();
+  return TRENDS.map(t => readTrend(t, days)).filter(t => t.any);
+}
+
+/* Up to five labels up the side, evenly spaced, at whatever precision the
+   step actually needs — 1..5 on a rating, 0/2/4/6/8 on kilometres. */
+function axisTicks(min, max) {
+  const span = max - min;
+  const steps = (span <= 4 && Number.isInteger(span) && span > 0) ? span : 4;
+  const step = span / steps;
+  const dp = step >= 1 ? 0 : 1;
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const v = min + step * i;
+    return { v, label: v.toFixed(dp) };
+  });
+}
+
 function trendHTML() {
-  const N = 14;
-  const days = Array.from({ length: N }, (_, i) => readDay(dateOffset(REAL_TODAY, -(N - 1 - i))));
-  // energy and mood are morning fields, stress is an evening one
-  const series = (half, k) => days.map(d => (d && d[half] && +d[half][k]) || null);
-  const nrg = series('m', 'nrg'), mood = series('m', 'mood'), stress = series('e', 'stress');
-  const has = v => v.some(x => x);
-  if (!has(nrg) && !has(mood) && !has(stress)) {
+  const live = liveTrends();
+  if (!live.length) {
     return `<div class="lc-trend empty">two weeks of energy, mood and stress appear here once there is something to draw</div>`;
   }
-  /* 1–5 up the box, one step per day across it. The line is joined only where
-     consecutive days both have a value; a gap in the data is drawn as a gap,
-     never as a line straight through it.
+  if (trendIx >= live.length) trendIx = 0;
+  const t = live[trendIx];
+  const N = N_TREND;
+  /* The axis up the box, one step per day across it. The line is joined only
+     where consecutive days both have a value; a gap in the data is drawn as a
+     gap, never as a line straight through it.
 
      The box is stretched (`preserveAspectRatio="none"`) so a fortnight always
      fills the width, whatever the phone — which means a `<circle>` in it would
@@ -478,67 +610,96 @@ function trendHTML() {
      path with a round cap** and `vector-effect:non-scaling-stroke`: the cap is
      a circle whose diameter is the stroke width in *screen* pixels, so it is
      immune to the viewBox's scaling in both axes. Each is drawn twice, a
-     surface-coloured halo under the colour, so three series crossing on the
-     same day still read as three dots.
+     surface-coloured halo under the colour, so four series crossing on the
+     same day still read as four dots.
 
      PAD insets the plot from both ends. Half of the first and last dot used to
      hang over the edge, and — more to the point — the big chart's axis labels
      are placed at the same fractions, so they need somewhere to sit. */
   const W = 100, H = 40, PAD = 4;
+  const span = (t.max - t.min) || 1;
   const x = i => PAD + (i / (N - 1)) * (W - PAD * 2);
-  const y = v => H - (Math.max(1, Math.min(5, v)) - 1) / 4 * H;
+  const y = v => H - (Math.max(t.min, Math.min(t.max, v)) - t.min) / span * H;
   const path = vals => {
     let d = '', pen = false;
     vals.forEach((v, i) => {
-      if (!v) { pen = false; return; }
+      if (v == null) { pen = false; return; }
       d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
       pen = true;
     });
     return d.trim();
   };
-  const dots = (vals, cls) => vals.map((v, i) => {
-    if (!v) return '';
+  const dots = vals => vals.map((v, i) => {
+    if (v == null) return '';
     const d = `M${x(i).toFixed(1)} ${y(v).toFixed(1)}l.01 0`;
-    return `<path class="lc-dh" d="${d}"/><path class="lc-d ${cls}" d="${d}"/>`;
+    return `<path class="lc-dh" d="${d}"/><path class="lc-d" d="${d}"/>`;
   }).join('');
-  const avg = v => { const f = v.filter(Boolean); return f.length ? (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1) : '—'; };
-  const line = (vals, cls) => has(vals)
-    ? `<path class="lc-l ${cls}" d="${path(vals)}"/>${dots(vals, cls)}` : '';
+  const stat = sd => {
+    const f = sd.vals.filter(v => v != null);
+    if (!f.length) return '—';
+    const sum = f.reduce((a, b) => a + b, 0);
+    return t.stat === 'sum' ? String(Math.round(sum * 10) / 10) : (sum / f.length).toFixed(1);
+  };
+  /* The series' own key rides on the group as a class. It styles nothing —
+     the colour is the inline `--s-c` — but it is what lets a check, or a
+     person reading the DOM, say *which* line is which. */
+  const line = sd => sd.any
+    ? `<g class="lc-s ${esc(sd.k)}" style="--s-c:${esc(sd.color)}"><path class="lc-l" d="${path(sd.vals)}"/>${dots(sd.vals)}</g>` : '';
 
   /* ── Opened up ───────────────────────────────────────────────────────────
      The axes only appear here, because they only fit here. Both are HTML
      rather than SVG text: the viewBox is stretched, so a <text> in it would be
      stretched too, and a label that is 1.4× as wide as it is tall is a label
      you have to work at. Each is absolutely placed at the same fraction the
-     plot uses, so they line up by construction rather than by eye. */
-  const scale = trendBig ? [5, 4, 3, 2, 1].map(v =>
-    `<span style="top:${((5 - v) / 4 * 100).toFixed(2)}%">${v}</span>`).join('') : '';
+     plot uses, so they line up by construction rather than by eye.
+
+     The gridlines and the labels come from the same `axisTicks()` call, so an
+     axis that is 0–8 kilometres cannot end up with lines in one place and
+     numbers in another. */
+  const ticks = axisTicks(t.min, t.max);
+  const scale = trendBig ? ticks.slice().reverse().map(k =>
+    `<span style="top:${(((t.max - k.v) / span) * 100).toFixed(2)}%">${k.label}</span>`).join('') : '';
   // the row sits under the plot and is inset by the same gutter, so a label at
   // x% of it is under the point at x% of the chart
   const xLabels = trendBig ? Array.from({ length: N }, (_, i) => {
     const iso = dateOffset(REAL_TODAY, -(N - 1 - i));
     return `<span style="left:${x(i).toFixed(2)}%">${+iso.slice(8)}</span>`;
   }).join('') : '';
-  const grid = trendBig ? [1, 2, 3, 4, 5].map(v =>
-    `<path class="lc-g" d="M${PAD} ${y(v).toFixed(1)}H${W - PAD}"/>`).join('') : '';
+  const grid = trendBig ? ticks.map(k =>
+    `<path class="lc-g" d="M${PAD} ${y(k.v).toFixed(1)}H${W - PAD}"/>`).join('') : '';
 
-  return `<div class="lc-trend${trendBig ? ' big' : ''}" data-trend
-      role="button" tabindex="0" aria-expanded="${trendBig}"
-      aria-label="${trendBig ? 'close the trend' : 'open the trend'}">
-    <div class="lc-plot">
+  /* The series are drawn back to front so the first one named in the key is
+     the one on top — on the day chart that is energy, which is the line you
+     are usually looking for. */
+  return `<div class="lc-trend${trendBig ? ' big' : ''}" data-chart="${esc(t.key)}">
+    <div class="lc-plot" data-trend role="button" tabindex="0" aria-expanded="${trendBig}"
+         aria-label="${trendBig ? 'close the chart' : 'open the chart'}">
       ${trendBig ? `<div class="lc-yax" aria-hidden="true">${scale}</div>` : ''}
       <svg class="lc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-        ${grid}${line(stress, 'stress')}${line(mood, 'mood')}${line(nrg, 'nrg')}
+        ${grid}${t.series.slice().reverse().map(line).join('')}
       </svg>
+      ${trendBig ? '<span class="lc-shut" aria-hidden="true">close</span>' : ''}
     </div>
     ${trendBig ? `<div class="lc-xax" aria-hidden="true">${xLabels}</div>` : ''}
-    <div class="lc-key">
-      <span class="lc-kk nrg">energy <b>${avg(nrg)}</b></span>
-      <span class="lc-kk mood">mood <b>${avg(mood)}</b></span>
-      <span class="lc-kk stress">stress <b>${avg(stress)}</b></span>
-      <span class="lc-kn">${trendBig ? 'close' : '14d'}</span>
-    </div>
+    <button type="button" class="lc-key" data-cycle
+            aria-label="showing ${esc(t.name)} — tap for the next chart">
+      ${t.series.map(sd => `<span class="lc-kk" style="--s-c:${esc(sd.color)}">${esc(sd.label)}<b>${esc(stat(sd))}${t.unit && t.stat === 'sum' ? esc(t.unit) : ''}</b></span>`).join('')}
+      <span class="lc-kn">${live.length > 1 ? `${trendIx + 1}/${live.length} ›` : '14d'}</span>
+    </button>
   </div>`;
+}
+
+/* The key row is the cycle. It is where the names of the series already are,
+   so "these three, or a different three" is the question it was already
+   asking — and it leaves the plot free to keep doing the one thing it did,
+   which is open over the month. That is the whole reason the two controls are
+   two elements rather than one with a corner in it. */
+function cycleTrend() {
+  const n = liveTrends().length;
+  if (n < 2) return;
+  trendIx = (trendIx + 1) % n;
+  Prefs.tap();
+  renderMonth();
 }
 
 /* ── The tab alert ─────────────────────────────────────────────────────────────
@@ -789,7 +950,16 @@ function syncCafUI() {
   $id('caf-ed-btn').classList.toggle('on', ed > 0);
 }
 function incCaf(t) { dirty=true; if(t==='c') data.e.caf_c++; else data.e.caf_ed++; syncCafUI(); }
-function resetCaf() { data.e.caf_c=0; data.e.caf_ed=0; syncCafUI(); }
+/* The two counters and the three curate counts are tapped up one at a time,
+   so a reset is several taps thrown away at once and is worth being able to
+   take back. Neither asks first — they are counters, not records — which is
+   exactly why the way back is offered after. */
+function resetCaf() {
+  const c = data.e.caf_c, ed = data.e.caf_ed;
+  if (!c && !ed) return;
+  dirty = true; data.e.caf_c=0; data.e.caf_ed=0; syncCafUI();
+  Shell.undo('caffeine reset', () => { data.e.caf_c=c; data.e.caf_ed=ed; syncCafUI(); });
+}
 
 const CUR_KEYS = { mix:'cur_mix', prod:'cur_prod', cont:'cur_cont' };
 function syncCurUI() {
@@ -800,7 +970,12 @@ function syncCurUI() {
   });
 }
 function incCur(id)  { dirty = true; data.e[CUR_KEYS[id]] = (data.e[CUR_KEYS[id]] || 0) + 1; syncCurUI(); }
-function resetCur()  { Object.values(CUR_KEYS).forEach(k => data.e[k] = 0); syncCurUI(); }
+function resetCur()  {
+  const was = {}; Object.values(CUR_KEYS).forEach(k => was[k] = data.e[k] || 0);
+  if (!Object.values(was).some(Boolean)) return;
+  dirty = true; Object.values(CUR_KEYS).forEach(k => data.e[k] = 0); syncCurUI();
+  Shell.undo('curate reset', () => { Object.keys(was).forEach(k => data.e[k] = was[k]); syncCurUI(); });
+}
 
 /* The cap used to be a constant; it is a setting now. Read it live rather than
    caching, so raising it in Settings takes effect without a reload. */
@@ -813,19 +988,76 @@ const maxBlocks = () => Config.get('log.maxBlocks') || 6;
 const EXPORT_BLOCK_FLOOR = 6;
 const exportBlockCols = () => Math.max(EXPORT_BLOCK_FLOOR, maxBlocks());
 
-function toggleBlock(btn, name) {
+/* ── Which strip a ticked block was ticked in ──────────────────────────────────
+   `e.blocks` is the record and the export: a flat list of names, one entry per
+   block finished, and that shape is a contract the Obsidian side parses. It
+   cannot say *where* the name was tapped, and until 4.1 nothing did — so a
+   planned task called "mixing" and the standing block called "mixing" lit each
+   other, because the only thing either strip could ask was "is this name in
+   the list".
+
+   `e.blocksPlan` is the answer: the subset of `e.blocks` that was ticked on
+   the planned strip. It is a marker, not a second list — every name in it is
+   also in `e.blocks` — so the record, the .md and every reader downstream are
+   untouched, and a day written before 4.1 simply has no marker and reads as
+   all-own, which is what it was.
+
+   A name is still only in the record once. Ticking it on the other strip moves
+   which chip is lit rather than counting it twice: the day is a record of what
+   was done, and "mixing" done once is one block however many places offered
+   it. */
+const planSet = () => (Array.isArray(data.e.blocksPlan) ? data.e.blocksPlan : []);
+const litFor = (name, fromPlan) =>
+  data.e.blocks.includes(name) && planSet().includes(name) === !!fromPlan;
+
+function toggleBlock(btn, name, from) {
   dirty=true;
+  const fromPlan = from === undefined ? !!(btn && btn.classList.contains('plan')) : from === 'plan';
+  if (!Array.isArray(data.e.blocksPlan)) data.e.blocksPlan = [];
   const idx = data.e.blocks.indexOf(name);
-  if (idx >= 0) { data.e.blocks.splice(idx,1); btn.classList.remove('on'); }
-  else { const m = maxBlocks();
-         if(data.e.blocks.length>=m){toast(`max ${m} blocks`);return;}
-         data.e.blocks.push(name); btn.classList.add('on'); }
-  syncBlocks();   // the same name can sit in both strips
+  if (litFor(name, fromPlan)) {
+    if (idx >= 0) data.e.blocks.splice(idx, 1);
+    data.e.blocksPlan = data.e.blocksPlan.filter(n => n !== name);
+  } else {
+    if (idx < 0) {
+      const m = maxBlocks();
+      if (data.e.blocks.length >= m) { toast(`max ${m} blocks`); return; }
+      data.e.blocks.push(name);
+    }
+    data.e.blocksPlan = data.e.blocksPlan.filter(n => n !== name);
+    if (fromPlan) data.e.blocksPlan.push(name);
+  }
+  syncBlocks();
 }
 /* Matched on data-name, not the text: a planned chip also carries its project
-   and time block as a caption. */
+   and time block as a caption. Which strip a chip is in decides whether the
+   name being in the record lights it — that is the whole of the unlink. */
 function syncBlocks() {
-  $all('.blk-b').forEach(b => b.classList.toggle('on', data.e.blocks.includes(b.dataset.name ?? b.textContent.trim())));
+  $all('.blk-b').forEach(b => b.classList.toggle('on',
+    litFor(b.dataset.name ?? b.textContent.trim(), b.classList.contains('plan'))));
+}
+
+/* ── The standing blocks, folded ──────────────────────────────────────────────
+   Default closed: the evening is nearly always made of what was planned, and
+   the nine standing blocks under it are a list to scroll past. It opens on a
+   tap, and opens itself when one of them is already ticked — a tick you cannot
+   see is worse than a long form. Not stored: "default hidden" is the ask, and
+   every evening starts from the same place. */
+let blockFold = false;
+function toggleBlockFold() { blockFold = !blockFold; syncBlockFold(); Prefs.tap(); }
+function syncBlockFold() {
+  const grid = $id('blk-g'), btn = $id('blk-fold'), word = $id('blk-fold-b');
+  if (!grid || !btn) return;
+  grid.classList.toggle('hidden', !blockFold);
+  btn.setAttribute('aria-expanded', String(blockFold));
+  if (word) word.textContent = blockFold ? 'hide' : 'show';
+}
+/* Called when the evening form is opened: closed, unless something in there is
+   already ticked. */
+function resetBlockFold() {
+  const names = (Config.get('log.blocks') || []).map(b => b.name);
+  blockFold = names.some(n => litFor(n, false));
+  syncBlockFold();
 }
 
 /* ── Blocks planned in PLAN ───────────────────────────────────────────────────
@@ -851,7 +1083,7 @@ function renderPlanned() {
   wrap.classList.toggle('hidden', !planned.length);
   grid.innerHTML = planned.map(p => {
     const cap = [p.project, p.block, p.time].filter(Boolean).join(' · ');
-    return `<button class="blk-b plan" data-name="${attrEsc(p.name)}" onclick="LOG.toggleBlock(this,'${attr(p.name)}')"
+    return `<button class="blk-b plan" data-name="${attrEsc(p.name)}" onclick="LOG.toggleBlock(this,'${attr(p.name)}','plan')"
              style="--blk-c:${esc(p.color)};--blk-bg:${tint(p.color, 14)}">${esc(p.name)}${cap ? `<small>${esc(cap)}</small>` : ''}</button>`;
   }).join('');
   syncBlocks();
@@ -868,12 +1100,18 @@ function setBlock(name, on) {
   // today's record: the live one if that is the selected day, else straight from storage
   const rec = isToday ? data : (readDay(REAL_TODAY) || Object.assign(fresh(), { date: REAL_TODAY }));
   if (!Array.isArray(rec.e.blocks)) rec.e.blocks = [];
+  if (!Array.isArray(rec.e.blocksPlan)) rec.e.blocksPlan = [];
   const i = rec.e.blocks.indexOf(name);
   if (on && i < 0) {
     if (rec.e.blocks.length >= maxBlocks()) { toast(`max ${maxBlocks()} blocks`); return; }
     rec.e.blocks.push(name);
-  } else if (!on && i >= 0) rec.e.blocks.splice(i, 1);
-  else return;
+    /* it arrived from DO's today list, which is drawn on the planned strip —
+       so that is the chip that lights, not the standing block of the same name */
+    if (!rec.e.blocksPlan.includes(name)) rec.e.blocksPlan.push(name);
+  } else if (!on && i >= 0) {
+    rec.e.blocks.splice(i, 1);
+    rec.e.blocksPlan = rec.e.blocksPlan.filter(n => n !== name);
+  } else return;
   localStorage.setItem('log_' + REAL_TODAY, JSON.stringify(rec));
   if (!isToday) return;
   const open = $all('.scr.on')[0];
@@ -967,7 +1205,7 @@ function renderForms() {
   // blocks
   const blkG = $id('blk-g');
   if (blkG) blkG.innerHTML = cfg.blocks.map(b =>
-    `<button class="blk-b" data-name="${attrEsc(b.name)}" onclick="LOG.toggleBlock(this,'${attr(b.name)}')"
+    `<button class="blk-b" data-name="${attrEsc(b.name)}" onclick="LOG.toggleBlock(this,'${attr(b.name)}','own')"
              style="--blk-c:${esc(b.color)};--blk-bg:${tint(b.color, 14)}">${esc(b.name)}</button>`).join('');
   const hint = $id('blk-max-hint');
   if (hint) hint.textContent = `(max ${maxBlocks()})`;
@@ -1062,6 +1300,7 @@ function popE() {
   $id('e-kme').value = e.kme || '';
   scSet('sc-nrg-e', e.nrg); scSet('sc-mood-e', e.mood); scSet('sc-stress', e.stress);
   syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks();
+  resetBlockFold();
 }
 
 function saveEvening() {
@@ -1123,6 +1362,18 @@ function buildNote() {
 | anki_rated    | ${st.rated} |
 | anki_acquired | ${st.acquired} |
 | anki_decks    | ${Object.entries(st.decks).map(([d, n]) => `${d} ${n}`).join(', ') || '-'} |` : '';
+  const cr = createOf(TODAY);
+  const createRows = cr ? `
+
+#### create
+
+| data            | ans |
+| --------------- | --: |
+| create_hours    | ${cr.hours.toFixed(2)} |
+| create_sessions | ${cr.sessions} |
+| create_areas    | ${cr.areas.map(a => `${a.label} ${a.hours.toFixed(2)}`).join(', ') || '-'} |
+| create_works    | ${cr.works.map(x => `${x.name} (${x.area} · ${x.stage})`).join('; ') || '-'} |
+| create_did      | ${cr.what.join('; ') || '-'} |` : '';
   const mediaRows = mediaNoteRows(mediaOf(e));
   return (
 `*:LiCalendar: ${TODAY}*
@@ -1181,7 +1432,7 @@ ${Object.keys(meds).map(k => `| ${('meds_' + k).padEnd(13)} | ${meds[k]?'yes':'n
 | curate_mix    | ${cur.mix} |
 | curate_prod   | ${cur.prod} |
 | curate_cont   | ${cur.cont} |
-| curate_total  | ${cur.mix + cur.prod + cur.cont} |${studyRows}${mediaRows}`);
+| curate_total  | ${cur.mix + cur.prod + cur.cont} |${createRows}${studyRows}${mediaRows}`);
 }
 
 /* ── Media in the note ────────────────────────────────────────────────────────
@@ -1224,6 +1475,22 @@ function parseMediaRows(content) {
    only reads at note time. Null when the day had neither, so the section only
    appears on a day that was actually a study day — the parser ignores rows it
    does not know, so an extra section is additive. */
+/* ── CREATE, read at note time ────────────────────────────────────────────────
+   The hours at the desk on that day, split by area, and what they went into.
+   Same contract as studyOf(): CREATE exposes a synchronous reader over its own
+   storage and LOG stores nothing of it. Null on a day with no sessions, so the
+   section only appears on a day that had one — the parser looks rows up by
+   name and ignores the ones it does not know, which is what makes an extra
+   section additive rather than a change to the format. */
+function createOf(iso) {
+  return (window.CREATE && CREATE.dayStats) ? CREATE.dayStats(iso) : null;
+}
+const hoursCell = h => {
+  const n = Math.max(0, +h || 0);
+  const whole = Math.floor(n), m = Math.round((n - whole) * 60);
+  return m ? `${whole}h${String(m).padStart(2, '0')}` : `${whole}h`;
+};
+
 function studyOf(iso) {
   const topics = window.TRACK && TRACK.doneOn ? TRACK.doneOn(iso) : [];
   const progress = window.TRACK && TRACK.progress ? TRACK.progress() : { done:0, total:0 };
@@ -1247,6 +1514,8 @@ function renderOutput() {
   }
   const md = mediaOf(data.e).length;
   if (md) tag(`${md} media`, true);
+  const cr = createOf(TODAY);
+  if (cr) tag(`${hoursCell(cr.hours)} at the desk`, true);
 }
 
 async function shareFile() {
@@ -1505,6 +1774,21 @@ function parseDayContent(date, content) {
             cards: parseInt(ankiR, 10) || 0, acquired: parseInt(tableVal('anki_acquired', content), 10) || 0 };
   }
 
+  // CREATE (4.1+): only present on a day something was logged at the desk.
+  // Parsed into `d.c`, beside `d.s`, so a report built from pasted Obsidian
+  // notes on another device has the hours without CREATE being installed.
+  const crH = tableVal('create_hours', content);
+  if (crH !== '') {
+    const areas = tableVal('create_areas', content);
+    d.c = { hours: parseFloat(crH) || 0,
+            sessions: parseInt(tableVal('create_sessions', content), 10) || 0,
+            areas: areas && areas !== '-' ? areas.split(',').map(x => {
+              const m = /^(.*)\s+([\d.]+)$/.exec(x.trim());
+              return m ? { label: m[1].trim(), hours: parseFloat(m[2]) || 0 } : null;
+            }).filter(Boolean) : [],
+            works: [], what: [] };
+  }
+
   // Media (2.8+): only present on a day something was finished on DO's media tab
   d.e.media = parseMediaRows(content);
 
@@ -1514,6 +1798,10 @@ function parseDayContent(date, content) {
   d.e.blocks = blkRow
     ? blkRow[1].split('|').map(s => s.trim()).filter(Boolean)
     : [];
+  /* The .md carries the names and nothing about which strip they were tapped
+     on — which is correct, that was never part of the note. A parsed day is
+     all-own, the same reading a pre-4.1 record gets. */
+  d.e.blocksPlan = [];
 
   // Journal entries: ` > HH:MM - text`
   const entryRe = /^\s*>\s*(\d{2}:\d{2})\s*-\s*(.+)$/gm;
@@ -1702,6 +1990,31 @@ function routineTotals(days) {
 const routineRow = r => r ? `| routines | ${r.pct}% ticked · ${r.days} day${r.days === 1 ? '' : 's'} |`
                           : '| routines | — |';
 
+/* CREATE over a report's days: hours at the desk, split by area, and what was
+   worked on. Read from the parsed note when the day came from Obsidian (`d.c`,
+   the way study reads `d.s`), otherwise from CREATE itself — it keeps its own
+   history, so a report over a month that was never exported still has it. */
+function createTotals(days, dd) {
+  const parsed = dd.map(d => d && d.c).filter(Boolean);
+  const live = window.CREATE && CREATE.rangeStats ? CREATE.rangeStats(days) : null;
+  if (live) return live;
+  if (!parsed.length) return null;
+  const byLabel = {};
+  parsed.forEach(c => (c.areas || []).forEach(a => { byLabel[a.label] = (byLabel[a.label] || 0) + a.hours; }));
+  return { hours: parsed.reduce((a, c) => a + c.hours, 0),
+           sessions: parsed.reduce((a, c) => a + c.sessions, 0),
+           areas: Object.keys(byLabel).map(k => ({ label:k, hours:byLabel[k] })),
+           works: [], what: [] };
+}
+const createSection = c => `## create
+
+| area | hours |
+| --- | --- |
+${c.areas.map(a => `| ${a.label} | ${hoursCell(a.hours)} |`).join('\n') || '| — | — |'}
+| **total** | ${hoursCell(c.hours)} · ${c.sessions} session${c.sessions === 1 ? '' : 's'} |
+
+${c.works.map(x => `- ${x.area} · ${x.name} — ${x.stage}`).join('\n') || '—'}`;
+
 /* Media over a report's days: how many titles per label, and the titles. */
 function mediaTotals(dd) {
   const items = dd.flatMap(d => mediaOf(d.e));
@@ -1773,6 +2086,7 @@ function buildWeeklyReport(days, getDay) {
   const study=studyTotals(days,dd);
   const media=mediaTotals(dd);
   const routines=routineTotals(days);
+  const create=createTotals(days,dd);
 
   return (
 `*weekly review — week ${wk} · ${y}*
@@ -1799,6 +2113,7 @@ ${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / 7 |`).join('\n')}
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
+| at the desk | ${create ? hoursCell(create.hours) + ' · ' + create.sessions + ' sessions' : '—'} |
 ${routineRow(routines)}
 
 ## workouts
@@ -1824,7 +2139,7 @@ ${blockRows}
 
 ${studySection(study)}
 
-${mediaSection(media)}
+${create ? createSection(create) + '\n\n' : ''}${mediaSection(media)}
 
 ## journal entries
 
@@ -1874,6 +2189,7 @@ function buildMonthlyReport(days, getDay) {
   const study=studyTotals(days,dd);
   const media=mediaTotals(dd);
   const routines=routineTotals(days);
+  const create=createTotals(days,dd);
 
   const weekRows=Object.entries(weeks).map(([wk,wdays])=>{
     const wdd=wdays.map(x=>x.data);
@@ -1911,6 +2227,7 @@ ${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / ${loggedDays} |`)
 | caffeine | ${totalCafC}c ${totalCafEd}ed |
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
+| at the desk | ${create ? hoursCell(create.hours) + ' · ' + create.sessions + ' sessions' : '—'} |
 ${routineRow(routines)}
 
 ## workouts
@@ -1936,7 +2253,7 @@ ${blockRows}
 
 ${studySection(study)}
 
-${mediaSection(media)}`);
+${create ? createSection(create) + '\n\n' : ''}${mediaSection(media)}`);
 }
 
 async function shareReport() {
@@ -2058,7 +2375,13 @@ function confirmDeleteAll() {
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function clearDay() {
   Shell.confirm('Clear all data for selected day?', () => {
-    data=fresh(); save(); refreshHome(); toast('Cleared');
+    /* A day is written once and read for months; clearing the wrong one is
+       the mistake this pill exists for. The copy is deep, because the record
+       holds arrays (blocks, meals, media, entries) that `fresh()` replaces
+       rather than empties. */
+    const was = JSON.parse(JSON.stringify(data));
+    data=fresh(); save(); refreshHome();
+    Shell.undo(`${fmtDateShort(TODAY)} cleared`, () => { data = was; save(); refreshHome(); });
   });
 }
 
@@ -2103,9 +2426,13 @@ if (calBox) calBox.addEventListener('click', e => {
   if (arr) { if (!arr.disabled) monthShift(+arr.dataset.month); return; }
   const cell = e.target.closest('[data-day]');
   if (cell && !cell.disabled) { pickDate(cell.dataset.day); return; }
+  /* The key row sits inside the chart, so it is asked about first: closest()
+     finds the innermost, and the cycle must not also open the chart. */
+  if (e.target.closest('[data-cycle]')) { cycleTrend(); return; }
   if (e.target.closest('[data-trend]')) toggleTrend();
 });
-// the chart is a button, so it answers the keyboard like one
+// the plot is a button, so it answers the keyboard like one; the key row is a
+// real <button> and needs nothing here
 if (calBox) calBox.addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   if (!e.target.closest || !e.target.closest('[data-trend]')) return;
@@ -2146,8 +2473,8 @@ Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
 refreshAlert();
 
 return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
-         toggleTrend, sc, setColdShower, setWo,
-         toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock,
+         toggleTrend, cycleTrend, sc, setColdShower, setWo,
+         toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock, toggleBlockFold,
          saveMorning, saveEvening, addEntry, deleteEntry, shareFile, copyAll,
          parseNotes, resetPaste, backToPick, loadReportLocal, shareReport, copyReport,
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,

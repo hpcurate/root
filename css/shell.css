@@ -617,7 +617,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
      shape the user picked outright keeps whatever it picked (themes.css) */
   [data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
   #nav-prev{left:calc(var(--rail-w) + 14px)}
-  #toast{bottom:28px;left:calc(50% + var(--rail-w)/2)}
+  #toast,.undo-pill{bottom:28px;left:calc(50% + var(--rail-w)/2)}
   .sheet,.npad,.ns-store .pad{left:var(--rail-w)}
 }
 @media (min-width:1180px){
@@ -628,7 +628,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
   .tab-b .tb-l{font-size:10px}
   #nav-prev{left:calc(var(--rail-w-wide) + 14px)}
-  #toast{left:calc(50% + var(--rail-w-wide)/2)}
+  #toast,.undo-pill{left:calc(50% + var(--rail-w-wide)/2)}
   .sheet,.npad,.ns-store .pad{left:var(--rail-w-wide)}
 }
 

@@ -94,6 +94,92 @@ show('the screen',  '.ns-create #cr-work');
 console.log('\n\n════ the session log ' + '═'.repeat(43));
 w.CREATE.go('sessions');
 show('log',         '.ns-create #cr-sessions');
+
+/* ── 4.1 ─────────────────────────────────────────────────────────────────── */
+console.log('\n\n════ CREATE · the curate tab ' + '═'.repeat(35));
+w.Creds.save('a-token-for-peek');
+w.fetch = async (url) => {
+  const u = String(url);
+  const body = /\/tasks\?/.test(u) ? [
+    { id:'t3', content:'watch tutorial',    project_id:'p1', section_id:'s2', labels:['curate'], order:2 },
+    { id:'t1', content:'IMANU patreon',     project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:1 },
+    { id:'t4', content:'plugins',           project_id:'p2', section_id:null, labels:['curate','quick'], order:1 },
+    { id:'t2', content:'buunshin patreon',  project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:2 },
+    { id:'t5', content:'library full organization', project_id:'p1', section_id:'s3', labels:['curate','milestone'], order:1 },
+  ] : /\/projects/.test(u) ? [
+    { id:'p2', name:'inbox',  color:'grey',  order:2 },
+    { id:'p1', name:'curate', color:'grape', order:1 },
+  ] : /\/sections/.test(u) ? [
+    { id:'s3', project_id:'p1', name:'library',  section_order:3 },
+    { id:'s2', project_id:'p1', name:'watch',    section_order:2 },
+    { id:'s1', project_id:'p1', name:'purchase', section_order:1 },
+  ] : [];
+  return { ok:true, status:200, text: async () => JSON.stringify(body) };
+};
+w.CREATE.area('curate');
+w.CREATE.go('home');
+await w.CREATE.refreshCurate();
+show('hero',   '.ns-create #cr-hero');
+show('strip',  '.ns-create #cr-areas');
+d.querySelectorAll('.ns-create #cr-curate .cr-cgroup').forEach(g => {
+  console.log('  ' + line(clean(g.querySelector('.cr-chead'))));
+  g.querySelectorAll('.cr-ctask').forEach(t => console.log('      · ' + line(clean(t))));
+});
+w.CREATE.area('all');
+
+console.log('\n\n════ CREATE · a mix has no key chip ' + '═'.repeat(28));
+w.CREATE.open('w4');
+console.log('  mix  : ' + [...d.querySelectorAll('.ns-create #cr-work .cr-mchip')]
+  .map(b => clean(b)).join(' | '));
+w.CREATE.open('w1');
+console.log('  song : ' + [...d.querySelectorAll('.ns-create #cr-work .cr-mchip')]
+  .map(b => clean(b)).join(' | '));
+
+console.log('\n\n════ LOG · the evening blocks ' + '═'.repeat(34));
+w.Shell.go('log');
+w.LOG.go('evening');
+const blkF = d.querySelector('.ns-log [data-field="blocks"]');
+[...blkF.children].forEach(c => console.log(
+  '  ' + (c.classList.contains('hidden') ? '[hidden] ' : '') + (c.id || '') +
+  ' — ' + line(clean(c)).slice(0, 90)));
+
+console.log('\n\n════ LOG · the fortnight, cycled ' + '═'.repeat(31));
+/* A fortnight with something in every field the charts read, so the cycle can
+   be looked at rather than guessed. Every value here is one the evening or the
+   morning form actually writes. */
+for (let i = 0; i < 14; i++) {
+  const iso = day(-i);
+  const r = 1 + ((i * 3) % 5);
+  w.localStorage.setItem('log_' + iso, JSON.stringify({
+    date: iso, scale: 5,
+    m: { wt:'07:' + String(10 + (i % 5) * 6).padStart(2, '0'), sl: (6 + (i % 4) * 0.5).toFixed(1),
+         nrg: r, mood: 1 + ((i * 2) % 5), cs_on: i % 3 === 0, cs:'2',
+         wkg: (74 + (i % 3) * 0.4).toFixed(1), km: (i % 5).toFixed(1), wo: '', tkg:'', tmin:'' },
+    e: { kme: ((i % 3) * 1.5).toFixed(1), nrg: 1 + ((i + 1) % 5), mood: 1 + ((i + 2) % 5),
+         stress: 1 + ((i * 4) % 5), meals: ['1','2','3'].slice(0, 1 + (i % 3)),
+         caf_c: i % 4, caf_ed: i % 2, cur_mix: i % 3, cur_prod: (i + 1) % 3, cur_cont: i % 2,
+         blocks: ['mixing', 'admin'].slice(0, 1 + (i % 2)), blocksPlan: [], media: [] },
+    entries: [],
+  }));
+}
+w.Shell.go('log');
+w.LOG.go('home');
+w.LOG.renderMonth();
+const seen = new Set();
+for (let i = 0; i < 10; i++) {
+  const t = d.querySelector('.ns-log .lc-trend');
+  const k = t && t.querySelector('.lc-key');
+  if (!k) { console.log('  (nothing to draw)'); break; }
+  const name = String(t.dataset.chart || '—');
+  if (seen.has(name)) break;
+  seen.add(name);
+  console.log('  ' + name.padEnd(8) + ' ' + line(clean(k)));
+  w.LOG.cycleTrend();
+}
+console.log('\n  opened up (axis labels, top to bottom):');
+w.LOG.toggleTrend();
+console.log('    ' + [...d.querySelectorAll('.ns-log .lc-yax span')].map(x => x.textContent).join(' · ') +
+  '   |  ' + (d.querySelector('.ns-log .lc-shut')?.textContent || '(no close)'));
+
 console.log('');
-console.log("");
 process.exit(0);

@@ -17,13 +17,13 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | Tab       | Does                                                                   |
 | --------- | ---------------------------------------------------------------------- |
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
-| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors. Its tab wears a `!` while a half of the day is unwritten. |
+| **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors — and since 4.1 the fortnight is **six** charts, cycled by tapping the key row under it (the day, morning vs evening, sleep, walking, output, intake), each on its own single-unit axis. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
 | **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, and a `+` or `−` at its head for a moment when it moves (3.0.2; it went green and red until then). |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. No network at all: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads the open Todoist tasks carrying one label, grouped by section. That tab is the one networked thing in the app and it only ever reads. The day's hours also reach LOG's note and both reports. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -168,6 +168,8 @@ on the evening form.
 
 ```js
 Shell.toast(msg)                       // the one toast
+Shell.undo(label, restore)             // the one undo pill — offered *instead of* a toast
+Shell.hideUndo()                       // take it back down early
 Shell.today()                          // local YYYY-MM-DD — the only definition of "today"
 Shell.confirm(msg, onOk)               // the app's own dialog; honours "confirm before clearing"
 Shell.confirm(msg)                     // …the same question as a promise, for async callers
@@ -183,6 +185,17 @@ Shell.register(name, { onShow, onDayChange, onMinute, home, search })
 do next is the second argument, or the promise it answers with when there is no
 second argument. A `confirm()` or `prompt()` anywhere in a module is a bug — see
 §6 — and a harness check reads every module and fails on one.
+
+**`Shell.undo` is what a clear does instead of toasting.** The module takes a
+copy of what it is about to clear, clears it, and hands the way back as a
+closure; the pill lives for the "Undo window" dial (behaviour; 0 pins it until
+it is tapped or the next clear replaces it) and then the closure is dropped. It
+is never shown *as well as* a toast — they occupy the same spot — and there is
+deliberately only one at a time, because a stack of undo pills on a phone is a
+stack of pills and the second clear is the one you meant. Nothing about it is
+stored: an undo that survived a reload would be an edit history, which this is
+not. Seven modules offer it (STORE, PLAN, DO, LOG, CAL, TRACK, CREATE) and a
+harness check fails if one stops.
 
 `Shell.ask` is the dialog underneath both, for the questions that are **not**
 about clearing and so must be asked whatever "confirm before clearing" says:
@@ -403,7 +416,7 @@ versions still work off the same data.
 | `do-stats-v1` | DO | the rolling routine tally, `{ days: { iso: { routineKey: [done, total] } } }`, capped at 400 days. **Deliberately hyphenated**: the day sweep matches `do_`, and a summary the sweep can reach lasts one day. Same reasoning as `log-scale-v2` |
 | `do_todoist_v1` | DO | DO's Todoist target + a mirrored token, since 2.3 the today-tasks block's filter and its cached list for the day, since 2.5 the block tiles, since 2.8 the media tab's switch and cached list, since 2.19 the quick cards' switch and their cached tasks with subtasks, since 2.24 the media tab's kind filter and sort order (`mediaKind`, `mediaSort` — the find box is deliberately not stored) |
 | `travel_state_v2` | DO | every packing checklist (`travel_state_v1` migrated once, on read) |
-| `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`) |
+| `log_<YYYY-MM-DD>` | LOG | one logged day (`e.media` since 2.8: the titles finished on DO's media tab, `{ name, kind, sub }`; `e.blocksPlan` since 4.1: which of `e.blocks` were ticked on the *planned* strip rather than the standing one — a marker over the same names, never a second list, and never exported. See §6) |
 | `log-scale-v2` | LOG | the 1–3 → 1–5 rescale flag. **Deliberately not `log_`-prefixed** — `allLogKeys()` would treat it as a day |
 | `log-alert-seen-v1` | LOG | `{ plan: <iso> }` — the day PLAN's "nothing planned for tomorrow" prompt was last dismissed by opening PLAN. The only alert state that is stored rather than derived; hyphenated for the same reason as `log-scale-v2` |
 | `plan_queue` / `plan_mappings` / `plan_projects` / `plan_token` | PLAN | |
@@ -417,7 +430,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
-| `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, and the shelf's own three switches. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
+| `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read, which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -1129,6 +1142,54 @@ both say so, and a new device needs the `.apkg` imported again.
 
 ---
 
+- **Two `function` declarations of one name in a module: the later one wins,
+  silently.** 4.1 added a `hourOf` to `log.js` beside one that had been there
+  since the alert rules, and the two answered the same-looking question in
+  different units — an hour of the day against minutes since midnight. Nothing
+  complained, no check failed, and the sleep chart drew an average wake-up time
+  of 441. `test/peek.mjs` printed the number and it was obvious in a second,
+  which is exactly the half of "did that come out right" the tool exists for.
+  There is a harness check over every module now.
+- **`.ns-create .cr-areas` is a copy of `.ns-do .tabs`.** The tab strip — the
+  rail, the flat chips, the sliding glider — is written twice, once in `do.css`
+  for the title band and once in `create.css` for the content. They are the same
+  control and they have to keep looking like it, so a change to one is a change
+  to both. DO's differs in exactly one way: it lives in the wordmark's row, so
+  its height is `--band-row` and its chips are a fixed 32px (§4). CREATE's takes
+  its height from its own padding because nothing is sharing its row.
+- **A block styled by class and marked up by id alone is styled by nothing.**
+  `#cr-hero` and `#cr-sorts` had rules written for `.cr-hero` and `.cr-sorts`
+  and neither class was ever in the markup, so the shelf's number was never
+  centred and the sort chips were never a row with a gap in it — for two whole
+  versions. That is what "the spacing is off" turned out to be. A harness check
+  now asserts every generated block on that screen carries the class its rules
+  are written for.
+- **CREATE's shelf is offline; its curate tab is not.** Since 4.1 the module
+  reaches the network in exactly one function, through the shared `Todoist`
+  client, and only ever **reads**. Nothing in CREATE closes, moves, reschedules
+  or creates a task — closing a curate task is DO's job and filing one is
+  PLAN's, and a third app with an opinion about the same list is how two of them
+  end up disagreeing. Two harness checks hold the line: no `fetch(` and no
+  `api.todoist.com` in the module, and no `Todoist.call(`, no method, no
+  `/close` and no `/reopen`.
+- **`e.blocks` says what was done; it cannot say where it was ticked.** It is a
+  flat list of names and the Obsidian side parses that shape, so it stays one.
+  A planned task called "mixing" and the standing block called "mixing" are the
+  same name, which is why ticking either used to light both. `e.blocksPlan` is
+  the marker that separates them — the subset of `e.blocks` that was ticked on
+  the planned strip — and it is UI state: never exported, absent on every day
+  written before 4.1 (which reads as all-own, which is what it was), and reset
+  to empty by the note parser. A name is still only in the record once, so
+  ticking it on the other strip *moves* the light rather than counting it twice:
+  "mixing" done once is one block however many places offered it.
+- **An area's `fields` is "not asked", never "deleted".** `create.areas[].fields`
+  says which of the three meta chips an area's work carries — a song has a
+  musical key, a DJ set has one every four minutes — and switching one off
+  removes the chip *and* its handler, so there is no hidden button with a live
+  editor behind it. What is already written stays in the record and comes back
+  the moment the field is switched on again. Exactly the rule `log.fields` has
+  followed since 2.0, for exactly the same reason.
+
 ## 7. How to do the common things
 
 **Add a theme** — one entry in `Prefs.THEMES` (id, name, mode, group, desc, four
@@ -1171,7 +1232,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 774 checks covering boot, every theme and panel, the
+through DOM events: 865 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1180,7 +1241,11 @@ and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
 alert in 2.19, CAL and the new-app migration in 2.20, the multi-slot
 export, the stepped day and the new transition in 2.20.1, and the app's own
 dialog, the numpad's four readings, LOG's month and fortnight, DAY's stepper and
-STORE's pin in 2.22, and CREATE's stages, ticks, sessions and editors in 3.0. jsdom has no
+STORE's pin in 2.22, and CREATE's stages, ticks, sessions and editors in 3.0, and in 4.1 the shared
+undo pill, CREATE's tab strip, its per-area fields, its curate tab against a
+stubbed Todoist, LOG's folded and unlinked blocks, the fortnight's six charts,
+and the two invariants those left behind — nothing on PLAN clips its own text
+against a line-height of 1, and no module declares one function name twice. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -1466,6 +1531,125 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.1 — 2026-09-06 — the areas become a real tab strip, CREATE reaches Todoist and LOG, and clearing can be taken back
+
+Ten Todoist tasks labelled `@claude`, one batch, one version. The eleventh was
+an `@idea` and is listed at the bottom, unbuilt.
+
+**The areas are DO's selector now, and there are four of them.** `all ·
+production · mixing · curate` in one bordered rail with a sliding glider under
+the live chip — the DAILY / MEDIA / OTHER control from DO, in CREATE. The
+session log uses the same strip rather than the second, different one it had.
+The shape is written twice, in `do.css` and in `create.css`; §6 names the pair
+so a change to one is known to be a change to both.
+
+**CURATE: the Todoist label, grouped by section.** Every open task carrying
+`create.curate.label` under the section it sits in, in Todoist's own order —
+project order, then section order, then the task's own order inside the section.
+Three calls, not one per project. Cached in `create_v1` so the tab draws before
+the network answers, refreshed behind that when it is older than the window
+(a dial), and refreshable by hand.
+
+**It reads and never writes.** CREATE does not close, move, reschedule or create
+a task: closing a curate task is DO's job and filing one is PLAN's. This does
+end the module's "no network at all" rule and the header, the settings panel and
+§6 all say so; what replaced it is the narrower promise that is still true and
+still worth protecting, and two harness checks hold it.
+
+**A mix has no key.** `create.areas[].fields` says which of the three meta chips
+an area asks for. Production asks for tempo, key and tags; mixing asks for tempo
+and tags, because a DJ set's key changes every four minutes. Switching a field
+off takes away the chip *and* its handler and touches nothing already written —
+`log.fields`' rule, since 2.0. There is a checkbox per field in the area editor.
+
+**The spacing, and what it actually was.** `#cr-hero` and `#cr-sorts` had rules
+written for `.cr-hero` and `.cr-sorts` and neither class was in the markup, so
+the shelf's big number was never centred and the sort chips were never a row
+with a gap in them. Two versions of that. Fixed, and a check now asserts every
+generated block on the shelf carries the class its rules are written for.
+Separately, every literal pixel margin in `create.css` became a ratio of
+`--dens`: the Spacing dial moved every pad on the page and left the gaps
+*between* the sections where they were, so the screen got denser and looser at
+once — which is the other half of what "the spacing is off" looks like.
+
+**CREATE reaches LOG.** `CREATE.dayStats(iso)` and `CREATE.rangeStats(days)` are
+synchronous readers over `create_v1`, the shape `TRACK.doneOn` and
+`LEARN.dailyStats` already have. The note gains a `#### create` section on a day
+with sessions — hours, sessions, the split by area, what was worked on and what
+was done to it — and the parser reads it back into `d.c`. Both reports gain an
+"at the desk" line and a `## create` section. LOG stores nothing of CREATE's; it
+asks at note time and at report time.
+
+**The undo pill.** Clearing is the destructive act you do on purpose and still
+regret, so it does not toast any more: `Shell.undo(label, restore)` offers the
+way back, on a "Undo window" dial in behaviour (default 5s; 0 pins it). Seven
+modules use it — STORE's list, cart and history, PLAN's queue and sent history,
+DO's day, LOG's day and its two counters, DAY's stored days, TRACK's ticks,
+CREATE's shelf. It wears the title: the display face at the wordmark's weight
+with the same hard offset copy behind it, and the arrow — a sprite symbol, not a
+typed character — takes the same offset as a drop-shadow.
+
+**The navigation arrows wear the title too.** LOG's date arrows and PLAN's day
+stepper are the same control doing the same job, and they were thin mono glyphs
+a few pixels under a heavy display wordmark. They are `800 … var(--head)` in
+title ink with the title's shadow now, composed at the point of use — never
+through a token that pre-resolves its colour, which is the bug 3.0.1 spent a
+version on. One caveat, written into the sheet: `←` and `→` are typed
+characters, so a display face without them falls back per glyph. The weight, the
+ink and the shadow all land regardless — those are not the font's to refuse.
+
+**LOG's evening: what was planned comes first.** The standing nine blocks moved
+*under* the planned ones and folded away behind a tap, closed by default, opening
+itself if one of them is already ticked. Most evenings are made of what was
+planned; the nine were a list to scroll past.
+
+**And the two strips stopped lighting each other.** A planned task called
+"mixing" and the standing block called "mixing" are the same name, and `e.blocks`
+— which is the export's shape and stays it — can only say the name is in the
+list. `e.blocksPlan` is the marker that says which strip put it there. A name is
+still in the record once, so ticking it on the other strip moves the light
+rather than counting it twice.
+
+**The fortnight is six charts.** Tapping the key row underneath moves to the
+next; the plot still opens over the month, on every chart. The day (energy,
+mood, stress), morning vs evening, sleep (hours slept and the hour you woke),
+walking, output (blocks and the three curate counters) and intake (coffee,
+energy drinks, meals). Every series is a field the record already holds and
+nothing new is stored. **One unit per chart, always** — a shared y-axis is a
+claim that two numbers are comparable, and hours are not counts — which is why
+there are six rather than two crowded ones. A chart with nothing in it is
+dropped from the cycle rather than shown empty. The axis is the chart's own now,
+and its gridlines and its labels come from one call so they cannot disagree.
+
+**PLAN's clipped descenders, checked again.** The 3.1.0 fix is in place — the
+five boxes that hide their overflow all carry a real line-height — and there is
+an invariant over the sheet now: nothing on PLAN may combine `overflow:hidden`
+with a `/1` font shorthand, so a sixth box cannot bring it back. It was still
+not *looked at*, so the task stays open.
+
+**A real bug, caught by `test/peek.mjs`.** The sleep chart read a wake-up time
+through a `hourOf` that already existed in `log.js` for the alert rules and
+answers *minutes since midnight*. Two `function` declarations of one name is the
+later one winning in silence: nothing complained, no check failed, and the chart
+said the average wake-up was 441. Renamed, and there is a harness check over
+every module for a duplicate declaration now — §6 carries it, because it is the
+shape of mistake any file this long can make.
+
+**Parked, not built:** "bring content down: triple tap screen to bring elements
+down 50% to make it more reachable from my hands on the screen" (`@idea`).
+
+**Verified** — `test/harness.mjs`, **865 checks, all green** (816 at 4.0), 49
+new. And read back through `test/peek.mjs`: the curate tab's groups in Todoist's
+order, a mix's chips beside a song's, the evening's block field in its new order
+with the fold closed, and all six charts' key rows one after another — which is
+what turned up the `hourOf` collision.
+
+**Not looked at.** The browser extension was not connected in this session, so
+nothing here was seen on a real screen — no version since 3.0 has shipped that
+way. The tab strip's glider, the undo pill, the title-weight arrows, the folded
+block field and the six charts have all been reasoned about, tested and printed,
+but not *looked at*.
 
 ### 4.0 — 2026-09-06 — CREATE holds two kinds of work, and the shelf holds both
 

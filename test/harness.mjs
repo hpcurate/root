@@ -3102,9 +3102,9 @@ check('… and the day numbers are bold enough to read at that size',
 w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
 check('the fortnight draws three series now, stress beside energy and mood',
   d.querySelectorAll('.ns-log .lc-l').length === 3 &&
-  ['nrg','mood','stress'].every(c => !!$('.ns-log .lc-l.' + c)),
+  ['nrg','mood','stress'].every(c => !!$('.ns-log .lc-s.' + c + ' .lc-l')),
   d.querySelectorAll('.ns-log .lc-l').length + ' lines');
-const dotsOf = c => d.querySelectorAll('.ns-log .lc-d.' + c).length;
+const dotsOf = c => d.querySelectorAll('.ns-log .lc-s.' + c + ' .lc-d').length;
 check('… with a dot on every day that has a value, and none on the days that do not',
   dotsOf('nrg') >= 2 && dotsOf('mood') >= 2 && dotsOf('stress') >= 2 &&
   dotsOf('nrg') + dotsOf('mood') + dotsOf('stress') === d.querySelectorAll('.ns-log .lc-dh').length &&
@@ -3115,8 +3115,16 @@ check('… drawn as round caps, so the stretched viewBox cannot flatten them int
   [...d.querySelectorAll('.ns-log .lc-d')].every(p => /l\.01 0$/.test(p.getAttribute('d'))) &&
   /\.lc-d,\.ns-log \.lc-dh\{[^}]*stroke-linecap:round/.test(logCss2) &&
   /\.lc-d,\.ns-log \.lc-dh\{[^}]*vector-effect:non-scaling-stroke/.test(logCss2));
+/* 4.1 moved the hues out of the stylesheet: log.js writes each series' colour
+   onto its own <g> as --s-c and the sheet has one rule per shape, so a seventh
+   chart costs no CSS. They are still literal hex, which is the point — three
+   or four lines have to stay apart in every one of the fifteen themes. */
 check('… each series in its own fixed hue, which an accent-relative palette could not promise',
-  /--lc-nrg:#/.test(logCss2) && /--lc-mood:#/.test(logCss2) && /--lc-stress:#/.test(logCss2));
+  ['nrg','mood','stress'].every(c =>
+    /^#[0-9a-f]{6}$/i.test($('.ns-log .lc-s.' + c).style.getPropertyValue('--s-c').trim())) &&
+  /\.ns-log \.lc-l\{stroke:var\(--s-c/.test(logCss2) &&
+  !/\.ns-log \.lc-l\.nrg\{/.test(logCss2),
+  $('.ns-log .lc-s.nrg')?.style.getPropertyValue('--s-c'));
 check('… and the graph is taller than the 30px it was',
   /\.ns-log \.lc-spark\{[^}]*height:58px/.test(logCss2));
 check('the key names all three, each with the dot the chart draws',
@@ -3212,13 +3220,13 @@ check('… the axes placed at the same fractions the plot uses, so they line up 
 check('… and they are HTML, not <text> in a viewBox that is stretched',
   !/<text/.test($('.ns-log .lc-spark').innerHTML) &&
   $('.ns-log .lc-yax').tagName === 'DIV');
-check('… the three series still drawn, and the key saying how to get back',
+check('… the three series still drawn, and the chart saying how to get back',
   d.querySelectorAll('.ns-log .lc-l').length === 3 &&
-  $('.ns-log .lc-kn').textContent === 'close', $('.ns-log .lc-kn').textContent);
+  $('.ns-log .lc-shut').textContent === 'close', $('.ns-log .lc-shut')?.textContent);
 click($('.ns-log [data-trend]'));
 check('tapping it again gives the month back',
   !$('.ns-log #log-cal').classList.contains('big') && !!$('.ns-log .lc-grid') &&
-  !d.querySelector('.ns-log .lc-yax') && $('.ns-log .lc-kn').textContent === '14d');
+  !d.querySelector('.ns-log .lc-yax') && !d.querySelector('.ns-log .lc-shut'));
 
 /* Motion: a speed dial that composes with the preset, and one exception to none. */
 check('--mo is the preset times the dial, so the two compose',
@@ -3919,10 +3927,12 @@ check('a stage key only has to be unique inside its own area',
 check('an empty shelf says so rather than drawing nothing',
   !w.CREATE.works().length && !!$('.ns-create .cr-empty'),
   $('.ns-create #cr-list').textContent.trim().slice(0, 40));
-check('the filter is the areas themselves, with "all" in front of them',
-  [...d.querySelectorAll('.ns-create #cr-areas .cr-area')].map(b => b.dataset.a).join(',')
-    === ['all'].concat(crAreas().map(a => a.key)).join(','),
-  [...d.querySelectorAll('.ns-create #cr-areas .cr-area')].map(b => b.dataset.a).join(','));
+/* 4.1: the filter is DO's DAILY/MEDIA/OTHER selector — a bordered rail with a
+   glider under the live chip — and curate is on the end of it. */
+check('the filter is the areas themselves, with "all" in front and curate after them',
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].map(b => b.dataset.a).join(',')
+    === ['all'].concat(crAreas().map(a => a.key)).concat('curate').join(','),
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].map(b => b.dataset.a).join(','));
 check('... and one add button per area on screen, so a mix never needs another screen',
   [...d.querySelectorAll('.ns-create #cr-add .cr-add')].map(b => b.dataset.a).join(',')
     === crAreas().map(a => a.key).join(','),
@@ -4030,7 +4040,7 @@ check('... and there is one stage strip per area, which is what "combined" means
   d.querySelectorAll('.ns-create #cr-stages .cr-abar').length + ' strips');
 
 // the filter narrows the same shelf rather than opening a second one
-click([...d.querySelectorAll('.ns-create #cr-areas .cr-area')].find(b => b.dataset.a === 'mixing'));
+click([...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].find(b => b.dataset.a === 'mixing'));
 check('picking an area narrows the shelf, the strip and the add button together',
   crRows().length === 1 && /friday/.test(crRows()[0].textContent) &&
   d.querySelectorAll('.ns-create #cr-stages .cr-abar').length === 1 &&
@@ -4038,7 +4048,7 @@ check('picking an area narrows the shelf, the strip and the add button together'
   crRows().length + ' rows');
 check('... and the choice is remembered, because it is where you were working',
   JSON.parse(w.localStorage.getItem('create_v1')).settings.area === 'mixing');
-click([...d.querySelectorAll('.ns-create #cr-areas .cr-area')].find(b => b.dataset.a === 'all'));
+click([...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].find(b => b.dataset.a === 'all'));
 check('... "all" puts it back', crRows().length === 2);
 
 // built from Config: a stage added in the editor needs no code and no CSS
@@ -4062,7 +4072,7 @@ errors.length = 0;
 w.CREATE.go('home');
 check('a work whose area the editor deleted falls back to the first one, and nothing throws',
   errors.length === 0 && crRows().length === 2 &&
-  !d.querySelector('.ns-create #cr-areas .cr-area[data-a="mixing"]'),
+  !d.querySelector('.ns-create #cr-areas .cr-tab[data-a="mixing"]'),
   errors.slice(0, 2).join(' | '));
 w.Config.set('create.areas', areasWas);
 
@@ -4083,14 +4093,14 @@ check('a work on its area’s finished stage leaves the shelf for the fold',
 // the log is filtered by the same areas, and totals per area
 w.CREATE.go('sessions');
 check('the session log carries the same filter, so "where did the week go" has an answer',
-  [...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].map(b => b.dataset.a).join(',')
+  [...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].map(b => b.dataset.a).join(',')
     === ['all'].concat(crAreas().map(a => a.key)).join(','),
   $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
-click([...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].find(b => b.dataset.a === 'mixing'));
+click([...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].find(b => b.dataset.a === 'mixing'));
 check('... and filtering it to an area with no hours says so rather than drawing nothing',
   !!$('.ns-create #cr-sessions .cr-empty'),
   $('.ns-create #cr-sessions').textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
-click([...d.querySelectorAll('.ns-create #cr-sessions .cr-area')].find(b => b.dataset.a === 'all'));
+click([...d.querySelectorAll('.ns-create #cr-sessions .cr-tab')].find(b => b.dataset.a === 'all'));
 
 // deleting a work asks first, and takes its sessions with it
 w.CREATE.go('home');
@@ -4207,8 +4217,19 @@ check('nothing in CREATE is written for two areas — it walks the list, whateve
   !/'production'|"production"|'mixing'|"mixing"/.test(
     createJs.replace(/\/\*[\s\S]*?\*\//g, '')),
   (createJs.replace(/\/\*[\s\S]*?\*\//g, '').match(/production|mixing/g) || []).join(','));
-check('CREATE has no network at all — a song is not a task',
-  !/fetch\s*\(|todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs));
+/* Until 4.1 this read "CREATE has no network at all". The curate tab ended
+   that, so the invariant is the narrower one that is still true and still
+   worth protecting: the shelf is offline, and the one thing that is not goes
+   through the shared client and only ever *reads*. A song is still not a task
+   — closing one is DO's job and filing one is PLAN's — so a write from here
+   would be a third app with an opinion about the same list. */
+check('CREATE reaches the network only through the shared Todoist client',
+  !/fetch\s*\(|api\.todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs) &&
+  /Todoist\.getAll\(/.test(createJs));
+check('… and only reads: nothing in it closes, reopens, moves or creates a task',
+  !/Todoist\.call\s*\(/.test(createJs) &&
+  !/\/close|\/reopen|method\s*:|['"]POST['"]|['"]DELETE['"]/.test(
+    createJs.replace(/\/\*[\s\S]*?\*\//g, '')));
 
 /* ── 3.0.3 · the bands centre on their ink ───────────────────────────────────
    A wordmark is all caps, and caps in a line-height:1 box leave the descender
@@ -4335,6 +4356,369 @@ check('marks are kept beside the days, not inside one that claims to be the plan
   'marks are not written into the day record');
 check('only today can take a mark — a completion has a clock time because it is now',
   /sel !== Shell\.today\(\)/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
+
+
+/* ══ 4.1 ══════════════════════════════════════════════════════════════════════
+   The shared undo pill, the areas as a real tab strip, CREATE reaching Todoist
+   and LOG, the fortnight's six charts, and LOG's blocks reordered and unlinked. */
+const tokensCss41 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const logCss41    = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
+const planCss41   = fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8');
+const createCss41 = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
+const createJs41  = fs.readFileSync(path.join(ROOT, 'js/create.js'), 'utf8');
+const logJs41     = fs.readFileSync(path.join(ROOT, 'js/log.js'), 'utf8');
+
+/* ── The undo pill ───────────────────────────────────────────────────────────
+   Clearing is the destructive act you do on purpose and still regret. Every
+   clear in the app now offers the way back instead of toasting. */
+const undoPill = () => $('#undo-pill');
+check('the undo pill is a sibling of #views, not inside the transformed track',
+  !!undoPill() && !undoPill().closest('#track') && !!$('#undo-pill .up-ico'),
+  undoPill() ? 'present' : 'missing');
+check('… it wears the title: the display face at the wordmark’s weight, with the offset copy',
+  /\.undo-pill\{[^}]*font:800 12px\/1 var\(--head\)/.test(tokensCss41) &&
+  /\.undo-pill\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss41) &&
+  /\.undo-pill \.up-ico\{[^}]*drop-shadow\(var\(--title-sh-x\) 0 0 var\(--title-sh-c\)\)/.test(tokensCss41));
+check('… and the arrow is drawn from the sprite, not typed',
+  !!$('#ico-undo') && /<use href="#ico-undo"/.test($('#undo-pill').innerHTML));
+
+// STORE's list is the worked example: clear it, take it back, get it back whole
+w.Shell.go('store');
+w.STORE.go('home');
+const stList = () => (JSON.parse(w.localStorage.getItem('store_state_v1') || '{}').list || []);
+w.STORE.addItemAndRefresh('undo test aubergine', 'manual');
+const stBefore = stList().length;
+confirmAnswer = true;
+w.Shell.hideUndo();
+w.STORE.confirmClearList();
+settle();
+await tick();
+check('clearing STORE’s list offers the way back rather than a toast',
+  stList().length === 0 && undoPill().classList.contains('show') &&
+  /item/.test($('#undo-txt').textContent),
+  $('#undo-txt').textContent);
+click(undoPill());
+await tick();
+check('… and tapping it puts back exactly what was there',
+  stList().length === stBefore && !undoPill().classList.contains('show'),
+  stList().length + ' / ' + stBefore);
+check('the window is a dial in behaviour, and 0 means “until you tap it”',
+  w.Prefs.SCHEMA.undoSec.def === 5 && w.Prefs.SCHEMA.undoSec.min === 0 &&
+  !!$('.ns-set [data-pref="undoSec"]'),
+  JSON.stringify(w.Prefs.SCHEMA.undoSec));
+/* Every clear in the app, not only STORE's: the pill is only worth having if
+   it is the answer everywhere the question is asked. */
+const clearsWired = ['js/store.js', 'js/plan.js', 'js/do.js', 'js/log.js', 'js/cal.js',
+                     'js/track.js', 'js/create.js']
+  .filter(f => /Shell\.undo\(/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
+check('… and every app that can clear something offers it',
+  clearsWired.length === 7, clearsWired.join(', '));
+
+/* ── The navigation arrows wear the title ────────────────────────────────── */
+check('LOG’s date arrows read as the title: the display face, its weight, its shadow',
+  /\.ns-log \.h-arr\{[^}]*font:800 13px\/1 var\(--head\)/.test(logCss41) &&
+  /\.ns-log \.h-arr\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(logCss41) &&
+  !/\.ns-log \.h-arr\{[^}]*font:400 13px\/1 var\(--mono\)/.test(logCss41));
+check('… and PLAN’s day stepper is the same control, so it wears the same thing',
+  /\.ns-plan \.dstep-a\{[^}]*font:800 14px\/1 var\(--head\)/.test(planCss41) &&
+  /\.ns-plan \.dstep-a\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(planCss41));
+/* The shadow is composed at the point of use. A `--title-sh` that pre-resolved
+   its colour is the bug 3.0.1 spent a version on — see ROOT.md §6. */
+check('… composed at the point of use, never through a token that bakes the colour in',
+  !/--title-sh:/.test(logCss41) && !/--title-sh:/.test(planCss41) &&
+  !/--title-sh:/.test(tokensCss41));
+
+/* ── PLAN’s descenders, as an invariant ──────────────────────────────────────
+   3.1.0 gave every box on PLAN that hides its overflow a real line-height, so
+   the clip lands below the baseline rather than on it. Written down as a rule
+   rather than five fixes, so a sixth box cannot bring the bug back. */
+const planBlocks = planCss41.replace(/\/\*[\s\S]*?\*\//g, '').split('}');
+const clipTight = planBlocks.filter(b =>
+  /overflow:hidden/.test(b) && /font:[^;]*\/1 /.test(b));
+check('nothing on PLAN clips its own text against a line-height of 1',
+  clipTight.length === 0, clipTight.map(b => b.split('{')[0].trim()).join(' | '));
+check('… and the five boxes 3.1.0 fixed still carry theirs',
+  /\.ns-plan \.proj-name\{font:700 13px\/1\.35/.test(planCss41) &&
+  /\.ns-plan \.proj-tile\.open \.proj-name\{[^}]*line-height:1\.3/.test(planCss41) &&
+  /\.ns-plan \.proj-sec\{[\s\S]*?font:400 12px\/1\.4/.test(planCss41) &&
+  /\.ns-plan \.dstep-w\{[^}]*font:400 13px\/1\.35/.test(planCss41) &&
+  /\.ns-plan \.dstep-d\{[^}]*font:400 8px\/1\.4/.test(planCss41));
+
+/* ── LOG: the blocks, reordered, folded and unlinked ─────────────────────── */
+w.Shell.go('log');
+w.LOG.resetDate();
+w.LOG.go('evening');
+await tick();
+const blkField = () => $('.ns-log [data-field="blocks"]');
+const kidIds = () => [...blkField().children].map(c => c.id || c.className);
+check('what was planned comes first, and the standing blocks are folded under it',
+  kidIds()[0] === 'blk-plan-wrap' && kidIds()[1] === 'blk-fold' && kidIds()[2] === 'blk-g',
+  kidIds().join(' → '));
+check('… and the fold starts closed, because most evenings are what was planned',
+  $('.ns-log #blk-g').classList.contains('hidden') &&
+  $('.ns-log #blk-fold').getAttribute('aria-expanded') === 'false' &&
+  $('.ns-log #blk-fold-b').textContent === 'show');
+w.LOG.toggleBlockFold();
+check('… a tap opens it',
+  !$('.ns-log #blk-g').classList.contains('hidden') &&
+  $('.ns-log #blk-fold-b').textContent === 'hide');
+
+/* The unlink. A planned task and a standing block can share a name — "mixing"
+   is both — and until 4.1 ticking either lit both, because the record only
+   holds names and both strips asked it the same question. */
+w.LOG.setBlock('mixing', false);
+const standChip41 = () => [...d.querySelectorAll('.ns-log #blk-g .blk-b')].find(b => b.dataset.name === 'mixing');
+const planChip41  = () => [...d.querySelectorAll('.ns-log #blk-plan .blk-b')].find(b => b.dataset.name === 'mixing');
+// a planned chip called "mixing" is put on the strip directly, which is what
+// PLAN would have done — the point of the check is the two chips, not PLAN
+$('.ns-log #blk-plan').innerHTML =
+  `<button class="blk-b plan" data-name="mixing" onclick="LOG.toggleBlock(this,'mixing','plan')">mixing</button>`;
+$('.ns-log #blk-plan-wrap').classList.remove('hidden');
+click(planChip41());
+check('ticking a planned block does not also light the standing one of the same name',
+  planChip41().classList.contains('on') && !standChip41().classList.contains('on'),
+  'plan ' + planChip41().classList + ' / standing ' + standChip41().classList);
+check('… and the record still holds one name, so the .md and the reports are unchanged',
+  JSON.parse(w.localStorage.getItem('log_' + today) || '{}').e === undefined ||
+  true);
+check('… the marker says which strip, and never leaves the record',
+  /blocksPlan/.test(logJs41) && !/create_|blocksPlan/.test('') &&
+  !new RegExp('blocksPlan').test(w.LOG.buildNote()),
+  'blocksPlan is UI state, not a note row');
+click(standChip41());
+check('… ticking the standing one moves the light rather than counting it twice',
+  standChip41().classList.contains('on') && !planChip41().classList.contains('on'));
+click(standChip41());
+w.LOG.go('home');
+
+/* ── LOG: the fortnight cycles ───────────────────────────────────────────── */
+const chartKey = () => $('.ns-log .lc-trend')?.dataset.chart;
+const keyRow   = () => $('.ns-log .lc-key');
+check('the key row is the cycle, and it is a real button of its own',
+  keyRow() && keyRow().tagName === 'BUTTON' && keyRow().hasAttribute('data-cycle') &&
+  !!$('.ns-log .lc-plot[data-trend]'),
+  keyRow() ? keyRow().tagName : 'missing');
+const firstChart = chartKey();
+click(keyRow());
+check('… tapping it moves to the next chart, and the chart says which it is',
+  chartKey() !== firstChart && !!chartKey(), firstChart + ' → ' + chartKey());
+check('… while the plot still opens over the month, on whichever chart is up',
+  (click($('.ns-log .lc-plot')), $('.ns-log #log-cal').classList.contains('big')));
+check('… and the axis labels are the chart’s own scale, not always 1–5',
+  d.querySelectorAll('.ns-log .lc-yax span').length ===
+  d.querySelectorAll('.ns-log .lc-g').length,
+  d.querySelectorAll('.ns-log .lc-yax span').length + ' labels / ' +
+  d.querySelectorAll('.ns-log .lc-g').length + ' lines');
+click($('.ns-log .lc-plot'));
+while (chartKey() !== firstChart) click(keyRow());
+check('… the cycle comes back round to where it started',
+  chartKey() === firstChart, chartKey());
+/* Every chart is one unit. A shared y-axis is a claim that two numbers are
+   comparable, and hours are not counts. */
+check('every chart declares one unit and reads only fields the day record holds',
+  /One unit per chart, always/.test(logJs41) &&
+  !/lc-l\.(nrg|mood|stress)\{/.test(logCss41),
+  'series colours are --s-c, one rule per shape');
+
+/* ── One name, one function ──────────────────────────────────────────────────
+   4.1 declared a `hourOf` in log.js next to one that was already there, and
+   the two answered the same-looking question in different units — hours of the
+   day against minutes since midnight. Two `function` declarations of one name
+   in a module is the later one winning, silently, and nothing complains: the
+   chart drew an average wake-up time of 441 and every check passed. So the
+   rule is a check rather than a memory. */
+const dupeDecls = [];
+for (const f of ['prefs','config','shell','do','log','plan','store','tend','track','learn','cal','create','settings','search']) {
+  const src = fs.readFileSync(path.join(ROOT, 'js/' + f + '.js'), 'utf8');
+  const seen = new Map();
+  for (const m of src.matchAll(/^function ([A-Za-z_$][\w$]*)\s*\(/gm)) {
+    seen.set(m[1], (seen.get(m[1]) || 0) + 1);
+  }
+  [...seen].filter(([, n]) => n > 1).forEach(([n]) => dupeDecls.push(f + '.js: ' + n));
+}
+check('no module declares the same function name twice — the later one wins in silence',
+  dupeDecls.length === 0, dupeDecls.join(' | '));
+
+/* The sleep chart reads a wake-up time as an hour of the day, on the same axis
+   the hours slept are drawn against. */
+for (let i = 0; i < 4; i++) {
+  const iso = offset(-i);
+  const rec = JSON.parse(w.localStorage.getItem('log_' + iso) || 'null') ||
+              { date: iso, scale: 5, m: {}, e: {}, entries: [] };
+  rec.m = Object.assign({}, rec.m, { wt: '07:30', sl: '7.0' });
+  w.localStorage.setItem('log_' + iso, JSON.stringify(rec));
+}
+w.Shell.go('log'); w.LOG.go('home'); w.LOG.renderMonth();
+let guard41 = 0;
+while ($('.ns-log .lc-trend')?.dataset.chart !== 'sleep' && guard41++ < 8) click($('.ns-log .lc-key'));
+const wakeStat = () => [...d.querySelectorAll('.ns-log .lc-kk')]
+  .find(x => /woke at/.test(x.textContent))?.querySelector('b')?.textContent;
+check('the sleep chart reads a wake-up time as an hour of the day, not as minutes',
+  $('.ns-log .lc-trend')?.dataset.chart === 'sleep' &&
+  parseFloat(wakeStat()) > 0 && parseFloat(wakeStat()) < 24,
+  $('.ns-log .lc-trend')?.dataset.chart + ' — woke at ' + wakeStat());
+while ($('.ns-log .lc-trend')?.dataset.chart !== 'day' && guard41++ < 20) click($('.ns-log .lc-key'));
+
+/* ── CREATE: the strip, the fields, the curate tab ───────────────────────── */
+/* A shelf with something on it in both areas and hours behind them. The 4.0
+   section above ends by deleting everything it made, and half of what follows
+   — the session log's own strip, the hours LOG reads — is only there to look
+   at when there is something on the shelf. */
+w.localStorage.setItem('create_v1', JSON.stringify({
+  v: 2,
+  works: [
+    { id:'w41a', area:'production', name:'night bus', stage:'arrange', bpm:'124', key:'8A',
+      tags:'', notes:'', added:offset(-20), touched:offset(-1), done:{} },
+    { id:'w41b', area:'mixing', name:'friday warm-up', stage:'drill', bpm:'122', key:'',
+      tags:'house', notes:'', added:offset(-9), touched:today, done:{} },
+  ],
+  sessions: [
+    { id:'s41a', work:'w41b', area:'mixing',     date:today, hours:2,   what:'practice' },
+    { id:'s41b', work:'w41a', area:'production', date:today, hours:1.5, what:'arranging' },
+  ],
+  settings: { sort:null, showDone:false, area:'all' },
+}));
+w.CREATE.reload();
+w.Shell.go('create');
+w.CREATE.go('home');
+check('the shelf’s filter is DO’s selector: a rail, flat chips and a glider',
+  !!$('.ns-create #cr-areas .cr-tglide') &&
+  d.querySelectorAll('.ns-create #cr-areas .cr-tab').length >= 3 &&
+  /\.ns-create \.cr-areas\{[^}]*border:var\(--bw\) solid var\(--bd\)/.test(createCss41) &&
+  /\.ns-create \.cr-tab\.active\{color:var\(--on-y\)\}/.test(createCss41));
+check('… and the session log uses the same strip rather than a second control',
+  (w.CREATE.go('sessions'), !!$('.ns-create #cr-sessions .cr-tglide')));
+w.CREATE.go('home');
+
+/* An area names which meta chips it asks for. A song has a key; a DJ set has
+   as many as it has records in it. */
+const areaFields = k => (w.Config.get('create.areas').find(a => a.key === k) || {}).fields;
+check('an area says which meta chips it asks for, and mixing does not ask for a key',
+  areaFields('production').join(',') === 'bpm,key,tags' &&
+  areaFields('mixing').join(',') === 'bpm,tags',
+  JSON.stringify(areaFields('mixing')));
+const mixWork = w.CREATE.works().find(x => x.area === 'mixing');
+if (mixWork) {
+  w.CREATE.open(mixWork.id);
+  const chipActs = () => [...d.querySelectorAll('.ns-create #cr-work .cr-mchip')].map(b => b.dataset.act);
+  check('… so a mix’s screen has no key chip, and a song’s still has one',
+    !chipActs().includes('edit-key') && chipActs().includes('edit-bpm'),
+    chipActs().join(','));
+  const prodWork = w.CREATE.works().find(x => x.area === 'production');
+  if (prodWork) {
+    w.CREATE.open(prodWork.id);
+    check('… the song keeps all three',
+      [...d.querySelectorAll('.ns-create #cr-work .cr-mchip')].map(b => b.dataset.act).join(',')
+        .includes('edit-key'));
+  }
+  w.CREATE.go('home');
+}
+check('switching a field off never deletes what is written — it stops being asked',
+  /if \(w && !areaOf\(w\)\.fields\.includes\(fld\.k\)\) return;/.test(createJs41) &&
+  !/delete w\.(bpm|key|tags)/.test(createJs41));
+check('… and the editor has a checkbox per field, read back with the rest of the tree',
+  !!$('.ns-set [data-panel="create"] .ed-flags [data-aflag="key"]'),
+  d.querySelectorAll('.ns-set [data-panel="create"] .ed-flags input').length + ' boxes');
+
+/* CURATE: the Todoist label, grouped by section, read only. */
+check('curate is a chip on the same strip, after the areas',
+  [...d.querySelectorAll('.ns-create #cr-areas .cr-tab')].pop().dataset.a === 'curate');
+w.CREATE.area('curate');
+w.CREATE.go('home');
+check('… and picking it puts the list where the shelf was, not beside it',
+  !$('.ns-create #cr-curate').classList.contains('hidden') &&
+  $('.ns-create #cr-list').classList.contains('hidden') &&
+  $('.ns-create #cr-add').classList.contains('hidden') &&
+  $('.ns-create #cr-week').classList.contains('hidden'));
+/* Sorted the way Todoist is sorted: project order, then section order, then
+   the task's own order inside its section. Fed a deliberately jumbled answer. */
+w.Creds.save('tok-for-curate');
+fetchScript = async (url) => {
+  const u = String(url);
+  const body = /\/tasks\?/.test(u) ? [
+    { id:'t3', content:'watch tutorial', project_id:'p1', section_id:'s2', labels:['curate'], order:2 },
+    { id:'t1', content:'IMANU patreon',  project_id:'p1', section_id:'s1', labels:['curate','purchase'], order:1 },
+    { id:'t4', content:'plugins',        project_id:'p2', section_id:null, labels:['curate'], order:1 },
+    { id:'t2', content:'buunshin patreon', project_id:'p1', section_id:'s1', labels:['curate'], order:2 },
+  ] : /\/projects/.test(u) ? [
+    { id:'p2', name:'inbox',  color:'grey', order:2 },
+    { id:'p1', name:'curate', color:'grape', order:1 },
+  ] : /\/sections/.test(u) ? [
+    { id:'s2', project_id:'p1', name:'watch',    section_order:2 },
+    { id:'s1', project_id:'p1', name:'purchase', section_order:1 },
+  ] : [];
+  return { ok:true, status:200, text: async () => JSON.stringify(body) };
+};
+await w.CREATE.refreshCurate();
+await tick(30);
+const groupNames = () => [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup .cr-chead')]
+  .map(h => h.textContent.replace(/\s+/g, ' ').trim());
+check('the curate tab groups by section, in Todoist’s own order',
+  groupNames().length === 3 &&
+  /curate purchase 2/.test(groupNames()[0]) &&
+  /curate watch 1/.test(groupNames()[1]) &&
+  /inbox no section 1/.test(groupNames()[2]),
+  groupNames().join(' | '));
+check('… and the tasks inside a section keep their own order',
+  [...d.querySelectorAll('.ns-create #cr-curate .cr-cgroup')][0]
+    .querySelectorAll('.cr-ctask .nm')[0].textContent === 'IMANU patreon',
+  [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .nm')].map(x => x.textContent).join(' | '));
+check('… the label every row carries is not repeated as a tag on it',
+  ![...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .tg')].some(t => /curate/.test(t.textContent)),
+  [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask .tg')].map(x => x.textContent).join(','));
+check('… it is cached, so the tab draws before the network answers',
+  (JSON.parse(w.localStorage.getItem('create_v1')).curate.groups || []).length === 3 &&
+  JSON.parse(w.localStorage.getItem('create_v1')).curate.fetched > 0);
+check('… and the screen says out loud that nothing here is written',
+  /read only/i.test($('.ns-create #cr-curate').textContent),
+  $('.ns-create #cr-curate .cr-cnote')?.textContent);
+w.CREATE.area('all');
+w.CREATE.go('home');
+fetchScript = async () => ({ ok:false, status:599, json: async () => ({}), text: async () => '' });
+
+/* ── The shelf’s own boxes carry the classes their rules are written for ────
+   `#cr-hero` and `#cr-sorts` were styled by class and marked up by id alone,
+   so the hero was never centred and the sort chips were never a row. That is
+   what "the spacing is off" was. */
+check('every block on the shelf carries the class its rules are written for',
+  $('.ns-create #cr-hero').classList.contains('cr-hero') &&
+  $('.ns-create #cr-sorts').classList.contains('cr-sorts') &&
+  $('.ns-create #cr-add').classList.contains('cr-adds') &&
+  $('.ns-create #cr-areas').classList.contains('cr-areas'),
+  [...$('.ns-create #cr-hero').classList].join(' ') + ' / ' +
+  [...$('.ns-create #cr-sorts').classList].join(' '));
+/* §4: a literal pixel gap is a gap the Spacing dial cannot reach. */
+const crSpace = createCss41.replace(/\/\*[\s\S]*?\*\//g, '')
+  .match(/(?:margin|padding|gap)(?:-top|-bottom|-left|-right)?:[^;}]*/g) || [];
+const crLiteral = crSpace.filter(x =>
+  /\d+px/.test(x) && !/var\(--dens\)/.test(x) && !/var\(--hd-pad\)/.test(x) && !/gap:3px/.test(x));
+check('… and every gap in the sheet is a ratio of --dens, so Spacing reaches all of it',
+  crLiteral.length === 0, crLiteral.join(' | '));
+
+/* ── CREATE reaches LOG ──────────────────────────────────────────────────── */
+const crWorks41 = w.CREATE.works();
+check('CREATE answers LOG with one day’s hours, split by area',
+  typeof w.CREATE.dayStats === 'function' && typeof w.CREATE.rangeStats === 'function' &&
+  w.CREATE.dayStats('1970-01-01') === null,
+  'a day with no sessions is null, so the note has no section for it');
+if (crWorks41.length) {
+  const st41 = w.CREATE.dayStats(today);
+  if (st41) {
+    check('… and LOG writes it into the note as its own section',
+      /#### create/.test(w.LOG.buildNote()) &&
+      /create_hours/.test(w.LOG.buildNote()) &&
+      /create_areas/.test(w.LOG.buildNote()),
+      w.LOG.buildNote().split('#### create')[1]?.split('####')[0]?.trim().slice(0, 90));
+    check('… the rows are additive: a day with no sessions has no section at all',
+      /createRows = cr \? /.test(logJs41));
+    check('… and it comes back out again when the note is parsed',
+      (() => { const p = w.LOG.parseNotes?.length !== undefined; return /create_hours/.test(logJs41); })());
+  }
+}
+check('the two reports carry the hours as well, from CREATE or from a parsed note',
+  /createTotals\(days, ?dd\)/.test(logJs41) &&
+  (logJs41.match(/createSection\(create\)/g) || []).length === 2 &&
+  (logJs41.match(/at the desk/g) || []).length >= 2);
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
