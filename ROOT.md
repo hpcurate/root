@@ -1207,6 +1207,35 @@ both say so, and a new device needs the `.apkg` imported again.
   the moment the field is switched on again. Exactly the rule `log.fields` has
   followed since 2.0, for exactly the same reason.
 
+- **A throw inside a module's IIFE at boot deletes the whole app.** Each module
+  is `window.X = (function(){ … })()`, and the boot sequence runs at the bottom
+  of it — so anything that throws in there means the assignment never happens
+  and `window.X` is `undefined`. There is no partial app and no error on screen:
+  the slide is simply empty, and every other file that guards with
+  `window.X && X.something()` — `settings.js` does, for every panel — silently
+  does nothing. 4.1.1 read `t.subs.length` off a curate row cached by 4.1, which
+  had no `subs`, and CREATE stopped existing. **A record read at boot is the
+  most dangerous input in the app**, and the rule that follows is the one
+  `normalise()` was always supposed to keep: rebuild it from its known keys,
+  prove every array is one, and drop what the shape cannot account for.
+- **A cache is the part of a record whose shape changes most and is checked
+  least.** `create_v1.curate` is the only thing in that record the app did not
+  author, and it changed row shape between two versions an hour apart. Nothing
+  is lost by dropping a cache — a refetch costs one network call — so it is
+  always cheaper to be strict with it than to be trusting. The harness boots an
+  install holding the previous version's shape.
+- **`Config.get()` on a branch whose shape changed hands back the old shape.**
+  Overrides are stored **whole-branch** (§3), so an install that overrode
+  `create.curate` while it was `{ label, maxAgeMin }` kept exactly that, and
+  `project` read as undefined the moment 4.1.1 renamed the key: no chip on the
+  strip, an empty field in Settings. Any branch with a fixed set of keys and no
+  deletion to express is read *through* the shipped defaults —
+  `Object.assign({}, Config.defaults(path), Config.get(path))` — which is what
+  `log.meds`, `log.medsOn` and `plan.formFields` have always done. **The
+  fallback is on the key being absent, never on its value being falsy**: a key
+  that is present and empty is a choice ("blank switches the tab off") and
+  taking it away is a different bug.
+
 ## 7. How to do the common things
 
 **Add a theme** — one entry in `Prefs.THEMES` (id, name, mode, group, desc, four
@@ -1249,7 +1278,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 885 checks covering boot, every theme and panel, the
+through DOM events: 896 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1548,6 +1577,81 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.1.2 — 2026-09-07 — CREATE stopped existing, and two reasons why
+
+> the tab is there but can't see anything. also the settings don't have a
+> default
+
+Both symptoms, one cause, and a second cause hiding behind it.
+
+**CREATE was not drawing nothing. It was not there at all.** Each module is
+`window.X = (function(){ … })()` with its boot at the bottom, so anything that
+throws inside runs before the assignment: `window.CREATE` was `undefined`. There
+is no partial app and nothing on screen to say so — the slide is empty, and
+every `window.CREATE && CREATE.…` guard elsewhere quietly does nothing, which is
+why the settings panel's fields were blank as well. `settings.js` fills them by
+calling `CREATE.renderSettings()`.
+
+What threw: **a curate list cached by 4.1**. 4.1 cached rows from a label query
+and they had no `subs`; 4.1.1 caches project rows that do, and draws
+`t.subs.length`. One undefined array in a cache that exists only to save a
+network call took out an entire tab, on every install that had opened that tab
+once.
+
+`normalise()` rebuilds the cache from its known keys now, which is what its own
+comment always claimed it did: every field read through a default, every array
+proved to be one, subtasks lifted recursively, and a group the shape cannot
+account for dropped rather than drawn half-built. Nothing is lost by dropping a
+cache — the next visit fetches it again.
+
+**And behind that, the settings field really was empty.** `create.curate` was
+`{ label, maxAgeMin }` for the one version 4.1.0 was current, and a Config
+override is stored **whole-branch** (§3) — so an install that had touched that
+field kept the old object and `project` read as undefined the moment the key was
+renamed. No chip on the strip, a blank field in Settings.
+
+The branch is read through the shipped defaults now —
+`Object.assign({}, Config.defaults(path), Config.get(path))` — which is the
+merge `log.meds`, `log.medsOn` and `plan.formFields` have always used, and is
+safe for the same reason: a fixed set of keys with no deletion to express, so a
+missing one means "not answered" rather than "gone". The stale `label` is
+dropped; a label is not a project, so there is nothing in the old value that
+answers the new question.
+
+**The fallback is on the key being absent, never on the value being falsy.** A
+project that is present and empty is a *choice* — "blank switches the tab off" —
+and the first version of this fix took that choice away by resurrecting the
+default whenever the string was empty. The two blanks are not the same thing.
+
+**A filter that no longer exists now falls back, the way a deleted area already
+did.** This is what turned a config mismatch into a blank screen rather than a
+missing chip: the strip had dropped `curate`, but the shelf's own filter still
+said `curate`, so everything stayed hidden and there was nothing left on the
+page to tap. `areaSel()` had that fallback for an area the editor deleted and
+not for this. Anything that can be *selected* has to be able to stop existing.
+
+**And the field says what it goes back to.** The project input carries the
+shipped value as its placeholder, so an empty one reads as a choice rather than
+as something missing.
+
+**Verified** — `test/harness.mjs`, **896 checks, all green** (885 at 4.1.1), 11
+new, and five of them boot a whole second window holding the exact state that
+broke: an install with 4.1's cached row shape (the module survives, the list is
+lifted and drawn, every row has the arrays the drawing walks, and the settings
+panel fills), an install with a cached group too broken to lift (dropped, module
+alive), an install with 4.1's Config override (the chip is back, the field shows
+the project, the stale key is not kept), an install that blanked the project on
+purpose (still off), and a shelf left on a filter that has since gone (falls
+back to the shelf rather than to nothing).
+
+Three §6 notes: a throw at boot deletes the whole app; a cache is the part of a
+record whose shape changes most and is checked least; and `Config.get()` on a
+branch whose shape changed hands back the old shape.
+
+**Not looked at** — still no browser this session. But this one did not need
+eyes: the failure reproduced in jsdom from a seeded record, which is what the
+harness is for.
 
 ### 4.1.1 — 2026-09-06 — the glider slides, the count moves into the band, and curate is a whole project
 

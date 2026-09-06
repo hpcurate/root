@@ -90,8 +90,30 @@ function readConfig() {
     kinds:[], fields:FIELD_KEYS.slice(), newItem:{ stage:'idea', bpm:'', key:'', tags:'' },
     stages:[{ key:'idea', label:'idea', color:'#7a8699', items:[], terminal:true }] }];
   HOME = Object.assign({ sort:'touched', sessionCount:6, weekDays:7 }, Config.get('create.home') || {});
-  CURATE = Object.assign({ project:'', maxAgeMin:60 }, Config.get('create.curate') || {});
+  /* **Merged through the shipped defaults, not read raw.** An override is
+     stored whole-branch (ROOT.md §3), so an install that overrode this branch
+     while it was `{ label, maxAgeMin }` — which is the shape 4.1.0 shipped for
+     one version — shadows the whole thing, and `project` reads as undefined:
+     no chip on the strip, a blank field in Settings, and, if the shelf was left
+     on the curate tab, a screen with nothing on it. Reading a fixed set of keys
+     through the defaults is the same merge `log.meds`, `log.medsOn` and
+     `plan.formFields` use, and it is safe for the same reason: no key here can
+     be deleted, so a missing one always means "not answered" rather than "gone".
+
+     The stale `label` is not carried over. A label is not a project — there is
+     nothing in the old value that answers the new question — so the honest lift
+     is back to what ROOT ships with, which is also what the field then shows. */
+  CURATE = Object.assign({ project:'', maxAgeMin:60 },
+                         Config.defaults('create.curate') || {},
+                         Config.get('create.curate') || {});
   CURATE.project = String(CURATE.project || '').trim();
+  /* The merge above is what distinguishes the two blanks, and they are not the
+     same thing: a key that is *absent* takes the shipped value (a stale
+     override, or one written before the key existed), while a key that is
+     present and empty is a choice — "blank switches the tab off" — and wins.
+     Falling back on emptiness rather than on absence would have taken that
+     choice away. */
+  delete CURATE.label;
 }
 readConfig();
 
@@ -174,15 +196,44 @@ function normalise(raw) {
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   db.settings = Object.assign({ sort:null, showDone:false, area:'all' }, db.settings || {});
-  /* The cache from the last Todoist read, rebuilt from its known keys rather
-     than trusted: it is the only thing in this record that did not come from
-     the app itself, and a half-written cache should cost a refetch, not a
-     throw on the shelf. */
+  /* ── The curate cache is rebuilt from its known keys, never trusted ────────
+     It is the only thing in this record that did not come from the app itself,
+     and it is the only thing whose *row shape* has changed between versions —
+     4.1 cached label-query rows with no `subs`, 4.1.1 caches project rows that
+     have them. A half-written or stale cache must cost a refetch, not a throw.
+
+     It cost a throw. 4.1.1 read `t.subs.length` off a cached 4.1 row, which
+     threw inside the module's own IIFE at boot — so `window.CREATE` was never
+     assigned and the whole app was gone: an empty slide, and a settings panel
+     whose fields are filled by `CREATE.renderSettings()` and so stayed blank.
+     One undefined array in a disposable cache took out an entire tab.
+
+     So every field is read through a default and every array is proved to be
+     one. Anything the shape does not account for is dropped, and the next visit
+     fetches it again — which costs one network call and cannot fail. */
   const cur = (db.curate && typeof db.curate === 'object') ? db.curate : {};
-  db.curate = { fetched: +cur.fetched || 0,
-                project: String(cur.project || ''),
-                color: String(cur.color || '#7a8699'),
-                groups: Array.isArray(cur.groups) ? cur.groups : [] };
+  const curRow = t => ({
+    id:       String((t && t.id) || ''),
+    content:  String((t && t.content) || ''),
+    tags:     Array.isArray(t && t.tags) ? t.tags.map(String) : [],
+    priority: +(t && t.priority) || 1,
+    due:      (t && t.due) ? String(t.due) : null,
+    o:        +(t && t.o) || 0,
+    subs:     Array.isArray(t && t.subs) ? t.subs.map(curRow) : [],
+  });
+  db.curate = {
+    fetched: +cur.fetched || 0,
+    project: String(cur.project || ''),
+    color:   String(cur.color || '#7a8699'),
+    groups: (Array.isArray(cur.groups) ? cur.groups : [])
+      .filter(g => g && Array.isArray(g.tasks))
+      .map(g => ({
+        key:     String(g.key || ''),
+        section: String(g.section || ''),
+        o:       +g.o || 0,
+        tasks:   g.tasks.map(curRow),
+      })),
+  };
   db.v = 2;
   return db;
 }
@@ -309,9 +360,18 @@ function render() {
 const sortMode = () => DB.settings.sort || HOME.sort || 'touched';
 /* 'all', or an area key. An area the editor has deleted falls back to 'all'
    rather than to an empty shelf that looks like a bug. */
+/* An area the editor has deleted falls back to 'all' rather than to an empty
+   shelf that looks like a bug — and so does **curate** when there is no project
+   set for it. That second half was missing until 4.1.2, and it is what turned a
+   stale Config override into a blank screen: the chip had gone from the strip,
+   the shelf stayed hidden because the filter still said `curate`, and there was
+   nothing left on the page to tap. Anything that can be *selected* has to be
+   able to stop existing. */
 function areaSel() {
   const s = DB.settings.area || 'all';
-  return (s === 'all' || s === 'curate' || AREAS.some(a => a.key === s)) ? s : 'all';
+  if (s === 'all') return 'all';
+  if (s === 'curate') return CURATE.project ? 'curate' : 'all';
+  return AREAS.some(a => a.key === s) ? s : 'all';
 }
 /* CURATE is not an area — nothing on it is a piece of work and none of the
    shelf's machinery applies to it — so it is asked about by name in the two
@@ -991,6 +1051,10 @@ function renderSettings() {
   if (wk) wk.value = Math.max(1, +HOME.weekDays || 7);
   const lb = document.querySelector('.ns-create #cr-set-project');
   if (lb && document.activeElement !== lb) lb.value = CURATE.project;
+  /* What it goes back to if it is emptied — visible in the field rather than
+     only in the source, so "blank switches the tab off" is a choice you can see
+     you are making. */
+  if (lb) lb.placeholder = String((Config.defaults('create.curate') || {}).project || '');
   const ca = document.querySelector('.ns-create #cr-set-curate-age');
   if (ca) ca.value = Math.max(1, +CURATE.maxAgeMin || 60);
 
@@ -1107,6 +1171,9 @@ return { render, renderSettings, go, addWork, exportData, importData, resetAll,
          dayStats: iso => rangeStats([iso]),
          rangeStats,
          curate: () => ({ fetched: DB.curate.fetched, groups: DB.curate.groups.slice() }),
+         /* What the module actually resolved the curate branch to, after the
+            merge through the shipped defaults. Only the harness asks. */
+         curateSettings: () => Object.assign({}, CURATE),
          refreshCurate: fetchCurate,
          /* The stages of one area, by key; with no key, of the first one. */
          stages: k => AREAS[areaIx(k)].stages.slice(),

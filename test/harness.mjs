@@ -4894,7 +4894,7 @@ check('no errors during the run', errors.length === 0, errors.slice(0, 3).join('
    tab on any install that has ever opened the layout panel — which is every
    install that has been used. Proved by booting a second window with prefs
    already in localStorage, which is the only way to run Prefs.load() again. */
-async function bootWith(seed) {
+async function bootWith(seed, configSeed, storeSeed) {
   const dom2 = new JSDOM(html, {
     url: 'http://localhost/root/index.html',
     runScripts: 'dangerously', resources: new LocalLoader(),
@@ -4908,6 +4908,9 @@ async function bootWith(seed) {
       win.fetch = async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '' });
       win.navigator.vibrate = () => true;
       win.localStorage.setItem('root_prefs_v1', JSON.stringify(seed));
+      if (configSeed) win.localStorage.setItem('root_config_v1', JSON.stringify(configSeed));
+      // anything else this install is meant to have already stored
+      Object.keys(storeSeed || {}).forEach(k => win.localStorage.setItem(k, JSON.stringify(storeSeed[k])));
     },
   });
   await new Promise(r => dom2.window.addEventListener('load', r));
@@ -4936,6 +4939,110 @@ const w3 = await bootWith({ apps: ['do', 'log'], appsSeen: w.Prefs.APPS.slice(),
 check('an app switched off on purpose is not resurrected by the same migration',
   !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
   w3.Prefs.get('apps').join(','));
+
+/* ── A Config branch that changed shape, on an install that had overridden it ──
+   `create.curate` was `{ label, maxAgeMin }` for the one version 4.1.0 was
+   current, and an override is stored **whole-branch** (§3) — so an install that
+   had touched that field kept the old object and `project` read as undefined.
+   The chip left the strip, the field in Settings went blank, and — because the
+   shelf's filter was still saying `curate` — the whole screen went blank with
+   nothing left on it to tap. Two fixes, and this is the first: the branch is
+   read through the shipped defaults, so a *missing* key takes the shipped
+   value. */
+const wC1 = await bootWith({ theme: 'void' },
+  { create: { curate: { label: 'curate', maxAgeMin: 60 } } });
+check('an override written before a Config key existed does not shadow the key',
+  wC1.CREATE.curateSettings().project === '02 | curate',
+  JSON.stringify(wC1.CREATE.curateSettings()));
+wC1.SET.panel('create');   // the field is filled when its panel is rendered
+check('… so the chip is still on the strip, and Settings still shows the project',
+  [...wC1.document.querySelectorAll('.ns-create #cr-areas .cr-tab')].some(b => b.dataset.a === 'curate') &&
+  wC1.document.querySelector('.ns-create #cr-set-project').value === '02 | curate',
+  wC1.document.querySelector('.ns-create #cr-set-project').value);
+check('… and the key the old shape carried is not kept — a label is not a project',
+  wC1.CREATE.curateSettings().label === undefined,
+  JSON.stringify(wC1.CREATE.curateSettings()));
+
+/* ── A cached row shape from the version before ───────────────────────────────
+   `create_v1`'s curate cache is the one part of that record the app did not
+   author, and the only one whose *row shape* has changed: 4.1 cached rows from
+   a label query with no `subs`, 4.1.1 caches project rows that have them. The
+   new drawing read `t.subs.length` off an old row, which threw inside the
+   module's own IIFE **at boot** — so `window.CREATE` was never assigned and the
+   whole tab was gone: an empty slide, and a settings panel whose fields are
+   filled by `CREATE.renderSettings()` and so stayed blank. One undefined array
+   in a disposable cache took out an entire app.
+
+   The check boots an install holding exactly that cache. */
+const wC0 = await bootWith({ theme: 'void' }, null, {
+  create_v1: {
+    v: 2,
+    works: [{ id:'wz', area:'production', name:'night bus', stage:'idea',
+              bpm:'', key:'', tags:'', notes:'', added: today, touched: today, done:{} }],
+    sessions: [],
+    /* 4.1's shape: a project name on the group, no `subs` on the task */
+    curate: { fetched: Date.now(), groups: [
+      { key:'p1/s1', project:'curate', section:'purchase', color:'#a78bfa', po:1, so:1,
+        tasks: [{ id:'t1', content:'IMANU patreon', tags:['purchase'], priority:1, to:1 }] }] },
+    settings: { sort:null, showDone:false, area:'curate' },
+  },
+});
+check('a cached list in the previous version’s row shape does not kill the module at boot',
+  !!wC0.CREATE && typeof wC0.CREATE.go === 'function',
+  wC0.CREATE ? 'CREATE is alive' : 'window.CREATE is undefined');
+check('… it is lifted and drawn rather than dropped, so the tab is not empty while it refetches',
+  /IMANU patreon/.test(wC0.document.querySelector('.ns-create #cr-curate').textContent),
+  wC0.document.querySelector('.ns-create #cr-curate').textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
+check('… and every row it lifts has the arrays the drawing walks',
+  wC0.CREATE.curate().groups.every(g => Array.isArray(g.tasks) &&
+    g.tasks.every(t => Array.isArray(t.subs) && Array.isArray(t.tags))),
+  JSON.stringify(wC0.CREATE.curate().groups[0].tasks[0]));
+check('… and the settings panel fills, because the module that fills it exists',
+  (wC0.SET.panel('create'),
+   wC0.document.querySelector('.ns-create #cr-set-project').value === '02 | curate'),
+  wC0.document.querySelector('.ns-create #cr-set-project').value);
+/* A group the shape cannot account for at all is dropped rather than drawn
+   half-built — the next visit fetches it again, which costs one call. */
+const wC0b = await bootWith({ theme: 'void' }, null, {
+  create_v1: { v: 2, works: [], sessions: [],
+    curate: { fetched: Date.now(), groups: [{ key:'x' }, null, { key:'y', tasks:'not an array' }] },
+    settings: { sort:null, showDone:false, area:'all' } },
+});
+check('… a cached group too broken to lift is dropped, not drawn half-built',
+  !!wC0b.CREATE && wC0b.CREATE.curate().groups.length === 0,
+  wC0b.CREATE ? JSON.stringify(wC0b.CREATE.curate().groups) : 'module died');
+
+/* A key that is *present and empty* is a choice, not an absence: "blank
+   switches the tab off" has to keep working, which is why the fallback is on
+   the key being missing rather than on the value being falsy. */
+const wC2 = await bootWith({ theme: 'void' },
+  { create: { curate: { project: '', maxAgeMin: 60 } } });
+check('… while a project deliberately blanked still switches the tab off',
+  wC2.CREATE.curateSettings().project === '' &&
+  ![...wC2.document.querySelectorAll('.ns-create #cr-areas .cr-tab')].some(b => b.dataset.a === 'curate'),
+  [...wC2.document.querySelectorAll('.ns-create #cr-areas .cr-tab')].map(b => b.dataset.a).join(','));
+/* And this is the second fix — the one that made a config mismatch into a blank
+   screen. A filter that no longer exists has to fall back, the way a deleted
+   area already did. Anything that can be selected has to be able to stop
+   existing. */
+const wC3 = await bootWith({ theme: 'void' },
+  { create: { curate: { project: '', maxAgeMin: 60 } } });
+wC3.localStorage.setItem('create_v1', JSON.stringify({
+  v: 2, works: [{ id:'wq', area:'production', name:'still here', stage:'idea',
+                  bpm:'', key:'', tags:'', notes:'', added: today, touched: today, done:{} }],
+  sessions: [], curate: { fetched:0, project:'', color:'#7a8699', groups:[] },
+  settings: { sort:null, showDone:false, area:'curate' } }));
+wC3.CREATE.reload();
+wC3.CREATE.go('home');
+check('a shelf left on a filter that has since gone falls back to "all" rather than blank',
+  !wC3.document.querySelector('.ns-create #cr-list').classList.contains('hidden') &&
+  !!wC3.document.querySelector('.ns-create #cr-list .cr-work') &&
+  wC3.document.querySelector('.ns-create #cr-curate').classList.contains('hidden'),
+  wC3.document.querySelector('.ns-create .cnt').textContent.replace(/\s+/g, ' ').trim().slice(0, 70));
+wC2.SET.panel('create');
+check('… and the field says what it goes back to, so an empty one is a visible choice',
+  wC2.document.querySelector('.ns-create #cr-set-project').placeholder === '02 | curate',
+  wC2.document.querySelector('.ns-create #cr-set-project').placeholder);
 
 /* 2.26.0 folded a stored Interface scale into Spacing, which was the same defect
    moved to another multiplier: --dens multiplies every padding, so 1.1 turns an
