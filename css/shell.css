@@ -243,14 +243,20 @@ body{
    cannot be trimmed with `text-box` like the others — its digits are absolutely
    positioned so that one can slide out while the next slides in, and an
    absolute child has no line box to trim. */
-.view > .h-top .h-daynum{position:relative;flex:0 0 auto;overflow:hidden;
+.view > .h-top .h-daynum{position:relative;flex:0 0 auto;
+  overflow:visible;clip-path:inset(-100% 0);
   min-width:calc(1.1em + var(--title-sh-x));height:calc(var(--title-cap) * 1em);line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
-/* The box has to clip — that is what stops a number on its way out making the
-   row taller — so the digits are held one shadow-width off the right edge and
-   the box is that much wider. Without it the shadow, which is the one part of
-   the glyph that sticks out to the right, was the part being cut off. */
+/* **It clips sideways only.** The box has to clip — that is what stops a number
+   on its way out making the row taller — so the digits are held one shadow-width
+   off the right edge and the box is that much wider. But `overflow:hidden` clips
+   both axes, and once 3.0.3 trimmed this box to the cap height its children were
+   still laying out in full 54px line boxes: 9.4px of digit above and 9.5px below
+   were being cut off. `clip-path:inset(-100% 0)` clips left and right at the box
+   edges and leaves top and bottom unbounded, which is the clip this actually
+   wanted — the sliding is horizontal, and nothing about it needs a vertical cut.
+   Anything else that trims a box it also clips owes the same. */
 /* pulled up by the half-leading the box no longer has, so the digits sit on the
    wordmark's baseline rather than a line box's */
 .view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);

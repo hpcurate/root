@@ -3482,7 +3482,7 @@ check('... the count reads on the date line now, and the total has the wordmark 
   sCount().parentElement.className + ' | ' + sCost().parentElement.className);
 check('... the total is the wordmark\'s own size, capped only where it would not fit',
   /\.ns-store \.h-cost\{[\s\S]*?font-size:min\(var\(--title-px\), 14vw\)/.test(storeCss4) &&
-  /\.ns-store \.h-cost\{[\s\S]*?min-width:0;overflow:hidden/.test(storeCss4) &&
+  /\.ns-store \.h-cost\{[^}]*min-width:0;overflow:visible;clip-path:inset\(-100% 0\)/.test(storeCss4) &&
   /\.view > \.h-top\{overflow:hidden\}/.test(shellCss4));
 check('the cost is hidden while the counter is unpinned', sCost().classList.contains('hidden'));
 w.STORE.togglePin();
@@ -3983,6 +3983,71 @@ check('the pinned total slides with the titles, both ways',
   /\.view\.leaving > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-cost\{/.test(shellCss5));
 check('... and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-cost,\.view\.leaving > \.h-top \.h-cost\{animation:none\}/.test(shellCss5));
+
+/* ── 3.0.4 · trimmed boxes must not be clipped on both axes ──────────────────
+   3.0.3 trimmed these boxes to their cap height for layout, but their children
+   still lay out in full line boxes — so `overflow:hidden`, which clips both
+   axes, cut 9.4px off the top of the day number and 10px off the bottom of the
+   counter. Measured in Chrome. The clip these actually wanted is horizontal:
+   the sliding is sideways, and nothing about it needs a vertical cut. */
+const calCss6 = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
+const shellCss6 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const storeCss6 = fs.readFileSync(path.join(ROOT, 'css/store.css'), 'utf8');
+check('the day number clips sideways only, so its digits are not cut top and bottom',
+  /\.view > \.h-top \.h-daynum\{[^}]*overflow:visible;clip-path:inset\(-100% 0\)/.test(shellCss6) &&
+  !/\.view > \.h-top \.h-daynum\{[^}]*overflow:hidden/.test(shellCss6));
+check('... and so does the counter, which still cannot run into the wordmark',
+  /\.ns-store \.h-cost\{[^}]*overflow:visible;clip-path:inset\(-100% 0\)/.test(storeCss6) &&
+  /flex:0 1 auto;min-width:0;overflow:visible/.test(storeCss6) &&
+  !/flex:0 1 auto;min-width:0;overflow:hidden/.test(storeCss6));
+
+/* ── 3.0.4 · what was finished, and when ────────────────────────────────────
+   Every other thing on DAY is the day as planned. A mark is the day as it
+   happened: a completion puts a dot on the calendar at the minute it was
+   ticked, whoever ticked it. */
+w.Shell.go('cal');
+/* a day with two rows that can be ticked, bracketing the current hour so the
+   mark has somewhere on the drawing to land */
+const mkH = h => String(Math.max(0, Math.min(22, new w.Date().getHours() - 1)) + h).padStart(2, '0') + ':00';
+w.CAL.write({ day: today, start: mkH(0), template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { from: mkH(0), to: mkH(1), dur: 60, kind: 'task', name: 'mix the intro', slot: 'b1a', color: '#fff' },
+    { from: mkH(1), to: mkH(2), dur: 60, kind: 'fixed', name: 'routine', cal: 'home' },
+  ] });
+w.CAL.pick(today);
+const marks = () => w.CAL.marks(today);
+const markEls = () => [...d.querySelectorAll('.ns-cal .cal-mark')];
+const evBtn = () => d.querySelector('.ns-cal .cal-ev[data-act="tick"]');
+const before = marks().length;
+click(evBtn());
+check('ticking a row on DAY leaves a mark at the time it was ticked',
+  marks().length === before + 1 && /^\d\d:\d\d$/.test(marks()[marks().length - 1].at),
+  JSON.stringify(marks()));
+check('... and the mark is drawn on the day, small, over the rows',
+  markEls().length >= 1 &&
+  /--mark-y:/.test(markEls()[0].getAttribute('style') || '') &&
+  /\.ns-cal \.cal-mark\{[^}]*pointer-events:none/.test(calCss6),
+  markEls().length + ' marks drawn');
+click(evBtn());
+check('unticking takes its mark back', marks().length === before, JSON.stringify(marks()));
+
+/* DO's ticks are completions too, and they are the ones that mostly happen. */
+w.CAL.markDone('a job from do', true);
+check("anything that finishes a task can leave one — DO calls it on both its lists",
+  marks().some(m => m.name === 'a job from do') &&
+  /CAL\.markDone\(task\.content, task\.done\)/.test(fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8')) &&
+  (fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8').match(/CAL\.markDone\(/g) || []).length === 4,
+  (fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8').match(/CAL\.markDone\(/g) || []).length + ' call sites');
+w.CAL.markDone('a job from do', false);
+check('... and taking it back removes exactly one, not every mark of that name',
+  !marks().some(m => m.name === 'a job from do'), JSON.stringify(marks()));
+/* A mark is a fact about the afternoon, not a claim about what was sent. */
+check('marks are kept beside the days, not inside one that claims to be the plan',
+  /"marks"/.test(w.localStorage.getItem('cal_days_v1') || '{}') ||
+  !/marks/.test(JSON.stringify(w.CAL.day(today) || {})),
+  'marks are not written into the day record');
+check('only today can take a mark — a completion has a clock time because it is now',
+  /sel !== Shell\.today\(\)/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 

@@ -129,6 +129,29 @@ body:has(#nav.chrome-off) .cal-steps,
   background:var(--y);color:var(--on-y);border-radius:0 var(--r1) var(--r1) 0;
   font:700 8px/1 var(--mono);letter-spacing:.06em;padding:3px 5px 3px 4px}
 
+/* ── A completion mark ──
+   The rows are the day as planned; this is the day as it happened. Small, and
+   visible: a dot on the rail at the minute it was finished, the time beside it,
+   and the name after that in the muted colour so the mark reads as an
+   annotation rather than as another row. It sits over the rows and takes no
+   pointer events — the row underneath is still the thing you tap. */
+.ns-cal .cal-mark{position:absolute;left:0;right:0;top:var(--mark-y,0);z-index:3;
+  height:0;display:flex;align-items:center;gap:5px;pointer-events:none;
+  /* Inset past the time column on the left (which ends around 53px) and the
+     now line's own badge (which ends around 36px), and past the row's delete
+     and tick on the right. Measured, not guessed — without it the mark and the
+     now line print on top of each other, and today is the only day either of
+     them appears on. */
+  padding-left:calc(56px + 10px * var(--dens));
+  padding-right:calc(56px + 10px * var(--dens))}
+.ns-cal .cal-mark i{flex:0 0 auto;width:7px;height:7px;border-radius:var(--r-pill);
+  background:var(--gr);box-shadow:0 0 0 2px var(--bg)}
+.ns-cal .cal-mark span{flex:0 0 auto;font:700 8px/1 var(--mono);letter-spacing:.06em;
+  color:var(--gr);background:var(--bg);padding:0 3px;border-radius:var(--r1)}
+.ns-cal .cal-mark b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:400 8px/1 var(--mono);letter-spacing:.04em;color:var(--mu);background:var(--bg);
+  padding:0 3px;border-radius:var(--r1)}
+
 .ns-cal .cal-ev{display:flex;align-items:stretch;gap:calc(10px * var(--dens));
   min-height:var(--ev-h,40px);border-top:var(--bw) solid var(--bd);
   padding:calc(6px * var(--dens)) calc(10px * var(--dens));background:var(--s1)}

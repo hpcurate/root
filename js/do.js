@@ -1266,12 +1266,16 @@ async function toggleBlockTask(id) {
   const was = task.done;
   task.done = !was; tdPersist(); renderBlocks(); renderToday(); Prefs.tap();
   if (window.LOG && LOG.setBlock) LOG.setBlock(task.content, task.done);
+  /* DAY draws the day as planned; a mark is the day as it happened. Optimistic
+     like the tick itself, and taken back below if Todoist refuses. */
+  if (window.CAL && CAL.markDone) CAL.markDone(task.content, task.done);
   try {
     await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
     toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
   } catch (e) {
     task.done = was; tdPersist(); renderBlocks(); renderToday();
     if (window.LOG && LOG.setBlock) LOG.setBlock(task.content, task.done);
+    if (window.CAL && CAL.markDone) CAL.markDone(task.content, task.done);
     toast('todoist: ' + e.message);
   }
 }
@@ -1943,11 +1947,13 @@ async function toggleTodayTask(id) {
   const task = t.tasks.find(x => x.id === id); if (!task) return;
   const was = task.done;
   task.done = !was; tdPersist(); renderToday(); Prefs.tap();
+  if (window.CAL && CAL.markDone) CAL.markDone(task.content, task.done);
   try {
     await tdFetch(`/tasks/${id}/${was ? 'reopen' : 'close'}`, { method:'POST' });
     toast((was ? '↺ reopened' : '✓ closed') + ' in todoist');
   } catch (e) {
     task.done = was; tdPersist(); renderToday();
+    if (window.CAL && CAL.markDone) CAL.markDone(task.content, task.done);
     toast('todoist: ' + e.message);
   }
 }

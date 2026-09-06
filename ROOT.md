@@ -24,7 +24,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
 | **CREATE** | The songs being made. Each sits on a stage — idea, sketch, arrangement, mix, master, released — and each stage asks its own checklist of it; the hours at the desk are written down as sessions. Three screens: the shelf, one song, the session log. No network at all: a song is not a task and a shelf of them is the normal state of things, not a backlog to clear. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
@@ -410,7 +410,7 @@ versions still work off the same data.
 | `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
-| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
+| `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `create_v1` | CREATE | the songs (name, stage, tempo, key, tags, notes and every tick), the session log and the shelf's own two switches. A tick is filed under `<stageKey>\|<item text>` — see §6. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
@@ -722,6 +722,24 @@ both say so, and a new device needs the `.apkg` imported again.
   left arrow becomes "back" by finding `.scr.on:not(#s-home) .hd-back` in the
   current slide. A new sub-screen that names its home something other than
   `s-home`, or hides its back button, gets a dead left arrow.
+- **A box trimmed with `text-box` must not be clipped on both axes.** 3.0.3
+  trimmed the wordmark, the day number and STORE's counter to their cap height
+  *for layout* — but their children still lay out in full line boxes, and both
+  the day number and the counter carry `overflow:hidden`, which clips both axes.
+  Measured in Chrome: 9.4px off the top of the day number and 10px off the
+  bottom of the counter. The clip either one actually wanted is horizontal (a
+  digit slides sideways; a long total must not run into the wordmark), so both
+  are `overflow:visible` with `clip-path:inset(-100% 0)` — unbounded top and
+  bottom, cut at the box edges left and right. Anything that trims a box it also
+  clips owes the same.
+- **A completion mark is grouped by the minute, and inset past two columns.**
+  Marks drawn one per completion land on the same pixel when two things are
+  ticked in the same minute and print over each other — which the first version
+  did. They are grouped by `at` and their names joined. They are also inset from
+  the left past the time column (≈53px) and the now line's own badge
+  (≈36px), and from the right past the row's delete and tick, all measured:
+  today is the only day either a mark or the now line appears on, so without it
+  they overlap every time.
 - **A band centres its ink, not its line boxes.** A wordmark is all caps, and
   caps in a `line-height:1` box leave the descender space empty underneath —
   8.5px of a 54px box, measured in Chrome. The band had no slack to redistribute
@@ -1124,7 +1142,7 @@ rows. Settings controls need nothing at all.
 
 **Test without a browser** — `test/harness.mjs` boots the real `index.html` in
 jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 765 checks covering boot, every theme and panel, the
+through DOM events: 774 checks covering boot, every theme and panel, the
 behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
 2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
 settings menu, the back arrow, the title band, the cross-fade and PLAN's
@@ -1419,6 +1437,53 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 3.0.4 — 2026-09-06 — nothing is cut any more, and the day records what was finished
+
+Two regressions from 3.0.3, and a feature.
+
+**The day number and the counter were being cut off, top and bottom.** 3.0.3
+trimmed those boxes to their cap height for layout — but their children still lay
+out in full line boxes, and both boxes carry `overflow:hidden`, which clips *both*
+axes. Measured in Chrome: 9.4px off the top of the day number and 10px off the
+bottom of the counter's digits. The clip either one actually wanted is
+horizontal — a digit slides sideways out of the day number, and a long total must
+not run into the wordmark — so both are `clip-path:inset(-100% 0)` now:
+unbounded top and bottom, cut at the box edges left and right. §6 carries the
+rule, because anything that trims a box it also clips will hit this.
+
+**A completed task now leaves a mark on the calendar, at the minute it was
+finished.** A green dot on the rail, the time, and the name.
+
+*Why it is not a row.* Everything else on DAY is the day as it was **planned**;
+a mark is the day as it **happened**. Keeping the two visually distinct is the
+whole point — §6 has said since 2.23 that a drawing which quietly claims to be
+the plan is the one thing this app must not be. So marks are stored beside
+`days` rather than inside one, and drawn over the rows rather than among them.
+
+*Who can leave one.* Anything that finishes a task: DAY's own rows, DO's block
+tiles and DO's today list. DO's two calls sit next to the `LOG.setBlock` and
+`TEND.setDone` calls already there, are optimistic like the tick itself, and are
+taken back if Todoist refuses. Unticking removes the mark — the newest one of
+that name, not all of them, because the same routine finished twice in a day is
+two things that happened.
+
+*Only today can take one*, because a completion has a clock time by virtue of
+happening now. And a mark on a day that was never exported is kept but has
+nothing to be drawn on until one is; it is not thrown away for it.
+
+*Two things the first version got wrong, both caught by looking at it.* Marks
+drawn one per completion landed on the same pixel when two things were ticked in
+the same minute and printed over each other — they are grouped by minute and
+their names joined. And the mark sat exactly on top of the now line's badge,
+because today is the only day either of them appears on — it is inset past the
+time column and the badge on the left, and past the row's controls on the right,
+from measurements rather than guesses.
+
+**Verified** — `test/harness.mjs`, **774 checks, all green**, 9 new; and in
+headless Chrome: the `6` on LOG and the `3` on STORE's total drawn whole, a tick
+on DAY leaving a mark at the right y, two completions in one minute drawn as one
+mark, and screenshots of all three looked at.
 
 ### 3.0.3 — 2026-09-06 — the bands centre on their ink, and the counter travels
 

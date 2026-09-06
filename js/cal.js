@@ -56,6 +56,7 @@ function load() {
   try { DB = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { DB = {}; }
   if (!DB || typeof DB !== 'object') DB = {};
   if (!DB.days || typeof DB.days !== 'object') DB.days = {};
+  if (!DB.marks || typeof DB.marks !== 'object') DB.marks = {};
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} }
 load();
@@ -70,6 +71,9 @@ function prune() {
   const floor = shift(today, -keep);
   let cut = 0;
   allDays().forEach(k => { if (k < floor) { delete DB.days[k]; cut++; } });
+  /* Marks are swept on the same window. They are kept beside the days rather
+     than inside them, so nothing else would ever remove them. */
+  Object.keys(DB.marks || {}).forEach(k => { if (isoRe.test(k) && k < floor) delete DB.marks[k]; });
   return cut;
 }
 
@@ -185,7 +189,46 @@ function toggleEvent(i) {
   if (!e || !tickable(e)) return;
   e.done = !e.done;
   Prefs.tap();
-  save(); render();
+  save();
+  /* The mark is what says *when*. `markDone` renders, so this does not. */
+  markDone(e.name, e.done);
+  if (sel !== Shell.today()) render();
+}
+
+/* ── What was actually finished, and when ─────────────────────────────────────
+   Everything else on this screen is the day as it was *planned*. A mark is the
+   day as it *happened*: a task completed at 14:32 puts a dot on the calendar at
+   14:32, whoever ticked it — DAY's own rows, DO's blocks, DO's today list.
+
+   They are kept beside `days` rather than inside a day, and that is deliberate:
+   a completion is a fact about the afternoon, not a claim about what was sent,
+   and §6 already says a drawing that quietly claims to be the plan is the one
+   thing this app must not be. It also means a mark survives on a day that was
+   never exported — there is nothing to draw it on until one is, but the record
+   is not thrown away for it.
+
+   Only today can take one: a completion has a clock time because it is
+   happening now. Ticking a row on some other day marks nothing. */
+function marksOn(iso) { return (DB.marks && DB.marks[iso]) || []; }
+function markDone(name, on) {
+  const iso = Shell.today();
+  DB.marks = DB.marks || {};
+  const list = DB.marks[iso] || [];
+  const nm = String(name == null ? '' : name).trim();
+  if (on === false) {
+    /* Unticking takes back the newest mark that name left. Not all of them:
+       the same routine finished twice in a day is two things that happened. */
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].name === nm) { list.splice(i, 1); break; }
+    }
+  } else {
+    if (list.some(m => m.name === nm && m.at === nowLabel())) return;   // one tap, one mark
+    list.push({ at: nowLabel(), name: nm });
+    list.sort((a, b) => (a.at > b.at ? 1 : a.at < b.at ? -1 : 0));
+  }
+  if (list.length) DB.marks[iso] = list; else delete DB.marks[iso];
+  save();
+  if (sel === iso) render();
 }
 
 /* ── Clock arithmetic ─────────────────────────────────────────────────────────
@@ -381,6 +424,27 @@ function wakeSteps() {
    the row that is next. */
 const HHMM = /^(\d{1,2}):(\d{2})$/;
 const minsOf = t => { const m = HHMM.exec(String(t || '')); return m ? +m[1] * 60 + +m[2] : null; };
+/* Where a minute of the day falls in the stack of rows. The rows carry their
+   own times and heights, so this walks them rather than assuming the day starts
+   at midnight or that an hour is always `per` tall — a row with a floor height
+   is taller than its duration and everything below it moves down with it.
+   `nowOffset` is this asked about the clock; a completion mark is this asked
+   about the minute it happened. */
+function offsetAt(evs, per, mins) {
+  if (mins == null) return null;
+  let y = 0;
+  for (const { e } of evs) {
+    const h = Math.max(18, Math.round((e.dur / 60) * per));
+    const a = minsOf(e.from);
+    // a row that runs past midnight owns the rest of the clock, not a wrapped span
+    const b = a == null ? null : a + (+e.dur || 0);
+    if (a == null || b == null) { y += h; continue; }
+    if (mins < a) return y;                      // in the gap before this row
+    if (mins < b) return y + Math.round(h * ((mins - a) / Math.max(1, b - a)));
+    y += h;
+  }
+  return null;                                   // past the end of the day
+}
 function nowOffset(evs, per) {
   if (sel !== Shell.today()) return null;
   const d = new Date(), now = d.getHours() * 60 + d.getMinutes();
@@ -483,7 +547,32 @@ function dayHTML() {
     </${tag}>`;
   }).join('')}${nowY == null ? '' :
     `<div class="cal-now" id="cal-now" style="--now-y:${nowY}px" aria-hidden="true"><span>${esc(nowLabel())}</span></div>`
-  }</div>` + notesHTML(rec);
+  }${markHTML(evs, per)}</div>` + notesHTML(rec);
+}
+
+/* Small, and visible: a dot on the rail at the minute it happened, with the
+   time beside it. It is deliberately not a row — the rows are the plan, and a
+   mark is a note written on top of it. Marks for a time the day does not reach
+   (finished after the last row, or before the first) are dropped rather than
+   piled at an edge, where they would claim a time they did not happen at. */
+function markHTML(evs, per) {
+  if (sel !== Shell.today()) return '';
+  /* Grouped by the minute, not one element per completion: three things ticked
+     off in the same minute are one moment, and drawn separately they land on
+     the same pixel and overwrite each other — which is exactly what the first
+     version did. */
+  const byMin = new Map();
+  marksOn(sel).forEach(m => {
+    if (!byMin.has(m.at)) byMin.set(m.at, []);
+    byMin.get(m.at).push(m.name);
+  });
+  return [...byMin.entries()].map(([at, names]) => {
+    const y = offsetAt(evs, per, minsOf(at));
+    if (y == null) return '';
+    const label = names.filter(Boolean).join(' · ');
+    return `<div class="cal-mark" style="--mark-y:${y}px" title="${esc(at)} · ${esc(label)}">
+      <i></i><span>${esc(at)}</span><b>${esc(label)}</b></div>`;
+  }).join('');
 }
 
 /* The day itself is named by the nav above; this is only what it is made of.
@@ -711,7 +800,7 @@ function renderSettings() {
 function clearAll() {
   if (!allDays().length) { Shell.toast('nothing to clear'); return; }
   Shell.confirm('Clear every stored day? The tasks themselves stay in Todoist.', () => {
-    DB = { days:{} }; sel = null;
+    DB = { days:{}, marks:{} }; sel = null;
     save(); render(); renderSettings();
     Shell.toast('calendar cleared');
   });
@@ -821,5 +910,9 @@ Shell.register('cal', {
 
 return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
          toggleEvent, deleteEvent, setWake, startDay, openSched, closeSched, pickSlot, applySched, paintNow,
-         days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel };
+         /* Anything that finishes a task calls this: DAY's own rows, DO's blocks
+            and DO's today list. `on:false` takes the mark back. */
+         markDone,
+         days: () => allDays(), day: iso => DB.days[iso] || null, selected: () => sel,
+         marks: iso => marksOn(iso || Shell.today()).slice() };
 })();

@@ -57,7 +57,14 @@
    still fits beside `STORE.`; `min-width:0` and the row's own `overflow:hidden`
    are the backstop if it ever does not. */
 .ns-store .h-cost{
-  flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;align-self:center;
+  /* Sideways only, for the day number's reason (shell.css): the box is trimmed
+     to the caps but its cells still lay out in full line boxes, so a two-axis
+     `overflow:hidden` was cutting 8.9px off the top of the digits and 10px off
+     the bottom. This still does the job `overflow:hidden` was here for — a total
+     too wide for the space it is given is cut at the box edge rather than
+     running into the wordmark. */
+  flex:0 1 auto;min-width:0;overflow:visible;clip-path:inset(-100% 0);
+  white-space:nowrap;align-self:center;
   font-family:var(--head);font-weight:800;letter-spacing:-.02em;
   font-size:min(var(--title-px), 14vw);line-height:1;
   font-variant-numeric:tabular-nums;
