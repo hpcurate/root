@@ -4220,16 +4220,24 @@ check('nothing in CREATE is written for two areas — it walks the list, whateve
 /* Until 4.1 this read "CREATE has no network at all". The curate tab ended
    that, so the invariant is the narrower one that is still true and still
    worth protecting: the shelf is offline, and the one thing that is not goes
-   through the shared client and only ever *reads*. A song is still not a task
-   — closing one is DO's job and filing one is PLAN's — so a write from here
-   would be a third app with an opinion about the same list. */
+   through the shared client.
+
+   4.2 narrowed it again. The tab can now close a row and put it back, which is
+   the one write asked for and the only one there is: a record you went and
+   found is done, and walking to DO to say so is how a list stops being
+   trusted. Everything else a task can have done to it — moved, rescheduled,
+   renamed, created — is still PLAN's and DO's, so what is asserted is that
+   there is exactly one call and it is that one. */
+const crCode = createJs.replace(/\/\*[\s\S]*?\*\//g, '');
 check('CREATE reaches the network only through the shared Todoist client',
   !/fetch\s*\(|api\.todoist\.com|XMLHttpRequest|navigator\.sendBeacon/i.test(createJs) &&
   /Todoist\.getAll\(/.test(createJs));
-check('… and only reads: nothing in it closes, reopens, moves or creates a task',
-  !/Todoist\.call\s*\(/.test(createJs) &&
-  !/\/close|\/reopen|method\s*:|['"]POST['"]|['"]DELETE['"]/.test(
-    createJs.replace(/\/\*[\s\S]*?\*\//g, '')));
+check('… and writes one thing only: it closes a task it is showing, or puts it back',
+  (crCode.match(/Todoist\.call\(/g) || []).length === 1 &&
+  /'\/close' : '\/reopen'/.test(crCode) &&
+  (crCode.match(/method\s*:/g) || []).length === 1 &&
+  !/['"]DELETE['"]|['"]PUT['"]|['"]PATCH['"]/.test(crCode),
+  (crCode.match(/\/close|\/reopen|method\s*:\s*'[A-Z]+'/g) || []).join(' '));
 
 /* ── 3.0.3 · the bands centre on their ink ───────────────────────────────────
    A wordmark is all caps, and caps in a line-height:1 box leave the descender
@@ -4693,8 +4701,8 @@ check('… the band counts what is open in it, and says which project',
   $('.ns-create #cr-daynum .dn-cur').textContent === '6' &&
   $('.ns-create #cr-label').textContent === '02 | curate',
   $('.ns-create #cr-daynum').textContent + ' / ' + $('.ns-create #cr-label').textContent);
-check('… and the screen says out loud that nothing here is written',
-  /read only/i.test($('.ns-create #cr-curate').textContent),
+check('… and the screen says out loud what a tick does, since a tick leaves the app',
+  /ticking one closes it in todoist/i.test($('.ns-create #cr-curate').textContent),
   $('.ns-create #cr-curate .cr-cnote')?.textContent);
 /* The project is matched folded, the way PLAN matches every project it sends
    to — so the punctuation in "02 | curate" is not load-bearing. */
@@ -5061,6 +5069,268 @@ check('... and a Spacing chosen after the repair is left alone',
   Math.abs(w5.Prefs.get('density') - 1.25) < 1e-9, String(w5.Prefs.get('density')));
 check('... with no control for the repair flag — it is a record, not a setting',
   !w5.document.querySelector('.ns-set [data-pref="densRepair"]'));
+
+
+/* ══ 4.2 ══════════════════════════════════════════════════════════════════════
+   Six requests: three shapes in CREATE, a tick that reaches Todoist, labels in
+   their own colours, and a sound under the whole app. */
+
+const css42 = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
+const rule42 = sel => {
+  const i = css42.indexOf(sel);
+  return i < 0 ? '' : css42.slice(i, css42.indexOf('}', i));
+};
+
+/* ── the session hours are a column ────────────────────────────────────────
+   They were the middle of three boxes in a space-between row, so the number
+   ended wherever the sentence beside it stopped and the × sat outboard of it.
+   jsdom lays nothing out, so what is asserted is the rule. */
+check('a session’s hours are pushed to the right edge and right-aligned',
+  /margin-left:auto/.test(rule42('.ns-create .cr-ses .r{')) &&
+  /text-align:right/.test(rule42('.ns-create .cr-ses .r{')),
+  rule42('.ns-create .cr-ses .r{').replace(/\s+/g, ' '));
+check('… in tabular figures over a floor width, so the column lines up row to row',
+  /font-variant-numeric:tabular-nums/.test(rule42('.ns-create .cr-ses .r{')) &&
+  /min-width:calc\(\d+px \* var\(--dens\)\)/.test(rule42('.ns-create .cr-ses .r{')),
+  rule42('.ns-create .cr-ses .r{').replace(/\s+/g, ' '));
+check('… and the text beside them takes the slack, rather than the number floating',
+  /flex:1 1 auto/.test(rule42('.ns-create .cr-ses .l{')),
+  rule42('.ns-create .cr-ses .l{').replace(/\s+/g, ' '));
+
+/* ── a sub-screen breathes under its own sticky header ───────────────────── */
+check('content under a sticky header starts below it, not against it',
+  /\.ns-create \.hd \+ \.cnt\{padding-top:calc\(\d+px \* var\(--dens\)\)\}/.test(css42),
+  (css42.match(/\.ns-create \.hd \+ \.cnt\{[^}]*\}/) || ['absent'])[0]);
+check('… and the shelf is untouched by it — it has a wordmark there, not a header',
+  !d.querySelector('.ns-create #s-home > .hd'),
+  'the shelf has no .hd, so the rule cannot reach it');
+
+/* ── the controls are rounded squares, not pills ─────────────────────────── */
+const pillSels42 = ['.ns-create .cr-sort{', '.ns-create .cr-mchip{',
+                    '.ns-create .cr-step{', '.ns-create .cr-kind{'];
+const pillish42 = pillSels42.filter(sel => /border-radius:var\(--r-pill\)/.test(rule42(sel)));
+check('every control in CREATE is a rounded square — no button is a pill any more',
+  pillish42.length === 0 &&
+  pillSels42.every(sel => /border-radius:var\(--r3\)/.test(rule42(sel))),
+  pillish42.join(' ') || 'all four take --r3');
+/* --r-pill is still the right answer for a circle. The dots and the rails are
+   shapes, not controls, and they keep it. */
+check('… while the dots and the rails keep it, because a circle is not a button',
+  /\.cr-atag i\{[^}]*border-radius:var\(--r-pill\)/.test(css42) &&
+  /\.cr-prog\.long\{[^}]*border-radius:var\(--r-pill\)/.test(css42));
+
+/* ── ticking a curate row off ──────────────────────────────────────────────
+   The list is put back the way the 4.1 block left it, and every write the tick
+   makes is recorded, so the assertion is on what actually reached Todoist. */
+const posted42 = [];
+const curateBody42 = u => /\/tasks\?/.test(u) ? [
+    { id:'t3', content:'watch tutorial',   project_id:'p1', section_id:'s2', labels:[], order:2 },
+    { id:'t1', content:'IMANU patreon',    project_id:'p1', section_id:'s1', labels:['purchase'], order:1 },
+    { id:'t9', content:'pick the tier',    project_id:'p1', section_id:'s1', labels:[], order:2, parent_id:'t1' },
+    { id:'t8', content:'check the archive',project_id:'p1', section_id:'s1', labels:[], order:1, parent_id:'t1' },
+    { id:'t4', content:'plugins',          project_id:'p1', section_id:null, labels:['quick'], order:1 },
+    { id:'t2', content:'buunshin patreon', project_id:'p1', section_id:'s1', labels:['purchase'], order:2 },
+  ] : /\/projects/.test(u) ? [
+    { id:'p2', name:'04 | life',   color:'green', order:2 },
+    { id:'p1', name:'02 | curate', color:'grape', order:1 },
+  ] : /\/sections/.test(u) ? [
+    { id:'s4', project_id:'p1', name:'empty one', section_order:1 },
+    { id:'s2', project_id:'p1', name:'watch',     section_order:3 },
+    { id:'s1', project_id:'p1', name:'purchase',  section_order:2 },
+  ] : [];
+let closeOk42 = true;
+fetchScript = async (url, opts) => {
+  const u = String(url);
+  if (/\/close|\/reopen/.test(u)) {
+    posted42.push(u.replace(/^.*\/v1/, '') + ' ' + ((opts && opts.method) || 'GET'));
+    return closeOk42 ? { ok:true, status:204, text: async () => '' }
+                     : { ok:false, status:500, text: async () => '' };
+  }
+  return { ok:true, status:200, text: async () => JSON.stringify(curateBody42(u)) };
+};
+w.Creds.save('tok-for-curate');
+w.Config.set('create.curate', { project: '02 | curate', maxAgeMin: 60, labelColors: false });
+w.CREATE.area('curate');
+w.CREATE.go('home');
+await w.CREATE.refreshCurate();
+await tick(30);
+
+const row42 = name => [...d.querySelectorAll('.ns-create #cr-curate .cr-ctask')]
+  .find(r => r.querySelector('.nm').textContent === name);
+const band42 = () => $('.ns-create #cr-daynum .dn-cur').textContent;
+const heads42 = () => [...d.querySelectorAll('.ns-create #cr-curate .cr-chead')]
+  .map(h => h.textContent.replace(/\s+/g, ' ').trim());
+
+check('every curate row has a tick box — subtasks included, which is what was asked',
+  d.querySelectorAll('.ns-create #cr-curate .cr-ctask').length === 6 &&
+  d.querySelectorAll('.ns-create #cr-curate .cr-ctask > .ck[data-act="curate-tick"]').length === 6 &&
+  d.querySelectorAll('.ns-create #cr-curate .cr-ctask.sub > .ck').length === 2,
+  d.querySelectorAll('.ns-create #cr-curate .ck').length + ' boxes on ' +
+  d.querySelectorAll('.ns-create #cr-curate .cr-ctask').length + ' rows');
+/* A button inside an anchor has no agreed behaviour, so the two targets are
+   siblings: the box closes it, the body opens it in Todoist. */
+check('… the box and the link out are siblings, not one nested inside the other',
+  !d.querySelector('.ns-create #cr-curate a .ck') &&
+  !d.querySelector('.ns-create #cr-curate .ck a') &&
+  /app\.todoist\.com/.test(row42('IMANU patreon').querySelector('a.bd').href),
+  row42('IMANU patreon').querySelector('a.bd').getAttribute('href'));
+
+click(row42('IMANU patreon').querySelector('.ck'));
+await tick(40);
+check('ticking a row closes that task in Todoist, and nothing else',
+  posted42.length === 1 && /\/tasks\/t1\/close POST/.test(posted42[0]),
+  posted42.join(' | ') || 'nothing was sent');
+check('… the row is struck through where it stands, so a mis-tap is visible',
+  row42('IMANU patreon').classList.contains('done') &&
+  row42('IMANU patreon').querySelector('.ck').getAttribute('aria-checked') === 'true',
+  [...row42('IMANU patreon').classList].join(' '));
+/* Todoist closes a task's subtasks with it; the cache says the same thing, so
+   the screen and the account do not disagree until the next refetch. */
+check('… and its subtasks go with it, the way they do in Todoist',
+  row42('check the archive').classList.contains('done') &&
+  row42('pick the tier').classList.contains('done') &&
+  posted42.length === 1,
+  'one call, three rows');
+check('… what is ticked stops being counted, in the group and in the band',
+  band42() === '3' && /^purchase 1$/.test(heads42()[1]),
+  band42() + ' / ' + heads42().join(' | '));
+check('… and it survives a reload, so it does not come back open before the refetch',
+  (JSON.parse(w.localStorage.getItem('create_v1')).curate.groups
+    .flatMap(g => g.tasks).find(t => t.id === 't1') || {}).closed === true);
+
+click(row42('IMANU patreon').querySelector('.ck'));
+await tick(40);
+check('… ticking it again puts it back, which is what makes the tick safe',
+  posted42.length === 2 && /\/tasks\/t1\/reopen POST/.test(posted42[1]) &&
+  !row42('IMANU patreon').classList.contains('done') &&
+  !row42('pick the tier').classList.contains('done') &&
+  band42() === '6',
+  posted42.join(' | ') + ' / ' + band42());
+
+closeOk42 = false;
+click(row42('plugins').querySelector('.ck'));
+await tick(40);
+check('a tick the network refuses is put back, not left lying about the account',
+  !row42('plugins').classList.contains('done') && band42() === '6' &&
+  (JSON.parse(w.localStorage.getItem('create_v1')).curate.groups
+    .flatMap(g => g.tasks).find(t => t.id === 't4') || {}).closed === false,
+  [...row42('plugins').classList].join(' ') + ' / ' + band42());
+closeOk42 = true;
+/* With no key there is no call to make, and the row must not pretend there was. */
+const before42 = posted42.length;
+w.Creds.save('');
+click(row42('plugins').querySelector('.ck'));
+await tick(30);
+check('… and with no Todoist key saved nothing is ticked and nothing is sent',
+  posted42.length === before42 && !row42('plugins').classList.contains('done'),
+  (posted42.length - before42) + ' calls');
+w.Creds.save('tok-for-curate');
+
+/* ── labels in their own colours ───────────────────────────────────────────
+   Out of the cache every app that draws a label shares, so a label is the same
+   colour in CREATE, DO and PLAN. A colour that is not cached is not invented. */
+w.localStorage.setItem('root_labels_v1', JSON.stringify({
+  fetched: Date.now(), colors: { purchase: '#884dff' } }));
+w.Config.set('create.curate', { project: '02 | curate', maxAgeMin: 60, labelColors: true });
+await w.CREATE.refreshCurate();
+await tick(30);
+const lb42 = () => row42('IMANU patreon').querySelector('.tg i.lb');
+check('a task’s labels are drawn in the colour Todoist gives them',
+  !!lb42() && lb42().textContent === 'purchase' &&
+  /#884dff/.test(lb42().getAttribute('style') || ''),
+  row42('IMANU patreon').querySelector('.tg') ? row42('IMANU patreon').querySelector('.tg').innerHTML : 'no labels');
+check('… a label with no colour cached is drawn plain rather than guessed at',
+  !row42('plugins').querySelector('.tg i.lb') &&
+  row42('plugins').querySelector('.tg i').textContent === 'quick',
+  row42('plugins').querySelector('.tg').innerHTML);
+w.Config.set('create.curate', { project: '02 | curate', maxAgeMin: 60, labelColors: false });
+await tick(20);
+check('… and switched off they go back to plain text, which is where they were',
+  !d.querySelector('.ns-create #cr-curate .tg i.lb') &&
+  !!d.querySelector('.ns-create #cr-curate .tg i'),
+  row42('IMANU patreon').querySelector('.tg').innerHTML);
+
+/* The switch is in the panel's static markup, so it is Config.subscribe that
+   draws it rather than the content-editor redraw the other switches get. */
+w.SET.panel('create');
+const tog42 = () => d.querySelector('.ns-create #cr-set-labelcolors');
+check('the colourful-labels switch is in settings and shows what Config says',
+  !!tog42() && !tog42().classList.contains('on') &&
+  tog42().getAttribute('aria-checked') === 'false',
+  tog42() ? [...tog42().classList].join(' ') : 'absent');
+click(tog42());
+await tick(20);
+check('… and flipping it writes Config and redraws the switch with it',
+  w.CREATE.curateSettings().labelColors === true && tog42().classList.contains('on'),
+  String(w.CREATE.curateSettings().labelColors) + ' / ' + [...tog42().classList].join(' '));
+
+check('… and search finds it, because it is a settings row like any other',
+  w.SEARCH.results('colourful').some(r => /Colourful labels/i.test(r.title)),
+  w.SEARCH.results('colourful').map(r => r.title).join(' | ') || 'nothing');
+
+/* ── the interface makes a sound ─────────────────────────────────
+   Synthesised, so there is no asset to fetch and nothing to cache. jsdom has no
+   WebAudio, so a stub stands in and what is asserted is what would be built. */
+let made42 = 0, played42 = 0;
+function FakeParam42() {}
+FakeParam42.prototype.setValueAtTime = function () { return this; };
+FakeParam42.prototype.exponentialRampToValueAtTime = function () { return this; };
+function FakeCtx42() {
+  made42++;
+  this.state = 'running'; this.currentTime = 0; this.destination = {};
+  this.resume = () => Promise.resolve();
+  this.createOscillator = () => ({ type:'', frequency: new FakeParam42(),
+    connect() {}, start() { played42++; }, stop() {} });
+  this.createGain = () => ({ gain: new FakeParam42(), connect() {} });
+}
+w.AudioContext = FakeCtx42;
+const press42 = el => el.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+const sndTog42 = () => $('.ns-set [data-pref="sounds"][data-toggle]');
+
+check('sound is off until it is asked for — it is the setting that can embarrass someone',
+  w.Prefs.SCHEMA.sounds.def === false && w.Prefs.get('sounds') === false);
+w.Prefs.sound('tap'); w.Prefs.sound('ok');
+check('… and while it is off no audio graph is built at all, not even a silent one',
+  made42 === 0 && played42 === 0, made42 + ' contexts');
+
+w.SET.panel('behave');
+w.Prefs.set('sounds', true);
+check('… with the switch and the level both in behaviour, beside the haptic',
+  !!sndTog42() && !!$('.ns-set [data-slider="soundLevel"]'),
+  sndTog42() ? 'both present' : 'no switch');
+
+press42(sndTog42());
+await tick(10);
+check('a press on a control makes one, built inside the gesture that needed it',
+  made42 === 1 && played42 === 1, made42 + ' contexts / ' + played42 + ' notes');
+press42(sndTog42());
+check('… a second inside the gap is dropped, so one gesture is one sound',
+  played42 === 1, played42 + ' notes');
+await tick(70);
+press42(sndTog42());
+check('… and the next gesture sounds again, rather than the gap latching',
+  played42 === 2, played42 + ' notes');
+await tick(70);
+press42($('.ns-set .sec span'));
+check('a press on something that is not a control stays silent',
+  played42 === 2, played42 + ' notes');
+await tick(70);
+w.Shell.toast('a message');
+check('a toast has its own note, so a message is heard as a message',
+  played42 === 3, played42 + ' notes');
+await tick(70);
+w.Shell.go('log');
+check('a slide arriving has another', played42 === 4, played42 + ' notes');
+await tick(70);
+w.Shell.go('log');
+check('… and going to the tab already shown makes none — nothing moved',
+  played42 === 4, played42 + ' notes');
+w.Prefs.set('sounds', false);
+w.Prefs.reset('soundLevel');
+check('… and switching it back off silences it again, without unbuilding anything',
+  (() => { const was = played42; w.Prefs.sound('tap'); return played42 === was; })(),
+  played42 + ' notes');
+
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

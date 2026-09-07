@@ -436,6 +436,8 @@ function behaveHTML() {
     ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search')}
     ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
+    ${toggle('sounds', 'Interface sounds', 'a very quiet click under a control, a note when a tab arrives and another when a message shows — synthesised, nothing is downloaded')}
+    ${slider('soundLevel', 'How loud', v => Math.round(v * 100) + '%')}
 
     ${sectionHead('Typing')}
     ${chips('numpad', [
@@ -1932,7 +1934,8 @@ view.addEventListener('click', e => {
   }
   if (t.dataset.act === 'reset-behaviour') {
     confirmed('Reset every behaviour setting?', () => {
-      ['startTab','swipe','swipeStrength','autoHideChrome','haptics','confirmDestructive','numpad',
+      ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
+       'confirmDestructive','numpad',
        'toastMs','undoSec','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });

@@ -621,9 +621,11 @@ const DEFAULTS = {
     home: { sort:'touched', sessionCount: 6, weekDays: 7 },
     /* ── The one networked thing in CREATE ──
        A tab beside the areas that reads a whole Todoist **project** and lists
-       it under the sections it is arranged into. It is **read only**: CREATE
-       never closes, moves or writes a task — that is DO's job and PLAN's — so
-       nothing here can be lost by looking at it.
+       it under the sections it is arranged into. It **reads and closes**, and
+       nothing else: a row can be ticked off or put back, but CREATE never
+       moves, reschedules, renames or creates a task — filing one is PLAN's job.
+       Nothing here can be lost by looking at it, and a tick is one tap from
+       being undone.
 
        Why it is in CREATE at all, when the shelf has no network: that project
        is the pile of records to find, subscriptions to renew and tutorials to
@@ -634,8 +636,12 @@ const DEFAULTS = {
        `project` is matched the way every other project name in ROOT is —
        folded, so "02 | curate" and "02curate" are the same project. Blank
        switches the tab off. `maxAgeMin` is how stale the cached list may get
-       before a visit refetches it; the refresh button ignores it. */
-    curate: { project: '02 | curate', maxAgeMin: 60 },
+       before a visit refetches it; the refresh button ignores it.
+
+       `labelColors` draws each task's labels in the colour Todoist gives them,
+       out of the label cache every app that draws a label shares. Off, they are
+       the plain grey text they were before 4.2. */
+    curate: { project: '02 | curate', maxAgeMin: 60, labelColors: true },
   },
 };
 

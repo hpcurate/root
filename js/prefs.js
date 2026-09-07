@@ -251,6 +251,10 @@ const SCHEMA = {
   swipeStrength:{ kind:'range',  def:0.22, min:0.1, max:0.5, step:0.01 },
   autoHideChrome:{kind:'bool',   def:true },
   haptics:      { kind:'bool',   def:false },
+  /* Sound is the one setting that can embarrass someone in a quiet room, so it
+     is off until it is asked for — the same reason haptics is. */
+  sounds:       { kind:'bool',   def:false },
+  soundLevel:   { kind:'range',  def:0.3,  min:0.05, max:1, step:0.05 },
   confirmDestructive:{ kind:'bool', def:true },
   /* The in-app numpad on fields that only take a number. `auto` means "where
      the keyboard is a virtual one" — a laptop's number field is fine as it is,
@@ -638,6 +642,72 @@ function tap(ms = 8) {
   try { navigator.vibrate && navigator.vibrate(ms); } catch {}
 }
 
+/* ── Sound ────────────────────────────────────────────────────────────────────
+   Three voices, none of them longer than a twentieth of a second: a control
+   under a finger, a slide arriving, and a toast. They are **synthesised**, not
+   played — a sine through a gain envelope, six lines of WebAudio — because a
+   file would be an asset to fetch, a cache to think about and a licence to
+   keep, and none of that is worth a click.
+
+   Two rules keep it out of the way:
+
+   · **Nothing exists until it is asked for.** No AudioContext is constructed
+     while the setting is off, so an install that never turns sound on never
+     builds an audio graph at all. The first one is built inside the gesture
+     that plays the first sound, which is the only moment a browser will allow
+     it — a context made at boot is born suspended and stays that way.
+
+   · **Nothing calls this from a module.** `Prefs.tap()` is the haptic and stays
+     the haptic; sound is wired in three places in shell.js — a press on a
+     control, a slide arriving, a toast — so a fourth app needs no line of it
+     and no app can end up with its own idea of what a button sounds like.
+
+   · **One sound per gesture.** A tab press is a pointerdown *and* a nav, and
+     hearing both is the difference between "smooth" and "cheap". A play inside
+     `GAP` of the last one is dropped rather than layered, which also covers a
+     fast scrubber and a key held down. */
+const VOICES = {
+  tap:  { hz: 660,  to: 560,  ms: 32, peak: 0.045, type: 'sine' },
+  nav:  { hz: 420,  to: 520,  ms: 46, peak: 0.040, type: 'sine' },
+  ok:   { hz: 880,  to: 1180, ms: 55, peak: 0.035, type: 'triangle' },
+};
+const GAP = 55;
+let ac = null, lastSound = 0;
+function sound(voice = 'tap') {
+  if (!prefs.sounds) return;
+  const v = VOICES[voice]; if (!v) return;
+  const now = Date.now();
+  if (now - lastSound < GAP) return;
+  lastSound = now;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!ac) ac = new AC();
+    /* A context built before the first gesture — or suspended when the tab went
+       away — answers with silence until it is resumed. Asking is cheap and the
+       promise is ignored: if it is refused there is simply no sound. */
+    if (ac.state === 'suspended' && ac.resume) { const r = ac.resume(); if (r && r.catch) r.catch(() => {}); }
+    const t = ac.currentTime, dur = v.ms / 1000;
+    const osc = ac.createOscillator(), gain = ac.createGain();
+    osc.type = v.type;
+    osc.frequency.setValueAtTime(v.hz, t);
+    osc.frequency.exponentialRampToValueAtTime(v.to, t + dur);
+    /* Ramped, never switched: a gain that steps to a value clicks, and a click
+       is the one thing a sound this quiet cannot afford. The floor is not zero
+       because an exponential ramp cannot reach it. */
+    const peak = Math.max(0.0005, v.peak * level());
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.start(t); osc.stop(t + dur + 0.02);
+  } catch {}
+}
+function level() {
+  const n = +prefs.soundLevel;
+  return Number.isFinite(n) ? Math.min(1, Math.max(0.05, n)) : SCHEMA.soundLevel.def;
+}
+
 /* ── Formatting helpers, so the four modules format dates the same way ────── */
 function formatDate(iso, style) {
   const s = style || prefs.dateFormat;
@@ -663,5 +733,5 @@ return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER, AP
          get, set, setMany, all, reset, resetAll, subscribe,
          apply, preview, revert, activeTheme, themeInfo, character,
          resolvedDisplay, resolvedMono, accentHex, normHex, luminance,
-         tap, formatDate, KEY };
+         tap, sound, formatDate, KEY };
 })();

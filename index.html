@@ -1898,10 +1898,17 @@
         <input type="number" min="1" max="1440" step="1" id="cr-set-curate-age"
                data-cfg="create.curate" data-sub="maxAgeMin" aria-label="curate refresh minutes">
       </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Colourful labels<small>a task's labels in the colours Todoist gives
+          them, out of the label cache every app shares — off, they are plain grey text</small></span>
+        <button class="tog" id="cr-set-labelcolors" data-cfg-toggle="create.curate.labelColors"
+                role="switch" aria-checked="true" aria-label="colourful labels"></button>
+      </div>
       <div class="data-warn">
-        This is the only part of CREATE that uses the network, and it only
-        <strong>reads</strong>. Nothing here closes, moves or creates a task —
-        DO closes them and PLAN files them.
+        This is the only part of CREATE that uses the network, and all it does is
+        <strong>read</strong> the project and <strong>close</strong> a task you
+        tick off. Nothing here moves, reschedules or creates one — PLAN files
+        them. A tick is one tap from being undone.
       </div>
 
       <div class="sec"><span>Stored</span></div>

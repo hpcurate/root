@@ -410,6 +410,7 @@ window.Shell = (function () {
   let toastTimer = null;
   function toast(msg) {
     if (!toastEl) return;
+    if (window.Prefs && Prefs.sound) Prefs.sound('ok');
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
@@ -612,6 +613,10 @@ window.Shell = (function () {
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
     checkDay();
+    /* Only a move makes a sound. `go()` is called to land on the tab already
+       shown often enough — a deep link, a restored start tab, a re-tap on the
+       live chip — and a note for standing still is a note for nothing. */
+    if (i !== index && window.Prefs && Prefs.sound) Prefs.sound('nav');
     const dir = i < index ? -1 : 1;      // which way the titles slide
     index = i;
     show(true, dir);
@@ -1370,6 +1375,33 @@ window.Shell = (function () {
      is both the text's source and the thing that says which way time went. */
   const dayNum = (box, iso) =>
     rollNum(box, String(Number(String(iso).slice(8, 10)) || ''), String(iso));
+
+  /* ── The click under every control ────────────────────────────────────────
+     One listener, on the way down, for the whole page. `pointerdown` rather
+     than `click` because the sound is feedback for the press and not for what
+     it did — a click fires after the finger lifts, which is late enough to
+     sound like a second event — and because a press that turns into a scroll
+     still deserves to have been felt.
+
+     What counts as a control is deliberately narrow: the things that look
+     pressable. A tap on a heading, a card's text or the background is not a
+     control and stays silent, which is what keeps the app from sounding like
+     it is reacting to everything. A disabled control is silent too — nothing
+     happened.
+
+     It is here, once, rather than in the eleven modules: no app carries a line
+     of this, and none of them can end up with a different idea of what a button
+     sounds like. Prefs.sound() is a no-op while the setting is off, so an
+     install that never turns sound on pays a `closest()` per press and nothing
+     else. */
+  const SOUNDS_ON = 'button,a[href],select,summary,input[type=checkbox],input[type=radio],' +
+                    'input[type=range],[role=button],[role=switch],[role=checkbox],[data-act],[data-npad]';
+  document.addEventListener('pointerdown', e => {
+    if (!window.Prefs || !Prefs.sound) return;
+    const el = e.target && e.target.closest && e.target.closest(SOUNDS_ON);
+    if (!el || el.disabled) return;
+    Prefs.sound('tap');
+  }, true);
 
   return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,

@@ -34,6 +34,12 @@
 .ns-create .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
 
 .ns-create .cnt{padding:0 calc(18px * var(--dens))}
+/* A sub-screen's content starts flush against its own sticky header, which put
+   a work's area tag and its name hard under the title with nothing between
+   them. The shelf is not affected: it has no .hd, it has the wordmark block.
+   DO, LEARN, LOG, PLAN and STORE pad their .cnt on all four sides for this
+   reason; this is the same padding, asked for only where a header is. */
+.ns-create .hd + .cnt{padding-top:calc(16px * var(--dens))}
 
 /* The section heading sets the vertical rhythm of all three screens, so its
    own margins are the one place that rhythm is written down. They were literal
@@ -129,7 +135,7 @@
 .ns-create .cr-sorts{display:flex;gap:calc(6px * var(--dens));margin-bottom:calc(10px * var(--dens));
   overflow-x:auto;touch-action:pan-x pan-y;scrollbar-width:none}
 .ns-create .cr-sorts::-webkit-scrollbar{display:none}
-.ns-create .cr-sort{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+.ns-create .cr-sort{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
   padding:calc(7px * var(--dens)) calc(13px * var(--dens));cursor:pointer;transition:color var(--dur-1),border-color var(--dur-1)}
 .ns-create .cr-sort:active{background:var(--press)}
@@ -242,7 +248,7 @@
   margin-bottom:calc(11px * var(--dens))}
 .ns-create .cr-atag i{width:7px;height:7px;border-radius:var(--r-pill);background:var(--ar-c,var(--bd-2))}
 .ns-create .cr-meta{display:flex;flex-wrap:wrap;gap:calc(7px * var(--dens))}
-.ns-create .cr-mchip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+.ns-create .cr-mchip{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.06em;
   padding:calc(7px * var(--dens)) calc(12px * var(--dens));cursor:pointer}
 .ns-create .cr-mchip:active{background:var(--press)}
@@ -254,7 +260,7 @@
 .ns-create .cr-steps{display:flex;gap:calc(6px * var(--dens));overflow-x:auto;touch-action:pan-x pan-y;
   scrollbar-width:none;padding-bottom:calc(2px * var(--dens))}
 .ns-create .cr-steps::-webkit-scrollbar{display:none}
-.ns-create .cr-step{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r-pill);
+.ns-create .cr-step{flex:0 0 auto;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;text-transform:var(--caps);
   padding:calc(8px * var(--dens)) calc(14px * var(--dens));cursor:pointer;
   transition:color var(--dur-1),border-color var(--dur-1)}
@@ -295,7 +301,7 @@
 .ns-create .cr-form input[type=text]:focus{outline:none;border-color:var(--y)}
 .ns-create .cr-form input.dur{flex:0 0 84px;text-align:center}
 .ns-create .cr-kinds{display:flex;flex-wrap:wrap;gap:calc(6px * var(--dens));margin:calc(10px * var(--dens)) 0 0}
-.ns-create .cr-kind{background:none;border:var(--bw) solid var(--bd);border-radius:var(--r-pill);color:var(--tx-2);
+.ns-create .cr-kind{background:none;border:var(--bw) solid var(--bd);border-radius:var(--r3);color:var(--tx-2);
   font:400 9.5px/1 var(--mono);letter-spacing:.06em;padding:calc(6px * var(--dens)) calc(11px * var(--dens));cursor:pointer}
 .ns-create .cr-kind:active{background:var(--press)}
 .ns-create .cr-go{width:100%;margin-top:calc(12px * var(--dens));background:var(--y);border:none;
@@ -307,10 +313,16 @@
 .ns-create .cr-ses{display:flex;align-items:baseline;justify-content:space-between;gap:calc(10px * var(--dens));
   border-top:var(--bw) solid var(--bd);padding:calc(11px * var(--dens)) 0}
 .ns-create .cr-ses:first-of-type{border-top:none}
-.ns-create .cr-ses .l{font:400 11px/1.5 var(--mono);color:var(--tx);min-width:0}
+.ns-create .cr-ses .l{flex:1 1 auto;font:400 11px/1.5 var(--mono);color:var(--tx);min-width:0}
 .ns-create .cr-ses .l s{display:block;text-decoration:none;color:var(--tx-2);font-size:9.5px;
   letter-spacing:.06em;margin-top:calc(3px * var(--dens))}
-.ns-create .cr-ses .r{flex:0 0 auto;font:800 14px/1 var(--head);color:var(--tx)}
+/* The hours are a column, not a word after a sentence: pushed to the right
+   edge, right-aligned inside their own box and set in tabular figures, so
+   1h30 under 45m under 12h line up on the same edge instead of each starting
+   wherever the text beside it happened to stop. */
+.ns-create .cr-ses .r{flex:0 0 auto;margin-left:auto;text-align:right;
+  min-width:calc(46px * var(--dens));font:800 14px/1 var(--head);color:var(--tx);
+  font-variant-numeric:tabular-nums}
 .ns-create .cr-ses .r small{font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:.08em;
   margin-left:calc(2px * var(--dens))}
 .ns-create .cr-ses .x{background:none;border:none;color:var(--mu);font:400 13px/1 var(--mono);cursor:pointer;
@@ -327,12 +339,13 @@
 .ns-create .cr-act.danger{color:var(--re)}
 
 /* ── CURATE ────────────────────────────────────────────────────────────────
-   The Todoist label, grouped by section. Read only, so nothing in here is a
-   control except the refresh and the link out: a row is a record you are going
-   to go and find, and there is nothing here to tick.
+   The Todoist project, grouped by section. A row has two targets: the box on
+   the left ticks it off, the body opens it in Todoist. They are drawn as one
+   card, so the split is in the hit areas rather than on the screen.
 
    One rule per shape and the project's colour written on the group as --pr-c,
-   the way the shelf writes --st-c and --ar-c: a fourth project costs no CSS. */
+   the way the shelf writes --st-c and --ar-c: a fourth project costs no CSS.
+   A label's own colour arrives the same way, as --lb-c on the chip. */
 .ns-create .cr-cref{width:100%;background:var(--s2);border:var(--bw) solid var(--bd);
   border-radius:var(--r1);color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.08em;
   text-transform:var(--caps);padding:calc(11px * var(--dens));cursor:pointer;
@@ -353,15 +366,45 @@
 .ns-create .cr-chead .sc.none{color:var(--mu);font-style:italic}
 .ns-create .cr-chead b{margin-left:auto;flex:0 0 auto;font:800 11px/1 var(--head);color:var(--tx);
   letter-spacing:0;font-variant-numeric:tabular-nums}
-.ns-create .cr-ctask{display:block;text-decoration:none;background:var(--s1);
+.ns-create .cr-ctask{display:flex;align-items:flex-start;gap:calc(10px * var(--dens));
+  background:var(--s1);
   border:var(--bw) solid var(--bd);border-left:3px solid var(--pr-c,var(--bd-2));
   border-radius:var(--r2);padding:calc(12px * var(--dens)) calc(14px * var(--dens));
   margin-bottom:calc(6px * var(--dens))}
-.ns-create .cr-ctask:active{background:var(--press)}
+.ns-create .cr-ctask .bd{flex:1 1 auto;min-width:0;display:block;text-decoration:none}
+.ns-create .cr-ctask .bd:active{opacity:.6}
 .ns-create .cr-ctask .nm{display:block;font:400 12px/1.45 var(--mono);color:var(--tx);letter-spacing:.02em;
   overflow-wrap:anywhere}
-.ns-create .cr-ctask .tg{display:block;font:400 9px/1.4 var(--mono);letter-spacing:.08em;
-  text-transform:var(--caps);color:var(--tx-2);margin-top:calc(5px * var(--dens))}
+.ns-create .cr-ctask .tg{display:flex;flex-wrap:wrap;gap:calc(5px * var(--dens));
+  margin-top:calc(5px * var(--dens))}
+.ns-create .cr-ctask .tg i{font:400 9px/1.4 var(--mono);letter-spacing:.08em;font-style:normal;
+  text-transform:var(--caps);color:var(--tx-2)}
+/* a label in its own Todoist colour: the colour carries it, so the chip is the
+   quietest box that still reads as one — its own hue at low alpha behind it and
+   no border of its own. --lb-c is written on the element by create.js. */
+.ns-create .cr-ctask .tg i.lb{color:var(--lb-c,var(--tx-2));
+  background:color-mix(in srgb,var(--lb-c,transparent) 14%,transparent);
+  border-radius:var(--r1);padding:calc(2px * var(--dens)) calc(6px * var(--dens))}
+.ns-create .cr-ctask .tg i.dt{color:var(--mu)}
+
+/* the tick box. Square with the sheet's control radius rather than a circle:
+   it is the same gesture DO's blocks use and it is drawn the same way. */
+.ns-create .cr-ctask .ck{flex:0 0 auto;width:18px;height:18px;padding:0;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:var(--s2);border:var(--bw) solid var(--bd-2);border-radius:var(--r1);
+  color:transparent;transition:color var(--dur-1),border-color var(--dur-1),background var(--dur-1)}
+.ns-create .cr-ctask .ck svg{width:11px;height:11px;display:block}
+.ns-create .cr-ctask .ck:active{background:var(--press)}
+/* The tick takes the project's colour, and the box behind it only a wash of
+   it: --pr-c is whatever colour Todoist gives that project, so nothing here can
+   assume a legible text colour to sit on top of a solid fill of it. */
+.ns-create .cr-ctask.done .ck{color:var(--pr-c,var(--y));border-color:var(--pr-c,var(--y));
+  background:color-mix(in srgb,var(--pr-c,var(--y)) 16%,transparent)}
+/* a ticked row stays where it is, struck through — a row that vanished would
+   take the only evidence of a mis-tap with it */
+.ns-create .cr-ctask.done{opacity:.5}
+.ns-create .cr-ctask.done .nm{text-decoration:line-through}
+
 /* a subtask, under the task it belongs to: indented, quieter, and without the
    rail — the rail says "this is a thing on the list" and a subtask is part of
    one that already said it */
@@ -372,6 +415,8 @@
 .ns-create .cr-ctask.sub::before{content:'';position:absolute;left:calc(4px * var(--dens));
   top:0;bottom:0;width:var(--bw);background:var(--bd)}
 .ns-create .cr-ctask.sub .nm{font-size:11px;color:var(--tx-2)}
+.ns-create .cr-ctask.sub .ck{width:15px;height:15px}
+.ns-create .cr-ctask.sub .ck svg{width:9px;height:9px}
 
 @media (hover:hover) and (pointer:fine){
   .ns-create .hd-back:hover,.ns-create .hd-action:hover{color:var(--y)}
@@ -381,4 +426,5 @@
   .ns-create .cr-tab.active:hover{color:var(--on-y)}
   .ns-create .cr-add:hover{color:var(--ar-c,var(--y));border-color:var(--ar-c,var(--y))}
   .ns-create .cr-ctask:hover{border-color:var(--pr-c,var(--bd-2))}
+  .ns-create .cr-ctask .ck:hover{border-color:var(--pr-c,var(--y))}
 }

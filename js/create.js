@@ -103,10 +103,11 @@ function readConfig() {
      The stale `label` is not carried over. A label is not a project — there is
      nothing in the old value that answers the new question — so the honest lift
      is back to what ROOT ships with, which is also what the field then shows. */
-  CURATE = Object.assign({ project:'', maxAgeMin:60 },
+  CURATE = Object.assign({ project:'', maxAgeMin:60, labelColors:true },
                          Config.defaults('create.curate') || {},
                          Config.get('create.curate') || {});
   CURATE.project = String(CURATE.project || '').trim();
+  CURATE.labelColors = !!CURATE.labelColors;
   /* The merge above is what distinguishes the two blanks, and they are not the
      same thing: a key that is *absent* takes the shipped value (a stale
      override, or one written before the key existed), while a key that is
@@ -219,6 +220,10 @@ function normalise(raw) {
     priority: +(t && t.priority) || 1,
     due:      (t && t.due) ? String(t.due) : null,
     o:        +(t && t.o) || 0,
+    /* Ticked here and not yet gone from Todoist's answer. It survives a reload
+       so a row does not come back looking open between the tick and the next
+       refetch, and it disappears on its own when that refetch drops the task. */
+    closed:   !!(t && t.closed),
     subs:     Array.isArray(t && t.subs) ? t.subs.map(curRow) : [],
   });
   db.curate = {
@@ -612,10 +617,19 @@ function workRow(w) {
    "sorted nicely" means — the order you put them in over there, not an order
    invented here.
 
-   **It reads and never writes.** CREATE does not close, move, reschedule or
-   create a task: closing a curate task is DO's job and filing one is PLAN's,
-   and a third app with an opinion about the same list is how two of them end
-   up disagreeing. So there is nothing here that a bad network can lose.
+   **It reads, and it closes — nothing else.** Through 4.1 this tab was strictly
+   read-only, on the grounds that a third app with an opinion about the same
+   list is how two of them end up disagreeing. Ticking one off is the exception
+   that argument does not cover: a record you have gone and found is *done*, and
+   walking to DO to say so is the kind of errand that ends with the list never
+   being trusted. So a row can be closed and reopened, and that is the whole of
+   what CREATE writes. It still never moves, reschedules, renames or creates a
+   task — filing one is PLAN's job and always was.
+
+   The write is the same one DO and TEND make (`/tasks/<id>/close`), and it is
+   the safest call in the API: nothing is destroyed, and a task closed by
+   mistake is one tap from being reopened. What it cannot do is fail silently —
+   the tick is drawn at once, and put back if the call does not land.
 
    The shelf has no network at all. This is the exception, kept to one function
    and one cache: that project is the pile of records to find, subscriptions to
@@ -627,10 +641,17 @@ function workRow(w) {
    cached shows the empty state and the spinner together, which is the honest
    thing for a screen whose content lives on someone else's server. */
 let curateBusy = false, curateErr = '';
+/* Ids whose close/reopen has not answered yet — one row cannot be tapped twice
+   into two contradictory calls, and the second tap is the one that would win. */
+const curateTicking = new Set();
 
 const curateTasks = () => (DB.curate.groups || []).flatMap(g => g.tasks || []);
-const curateCount = () => (DB.curate.groups || [])
-  .reduce((n, g) => n + (g.tasks || []).reduce((m, t) => m + 1 + (t.subs || []).length, 0), 0);
+/* What is still open. A ticked row stays on screen — struck through rather than
+   vanishing, so a mis-tap is visible and reversible — but it stops being
+   counted the moment it is ticked, in the group's own number and in the band. */
+const openIn = g => (g.tasks || []).reduce((m, t) =>
+  m + (t.closed ? 0 : 1) + (t.subs || []).filter(x => !x.closed).length, 0);
+const curateCount = () => (DB.curate.groups || []).reduce((n, g) => n + openIn(g), 0);
 const curateAge   = () => Date.now() - (DB.curate.fetched || 0);
 const curateStale = () => curateAge() > Math.max(1, +CURATE.maxAgeMin || 60) * 60000;
 
@@ -651,9 +672,15 @@ async function fetchCurate() {
     const proj = projects.find(p => Todoist.name(p.name) === Todoist.name(CURATE.project));
     if (!proj) throw new Error('no project called “' + CURATE.project + '” — settings → create');
     const pid = String(proj.id);
+    /* The label colours come from the cache every app shares
+       (`root_labels_v1`, ROOT.md §3) and are asked for beside the tasks rather
+       than after them, so a first draw already has them. `Todoist.labels()`
+       answers from cache when it is fresh and never rejects — a colour that is
+       not known yet costs the row nothing, it is drawn plain. */
     const [tasks, sections] = await Promise.all([
       Todoist.getAll('/tasks', { project_id: pid }),
       Todoist.getAll('/sections', { project_id: pid }),
+      CURATE.labelColors ? Todoist.labels() : Promise.resolve(null),
     ]);
 
     const secOrder = {};
@@ -750,28 +777,103 @@ function renderCurate() {
     return;
   }
   box.innerHTML = head +
-    `<div class="cr-cnote">${curateCount()} open · read only — nothing here is ticked or closed from CREATE</div>` +
+    `<div class="cr-cnote">${curateCount()} open · ticking one closes it in todoist</div>` +
     curateGroups(groups);
 }
 
-/* A row is a record you are going to go and find, so the only thing it does is
-   open the task in Todoist. Its labels sit under it because on a list this long
-   they are the thing that tells two rows apart. */
-const curateRow = (t, sub) => `<a class="cr-ctask${sub ? ' sub' : ''}"
-    href="https://app.todoist.com/app/task/${esc(t.id)}" target="_blank" rel="noopener noreferrer">
-  <span class="nm">${esc(t.content)}</span>
-  ${(t.tags.length || t.due) ? `<span class="tg">${
-    [t.due ? fmtDay(t.due) : '', ...t.tags].filter(Boolean).map(x => esc(x)).join(' · ')}</span>` : ''}
-</a>`;
+/* One row, wherever it is: a task, or a subtask under one. */
+function curateFind(id) {
+  for (const g of (DB.curate.groups || [])) {
+    for (const t of (g.tasks || [])) {
+      if (t.id === id) return t;
+      const sub = (t.subs || []).find(x => x.id === id);
+      if (sub) return sub;
+    }
+  }
+  return null;
+}
 
-const curateGroups = groups => groups.map(g => `
+/* Tick, or untick. The row is struck through immediately and the call goes
+   behind it; if the call does not land the row goes back to exactly what it
+   was, which is why the previous state is captured rather than assumed to be
+   the opposite of the new one.
+
+   A parent carries its subtasks both ways, because Todoist does: closing a task
+   closes what is under it and reopening it brings them back. Mirroring that
+   locally keeps the screen and the account saying the same thing until the next
+   refetch, which is the only thing this cache is for. */
+async function toggleCurateTask(id) {
+  const row = curateFind(id);
+  if (!row || curateTicking.has(id)) return;
+  if (!Creds.token()) { toast('no Todoist key saved — add one under settings → data'); return; }
+
+  const next = !row.closed;
+  const kin  = [row].concat(row.subs || []);
+  const was  = kin.map(r => !!r.closed);
+  kin.forEach(r => { r.closed = next; });
+  curateTicking.add(id);
+  save(); renderCurate(); renderBand();
+
+  try {
+    await Todoist.call('/tasks/' + encodeURIComponent(id) + (next ? '/close' : '/reopen'), { method:'POST' });
+    toast(next ? 'closed in todoist' : 'reopened');
+  } catch (e) {
+    kin.forEach((r, i) => { r.closed = was[i]; });
+    toast((e && e.message) || 'could not reach Todoist');
+  } finally {
+    curateTicking.delete(id);
+    save(); renderCurate(); renderBand();
+  }
+}
+
+/* A row is a record you are going to go and find, so it does two things: it
+   opens the task in Todoist, and it ticks off. The two are separate targets —
+   the box on the left closes it, the rest of the row opens it — because a row
+   that both navigates away and changes something is a row you cannot tap
+   confidently. The box is a button and the body is the link, side by side
+   rather than nested: a button inside an anchor is not markup a browser has an
+   agreed answer for.
+
+   Its labels sit under it because on a list this long they are the thing that
+   tells two rows apart, and with `create.curate.labelColors` on they are drawn
+   in the colour Todoist gives them — the shared label cache the media tab and
+   PLAN already read, so a label is the same colour in every app that draws it.
+   A colour that is not cached yet is not invented: that label is drawn plain. */
+const CHECK = `<svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5"
+  stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function curateRow(t, sub, colors) {
+  const bits = (t.due ? [`<i class="dt">${esc(fmtDay(t.due))}</i>`] : []).concat(
+    (t.tags || []).map(tag => {
+      const c = colors && colors[Todoist.name(tag)];
+      return c ? `<i class="lb" style="--lb-c:${esc(c)}">${esc(tag)}</i>` : `<i>${esc(tag)}</i>`;
+    }));
+  return `<div class="cr-ctask${sub ? ' sub' : ''}${t.closed ? ' done' : ''}">
+    <button class="ck" data-act="curate-tick" data-t="${esc(t.id)}" role="checkbox"
+            aria-checked="${t.closed ? 'true' : 'false'}"
+            aria-label="tick off ${esc(t.content)}">${CHECK}</button>
+    <a class="bd" href="https://app.todoist.com/app/task/${esc(t.id)}"
+       target="_blank" rel="noopener noreferrer">
+      <span class="nm">${esc(t.content)}</span>
+      ${bits.length ? `<span class="tg">${bits.join('')}</span>` : ''}
+    </a>
+  </div>`;
+}
+
+function curateGroups(groups) {
+  /* Read once for the whole draw rather than per row: it is a parse of one
+     localStorage entry, and a list this long would pay for it a hundred times. */
+  const colors = CURATE.labelColors && window.Todoist ? Todoist.labelColors() : null;
+  return groups.map(g => `
   <div class="cr-cgroup" style="--pr-c:${esc(DB.curate.color || '#7a8699')}">
     <div class="cr-chead">
       <i></i><span class="sc${g.section ? '' : ' none'}">${esc(g.section || 'no section')}</span>
-      <b>${g.tasks.reduce((n, t) => n + 1 + t.subs.length, 0)}</b>
+      <b>${openIn(g)}</b>
     </div>
-    ${g.tasks.map(t => curateRow(t, false) + t.subs.map(x => curateRow(x, true)).join('')).join('')}
+    ${g.tasks.map(t => curateRow(t, false, colors) +
+                       t.subs.map(x => curateRow(x, true, colors)).join('')).join('')}
   </div>`).join('');
+}
 
 /* ── One work ──────────────────────────────────────────────────────────────── */
 function renderWork() {
@@ -984,6 +1086,7 @@ document.addEventListener('click', ev => {
   if (act === 'add')           { addWork(t.dataset.a); return; }
   if (act === 'area')          { DB.settings.area = t.dataset.a; save(); renderHome(); maybeFetchCurate(); return; }
   if (act === 'curate-refresh'){ fetchCurate(); return; }
+  if (act === 'curate-tick')   { toggleCurateTask(t.dataset.t); return; }
   if (act === 'log-area')      { logArea = t.dataset.a; renderSessionFilter(); renderSessionBody(); return; }
   if (act === 'sort')          { DB.settings.sort = t.dataset.s; save(); renderHome(); return; }
   if (act === 'fold')          { DB.settings.showDone = !DB.settings.showDone; save(); renderHome(); return; }
@@ -1057,6 +1160,13 @@ function renderSettings() {
   if (lb) lb.placeholder = String((Config.defaults('create.curate') || {}).project || '');
   const ca = document.querySelector('.ns-create #cr-set-curate-age');
   if (ca) ca.value = Math.max(1, +CURATE.maxAgeMin || 60);
+  /* The switch is in the static markup, so settings.js's `data-cfg-toggle`
+     listener writes Config and this — reached through Config.subscribe below —
+     is what draws the result. Content-editor switches redraw themselves; this
+     one belongs to the panel, and the panel is not regenerated. */
+  const lc = document.querySelector('.ns-create #cr-set-labelcolors');
+  if (lc) { lc.classList.toggle('on', CURATE.labelColors);
+            lc.setAttribute('aria-checked', String(CURATE.labelColors)); }
 
   const st = document.querySelector('.ns-create #cr-status');
   if (st) {

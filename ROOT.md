@@ -23,7 +23,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app and it only ever reads. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have — and a work's progress is one tick per checklist item instead of a rail with a ratio printed beside it. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have — and a work's progress is one tick per checklist item instead of a rail with a ratio printed beside it. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -167,7 +167,7 @@ on the evening form.
 ### What the shell gives every module
 
 ```js
-Shell.toast(msg)                       // the one toast
+Shell.toast(msg)                       // the one toast — and the one place a message makes a sound
 Shell.undo(label, restore)             // the one undo pill — offered *instead of* a toast
 Shell.hideUndo()                       // take it back down early
 Shell.rollNum(box, text, sort)         // a number in a .h-daynum box, shuffled
@@ -182,6 +182,17 @@ Shell.badge(name, n)                   // a count on a tab button
 Shell.alert(name, on, why)             // the app's icon replaced by a "!" — LOG uses it
 Shell.register(name, { onShow, onDayChange, onMinute, home, search })
 ```
+
+**Sound is the shell's, and no module has a line of it.** `Prefs.sound(voice)`
+plays one of three synthesised notes — `tap`, `nav`, `ok` — and it is called from
+exactly three places, all in `shell.js`: one capture-phase `pointerdown` listener
+on the document that fires for anything that looks pressable, `Shell.go` when the
+slide actually changes, and `Shell.toast`. Nothing is downloaded and no
+`AudioContext` exists while the setting is off; the first one is built inside the
+gesture that plays the first note, which is the only moment a browser allows it.
+A second play within 55 ms is dropped, so a tab press — a pointerdown *and* a nav
+— is one sound rather than two. Adding a sound to an app is therefore never the
+answer: if a press should sound, it should be a control.
 
 **Asking is not synchronous.** `Shell.confirm` opens `#ask` and returns; what to
 do next is the second argument, or the promise it answers with when there is no
@@ -1181,14 +1192,16 @@ both say so, and a new device needs the `.apkg` imported again.
   versions. That is what "the spacing is off" turned out to be. A harness check
   now asserts every generated block on that screen carries the class its rules
   are written for.
-- **CREATE's shelf is offline; its curate tab is not.** Since 4.1 the module
-  reaches the network in exactly one function, through the shared `Todoist`
-  client, and only ever **reads**. Nothing in CREATE closes, moves, reschedules
-  or creates a task — closing a curate task is DO's job and filing one is
-  PLAN's, and a third app with an opinion about the same list is how two of them
-  end up disagreeing. Two harness checks hold the line: no `fetch(` and no
-  `api.todoist.com` in the module, and no `Todoist.call(`, no method, no
-  `/close` and no `/reopen`.
+- **CREATE's shelf is offline; its curate tab reads, and closes.** Since 4.1 the
+  module reaches the network through the shared `Todoist` client and nothing
+  else. Through 4.1 it only ever *read*, on the grounds that a third app with an
+  opinion about the same list is how two of them end up disagreeing. 4.2 narrowed
+  that rather than dropping it: a curate row can be **closed and reopened**, and
+  that is the whole of what CREATE writes. It still never moves, reschedules,
+  renames or creates a task — filing one is PLAN's job. Two harness checks hold
+  the line: no `fetch(` and no `api.todoist.com` in the module, and **exactly
+  one** `Todoist.call(`, whose path is `/close` or `/reopen` and whose method is
+  the only one in the file. A new call is a decision, not an edit.
 - **`e.blocks` says what was done; it cannot say where it was ticked.** It is a
   flat list of names and the Obsidian side parses that shape, so it stays one.
   A planned task called "mixing" and the standing block called "mixing" are the
@@ -1235,6 +1248,22 @@ both say so, and a new device needs the `.apkg` imported again.
   fallback is on the key being absent, never on its value being falsy**: a key
   that is present and empty is a choice ("blank switches the tab off") and
   taking it away is a different bug.
+
+- **An optimistic write has to be able to be put back exactly.** CREATE's curate
+  tick draws itself before the call lands, which is the only way a list this long
+  feels answerable — but the way back is the *previous* state captured before the
+  change, never "the opposite of what it is now". A parent carries its subtasks,
+  so the row that was already ticked and the row that was not must each land back
+  where they were; assuming the inverse would silently open a subtask nobody
+  touched. The harness refuses a close and checks the record, not just the class.
+
+- **A browser will not make a sound outside a gesture.** An `AudioContext`
+  constructed at boot is born `suspended` and stays that way, and everything
+  played through it is silence with no error anywhere. So the context is built
+  **inside the first press that needs it**, and never at all while the setting is
+  off — which also means an install that never turns sound on has no audio graph
+  to pay for. `resume()` is asked for every time and its promise ignored: if it
+  is refused there is simply no sound, which is the correct outcome.
 
 ## 7. How to do the common things
 
@@ -1577,6 +1606,97 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.2 — 2026-09-07 — the curate list can be ticked off, labels get their colours, and the app makes a sound
+
+Six requests, one batch. Three of them are shapes in CREATE, two open the curate
+tab up, and one is new behaviour under the whole app.
+
+**The curate list ticks off, subtasks included.** Through 4.1 this tab was
+strictly read-only, and the reasoning was written down in three files: a third
+app with an opinion about the same list is how two of them end up disagreeing.
+That argument does not cover the tick. A record you have gone and found is
+*done*, and walking to DO to say so is the errand that ends with a list nobody
+trusts. So a row now has two targets — the box on the left closes it, the body
+still opens it in Todoist — and closing is the whole of what CREATE writes. It
+still never moves, reschedules, renames or creates a task.
+
+The write is `/tasks/<id>/close`, the same call DO and TEND make, and the same
+one in reverse puts it back. **The tick is drawn before the call lands**, because
+a list this long stops feeling answerable if every tap waits on a network; if the
+call does not land, the row goes back to *exactly* what it was — the previous
+state, captured, not "the opposite of now", which would open a subtask nobody
+touched. A ticked row stays where it is, struck through, rather than vanishing:
+a row that disappeared would take the only evidence of a mis-tap with it. It
+stops being counted at once, in its group's number and in the band.
+
+A parent carries its subtasks both ways, because Todoist does — closing a task
+closes what is under it, and reopening brings them back — so the screen and the
+account say the same thing until the next refetch drops the row entirely.
+
+The invariant in ROOT.md §6 narrowed rather than went away, and so did the
+harness check that holds it: there must be **exactly one** `Todoist.call(` in the
+module, its path `/close` or `/reopen`, and its method the only one in the file.
+A second call is now a decision someone has to make on purpose.
+
+**Labels in their own colours, behind a switch.** `create.curate.labelColors`
+draws each task's labels in the colour Todoist gives them, out of `root_labels_v1`
+— the label cache DO fills and PLAN refreshes — so a label is the same colour in
+every app that draws one. A colour that is not cached yet is not invented: that
+label is drawn plain. The switch is in settings → create, and it is the panel's
+static markup rather than a generated content editor, so `Config.subscribe` is
+what redraws it.
+
+**Three shapes.** The hours on a session row are pushed to the right edge,
+right-aligned in a box with a floor width and set in tabular figures, so they
+read as a column instead of ending wherever the sentence beside them stopped.
+Content under a sticky header gets top padding — `.hd + .cnt` — which is the
+padding DO, LEARN, LOG, PLAN and STORE already have on all four sides; the shelf
+is untouched, because it has a wordmark up there and not a header. And the sort
+chips, the meta chips, the stage stepper and the session kinds take `--r3`
+instead of `--r-pill`: rounded squares, not pills. The dots, the rails and the
+progress bar keep `--r-pill`, because a circle is not a button.
+
+**The interface has a voice.** Three notes — a control under a finger, a slide
+arriving, a message — **synthesised**, a sine through a gain envelope, none
+longer than a twentieth of a second. Nothing is downloaded, so there is no asset,
+no cache and no licence for a click.
+
+It is wired in three places in `shell.js` and nowhere else: one capture-phase
+`pointerdown` listener on the document that fires for anything that looks
+pressable, `Shell.go` when the slide actually changes, and `Shell.toast`. No app
+carries a line of it and none can end up with its own idea of what a button
+sounds like — if a press should sound, it should be a control.
+
+Two rules keep it out of the way. **Nothing exists until it is asked for**: no
+`AudioContext` is constructed while the setting is off, and the first one is
+built inside the gesture that plays the first note, which is the only moment a
+browser allows it — one made at boot is born suspended and plays silence with no
+error anywhere (§6). And **one sound per gesture**: a tab press is a pointerdown
+*and* a nav, and hearing both is the difference between "smooth" and "cheap", so
+a play within 55 ms of the last is dropped rather than layered.
+
+Off by default, with a level dial beside it in behaviour — sound is the one
+setting that can embarrass someone in a quiet room, which is why haptics is off
+by default too.
+
+**Verified** with `test/harness.mjs`, **930 checks, all green** (896 at 4.1.2),
+34 new. The curate tick is driven through the real DOM against a scripted
+Todoist: the call that goes out, the row and its two subtasks going down
+together, the counts dropping, the record on disk, the reopen, a refused call put
+back, and a tap with no key saved sending nothing. The sound is driven against a
+stubbed `AudioContext` — nothing built while it is off, one context built inside
+the first press, the second press inside the gap dropped, the next one not, a
+press on a heading silent, a toast and a slide each sounding once, and a re-tap
+on the tab already shown sounding not at all.
+
+**Not looked at** — still no browser this session. The three shape fixes are
+asserted as rules, not as pixels: jsdom does not lay out, so "the hours line up
+in a column" is `margin-left:auto` + `text-align:right` + tabular figures being
+present, and nothing more. **They want an eye on a phone.** So does the sound,
+which no test can hear: what the harness proves is that the right graph is built
+at the right moment and torn down to silence when it is switched off, not that
+660 Hz for 32 ms is pleasant.
 
 ### 4.1.2 — 2026-09-07 — CREATE stopped existing, and two reasons why
 
