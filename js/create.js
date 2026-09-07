@@ -570,31 +570,86 @@ function renderHome() {
    on one digit, on the screen whose job is to list what is on the shelf. The
    total it also carried is not lost — the "Finished" fold below says how many
    are done, which is the same subtraction. */
+/* ── The tally ──────────────────────────────────────────────────────────────
+   On `all` the one number was a summary of things that are not the same kind
+   of thing: songs on the desk, mixes on the desk, and somebody else's open
+   list. Added together it answers nothing. So on `all` the row carries one
+   number per column, each with its own caption saying which chip it belongs
+   to; every other chip keeps the single rolling number, which is the shape
+   4.1.1 gave it.
+
+   Null when there is only one column — a caption under a number that has no
+   sibling is a label for a thing you already know. */
+function bandCols() {
+  const cols = AREAS.map(a => ({ label:a.label, color:a.color,
+    n: DB.works.filter(w => !isDone(w) && areaOf(w).key === a.key).length }));
+  if (CURATE.project) cols.push({ label:curateChip(),
+    color: DB.curate.color || '#7a8699', n: curateCount() });
+  return cols.length > 1 ? cols : null;
+}
+
 function renderBand() {
   const sel = areaSel();
-  const box = $id('cr-daynum'), lab = $id('cr-label');
+  const box = $id('cr-daynum'), lab = $id('cr-label'), tal = $id('cr-tally');
+  const cols = sel === 'all' ? bandCols() : null;
   const n = onCurate() ? curateCount() : inProgress().length;
   if (lab) lab.textContent = onCurate()
     ? (DB.curate.project || CURATE.project || 'curate')
-    : (sel === 'all' ? 'in progress' : AREAS[areaIx(sel)].label + ' · in progress');
+    : (sel === 'all' ? 'on the desk' : AREAS[areaIx(sel)].label + ' · in progress');
+  if (tal) {
+    tal.classList.toggle('hidden', !cols);
+    if (cols) tal.innerHTML = cols.map(c =>
+      `<span class="cr-tal" style="--ar-c:${esc(c.color)}"><b>${c.n}</b><s>${esc(c.label)}</s></span>`
+    ).join('');
+  }
+  /* One of the two, never both: the tally takes the place the rolling number
+     had rather than sitting beside it. */
+  if (box) box.classList.toggle('hidden', !!cols);
   /* The count is its own sort key: more than last time rolls one way, fewer
      rolls the other, which is the same agreement between gesture and animation
      the date arrows have. */
-  if (box && window.Shell && Shell.rollNum) Shell.rollNum(box, String(n), n);
+  if (box && !cols && window.Shell && Shell.rollNum) Shell.rollNum(box, String(n), n);
 }
 
-/* One tick per checklist item, filled for done — how far along and out of how
-   many, in one shape and with no number beside it. Past LONG_LIST the segments
-   would be thinner than the gaps between them, so it falls back to a rail:
-   a checklist that long is a fraction again. */
+/* ── Two bars, not one ─────────────────────────────────────────────────────
+   4.1.2 drew one tick per checklist item, which said how far through *this
+   stage* the work is and nothing at all about where the stage sits on the
+   path. A song four ticks into `idea` and a song four ticks into `master`
+   drew the identical shape, and those are not the same song.
+
+   So there are two, stacked, and they answer the two questions separately:
+
+     · the **stage** bar — one segment per stage of the area, lit up to and
+       including the one the work is on. The long arc, and the reason a mix
+       three stages in reads differently from one that has just started.
+     · the **step** bar — one segment per item of that stage's checklist,
+       lit for what is ticked. The short arc, and the one that moves today.
+
+   Both are rounded squares rather than the 1px slivers the ticks were: at
+   `--r1` a segment reads as a block that was filled in, which is what it is.
+   A stage with no checklist (the terminal one) has no step bar at all rather
+   than an empty rail — there is nothing left to ask of it.
+
+   Past LONG_LIST the step segments would be thinner than the gaps between
+   them, so that one bar alone falls back to a rail. The stage bar never does:
+   an area with sixteen stages is not a thing anyone has. */
 const LONG_LIST = 16;
-function progHTML(done, total) {
+function barHTML(cls, done, total, label) {
   if (total > LONG_LIST) {
-    return `<div class="cr-prog long" style="--pct:${Math.round(done / total * 100)}%"
-                 role="img" aria-label="${done} of ${total} done"></div>`;
+    return `<div class="cr-bar ${cls} long" style="--pct:${Math.round(done / total * 100)}%"
+                 role="img" aria-label="${esc(label)}"></div>`;
   }
-  return `<div class="cr-prog${done === total ? ' full' : ''}" role="img" aria-label="${done} of ${total} done">${
+  return `<div class="cr-bar ${cls}${done >= total ? ' full' : ''}" role="img" aria-label="${esc(label)}">${
     Array.from({ length: total }, (_, i) => `<i${i < done ? ' class="on"' : ''}></i>`).join('')}</div>`;
+}
+function progHTML(p) {
+  const stages = p.area.stages;
+  const si = Math.max(0, stageIx(p.area, p.stage.key));
+  const bars = [barHTML('stages', si + 1, stages.length,
+                        `stage ${si + 1} of ${stages.length} — ${p.stage.label}`)];
+  if (p.total) bars.push(barHTML('steps', p.done, p.total,
+                                 `${p.done} of ${p.total} steps done`));
+  return `<div class="cr-prog">${bars.join('')}</div>`;
 }
 
 function workRow(w) {
@@ -606,7 +661,7 @@ function workRow(w) {
                   style="--st-c:${esc(c)};--ar-c:${esc(p.area.color)}">
     <div class="t"><span class="nm">${AREAS.length > 1 ? '<i class="ar"></i>' : ''}${esc(w.name)}</span><span class="st">${esc(p.stage.label)}</span></div>
     <div class="mt">${meta ? esc(meta) + ' <s>·</s> ' : ''}<s>${esc(ago(w.touched))}</s></div>
-    ${p.total ? progHTML(p.done, p.total) : ''}
+    ${progHTML(p)}
   </button>`;
 }
 
@@ -946,9 +1001,19 @@ function renderWork() {
     </div>`;
 }
 
-const sesRow = (e, withWork) => `<div class="cr-ses">
+/* A session with no `work` is a loose one — an hour at the desk that belonged
+   to no song or mix. It says its area instead of a name rather than showing a
+   dash, because "which of the two was I doing" is the thing still worth
+   knowing about it. */
+const sesWho = e => {
+  const w = workById(e.work);
+  if (w) return w.name;
+  const a = AREAS[areaIx(e.area)];
+  return a ? a.label + ' · loose' : 'loose';
+};
+const sesRow = (e, withWork) => `<div class="cr-ses${e.work ? '' : ' loose'}">
   <span class="l">${esc(e.what || 'session')}
-    <s>${esc(fmtDay(e.date))}${withWork ? ' · ' + esc((workById(e.work) || { name:'—' }).name) : ''}</s></span>
+    <s>${esc(fmtDay(e.date))}${withWork ? ' · ' + esc(sesWho(e)) : ''}</s></span>
   <span class="r">${hrs(e.hours)}</span>
   <button class="x" data-act="del-session" data-e="${esc(e.id)}" aria-label="remove session">×</button>
 </div>`;
@@ -979,10 +1044,47 @@ function renderSessionFilter() {
   positionGlider(bar);
 }
 
+/* ── A session that belongs to nothing ─────────────────────────────────────
+   "sometimes i am just tinkering." An hour at the desk that produced no song
+   and no mix is still an hour at the desk, and until 4.3 there was nowhere to
+   put it: the only log form was on a work's own screen, so the record could
+   only ever be made *of* something.
+
+   The store already allowed it — `work` has been nullable since the migration
+   that split songs from works — so this is a form and a row style, not a
+   shape change. The area is still asked, because "which of the two was I
+   doing" is the one thing about a loose hour worth keeping; with a single
+   area there is nothing to ask and the chips are not drawn.
+
+   It lives on the session log and not on the shelf: the shelf is a list of
+   things, and this is precisely the hour that made no thing. */
+let loose = { hours:'', what:'', area:null };
+const looseArea = () => (AREAS.some(a => a.key === loose.area) ? loose.area : AREAS[0].key);
+
+function looseHTML() {
+  const a = AREAS[areaIx(looseArea())];
+  return `<div class="cr-sec"><span>Log a loose session</span><em>no ${esc(a.noun)} — just time at the desk</em></div>
+    <div class="cr-form cr-loose">
+      ${AREAS.length > 1 ? `<div class="cr-kinds">${AREAS.map(x =>
+        `<button class="cr-kind${x.key === a.key ? ' on' : ''}" data-act="loose-area" data-a="${esc(x.key)}"
+                 style="--ar-c:${esc(x.color)}">${esc(x.label)}</button>`).join('')}</div>` : ''}
+      <div class="cr-row">
+        <input type="text" class="dur" id="cr-l-hours" data-pad="duration" inputmode="numeric"
+               value="${esc(loose.hours)}" placeholder="1h30" aria-label="how long">
+        <input type="text" id="cr-l-what" data-pad="off" value="${esc(loose.what)}"
+               placeholder="what you did" aria-label="what you did">
+      </div>
+      ${a.kinds.length ? `<div class="cr-kinds">${a.kinds.map(k =>
+        `<button class="cr-kind" data-act="loose-kind" data-k="${esc(k)}">${esc(k)}</button>`).join('')}</div>` : ''}
+      <button class="cr-go" data-act="loose-log">log it</button>
+    </div>`;
+}
+
 function renderSessionBody() {
   const box = $id('cr-sessions'); if (!box) return;
   if (!DB.sessions.length) {
-    box.innerHTML = `<div class="cr-empty">No sessions yet.<br>Open something and log the first one.</div>`;
+    box.innerHTML = looseHTML() +
+      `<div class="cr-empty">No sessions yet.<br>Open something and log the first one — or log a loose hour above.</div>`;
     return;
   }
   if (logArea !== 'all' && !AREAS.some(a => a.key === logArea)) logArea = 'all';
@@ -990,7 +1092,7 @@ function renderSessionBody() {
   const w     = weekStats(logArea === 'all' ? null : logArea);
   const total = rows.reduce((a, b) => a + b.hours, 0);
   const days  = [...new Set(rows.map(e => e.date))];
-  box.innerHTML = `
+  box.innerHTML = looseHTML() + `
     <div class="cr-stats">
       <div class="cr-stat card"><div class="v acc">${hrs(w.hours)}</div><div class="k">last ${Math.max(1, +HOME.weekDays || 7)} days</div></div>
       <div class="cr-stat card"><div class="v">${hrs(total)}</div><div class="k">all time</div></div>
@@ -1054,6 +1156,20 @@ function logSession() {
   toast(hrs(h) + ' on ' + w.name);
 }
 
+/* The same write as logSession(), with no work to touch and no work id to
+   file it under. `area` is not denormalised off anything here — it *is* the
+   answer, which is why the form asks for it. */
+function logLoose() {
+  const h = Math.max(0, parseFloat(String(loose.hours).replace(',', '.')) || 0);
+  if (!h) { toast('how long was it?'); return; }
+  const a = AREAS[areaIx(looseArea())];
+  DB.sessions.unshift({ id: newId('se'), work: null, area: a.key, date: Shell.today(),
+                        hours: h, what: String(loose.what || '').trim() });
+  loose = { hours:'', what:'', area:a.key };
+  save(); renderSessions();
+  toast(hrs(h) + ' logged · no ' + a.noun);
+}
+
 function delSession(id) {
   const e = DB.sessions.find(x => x.id === id); if (!e) return;
   DB.sessions = DB.sessions.filter(x => x.id !== id);
@@ -1084,10 +1200,23 @@ document.addEventListener('click', ev => {
   if (act === 'open')          { openId = t.dataset.id; form = { hours:'', what:'' }; go('work'); return; }
   if (act === 'open-sessions') { go('sessions'); return; }
   if (act === 'add')           { addWork(t.dataset.a); return; }
-  if (act === 'area')          { DB.settings.area = t.dataset.a; save(); renderHome(); maybeFetchCurate(); return; }
+  /* `render()`, not `renderHome()`. The band is not part of the home screen —
+     the shell lifts it out — so redrawing only the screen left the number
+     saying whatever the last chip had put there: curate's total stayed on the
+     row while production's shelf was underneath it. */
+  if (act === 'area')          { DB.settings.area = t.dataset.a; save(); render(); maybeFetchCurate(); return; }
   if (act === 'curate-refresh'){ fetchCurate(); return; }
   if (act === 'curate-tick')   { toggleCurateTask(t.dataset.t); return; }
   if (act === 'log-area')      { logArea = t.dataset.a; renderSessionFilter(); renderSessionBody(); return; }
+  if (act === 'loose-area')    { loose.area = t.dataset.a; renderSessionBody(); return; }
+  if (act === 'loose-log')     { logLoose(); return; }
+  if (act === 'loose-kind') {
+    const el = $id('cr-l-what');
+    const cur = String(loose.what || '').trim();
+    loose.what = cur ? cur + ' · ' + t.dataset.k : t.dataset.k;
+    if (el) el.value = loose.what;
+    return;
+  }
   if (act === 'sort')          { DB.settings.sort = t.dataset.s; save(); renderHome(); return; }
   if (act === 'fold')          { DB.settings.showDone = !DB.settings.showDone; save(); renderHome(); return; }
   if (act === 'stage')         { setStage(t.dataset.k); return; }
@@ -1126,8 +1255,10 @@ let noteT = null;
 document.addEventListener('input', ev => {
   const el = ev.target;
   if (!el.closest || !el.closest('.ns-create')) return;
-  if (el.id === 'cr-hours') { form.hours = el.value; return; }
-  if (el.id === 'cr-what')  { form.what  = el.value; return; }
+  if (el.id === 'cr-hours')   { form.hours = el.value; return; }
+  if (el.id === 'cr-what')    { form.what  = el.value; return; }
+  if (el.id === 'cr-l-hours') { loose.hours = el.value; return; }
+  if (el.id === 'cr-l-what')  { loose.what  = el.value; return; }
   if (el.id === 'cr-note') {
     const w = workById(openId); if (!w) return;
     w.notes = el.value;
@@ -1287,6 +1418,9 @@ return { render, renderSettings, go, addWork, exportData, importData, resetAll,
          refreshCurate: fetchCurate,
          /* The stages of one area, by key; with no key, of the first one. */
          stages: k => AREAS[areaIx(k)].stages.slice(),
-         area: k => { DB.settings.area = k; save(); if (screen === 'home') renderHome(); },
+         /* `render()`, not `renderHome()` — the band is not part of the home
+            screen, so the number has to be repainted with the shelf. Same fix
+            as the `area` act in the listener, and the same bug it had. */
+         area: k => { DB.settings.area = k; save(); if (screen === 'home') render(); },
          progress, open: id => { openId = id; go('work'); } };
 })();

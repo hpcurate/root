@@ -410,7 +410,7 @@ window.Shell = (function () {
   let toastTimer = null;
   function toast(msg) {
     if (!toastEl) return;
-    if (window.Prefs && Prefs.sound) Prefs.sound('ok');
+    if (window.Prefs && Prefs.sound) Prefs.sound('msg');
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
@@ -1396,11 +1396,45 @@ window.Shell = (function () {
      else. */
   const SOUNDS_ON = 'button,a[href],select,summary,input[type=checkbox],input[type=radio],' +
                     'input[type=range],[role=button],[role=switch],[role=checkbox],[data-act],[data-npad]';
+
+  /* ── Which of the five moments a press is ─────────────────────────────────
+     4.3 gave sound five events instead of three, and the two new ones —
+     completing something, and opening a menu — are decided **here**, off the
+     element under the finger, rather than by an app calling `Prefs.sound()`
+     itself. That rule is the whole reason a tenth app needs no line of audio,
+     and it is not being traded for two more sounds.
+
+     `done` is a tick that is about to go *on*. A checkbox already checked is
+     being un-ticked, which is not completing anything, so it keeps the plain
+     control sound — the sound has to agree with what happens or it is noise.
+     State is read before the press because that is when we are: the handler
+     has not run yet.
+
+     `menu` is anything that opens something over the page: the shell's own
+     dialog and numpad, the settings menu, an overlay's opener. `aria-haspopup`
+     and `aria-expanded="false"` are the two standard ways an element says so
+     and cost nothing to ask.
+
+     Anything else is `tap`. A press is a control first and one of these two
+     second, so the specific test comes first and falls through. */
+  const TICKY = 'input[type=checkbox],[role=checkbox],[role=switch],.ck,.cr-item,.chk,[data-tick]';
+  function pressVoice(el) {
+    if (el.matches(TICKY)) {
+      const on = el.checked === true ||
+                 el.getAttribute('aria-checked') === 'true' ||
+                 el.classList.contains('on');
+      return on ? 'tap' : 'done';
+    }
+    if (el.matches('[aria-haspopup],[data-npad],[data-open],[data-sheet]') ||
+        el.getAttribute('aria-expanded') === 'false') return 'menu';
+    return 'tap';
+  }
+
   document.addEventListener('pointerdown', e => {
     if (!window.Prefs || !Prefs.sound) return;
     const el = e.target && e.target.closest && e.target.closest(SOUNDS_ON);
     if (!el || el.disabled) return;
-    Prefs.sound('tap');
+    Prefs.sound(pressVoice(el));
   }, true);
 
   return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,

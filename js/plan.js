@@ -1229,12 +1229,85 @@ function setTemplate(name) {
   renderProjects();
 }
 
-function setMode(m) { Prefs.tap(); expForm.mode = m === 'full' ? 'full' : 'blocks'; renderProjects(); }
+/* ── What the day already holds ───────────────────────────────────────────
+   PLAN cannot see Google and never will (ROOT.md §8), but it can see the record
+   CAL keeps of what it last exported — the same day, written down at the moment
+   the task was sent. That is enough to answer the two questions the export
+   panel could not:
+
+     · "am I about to overwrite something?" — the line under the mode chips
+     · "is there a day here to patch a block into?" — the `patch` chip's gate
+
+   It is a read and only a read. `CAL.day()` hands back the stored record;
+   nothing here writes through it, and a missing CAL reads as "nothing known",
+   which is the honest answer rather than a blocked panel. */
+function dayOnFile(iso) {
+  if (!window.CAL || !CAL.day || !iso) return null;
+  const rec = CAL.day(iso);
+  return (rec && Array.isArray(rec.events) && rec.events.length) ? rec : null;
+}
+const canPatch = () => !!dayOnFile(expForm.day);
+
+/* The indicator. It says what is on file for the chosen day and, in `patch`,
+   which of that day's slots the export is about to change — because "overwrite
+   just this block" is only worth trusting if you can see which block. */
+function onFileHTML() {
+  const rec = dayOnFile(expForm.day);
+  if (!rec) return `<em>nothing planned for ${esc(expForm.day)} yet</em>`;
+  const when = rec.written ? new Date(rec.written).toLocaleDateString('en-GB',
+                 { day:'numeric', month:'short' }) : '';
+  const filled = (rec.events || []).filter(e => e.kind === 'task').length;
+  const bits = [`${esc(expForm.day)} already has a schedule`,
+                rec.template ? esc(rec.template) : '',
+                rec.start ? 'from ' + esc(rec.start) : '',
+                filled ? filled + ' block' + (filled !== 1 ? 's' : '') + ' filled' : 'no blocks filled',
+                when ? 'exported ' + esc(when) : ''].filter(Boolean);
+  const mine = expRows().flatMap(r => r.slots).sort();
+  const note = expForm.mode === 'patch' && mine.length
+    ? `<em class="ok">only ${esc(mine.join(', '))} will change — the rest of the day is left alone</em>`
+    : expForm.mode === 'blocks'
+    ? `<em class="warn">blocks only still sends the start and the template, so the day is rebuilt around what you send</em>`
+    : '';
+  return `<em class="on">${bits.join(' · ')}</em>` + note;
+}
+
+/* `patch` is the mode that writes **one block into a day that is already
+   planned**. `blocks` and `full` both describe a whole day — `full` says so,
+   and `blocks` still carries the start time and the template, so the agent
+   rebuilds the day around whatever was sent and every slot that was not sent
+   comes back empty. That is the right behaviour for planning tomorrow and the
+   wrong one for changing one hour of it.
+
+   It is refused, loudly, on a day with no record: there is nothing to patch
+   into, and the honest thing is to say so rather than to quietly do a `blocks`
+   export under a different word. */
+function setMode(m) {
+  Prefs.tap();
+  if (m === 'patch' && !canPatch()) {
+    toast(`${expForm.day} has no schedule yet — export the day first`);
+    return;
+  }
+  expForm.mode = (m === 'full' || m === 'patch') ? m : 'blocks';
+  renderProjects();
+}
 
 /* The three text fields repaint only what reads them. A full redraw would
    pull the caret out of the field being typed in. */
 function expField(el) {
-  if (el.id === 'exp-date')  expForm.day = el.value || expForm.day;
+  /* A new date can take `patch` away under the panel's feet — the day it was
+     picked for is not the day any more. Falling back to `blocks` is the rule
+     setTemplate() follows when the b3s go: a state that is no longer possible
+     is dropped, out loud. The whole panel is redrawn rather than only the
+     preview, because the chip and the indicator both changed. */
+  if (el.id === 'exp-date') {
+    expForm.day = el.value || expForm.day;
+    if (expForm.mode === 'patch' && !canPatch()) {
+      expForm.mode = 'blocks';
+      toast(`${expForm.day} has no schedule — back to blocks only`);
+    }
+    renderProjects();
+    return;
+  }
   if (el.id === 'exp-start' && HM.test(el.value)) { expForm.start = el.value; saveExportPrefs(); }
   if (el.id === 'exp-notes') { expForm.notes = el.value; return; }
   renderPreview();
@@ -1271,8 +1344,19 @@ function exportDescription() {
     .sort((a, b) => order.indexOf(a.s) - order.indexOf(b.s))
     .map(x => x.line);
   const notes = noteLines();
-  const out = [[`day: ${expForm.day}`, `start: ${expForm.start}`,
-                `template: ${expForm.template}`, `mode: ${expForm.mode}`].join('\n')];
+  /* **In `patch` the start and the template are the stored day's, not the
+     form's.** The four header fields are a contract and none of them may go
+     missing, but a patch is not allowed to move the day: sending the form's
+     start would be the agent shifting every hour it was told not to touch,
+     which is half of what the request is about ("it even adjusts the start of
+     the day back to what was programmed"). So the header repeats what the day
+     already says about itself, and the only new information in the whole
+     description is the slot lines. */
+  const on = expForm.mode === 'patch' ? dayOnFile(expForm.day) : null;
+  const start = on && on.start ? on.start : expForm.start;
+  const tpl   = on && on.template ? on.template : expForm.template;
+  const out = [[`day: ${expForm.day}`, `start: ${start}`,
+                `template: ${tpl}`, `mode: ${expForm.mode}`].join('\n')];
   if (lines.length) out.push(lines.join('\n'));
   if (notes.length) out.push(['notes:'].concat(notes.map(n => '- ' + n)).join('\n'));
   return out.join('\n\n');
@@ -1399,8 +1483,10 @@ function exportPanel() {
         chip(expForm.template === n, n, `PLAN.setTemplate('${attr(n)}')`)).join('')}</div></div>
 
     <div class="f"><label class="lbl">Mode</label>
-      <div class="opts" id="exp-mode">${[['blocks','blocks only'], ['full','full schedule']].map(([v, l]) =>
-        chip(expForm.mode === v, l, `PLAN.setMode('${v}')`)).join('')}</div></div>
+      <div class="opts" id="exp-mode">${[['blocks','blocks only'], ['full','full schedule'], ['patch','patch blocks']].map(([v, l]) =>
+        `<button class="opt-b${expForm.mode === v ? ' on' : ''}${v === 'patch' && !canPatch() ? ' off' : ''}"
+                 onclick="PLAN.setMode('${v}')">${esc(l)}</button>`).join('')}</div>
+      <div class="exp-onfile" id="exp-onfile">${onFileHTML()}</div></div>
 
     <div class="f"><label class="lbl">Slots</label>
       <div class="exp-tasks" id="exp-tasks">${rows.map((r, i) => `
@@ -1429,7 +1515,10 @@ function previewHTML() {
   const rows = previewRows();
   const warn = expForm.mode === 'full'
     ? `<div class="exp-warn">the whole of ${esc(expForm.day)} will be replaced — anything already
-         on it is archived to <b>00B | schedule 2</b> first, not deleted</div>` : '';
+         on it is archived to <b>00B | schedule 2</b> first, not deleted</div>`
+    : expForm.mode === 'patch'
+    ? `<div class="exp-warn ok">only the hours below are rewritten — the rest of ${esc(expForm.day)},
+         its start time and its template are left exactly as they are</div>` : '';
   if (!rows.length) return warn + `<div class="exp-empty">nothing to write yet — give a task a slot</div>`;
   return warn + `<div class="exp-prev">${rows.map(r => `
     <div class="exp-line${r.idle ? ' idle' : ''}">
@@ -1475,16 +1564,27 @@ async function doExport() {
   if (btn) { btn.disabled = true; btn.textContent = 'exporting…'; }
   try {
     const written = calendarDay();       // built before the state below is cleared
+    const patching = expForm.mode === 'patch';
     await Todoist.call('/tasks', { method:'POST', body: JSON.stringify({
       content: `schedule ${day}`, description: exportDescription(), labels: ['import'] }) });
     saveExportPrefs();
     /* CAL gets the day only once the task has landed. A day drawn for an export
        that failed would be a day that is not actually scheduled — and the whole
        point of the view is telling those two apart at a glance. */
-    if (window.CAL) CAL.write(written);
+    /* A patch merges into the stored day; anything else replaces it. If the
+       merge finds nothing to merge into — the record was swept between the
+       panel opening and the button being pressed — the day is written whole
+       rather than lost, and the toast says which of the two happened. */
+    let merged = 0;
+    if (window.CAL) {
+      if (patching) merged = CAL.patch(written) || 0;
+      if (!patching || !merged) CAL.write(written);
+    }
     sentSel.clear(); expSlots = {}; expOpen = false;
     renderHome();
-    toast(`exported · ${n} task${n !== 1 ? 's' : ''} for ${day}`);
+    toast(patching && merged
+      ? `patched · ${merged} block${merged !== 1 ? 's' : ''} on ${day}`
+      : `exported · ${n} task${n !== 1 ? 's' : ''} for ${day}`);
   } catch (err) {
     toast('export failed · ' + ((err && err.message) || 'unknown error'));
     renderPreview();                       // puts the button back, enabled

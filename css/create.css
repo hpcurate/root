@@ -176,17 +176,42 @@
    It falls back to a rail past `.long` — set by create.js at 16 items, where
    the segments would be thinner than the gaps between them — because a
    checklist that long is a fraction again. */
-.ns-create .cr-prog{display:flex;align-items:center;gap:2px;margin-top:calc(9px * var(--dens));height:5px}
-.ns-create .cr-prog i{flex:1 1 0;min-width:2px;height:100%;border-radius:1px;
+/* ── Two bars: the path, then today ───────────────────────────────────────
+   The big one is the stages of the area — where on the path this work sits.
+   The thin one under it is the steps of the stage it is on. They are stacked
+   and not side by side because they are the same measurement at two scales,
+   and reading them top-down is reading zoomed out then zoomed in.
+
+   Rounded squares, at `--r1`: a segment reads as a block someone filled in.
+   The 1px slivers this replaced read as hatching. */
+.ns-create .cr-prog{display:flex;flex-direction:column;gap:3px;margin-top:calc(9px * var(--dens))}
+.ns-create .cr-bar{display:flex;align-items:center;gap:3px}
+.ns-create .cr-bar.stages{height:7px}
+.ns-create .cr-bar.steps{height:4px;gap:2px;opacity:.72}
+.ns-create .cr-bar i{flex:1 1 0;min-width:2px;height:100%;border-radius:var(--r1);
   background:var(--bd);transition:background var(--dur-1) ease}
-.ns-create .cr-prog i.on{background:var(--st-c,var(--y))}
-/* the last tick of a finished list gets the whole thing lit, which is the one
-   state worth reading from across the room */
-.ns-create .cr-prog.full i{background:var(--st-c,var(--y))}
-.ns-create .cr-prog.long{gap:0;background:var(--s2);border-radius:var(--r-pill);overflow:hidden}
-.ns-create .cr-prog.long i{display:none}
-.ns-create .cr-prog.long::before{content:'';display:block;height:100%;width:var(--pct,0%);
-  background:var(--st-c,var(--y));border-radius:var(--r-pill)}
+.ns-create .cr-bar i.on{background:var(--st-c,var(--y))}
+/* the last segment of a finished bar gets the whole thing lit, which is the
+   one state worth reading from across the room */
+.ns-create .cr-bar.full i{background:var(--st-c,var(--y))}
+.ns-create .cr-bar.long{gap:0;background:var(--s2);border-radius:var(--r1);overflow:hidden}
+.ns-create .cr-bar.long i{display:none}
+.ns-create .cr-bar.long::before{content:'';display:block;height:100%;width:var(--pct,0%);
+  background:var(--st-c,var(--y));border-radius:var(--r1)}
+
+/* ── The tally, on "all" ──────────────────────────────────────────────────
+   Sits where the single rolling number does, at the right end of the
+   wordmark's row: one number per chip, each captioned with the chip it
+   counts. Mono caption, so three of them line up as a row of readings rather
+   than as three little headings. */
+.ns-create .cr-tally{flex:0 0 auto;display:flex;align-items:flex-end;
+  gap:calc(11px * var(--dens));margin-left:auto}
+.ns-create .cr-tal{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0}
+.ns-create .cr-tal b{font:800 22px/1 var(--head);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--ar-c,var(--tx))}
+.ns-create .cr-tal s{text-decoration:none;font:400 8.5px/1.2 var(--mono);letter-spacing:.06em;
+  text-transform:var(--caps);color:var(--tx-2);
+  max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* One button per area on screen, so starting a mix is never something you have
    to change screens to do. They share the row equally rather than each taking
@@ -428,3 +453,16 @@
   .ns-create .cr-ctask:hover{border-color:var(--pr-c,var(--bd-2))}
   .ns-create .cr-ctask .ck:hover{border-color:var(--pr-c,var(--y))}
 }
+
+/* ── The loose session ───────────────────────────────────────────────────────
+   The form on the session log for an hour that belonged to no song and no mix.
+   Same box as the one on a work's own screen; the only thing added is the area
+   picker, drawn as chips because there are two of them and picking one is not
+   a decision worth a select. A picked chip takes its area's colour, which is
+   the same agreement the shelf's chips make. */
+.ns-create .cr-loose .cr-kinds:first-child{margin-top:0;margin-bottom:calc(10px * var(--dens))}
+.ns-create .cr-kind.on{border-color:var(--ar-c,var(--y));color:var(--ar-c,var(--y))}
+/* A row with no work behind it: the accent bar is what says so at a glance,
+   before the "· loose" on its second line is read. */
+.ns-create .cr-ses.loose .l{padding-left:calc(8px * var(--dens));
+  border-left:2px solid var(--bd-2)}

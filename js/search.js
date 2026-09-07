@@ -32,7 +32,7 @@ const esc = s => String(s == null ? '' : s)
 const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE' };
+                    create:'CREATE', tools:'TOOLS' };
 
 /* ── What Config holds, flattened ─────────────────────────────────────────────
    One entry per line: which path it lives under, what a match is called, and
@@ -73,6 +73,9 @@ const CONTENT = [
         .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + a.label + ' · ' + st.label })))))) },
   { path:'create.curate',      app:'create',
     rows: v => (v && v.project) ? [{ name: v.project, sub:'the curate tab · todoist project' }] : [] },
+  { path:'tools.decks',        app:'tools',
+    rows: v => Object.keys(v || {}).flatMap(k => [{ name: k, sub:'decide list' }]
+      .concat((v[k] || []).map(i => ({ name: i, sub: 'decide · ' + k })))) },
 ];
 
 function contentHits(q) {

@@ -290,7 +290,7 @@ w.Config.reset('log.streakRequires');
 
 // ── 15. 2.2 — three more apps in the track ─────────────────────────────────
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
-check('ten tabs, settings last', w.Shell.TABS.length === 10 && w.Shell.TABS[9] === 'settings', w.Shell.TABS.join(','));
+check('eleven tabs, settings last', w.Shell.TABS.length === 11 && w.Shell.TABS[10] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
@@ -307,7 +307,7 @@ check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settin
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
 w.Prefs.reset('apps');
-check('reset restores all ten in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,settings', w.Shell.TABS.join(','));
+check('reset restores all eleven in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,settings', w.Shell.TABS.join(','));
 w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
@@ -742,7 +742,7 @@ check('settings opens on a home menu with three categories', $('.ns-set #s-home'
   [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
-check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create',
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools',
   [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
 click($('.ns-set [data-open="tend"]')); await tick();
 check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
@@ -754,7 +754,7 @@ check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,s
 w.Prefs.reset('apps');
 w.SET.panel('do');
 check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
-  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'do');
 check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
   !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
@@ -3352,7 +3352,7 @@ check('the wordmark is snapped to a whole pixel, and the band is measured in the
    fractional inputs and the other is the status-bar inset — 47.33px on a
    notched iPhone, landing in the padding and the min-height alike. */
 check('the status-bar inset is snapped too, and every header measures from it',
-  /--sat:round\(up, env\(safe-area-inset-top\), 1px\)/.test(tokensCss4) &&
+  /--sat:calc\(round\(up, env\(safe-area-inset-top\), 1px\) \+ var\(--band-drop\)\)/.test(tokensCss4) &&
   /padding:calc\(var\(--sat\) \+ 14px\)/.test(shellCss4) &&
   (() => {
     // comments explain the inset by name; what must be gone is every *use* of it
@@ -3563,7 +3563,7 @@ check('... and the sideways strips still claim pan-x, which is what makes them d
   /\.ns-do \.tabs\{[\s\S]*?touch-action:pan-x pan-y/.test(doCss2) &&
   /\.set-seg\{[\s\S]*?touch-action:pan-x pan-y/.test(setCss4));
 check('... the two earlier fixes are kept, because both were real',
-  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4));
+  /--title-px:round\(/.test(tokensCss4) && /--sat:calc\(round\(up,/.test(tokensCss4));
 
 /* -- LOG's arrows step aside like DAY's stepper -- */
 w.Shell.go('log');
@@ -3751,10 +3751,10 @@ check('… while the bottom inset is still claimed, for the home indicator',
   /viewport-fit=cover/.test(headHtml) &&
   /env\(safe-area-inset-bottom\)/.test(tokensCss4));
 check('… and every header still measures from env(), so either value works unchanged',
-  /--sat:env\(safe-area-inset-top\)/.test(tokensCss4) &&
+  /--sat:calc\(env\(safe-area-inset-top\) \+ var\(--band-drop\)\)/.test(tokensCss4) &&
   /padding:calc\(var\(--sat\) \+ 14px\)/.test(shellCss4));
 check('… the three earlier fixes are all kept — each was a real defect',
-  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4) &&
+  /--title-px:round\(/.test(tokensCss4) && /--sat:calc\(round\(up,/.test(tokensCss4) &&
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))));
 
 /* ── 2.25.2: the blur was the contrast, not the rendering ──
@@ -3786,7 +3786,7 @@ check('… --mu itself is unchanged: it is still the placeholder colour, and now
   /never a label, see above/.test(tokensCss4));
 /* Every earlier fix stays: each was a real defect on its own terms. */
 check('… and none of the four earlier fixes was reverted to get here',
-  /--title-px:round\(/.test(tokensCss4) && /--sat:round\(up,/.test(tokensCss4) &&
+  /--title-px:round\(/.test(tokensCss4) && /--sat:calc\(round\(up,/.test(tokensCss4) &&
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))) &&
   /content="black"/.test(headHtml));
 
@@ -4742,7 +4742,7 @@ const crSpace = createCss41.replace(/\/\*[\s\S]*?\*\//g, '')
   .match(/(?:margin|padding|gap)(?:-top|-bottom|-left|-right)?:[^;}]*/g) || [];
 const crLiteral = crSpace.filter(x =>
   /\d+px/.test(x) && !/var\(--dens\)/.test(x) && !/var\(--hd-pad\)/.test(x) &&
-  !/^gap:3px$/.test(x) && !/^gap:2px$/.test(x));
+  !/^gap:3px$/.test(x) && !/^gap:2px$/.test(x) && !/^gap:1px$/.test(x));
 check('… and every gap in the sheet is a ratio of --dens, so Spacing reaches all of it',
   crLiteral.length === 0, crLiteral.join(' | '));
 
@@ -4831,17 +4831,41 @@ check('the count sits at the right end of the wordmark’s row, not in a hero un
 check('… in the same box LOG and DAY use, so the three read as one thing',
   $('.ns-create #cr-daynum').classList.contains('h-daynum') &&
   $('.ns-create #cr-daynum').parentElement.classList.contains('h-logo-row'));
-check('… and it counts what is in progress, with the label saying so',
-  $('.ns-create #cr-daynum .dn-cur').textContent === String(w.CREATE.works().filter(
-    x => !/released|played|finished/.test(w.CREATE.progress(x).stage.label)).length) &&
-  $('.ns-create #cr-label').textContent === 'in progress',
-  $('.ns-create #cr-daynum').textContent + ' / ' + $('.ns-create #cr-label').textContent);
+/* 4.3: on "all" the one number was three unlike things added together — songs
+   on the desk, mixes on the desk, and somebody else's open list. The row
+   carries one number per chip instead, each captioned, and the single rolling
+   number is put away while it does. */
+const talCaps = () => [...d.querySelectorAll('.ns-create #cr-tally .cr-tal s')].map(x => x.textContent);
+check('… and on "all" it is one number per chip rather than one total',
+  $('.ns-create #cr-daynum').classList.contains('hidden') &&
+  !$('.ns-create #cr-tally').classList.contains('hidden') &&
+  talCaps().slice(0, 2).join(',') === 'production,mixing',
+  talCaps().join(','));
+/* Curate is a column when it is a chip, and only then — it is the same
+   question the strip answers, so the two never disagree about what exists. */
+check('… with curate among them exactly when curate is on the strip',
+  (talCaps().length === 3) === !!d.querySelector('.ns-create .cr-tab[data-a="curate"]'),
+  talCaps().join(',') + ' / ' + [...d.querySelectorAll('.ns-create .cr-tab')].map(b => b.dataset.a).join(','));
+check('… and each area’s number is that area alone, not the shelf',
+  [...d.querySelectorAll('.ns-create #cr-tally .cr-tal b')].slice(0, 2).map(x => +x.textContent).join(',') ===
+  ['production', 'mixing'].map(k => w.CREATE.works().filter(x =>
+    w.CREATE.progress(x).area.key === k &&
+    !/released|played|finished/.test(w.CREATE.progress(x).stage.label)).length).join(','),
+  $('.ns-create #cr-tally').textContent);
 w.CREATE.area('mixing');
 w.CREATE.go('home');
 check('… and narrowing to an area says which area it is counting',
-  /mixing/.test($('.ns-create #cr-label').textContent),
+  /mixing/.test($('.ns-create #cr-label').textContent) &&
+  !$('.ns-create #cr-daynum').classList.contains('hidden') &&
+  $('.ns-create #cr-tally').classList.contains('hidden'),
   $('.ns-create #cr-label').textContent);
-w.CREATE.area('all');
+/* The bug that made this worth a version: the band is not part of the home
+   screen — the shell lifts it out — so an area chip that redrew only the
+   screen left the last chip's number sitting on the row. */
+check('… and switching the chip repaints the number, rather than leaving the last one up',
+  /if \(act === 'area'\)\s+\{ DB\.settings\.area = t\.dataset\.a; save\(\); render\(\);/.test(createJs41),
+  'the area act calls render(), not renderHome()');
+w.CREATE.area('production');
 w.CREATE.go('home');
 
 /* The shuffle is Shell's, pulled out of dayNum unchanged so all three boxes
@@ -4852,35 +4876,59 @@ check('the roll is one function for all three numbers, not a second copy of it',
   (shellJs411.match(/\.dn-out'\)\.forEach/g) || []).length === 2,
   'one rollNum, dayNum delegates to it');
 const dnBox = () => $('.ns-create #cr-daynum');
-w.CREATE.addWork('production');
-settle();
-$('#ask-input').value = 'a fifth thing';
-click($('#ask-yes'));
-await tick();
+/* On one area, which is where the single rolling number still lives — "all"
+   draws the tally instead, and a tally has nothing to shuffle. */
+w.CREATE.area('production');
 w.CREATE.go('home');
+/* Driven through the store rather than through the add dialog: what is being
+   asserted is that the *number* shuffles when it changes, and a check that
+   also depends on the dialog's plumbing is a check that can pass on a stale
+   animation left over from three steps earlier. That is what it used to do. */
+const dnWas41 = dnBox().querySelector('.dn-cur').textContent;
+const crStore41 = JSON.parse(w.localStorage.getItem('create_v1'));
+crStore41.works.push({ id:'wk_shuffle', area:'production', name:'a fifth thing',
+  stage: w.CREATE.stages('production')[0].key, bpm:'', key:'', tags:'', notes:'',
+  added: today, touched: today, done:{} });
+w.localStorage.setItem('create_v1', JSON.stringify(crStore41));
+w.CREATE.reload();
 check('… and CREATE’s number shuffles when it changes, like the day numbers do',
+  dnBox().querySelector('.dn-cur').textContent !== dnWas41 &&
   !!dnBox().querySelector('.dn-out') && dnBox().querySelector('.dn-cur').classList.contains('shuffling'),
-  dnBox().innerHTML.replace(/\s+/g, ' ').slice(0, 90));
+  dnWas41 + ' → ' + dnBox().innerHTML.replace(/\s+/g, ' ').slice(0, 90));
+w.CREATE.go('home');
 
-/* Progress is ticks now: one per checklist item, filled for done. A rail could
-   only say what fraction, which is why there was a "1 / 7" printed beside it. */
+/* 4.3: two bars, not one. The tick strip said how far through *this stage* a
+   work is and nothing about where the stage sits on the path — four ticks into
+   `idea` and four ticks into `master` drew the identical shape. The stage bar
+   is the long arc, the step bar the short one. */
 const progOf = () => $('.ns-create #cr-list .cr-work .cr-prog');
-check('a work’s progress is one tick per checklist item, not a rail and a ratio',
-  !!progOf() && progOf().querySelectorAll('i').length > 0 &&
+check('a work’s progress is two bars: the stages, then the steps of the stage',
+  !!progOf() && !!progOf().querySelector('.cr-bar.stages') &&
   !progOf().querySelector('.rail') && !progOf().querySelector('.v'),
-  progOf() ? progOf().querySelectorAll('i').length + ' ticks' : 'none');
-check('… as many ticks as the stage asks for, and the done ones lit',
+  progOf() ? [...progOf().querySelectorAll('.cr-bar')].map(b => b.className).join(' | ') : 'none');
+check('… the stage bar is one segment per stage, lit up to the one it is on',
   [...d.querySelectorAll('.ns-create #cr-list .cr-work')].every(row => {
-    const p = row.querySelector('.cr-prog');
-    if (!p) return true;
+    const p = row.querySelector('.cr-bar.stages');
+    if (!p) return false;
     const n = p.querySelectorAll('i').length, on = p.querySelectorAll('i.on').length;
-    return n > 0 && on <= n && /^\d+ of \d+ done$/.test(p.getAttribute('aria-label')) &&
-           +p.getAttribute('aria-label').split(' ')[2] === n;
+    return n > 1 && on >= 1 && on <= n && /^stage \d+ of \d+ — /.test(p.getAttribute('aria-label'));
   }));
-check('… and it still says the count to a screen reader, which is what the ratio was for',
-  /aria-label="\d+ of \d+ done"/.test($('.ns-create #cr-list').innerHTML));
-/* Past 16 items the segments would be thinner than the gaps between them, so
-   it falls back to a rail — a checklist that long is a fraction again. */
+check('… and the step bar only exists where the stage asks something of it',
+  [...d.querySelectorAll('.ns-create #cr-list .cr-work')].every(row => {
+    const p = row.querySelector('.cr-bar.steps');
+    if (!p) return true;                    // a terminal stage has no checklist
+    const n = p.querySelectorAll('i').length;
+    return n > 0 && /^\d+ of \d+ steps done$/.test(p.getAttribute('aria-label'));
+  }));
+check('… and both are rounded squares rather than the 1px slivers they were',
+  /\.ns-create \.cr-bar i\{[^}]*border-radius:var\(--r1\)/.test(createCss411) &&
+  !/\.ns-create \.cr-bar i\{[^}]*border-radius:1px/.test(createCss411));
+check('… and it still says both counts to a screen reader',
+  /aria-label="stage \d+ of \d+/.test($('.ns-create #cr-list').innerHTML) &&
+  /aria-label="\d+ of \d+ steps done"/.test($('.ns-create #cr-list').innerHTML));
+/* Past 16 items the step segments would be thinner than the gaps between them,
+   so that bar alone falls back to a rail — a checklist that long is a fraction
+   again. The stage bar never does: nobody has sixteen stages. */
 const longAreas = JSON.parse(JSON.stringify(areasNow));
 longAreas.forEach(a => a.stages.forEach(st => {
   if (st.terminal) return;                       // a finished stage asks for nothing
@@ -4888,10 +4936,11 @@ longAreas.forEach(a => a.stages.forEach(st => {
 }));
 w.Config.set('create.areas', longAreas);
 w.CREATE.go('home');
-check('… and a checklist too long to draw as ticks falls back to a rail',
-  [...d.querySelectorAll('.ns-create #cr-list .cr-prog')].some(p => p.classList.contains('long')) &&
-  /\.ns-create \.cr-prog\.long::before\{[^}]*width:var\(--pct/.test(createCss411),
-  [...d.querySelectorAll('.ns-create #cr-list .cr-prog')].map(p => p.className).join(' | '));
+check('… and a checklist too long to draw as segments falls back to a rail',
+  [...d.querySelectorAll('.ns-create #cr-list .cr-bar.steps')].some(p => p.classList.contains('long')) &&
+  ![...d.querySelectorAll('.ns-create #cr-list .cr-bar.stages')].some(p => p.classList.contains('long')) &&
+  /\.ns-create \.cr-bar\.long::before\{[^}]*width:var\(--pct/.test(createCss411),
+  [...d.querySelectorAll('.ns-create #cr-list .cr-bar')].map(p => p.className).join(' | '));
 w.Config.set('create.areas', areasNow);
 w.CREATE.go('home');
 
@@ -4933,7 +4982,7 @@ check('a new app reaches an install whose app list predates it',
   !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
   w2.Prefs.get('apps').join(','));
 check('… in its shipped position, not tacked onto the end of settings',
-  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create', w2.Prefs.get('apps').join(','));
+  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create,tools', w2.Prefs.get('apps').join(','));
 check('… while the apps that install had switched off stay switched off',
   ['plan', 'store', 'tend', 'learn'].every(a => !w2.Prefs.get('apps').includes(a)),
   w2.Prefs.get('apps').join(','));
@@ -5115,9 +5164,14 @@ check('every control in CREATE is a rounded square — no button is a pill any m
   pillish42.join(' ') || 'all four take --r3');
 /* --r-pill is still the right answer for a circle. The dots and the rails are
    shapes, not controls, and they keep it. */
-check('… while the dots and the rails keep it, because a circle is not a button',
-  /\.cr-atag i\{[^}]*border-radius:var\(--r-pill\)/.test(css42) &&
-  /\.cr-prog\.long\{[^}]*border-radius:var\(--r-pill\)/.test(css42));
+check('… while the dots keep it, because a circle is not a button',
+  /\.cr-atag i\{[^}]*border-radius:var\(--r-pill\)/.test(css42));
+/* 4.3 took the rail off --r-pill with it. It is not a control either, but it
+   is now the fallback shape for a bar made of rounded squares, and a pill
+   sitting under a row of --r1 segments read as a different drawing. */
+check('… and the progress rail follows its own segments to --r1',
+  /\.cr-bar\.long\{[^}]*border-radius:var\(--r1\)/.test(css42) &&
+  !/\.cr-bar\.long\{[^}]*border-radius:var\(--r-pill\)/.test(css42));
 
 /* ── ticking a curate row off ──────────────────────────────────────────────
    The list is put back the way the 4.1 block left it, and every write the tick
@@ -5282,6 +5336,10 @@ function FakeCtx42() {
   this.createOscillator = () => ({ type:'', frequency: new FakeParam42(),
     connect() {}, start() { played42++; }, stop() {} });
   this.createGain = () => ({ gain: new FakeParam42(), connect() {} });
+  /* 4.3's clicky voices roll the top off a square wave. A real browser has
+     had this node since WebAudio shipped; the stub had not caught up. */
+  this.createBiquadFilter = () => ({ type:'', frequency: new FakeParam42(),
+    Q: new FakeParam42(), connect() {} });
 }
 w.AudioContext = FakeCtx42;
 const press42 = el => el.dispatchEvent(new w.MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
@@ -5289,7 +5347,7 @@ const sndTog42 = () => $('.ns-set [data-pref="sounds"][data-toggle]');
 
 check('sound is off until it is asked for — it is the setting that can embarrass someone',
   w.Prefs.SCHEMA.sounds.def === false && w.Prefs.get('sounds') === false);
-w.Prefs.sound('tap'); w.Prefs.sound('ok');
+w.Prefs.sound('tap'); w.Prefs.sound('msg');
 check('… and while it is off no audio graph is built at all, not even a silent one',
   made42 === 0 && played42 === 0, made42 + ' contexts');
 
@@ -5330,6 +5388,313 @@ w.Prefs.reset('soundLevel');
 check('… and switching it back off silences it again, without unbuilding anything',
   (() => { const was = played42; w.Prefs.sound('tap'); return played42 === was; })(),
   played42 + ' notes');
+
+
+/* ══ 4.3 ══════════════════════════════════════════════════════════════════════
+   A TOOLS tab, sound becomes a kit you can map, and PLAN can patch one block
+   of a day. ════════════════════════════════════════════════════════════════ */
+
+const prefsJs43   = fs.readFileSync(path.join(ROOT, 'js/prefs.js'), 'utf8');
+const tokensCss43 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+const shellCss43  = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+const themesCss43 = fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8');
+const calJs43     = fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8');
+const toolsJs43   = fs.readFileSync(path.join(ROOT, 'js/tools.js'), 'utf8');
+
+/* ── a session that belongs to nothing ────────────────────────────────────
+   "sometimes i am just tinkering." An hour at the desk that made no song is
+   still an hour at the desk. */
+w.Shell.go('create');
+w.CREATE.go('sessions');
+const looseForm43 = () => $('.ns-create #cr-sessions .cr-loose');
+check('the session log can log an hour that belongs to no song or mix',
+  !!looseForm43() && !!$('.ns-create #cr-l-hours') && !!$('.ns-create #cr-l-what'),
+  looseForm43() ? 'the form is there' : 'no form');
+check('… and it asks which area it was, because that is the part worth keeping',
+  [...looseForm43().querySelectorAll('[data-act="loose-area"]')].map(b => b.dataset.a).join(',') ===
+  w.CREATE.areas().map(a => a.key).join(','),
+  [...looseForm43().querySelectorAll('[data-act="loose-area"]')].map(b => b.dataset.a).join(','));
+const sesWas43 = w.CREATE.sessions().length;
+click([...looseForm43().querySelectorAll('[data-act="loose-area"]')].find(b => b.dataset.a === 'mixing'));
+$('.ns-create #cr-l-hours').value = '1.5';
+$('.ns-create #cr-l-hours').dispatchEvent(new w.Event('input', { bubbles: true }));
+$('.ns-create #cr-l-what').value = 'tinkering';
+$('.ns-create #cr-l-what').dispatchEvent(new w.Event('input', { bubbles: true }));
+click($('.ns-create [data-act="loose-log"]'));
+const loose43 = w.CREATE.sessions().find(e => e.what === 'tinkering');
+check('… and logging it writes a session with no work behind it',
+  w.CREATE.sessions().length === sesWas43 + 1 && !!loose43 &&
+  loose43.work === null && loose43.area === 'mixing' && loose43.hours === 1.5,
+  JSON.stringify(loose43));
+check('… it counts in the totals like any other hour at the desk',
+  (w.CREATE.dayStats(today) || {}).hours >= 1.5,
+  JSON.stringify(w.CREATE.dayStats(today)));
+check('… and its row says the area instead of a name, rather than a dash',
+  /mixing · loose/.test($('.ns-create #cr-sessions').textContent) &&
+  !!$('.ns-create #cr-sessions .cr-ses.loose'),
+  ($('.ns-create #cr-sessions').textContent.match(/mixing[^\n]{0,20}/) || ['no row'])[0]);
+check('… a session with no hours is refused, the way the work screen refuses one',
+  (() => { const n = w.CREATE.sessions().length;
+           click($('.ns-create [data-act="loose-log"]'));
+           return w.CREATE.sessions().length === n; })());
+
+/* ── stage palettes ───────────────────────────────────────────────────────── */
+w.SET.panel('create');
+const palBtns43 = () => [...d.querySelectorAll('.ns-set [data-group="create.areas"] [data-ed]')];
+check('every area offers a palette for its stages, and the strip is the control',
+  palBtns43().length >= 6 &&
+  palBtns43().every(b => b.querySelectorAll('.ed-pal-sw i').length > 1),
+  palBtns43().length + ' buttons');
+const emberBtn43 = palBtns43().find(b => b.dataset.ed === 'production/ember');
+click(emberBtn43);
+const prodStages43 = w.CREATE.stages('production');
+check('… one tap recolours that area’s stages, first to finished',
+  prodStages43[0].color === '#5f3a2e' &&
+  prodStages43[prodStages43.length - 1].color === '#ffe9a8',
+  prodStages43.map(x => x.color).join(','));
+check('… sampled across however many stages there are, so the last is the ramp’s last',
+  new Set(prodStages43.map(x => x.color)).size === prodStages43.length,
+  prodStages43.map(x => x.color).join(','));
+check('… and the area itself takes the head of its own ramp',
+  w.CREATE.areas().find(a => a.key === 'production').color === '#5f3a2e');
+check('… mixing was not touched — a palette is applied to one area, not the app',
+  w.CREATE.stages('mixing')[0].color !== '#5f3a2e');
+w.Config.reset('create.areas');
+
+/* ── sound: a kit, and a map over it ──────────────────────────────────────── */
+check('sound has more than three voices now, and a kit that maps them onto moments',
+  w.Prefs.VOICE_IDS.length >= 9 && w.Prefs.SOUND_KIT_IDS.length >= 4 &&
+  w.Prefs.SOUND_EVENT_KEYS.join(',') === 'tap,nav,menu,done,msg',
+  w.Prefs.VOICE_IDS.join(',') + ' / ' + w.Prefs.SOUND_KIT_IDS.join(','));
+check('… every kit answers every event, and only with voices that exist',
+  w.Prefs.SOUND_KIT_IDS.every(k => w.Prefs.SOUND_EVENT_KEYS.every(e =>
+    w.Prefs.VOICE_IDS.includes(w.Prefs.SOUND_KITS[k][e]))));
+check('… and `classic` is what 4.2 sounded like, so nothing liked was taken away',
+  w.Prefs.SOUND_KITS.classic.tap === 'blip' && w.Prefs.SOUND_KITS.classic.msg === 'chime' &&
+  /blip:\s*\{[^}]*hz:\s*660[^}]*to:\s*560/.test(prefsJs43) &&
+  /chime:\s*\{[^}]*hz:\s*880[^}]*to:\s*1180/.test(prefsJs43));
+check('… the five overrides all start on `auto`, so the kit is the only thing to pick',
+  ['sndTap','sndNav','sndMenu','sndDone','sndMsg'].every(k =>
+    w.Prefs.SCHEMA[k].def === 'auto' && w.Prefs.get(k) === 'auto'));
+w.SET.panel('behave');
+check('… both controls are on the behaviour panel, under the volume',
+  !!$('.ns-set [data-snd-kit="tick"]') && !!$('.ns-set .snd-map [data-snd-map="sndDone"]'),
+  $('.ns-set .snd-map') ? 'kit and map present' : 'missing');
+click($('.ns-set [data-snd-kit="wood"]'));
+check('… picking a kit writes it and redraws the map under it',
+  w.Prefs.get('soundKit') === 'wood' &&
+  /kit · thunk/.test($('.ns-set .snd-map').textContent),
+  w.Prefs.get('soundKit') + ' / ' + $('.ns-set .snd-map').textContent.slice(0, 60));
+click($('.ns-set .snd-map [data-snd-map="sndDone"][data-val="glass"]'));
+check('… and one event can be moved off the kit without leaving it',
+  w.Prefs.get('sndDone') === 'glass' && w.Prefs.get('soundKit') === 'wood');
+/* The two new moments are decided in shell.js off the element under the
+   finger, not by an app calling Prefs.sound() — that rule is what keeps a
+   tenth app free of audio, and it is not traded for two more sounds. */
+const shellJs43 = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
+check('completing and opening are decided in the shell, not announced by an app',
+  /function pressVoice\(el\)/.test(shellJs43) &&
+  (shellJs43.replace(/\/\*[\s\S]*?\*\//g, '').match(/Prefs\.sound\(/g) || []).length === 3,
+  (shellJs43.replace(/\/\*[\s\S]*?\*\//g, '').match(/Prefs\.sound\(/g) || []).length + ' call sites in shell.js');
+check('… and no app module has a line of sound in it',
+  ['do','log','plan','store','tend','track','learn','cal','create','tools']
+    .every(f => !/Prefs\.sound\(/.test(fs.readFileSync(path.join(ROOT, 'js/' + f + '.js'), 'utf8'))));
+check('… a tick about to go on sounds like completing; one coming back off does not',
+  /return on \? 'tap' : 'done';/.test(shellJs43));
+w.Prefs.reset('soundKit'); w.Prefs.reset('sndDone');
+
+/* ── the content offset, and the pill's three dials ───────────────────────── */
+check('the band drops a few pixels, on a dial, folded into the inset every header reads',
+  w.Prefs.SCHEMA.bandDrop.def === 6 && w.Prefs.SCHEMA.bandDrop.cssVar === '--band-drop' &&
+  /--sat:calc\(env\(safe-area-inset-top\) \+ var\(--band-drop\)\)/.test(tokensCss43) &&
+  /--sat:calc\(round\(up, env\(safe-area-inset-top\), 1px\) \+ var\(--band-drop\)\)/.test(tokensCss43));
+check('… so it reaches every header at once rather than the one complained about',
+  /padding:calc\(var\(--sat\) \+ 14px\)/.test(shellCss43));
+check('the bottom pill has three dials, and their defaults are the literals they replaced',
+  w.Prefs.SCHEMA.navHeight.def === 58 && w.Prefs.SCHEMA.navRadius.def === 29 &&
+  w.Prefs.SCHEMA.navIcon.def === 19 &&
+  /--nav-fh:58px/.test(tokensCss43) && /--nav-r:29px/.test(tokensCss43) &&
+  /--nav-icon:19px/.test(tokensCss43));
+check('… the pill reads them rather than 999px and 19px',
+  /#nav\{[\s\S]*?border-radius:var\(--nav-r\)/.test(shellCss43) &&
+  /\.tab-b svg\{width:var\(--nav-icon\);height:var\(--nav-icon\)/.test(shellCss43));
+check('… and the two rules that used to override the icon size follow it as a ratio',
+  !/\.tab-b svg\{width:2[01]px/.test(shellCss43) &&
+  !/\.tab-b svg\{width:21px/.test(themesCss43) &&
+  /\[data-tab-labels="off"\] \.tab-b svg\{width:calc\(var\(--nav-icon\)/.test(themesCss43));
+w.SET.panel('layout');
+check('… all four are controls on the layout panel',
+  ['bandDrop','navHeight','navRadius','navIcon'].every(k => !!$('.ns-set [data-slider="' + k + '"]')));
+w.Prefs.set('navHeight', 70); w.Prefs.set('navRadius', 4); w.Prefs.set('navIcon', 24);
+w.Prefs.set('bandDrop', 12);
+check('… and moving one writes a whole pixel onto the root, never a fraction',
+  d.documentElement.style.getPropertyValue('--nav-fh') === '70px' &&
+  d.documentElement.style.getPropertyValue('--nav-r') === '4px' &&
+  d.documentElement.style.getPropertyValue('--nav-icon') === '24px' &&
+  d.documentElement.style.getPropertyValue('--band-drop') === '12px',
+  d.documentElement.getAttribute('style'));
+['navHeight','navRadius','navIcon','bandDrop'].forEach(k => w.Prefs.reset(k));
+
+/* ── PLAN: patching one block of a day that is already planned ────────────── */
+w.Shell.go('plan');
+const planDay43 = offset(2);
+w.CAL.write({ day: planDay43, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
+  events: [
+    { kind:'fixed', name:'routine', from:'07:00', to:'08:00', dur:60, cal:'01A1 | routine' },
+    { kind:'task',  name:'old thing', slot:'b1a', from:'08:00', to:'09:00', dur:60, cal:'home',
+      project:'home', projectLabel:'home', color:'#5e8cff' },
+    { kind:'idle',  name:'b2a', slot:'b2a', from:'09:00', to:'10:00', dur:60 },
+  ] });
+check('CAL can be patched as well as written, and a patch touches only the slots it names',
+  typeof w.CAL.patch === 'function' &&
+  w.CAL.patch({ day: planDay43, events: [{ kind:'task', slot:'b2a', name:'a new thing',
+    cal:'home', project:'home', projectLabel:'home', color:'#5cdb7d' }] }) === 1);
+const patched43 = w.CAL.day(planDay43);
+check('… the slot it named is now a task, at the hours the day already gave it',
+  patched43.events[2].kind === 'task' && patched43.events[2].name === 'a new thing' &&
+  patched43.events[2].from === '09:00' && patched43.events[2].to === '10:00',
+  JSON.stringify(patched43.events[2]));
+check('… and nothing else moved: the start, the template and the other rows are as they were',
+  patched43.start === '07:00' && patched43.template === 'normal' &&
+  patched43.events[0].name === 'routine' && patched43.events[1].name === 'old thing',
+  JSON.stringify({ s: patched43.start, t: patched43.template,
+                   n: patched43.events.map(e => e.name) }));
+check('… a day with no record refuses the patch rather than inventing one from a template',
+  w.CAL.patch({ day: offset(9), events: [{ kind:'task', slot:'b1a', name:'nope' }] }) === false &&
+  !w.CAL.day(offset(9)));
+check('… and it is a read-and-merge, not a second network: CAL still has no URL in it',
+  !/https?:/.test(calJs43.replace(/\/\*[\s\S]*?\*\//g, '')) &&
+  !/fetch\(|XMLHttpRequest/.test(calJs43.replace(/\/\*[\s\S]*?\*\//g, '')));
+check('… the description gains a third mode, and the four header fields stay a contract',
+  /mode: \$\{expForm\.mode\}/.test(fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8')) &&
+  /const on = expForm\.mode === 'patch' \? dayOnFile\(expForm\.day\) : null;/
+    .test(fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8')));
+
+/* ── TOOLS ────────────────────────────────────────────────────────────────── */
+check('TOOLS is a tenth app, with a tab, a slide, a panel and a place in the list',
+  !!w.TOOLS && w.Prefs.APPS.includes('tools') && w.Shell.TABS.includes('tools') &&
+  !!$('#view-tools') && !!$('.tab-b[data-app="tools"]') && !!$('.ns-set .set-panel[data-panel="tools"]'),
+  w.Shell.TABS.join(','));
+check('… its icon is its own symbol, and the tab points at it',
+  !!$('#tab-tools') &&
+  $('.tab-b[data-app="tools"] use').getAttribute('href') === '#tab-tools');
+w.Shell.go('tools');
+await tick();
+check('… four instruments behind one strip, and no sub-screen to lose one in',
+  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',') === 'pom,sw,timer,decide' &&
+  d.querySelectorAll('.ns-tools .scr').length === 1,
+  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(','));
+check('the pomodoro opens on its focus length, read off Config rather than a constant',
+  $('.ns-tools #tl-big').textContent === '25:00' &&
+  /focus · round 1\/4/.test($('.ns-tools .tl-sub').textContent),
+  $('.ns-tools #tl-big').textContent + ' / ' + $('.ns-tools .tl-sub').textContent);
+w.Config.set('tools.pomodoro', { focus: 30, short: 5, long: 15, rounds: 2, autoStart: false });
+check('… and editing the length in Config moves it, without a reload',
+  $('.ns-tools #tl-big').textContent === '30:00', $('.ns-tools #tl-big').textContent);
+click($('.ns-tools [data-act="pom-toggle"]'));
+const tlStore43 = () => JSON.parse(w.localStorage.getItem('tools_v1'));
+check('starting it stores the moment it ends, never a count of ticks',
+  tlStore43().pom.endsAt > w.Date.now() && tlStore43().pom.left === 0 &&
+  !/setInterval\([^)]*\bpom/.test(toolsJs43),
+  'endsAt ' + (tlStore43().pom.endsAt - w.Date.now()) + 'ms out');
+check('… so a reload picks it up where it actually is, rather than where it was left',
+  /endsAt \? Math\.max\(0, DB\.pom\.endsAt - Date\.now\(\)\) : DB\.pom\.left/.test(toolsJs43));
+click($('.ns-tools [data-act="pom-toggle"]'));
+check('pausing banks what is left and clears the end, so the two are never both set',
+  tlStore43().pom.endsAt === 0 && tlStore43().pom.left > 0,
+  JSON.stringify(tlStore43().pom));
+click($('.ns-tools [data-act="pom-skip"]'));
+check('skipping a focus does not count it — only finishing one does',
+  tlStore43().pom.phase === 'short' && !tlStore43().pom.days[today],
+  JSON.stringify(tlStore43().pom));
+
+/* ── the whole point of the timestamp ────────────────────────────────────────
+   A phase ends because its moment arrived, not because ticks were counted. So
+   a phase whose end is already in the past finishes on the very next tick —
+   which is what "come back after twenty minutes on another tab" is, and what a
+   counter cannot do. */
+const tlSt43 = JSON.parse(w.localStorage.getItem('tools_v1'));
+tlSt43.pom = { phase:'focus', round:1, endsAt: w.Date.now() - 5000, left:0, days:{} };
+w.localStorage.setItem('tools_v1', JSON.stringify(tlSt43));
+w.TOOLS.reload();
+await tick(400);
+check('a phase already past its end finishes on the next tick, wherever you were',
+  tlStore43().pom.phase !== 'focus' && tlStore43().pom.days[today] === 1,
+  JSON.stringify(tlStore43().pom));
+check('… and finishing a focus is what puts a round on the day, and on the band',
+  w.TOOLS.today().rounds === 1 &&
+  $('.ns-tools #tl-daynum .dn-cur').textContent === '1',
+  JSON.stringify(w.TOOLS.today()) + ' / ' + $('.ns-tools #tl-daynum').textContent);
+check('… the clock stops being asked once nothing is running',
+  tlStore43().pom.endsAt === 0 && tlStore43().pom.left === 0);
+w.Config.reset('tools.pomodoro');
+
+click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'timer'));
+check('the countdown offers the quick lengths Config names',
+  [...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].map(b => b.dataset.m).join(',') ===
+  (w.Config.get('tools.timers') || []).join(','),
+  [...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].map(b => b.dataset.m).join(','));
+click([...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].find(b => b.dataset.m === '10'));
+check('… and setting one arms it against the clock, with its total remembered',
+  tlStore43().timer.total === 600000 && tlStore43().timer.endsAt > w.Date.now() &&
+  $('.ns-tools #tl-big').textContent === '10:00',
+  $('.ns-tools #tl-big').textContent);
+click($('.ns-tools [data-act="tm-clear"]'));
+check('… clearing it puts the readout back to nothing rather than to zero',
+  $('.ns-tools #tl-big').textContent === '––:––' && tlStore43().timer.total === 0,
+  $('.ns-tools #tl-big').textContent);
+
+click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'sw'));
+click($('.ns-tools [data-act="sw-toggle"]'));
+await tick(40);
+click($('.ns-tools [data-act="sw-lap"]'));
+check('the stopwatch banks a lap against the elapsed time, newest first',
+  tlStore43().sw.laps.length === 1 && tlStore43().sw.laps[0] > 0 &&
+  d.querySelectorAll('.ns-tools .tl-lap').length === 1,
+  JSON.stringify(tlStore43().sw.laps));
+click($('.ns-tools [data-act="sw-toggle"]'));
+check('… stopping banks the elapsed time instead of losing it',
+  tlStore43().sw.startedAt === 0 && tlStore43().sw.banked > 0,
+  JSON.stringify(tlStore43().sw));
+click($('.ns-tools [data-act="sw-reset"]'));
+check('… and reset clears the laps with it',
+  tlStore43().sw.banked === 0 && tlStore43().sw.laps.length === 0);
+
+click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'decide'));
+check('the decider lists what Config gives it, under the list it is asking',
+  [...d.querySelectorAll('.ns-tools [data-act="deck"]')].map(b => b.dataset.d).join(',') ===
+  Object.keys(w.Config.get('tools.decks')).join(','),
+  [...d.querySelectorAll('.ns-tools [data-act="deck"]')].map(b => b.dataset.d).join(','));
+click($('.ns-tools [data-act="decide"]'));
+const pick43 = tlStore43().decide.last;
+check('… picking one takes it from that list and shows it as the answer',
+  !!pick43 && (w.Config.get('tools.decks')[tlStore43().decide.deck || 'what next'] || []).includes(pick43) &&
+  $('.ns-tools .tl-pick').classList.contains('has'),
+  pick43);
+check('… and it never answers the same thing twice running',
+  (() => { for (let i = 0; i < 12; i++) {
+             const was = tlStore43().decide.last;
+             click($('.ns-tools [data-act="decide"]'));
+             if (tlStore43().decide.last === was) return false;
+           } return true; })());
+/* Findable: the app by name, and its lists through search.js's CONTENT table
+   — one line per Config path, which is all a new app owes search. */
+check('TOOLS is findable by name, and so is what its lists hold',
+  w.SEARCH.results('tools').some(r => r.kind === 'app' && r.title === 'TOOLS') &&
+  w.SEARCH.results('walk round').some(r => r.kind === 'content'),
+  w.SEARCH.results('tools').map(r => r.kind + ':' + r.title).join(', ').slice(0, 90));
+check('… and its own store is filed under its own name in the storage report',
+  w.localStorage.getItem('tools_v1') !== null &&
+  /TOOLS/.test((w.SET.panel('data'), $('.ns-set [data-panel="data"]').textContent)),
+  'tools_v1');
+w.TOOLS.resetAll(); settle();
+check('… and resetting it stops every clock without touching the lengths or the lists',
+  tlStore43().pom.endsAt === 0 && tlStore43().sw.banked === 0 &&
+  !!w.Config.get('tools.pomodoro') && !!w.Config.get('tools.decks'));
+w.Shell.go('do');
+
+check('no errors through the whole of 4.3', errors.length === 0, errors.slice(0, 3).join(' | '));
+
 
 
 console.log(results.join('\n'));

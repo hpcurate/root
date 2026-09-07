@@ -32,17 +32,17 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','tools','data'];
 /* Which category a panel sits in, and what its pill says. `data` is a single
    panel, so its category shows no pill bar. */
 const CATS = {
-  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create'] },
+  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create','tools'] },
   appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
                     do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day',
-                    create:'create' };
+                    create:'create', tools:'tools' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
@@ -53,10 +53,10 @@ const lastPanel = {};           // per category: the pill you were on
    storage key, the namespace, Prefs.APPS, the settings panel — and DAY is only
    what it is called. Renaming the id would churn all four for a word. */
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE' };
+                    create:'CREATE', tools:'TOOLS' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
                     tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day',
-                    create:'songs and mixes' };
+                    create:'songs and mixes', tools:'pomodoro + timers' };
 
 /* Which storage keys belong to which app — read-only bookkeeping for the
    storage report. The shell never writes to another app's keys. LEARN's decks
@@ -71,6 +71,7 @@ const GROUPS = [
   { name:'TRACK', color:'#f0709a', match:k => k.startsWith('capTracker.') },
   { name:'LEARN', color:'#5ad4e6', match:k => k.startsWith('learn_') },
   { name:'CREATE',color:'#e6c34a', match:k => k.startsWith('create_') },
+  { name:'TOOLS', color:'#5cdb7d', match:k => k.startsWith('tools_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
 ];
 
@@ -92,6 +93,39 @@ const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean
 /* CREATE's three optional meta chips. The module owns their prompts and their
    units; this list is only what the area editor draws a checkbox for. */
 const CREATE_FIELDS = [{ k:'bpm', label:'tempo' }, { k:'key', label:'key' }, { k:'tags', label:'tags' }];
+
+/* ── Stage palettes ───────────────────────────────────────────────────────────
+   Six ramps, one tap each, offered on every area in the CREATE editor.
+
+   Picking a stage colour is really picking six or seven colours that have to
+   read as a *sequence* — that is the whole point of the stage bar 4.3 draws, a
+   work three stages in looking different from one that has just started — and
+   doing it one `<input type=color>` at a time is choosing each colour without
+   seeing the others.
+
+   A ramp is **sampled** across however many stages the area has rather than
+   cycled, so the last stage always lands on the last colour: the finished one
+   is the end of the ramp whether the path is four stages or nine.
+
+   The swatches stay editable afterwards and nothing records which palette was
+   used. It is a starting point, not a mode the area is now in — the same rule
+   the theme presets follow, where moving a dial afterwards is expected rather
+   than a state to be recovered from. */
+const STAGE_PALETTES = [
+  { id:'spectrum', label:'spectrum', colors:['#a78bfa','#5e8cff','#3fc9b0','#e8a33d','#f0709a','#5cdb7d'] },
+  { id:'ember',    label:'ember',    colors:['#5f3a2e','#8c4a2f','#c8682f','#e8a33d','#f2cf6a','#ffe9a8'] },
+  { id:'ocean',    label:'ocean',    colors:['#2b3a55','#2f5f86','#2f8ca8','#3fc9b0','#7fe0c4','#c3f2df'] },
+  { id:'forest',   label:'forest',   colors:['#33452f','#3f6b3a','#4f8f45','#6cb355','#9ad46f','#c9ea9a'] },
+  { id:'dusk',     label:'dusk',     colors:['#3b2f57','#5b3f86','#8451b8','#a78bfa','#cbb2ff','#e6dbff'] },
+  { id:'mono',     label:'mono',     colors:['#4a4a4a','#5f5f5f','#767676','#8f8f8f','#adadad','#d0d0d0'] },
+];
+function paletteRamp(id, n) {
+  const p = STAGE_PALETTES.find(x => x.id === id);
+  if (!p || n < 1) return null;
+  if (n === 1) return [p.colors[p.colors.length - 1]];
+  return Array.from({ length: n }, (_, i) =>
+    p.colors[Math.round(i * (p.colors.length - 1) / (n - 1))]);
+}
 
 /* ── PLAN's day templates, as text ────────────────────────────────────────────
    A row is an offset from the day's start and a duration, both in minutes, and
@@ -343,6 +377,7 @@ function layoutHTML() {
     ], 'Sub-screen title size', 'the sticky header inside a screen — its bar grows with it')}
     ${slider('contentWidth', 'Max content width', v => Math.round(v) + 'px')}
     ${slider('iconStroke', 'Icon weight', v => v.toFixed(1))}
+    ${slider('bandDrop', 'Content offset', v => Math.round(v) + 'px', 'how far under the status bar every header starts — the band and every sticky sub-screen title move together')}
 
     ${sectionHead('Texture')}
     ${chips('texture', [
@@ -369,6 +404,10 @@ function layoutHTML() {
       { v:'app', l:'app' }, { v:'warm', l:'warm' }, { v:'cool', l:'cool' },
       { v:'candy', l:'candy' }, { v:'neon', l:'neon' }, { v:'mono', l:'mono' },
     ], 'Tab palette', 'which set of hues those are — only does anything with colour-coding on')}
+    ${slider('navHeight', 'Bar height', v => Math.round(v) + 'px')}
+    ${slider('navRadius', 'Bar corners', v => (v >= 34 ? 'pill' : Math.round(v) + 'px'),
+      'a radius, so the pill is just its tallest setting — 0 is a square bar')}
+    ${slider('navIcon', 'Tab icon size', v => Math.round(v) + 'px')}
     ${slider('chromeAlpha', 'Chrome opacity', v => pct(v))}
     ${toggle('chromeBlur', 'Blur behind the bar', 'off is flatter, and cheaper on a tired phone')}
     ${toggle('autoHideChrome', 'Get out of the way', 'the bar steps aside while you scroll down')}
@@ -415,6 +454,47 @@ function appsList() {
 }
 
 
+/* ── Sound: the kit, then the map ─────────────────────────────────────────────
+   Two controls under the volume slider, and the order matters. The **kit** is
+   the one most people will ever touch: five voices picked to go together, one
+   tap. The **map** underneath is the escape hatch — one row per moment, each
+   sitting on `auto` (meaning "whatever the kit says") until it is moved.
+
+   Every chip in both plays its own sound as it is picked, because a list of
+   words like "thunk" and "glass" is not a thing anyone can choose from by
+   reading. `Prefs.sound()` accepts a raw voice id for exactly this: the
+   preview wants to play *that* voice, not whatever the map currently points
+   at. It is a no-op while sound is off, and the two controls say so.
+
+   Prefs.set() already re-renders the panel, so nothing here has to. */
+function soundKitHTML() {
+  const on = !!Prefs.get('sounds');
+  const cur = Prefs.get('soundKit');
+  return `<div class="opt-set${on ? '' : ' is-off'}">
+    <label class="lbl">Sound kit<em>${on ? 'five voices that go together — a chip plays as you pick it'
+                                          : 'switch interface sounds on to hear these'}</em></label>
+    <div class="chips">${Prefs.SOUND_KIT_IDS.map(id =>
+      `<button class="chip${id === cur ? ' on' : ''}" data-snd-kit="${esc(id)}">${esc(id)}</button>`).join('')}</div>
+  </div>`;
+}
+
+function soundMapHTML() {
+  const kit = Prefs.SOUND_KITS[Prefs.get('soundKit')] || {};
+  const opts = ['auto'].concat(Prefs.VOICE_IDS);
+  return `<div class="snd-map">${Prefs.SOUND_EVENTS.map(ev => {
+    const key = 'snd' + ev.k.charAt(0).toUpperCase() + ev.k.slice(1);
+    const cur = Prefs.get(key);
+    return `<div class="opt-set">
+      <label class="lbl">${esc(ev.label)}<em>${esc(ev.hint)}</em></label>
+      <div class="chips">${opts.map(v => {
+        const label = v === 'auto' ? 'kit · ' + (kit[ev.k] || '—') : v;
+        return `<button class="chip${v === cur ? ' on' : ''}" data-snd-map="${esc(key)}"
+                        data-snd-voice="${esc(v === 'auto' ? (kit[ev.k] || 'none') : v)}"
+                        data-val="${esc(v)}">${esc(label)}</button>`;
+      }).join('')}</div></div>`;
+  }).join('')}</div>`;
+}
+
 /* ══ BEHAVE ═══════════════════════════════════════════════════════════════════ */
 
 function behaveHTML() {
@@ -438,6 +518,8 @@ function behaveHTML() {
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
     ${toggle('sounds', 'Interface sounds', 'a very quiet click under a control, a note when a tab arrives and another when a message shows — synthesised, nothing is downloaded')}
     ${slider('soundLevel', 'How loud', v => Math.round(v * 100) + '%')}
+    ${soundKitHTML()}
+    ${soundMapHTML()}
 
     ${sectionHead('Typing')}
     ${chips('numpad', [
@@ -1158,6 +1240,14 @@ const EDITORS = {
             <div class="ed-hint">key <code>${esc(st.key)}</code>${st.terminal ? ' · the finished stage' : ''}</div>
           </div>`).join('')}
           <button class="ed-add" data-add="${esc(a.key)}">+ add a stage to ${esc(a.label)}</button>
+          <div class="ed-pals">${STAGE_PALETTES.map(p => `
+            <button class="ed-pal" data-ed="${esc(a.key)}/${esc(p.id)}"
+                    aria-label="recolour ${esc(a.label)}'s stages · ${esc(p.label)}">
+              <span class="ed-pal-sw">${p.colors.map(c =>
+                `<i style="background:${esc(c)}"></i>`).join('')}</span>
+              <span class="ed-pal-n">${esc(p.label)}</span>
+            </button>`).join('')}</div>
+          <div class="ed-hint">a palette across ${esc(a.label)}'s stages, first to finished — the swatches above stay yours to change afterwards</div>
         </div>`).join('') + `<button class="ed-add ed-add-area" data-add="1">+ add an area</button>`;
     },
     read(box) {
@@ -1225,6 +1315,23 @@ const EDITORS = {
       }
       Config.set('create.areas', areas);
     },
+    /* `data-ed` is the third verb, alongside add and del: an editor action
+       that is neither. Here it is "areaKey/paletteId" — recolour that area's
+       stages from that ramp. */
+    act(what) {
+      const areas = Config.get('create.areas') || [];
+      const [ak, pid] = String(what).split('/');
+      const a = areas.find(x => x.key === ak); if (!a) return;
+      const ramp = paletteRamp(pid, (a.stages || []).length);
+      if (!ramp) return;
+      a.stages.forEach((st, i) => { st.color = ramp[i]; });
+      /* The area's own colour is the head of its ramp, so the chip, the shelf
+         strip and the stage bar are one family rather than a family and one
+         leftover. */
+      a.color = ramp[0];
+      Config.set('create.areas', areas);
+      Shell.toast(a.label + ' · ' + pid);
+    },
     /* "areaKey" deletes an area, "areaKey/stageKey" one of its stages. The
        last area is never deleted — a shelf with nowhere to put anything is not
        a state the app can draw. */
@@ -1239,6 +1346,55 @@ const EDITORS = {
       const a = areas.find(x => x.key === ak); if (!a) return;
       a.stages = (a.stages || []).filter(x => x.key !== sk);
       Config.set('create.areas', areas);
+    },
+  },
+
+  /* ── TOOLS ──────────────────────────────────────────────────────────────
+     Two lists and nothing clever. The quick chips are minutes, comma
+     separated; the decider's lists are the same shape STORE's aisles and DO's
+     routines are — a heading and one item per line — so there is one way to
+     edit a named list in this app and not a third one. */
+  'tools.timers': {
+    title: 'Quick timer lengths',
+    note: 'The countdown\u2019s one-tap chips, in minutes, comma separated. Anything else is typed into \u201cother\u2026\u201d, so this is the list worth a tap rather than the list of every length.',
+    render() {
+      return `<div class="f"><input type="text" data-cfg="tools.timers" data-numlist="1"
+        value="${esc((Config.get('tools.timers') || []).join(', '))}" aria-label="quick timer lengths"></div>`;
+    },
+    read() { /* per-field, handled by the data-cfg listener */ },
+  },
+
+  'tools.decks': {
+    title: 'Decide lists',
+    note: 'What the decider pulls an answer out of. One list per card, one option per line. A list with one option is a list that has already decided.',
+    render() {
+      const d = Config.get('tools.decks') || {};
+      return Object.keys(d).map(k => `<div class="ed-card" data-key="${esc(k)}">
+          <div class="ed-head">
+            <input type="text" data-field="label" value="${esc(k)}" placeholder="list" aria-label="list name">
+            <button class="ed-del" data-del="${esc(k)}" aria-label="delete list">\u00d7</button>
+          </div>
+          <textarea data-field="items" rows="${Math.min(12, Math.max(2, (d[k] || []).length))}"
+                    spellcheck="false" aria-label="${esc(k)} options">${esc((d[k] || []).join('\n'))}</textarea>
+        </div>`).join('') + `<button class="ed-add" data-add="1">+ add a list</button>`;
+    },
+    read(box) {
+      const out = {};
+      box.querySelectorAll('.ed-card').forEach(card => {
+        const name = card.querySelector('[data-field=label]').value.trim() || card.dataset.key;
+        out[name] = lines(card.querySelector('[data-field=items]').value);
+      });
+      Config.set('tools.decks', out);
+    },
+    add() {
+      const d = Config.get('tools.decks') || {};
+      d[uniqueKey('list', Object.keys(d))] = ['one', 'the other'];
+      Config.set('tools.decks', d);
+    },
+    del(k) {
+      const d = Config.get('tools.decks') || {};
+      delete d[k];
+      Config.set('tools.decks', d);
     },
   },
 
@@ -1268,7 +1424,7 @@ const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors',
-                      'create.areas'];
+                      'create.areas','tools.timers','tools.decks'];
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -1601,6 +1757,7 @@ const RENDERERS = {
   learn:() => { window.LEARN&& LEARN.renderSettings(); renderContent('learn'); },
   cal:  () => { window.CAL  && CAL.renderSettings();   renderContent('cal'); },
   create:() => { window.CREATE && CREATE.renderSettings(); renderContent('create'); },
+  tools:() => { window.TOOLS && TOOLS.renderSettings(); renderContent('tools'); },
 };
 
 /* Two screens: the home menu and a category. Switching screens starts at the
@@ -1844,7 +2001,7 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
   if (!t) return;
 
   // the home menu and the pill bar
@@ -1877,6 +2034,21 @@ view.addEventListener('click', e => {
   if (t.dataset.toggle) { Prefs.set(t.dataset.pref, !Prefs.get(t.dataset.pref)); Prefs.tap();
     render(); return; }
 
+  /* The sound chips play what they set, and they play it *after* the pref is
+     written so a kit chip is heard as the kit it just became. The map's chips
+     name their own voice, because `auto` has to be heard as whatever the kit
+     says rather than as silence. */
+  if (t.dataset.sndKit) {
+    Prefs.set('soundKit', t.dataset.sndKit); Prefs.tap(); render();
+    Prefs.sound((Prefs.SOUND_KITS[t.dataset.sndKit] || {}).tap || 'none');
+    return;
+  }
+  if (t.dataset.sndMap) {
+    Prefs.set(t.dataset.sndMap, t.dataset.val); Prefs.tap(); render();
+    Prefs.sound(t.dataset.sndVoice || 'none');
+    return;
+  }
+
   // chip bound to a pref
   if (t.dataset.pref && t.dataset.val !== undefined) {
     Prefs.set(t.dataset.pref, t.dataset.val); Prefs.tap(); render(); return; }
@@ -1891,6 +2063,15 @@ view.addEventListener('click', e => {
      CREATE's adds a stage to the area the button names — or, from the button
      at the bottom, a whole area. */
   if (t.dataset.add) { const box = groupOf(t); EDITORS[box.dataset.group].add(t.dataset.add); renderContent(); return; }
+  /* An editor action that is neither an add nor a delete — CREATE's stage
+     palettes are the first. Nothing is confirmed: it changes six swatches that
+     are all still on screen and still editable. */
+  if (t.dataset.ed !== undefined) {
+    const box = groupOf(t); if (!box) return;
+    const ed = EDITORS[box.dataset.group];
+    if (ed && ed.act) { Prefs.tap(); ed.act(t.dataset.ed); renderContent(); }
+    return;
+  }
   if (t.dataset.del !== undefined && groupOf(t)) {
     const box = groupOf(t), which = t.dataset.del;
     confirmed('Remove this?', () => { EDITORS[box.dataset.group].del(which); renderContent(); });
@@ -1928,6 +2109,7 @@ view.addEventListener('click', e => {
        'navShape','navAnim','tabPalette','cardStyle',
        'accentUse','radius','border',
        'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
+       'bandDrop','navHeight','navRadius','navIcon',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');
     });
@@ -1935,6 +2117,7 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-behaviour') {
     confirmed('Reset every behaviour setting?', () => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
+       'soundKit','sndTap','sndNav','sndMenu','sndDone','sndMsg',
        'confirmDestructive','numpad',
        'toastMs','undoSec','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');

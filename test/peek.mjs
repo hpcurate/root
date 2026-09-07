@@ -17,7 +17,7 @@ const w = dom.window, d = w.document;
 /* the sheets are not loaded by jsdom, and nothing here needs them */
 w.matchMedia = w.matchMedia || (q => ({ matches:false, media:q, addListener(){}, removeListener(){},
   addEventListener(){}, removeEventListener(){} }));
-['prefs','config','shell','do','log','plan','store','tend','track','learn','cal','create','settings','search']
+['prefs','config','shell','do','log','plan','store','tend','track','learn','cal','create','tools','settings','search']
   .forEach(m => {
     const src = fs.readFileSync(path.join(ROOT, 'js/' + m + '.js'), 'utf8');
     w.eval(src);
@@ -145,17 +145,39 @@ d.querySelectorAll('.ns-create #cr-curate .cr-cgroup').forEach(g => {
 });
 w.CREATE.area('all');
 
-console.log('\n\n════ CREATE · progress, as ticks ' + '═'.repeat(31));
+console.log('\n\n════ CREATE · progress, in two bars ' + '═'.repeat(28));
 w.CREATE.area('all');
 w.CREATE.go('home');
+const bar = b => b
+  ? (b.classList.contains('long') ? '[rail]'
+     : [...b.querySelectorAll('i')].map(i => i.classList.contains('on') ? '█' : '░').join(''))
+  : '—';
 d.querySelectorAll('.ns-create #cr-list .cr-work').forEach(r => {
-  const p = r.querySelector('.cr-prog');
   const nm = clean(r.querySelector('.nm'));
-  if (!p) { console.log('  ' + nm.padEnd(18) + ' (no checklist)'); return; }
-  const ticks = [...p.querySelectorAll('i')];
-  console.log('  ' + nm.padEnd(18) + ' ' +
-    (p.classList.contains('long') ? '[rail]' : ticks.map(i => i.classList.contains('on') ? '█' : '░').join('')) +
-    '   ' + p.getAttribute('aria-label'));
+  const st = r.querySelector('.cr-bar.stages'), sp = r.querySelector('.cr-bar.steps');
+  console.log('  ' + nm.padEnd(18) + ' stages ' + bar(st).padEnd(16) + ' steps ' + bar(sp));
+  console.log('  ' + ' '.repeat(18) + ' ' + (st ? st.getAttribute('aria-label') : '') +
+              (sp ? '  ·  ' + sp.getAttribute('aria-label') : ''));
+});
+
+console.log('\n\n════ CREATE · the band on "all" ' + '═'.repeat(32));
+console.log('  label   ' + clean(d.querySelector('.ns-create #cr-label')));
+console.log('  tally   ' + [...d.querySelectorAll('.ns-create #cr-tally .cr-tal')]
+  .map(x => clean(x.querySelector('b')) + ' ' + clean(x.querySelector('s'))).join('   ·   '));
+
+console.log('\n\n════ TOOLS · four instruments ' + '═'.repeat(34));
+w.Shell.go('tools');
+console.log('  strip   ' + [...d.querySelectorAll('.ns-tools .tl-tab')]
+  .map(b => (b.classList.contains('active') ? '[' + clean(b) + ']' : clean(b))).join(' '));
+['pom', 'sw', 'timer', 'decide'].forEach(t => {
+  const chip = [...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === t);
+  chip.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const big = d.querySelector('.ns-tools #tl-big') || d.querySelector('.ns-tools .tl-pick');
+  const sub = d.querySelector('.ns-tools .tl-sub');
+  const acts = [...d.querySelectorAll('.ns-tools .tl-acts button')].map(b => clean(b)).join(' / ');
+  console.log('  ' + t.padEnd(7) + ' ' + (big ? clean(big).padEnd(12) : '—'.padEnd(12)) +
+              (sub ? clean(sub) : ''));
+  console.log('  ' + ' '.repeat(7) + ' ' + acts);
 });
 
 console.log('\n\n════ CREATE · a mix has no key chip ' + '═'.repeat(28));

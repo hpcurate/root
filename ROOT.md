@@ -8,7 +8,7 @@
 
 ## 1. What ROOT is
 
-Nine small single-purpose tools that share one phone, one frame and one set of
+Ten small single-purpose tools that share one phone, one frame and one set of
 storage keys. It is a static site — no build step, no framework, no dependencies,
 no network except the Todoist calls you explicitly ask for (and, only when you
 import an Anki deck, the three libraries LEARN needs to unpack it). Open
@@ -23,12 +23,13 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have — and a work's progress is one tick per checklist item instead of a rail with a ratio printed beside it. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have. Since 4.3 that number is a **tally** while the filter is `all` (one number per chip, each captioned — three unlike things added together answered nothing), a work's progress is **two** bars (the stages of its area, then the steps of the stage it is on), and an hour at the desk that made no song can be logged loose from the session log. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
-| **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it eleven panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
+| **TOOLS** | Four small instruments behind one strip: a **pomodoro**, a **stopwatch**, a **countdown** and a **decider**. None of them is an app on its own — each is one control, one readout and one number kept for the day — so they are one tab rather than four that are empty most of the time. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3. |
+| **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it twelve panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
-Which of the nine get a tab, and in what order, is itself a setting
+Which of the ten get a tab, and in what order, is itself a setting
 (appearance → layout → apps in the bar). Settings is always last. An app
 switched off keeps its slide and opens from the settings home.
 
@@ -97,7 +98,8 @@ root/
 │   ├── track.css      │
 │   ├── learn.css      │
 │   ├── cal.css        │
-│   ├── create.css     ┘
+│   ├── create.css     │
+│   ├── tools.css      ┘
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
@@ -106,6 +108,7 @@ root/
     ├── shell.js       Creds, Shell, the slide track, swipe, keyboard
     ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js  cal.js
     ├── create.js       the songs being made
+    ├── tools.js        the pomodoro, the stopwatch, the countdown, the decider
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
 ```
@@ -115,10 +118,10 @@ root/
 ```
 <head>   prefs.js          stamps the look on <html> before the first paint
          tokens.css → do → log → plan → store → tend → track → learn → cal
-                    → create → shell → settings → themes.css
+                    → create → tools → shell → settings → themes.css
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
-         do / log / plan / store / tend / track / learn / cal / create
+         do / log / plan / store / tend / track / learn / cal / create / tools
          settings.js       needs every module to exist to render its panels
          search.js         reads SET.searchIndex() and the modules' search hooks
 ```
@@ -137,8 +140,8 @@ specificity. `settings.css` is after `shell.css` for the same reason.
 ### Namespacing
 
 Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE` /
-`TEND` / `TRACK` / `LEARN` / `CAL` / `CREATE`, and each does its DOM lookups
-through a scoped helper:
+`TEND` / `TRACK` / `LEARN` / `CAL` / `CREATE` / `TOOLS`, and each does its DOM
+lookups through a scoped helper:
 
 ```js
 const SCOPE = '.ns-do ';
@@ -156,7 +159,8 @@ way and for the same reason — its markup is in the slide and in the settings
 panel, and a day name interpolated into an inline handler is one more thing to
 get wrong. CREATE is the third, for the third time the same reason: the name of
 a song or a mix is the user's own text and it is in three screens and a
-settings panel.
+settings panel. TOOLS is the fourth, for the fourth time the same reason: a
+decider's lists are the user's own text too.
 
 Any *user-editable* value that is interpolated into an inline handler —
 `onclick="LOG.toggleBlock(this,'…')"` — goes through the module's `attr()`,
@@ -183,16 +187,30 @@ Shell.alert(name, on, why)             // the app's icon replaced by a "!" — L
 Shell.register(name, { onShow, onDayChange, onMinute, home, search })
 ```
 
-**Sound is the shell's, and no module has a line of it.** `Prefs.sound(voice)`
-plays one of three synthesised notes — `tap`, `nav`, `ok` — and it is called from
-exactly three places, all in `shell.js`: one capture-phase `pointerdown` listener
-on the document that fires for anything that looks pressable, `Shell.go` when the
-slide actually changes, and `Shell.toast`. Nothing is downloaded and no
-`AudioContext` exists while the setting is off; the first one is built inside the
-gesture that plays the first note, which is the only moment a browser allows it.
-A second play within 55 ms is dropped, so a tab press — a pointerdown *and* a nav
-— is one sound rather than two. Adding a sound to an app is therefore never the
-answer: if a press should sound, it should be a control.
+**Sound is the shell's, and no module has a line of it.** `Prefs.sound(event)`
+takes one of **five moments** — `tap` (a control under a finger), `nav` (the
+slide arriving), `menu` (a sheet or dialog opening), `done` (something being
+ticked off) and `msg` (a toast) — and it is still called from exactly **three**
+places, all in `shell.js`: one capture-phase `pointerdown` listener on the
+document, `Shell.go` when the slide actually changes, and `Shell.toast`. The two
+moments added in 4.3 are decided *there*, off the element under the finger
+(`pressVoice()`), and never announced by an app — which is what keeps a tenth
+app free of a line of audio. A tick that is about to go **on** is `done`; one
+coming back off is a plain `tap`, because the sound has to agree with what
+happens or it is noise.
+
+Which timbre each moment gets is two dials rather than a constant (4.3): a
+**kit** maps all five at once (`tick`, `classic`, `wood`, `glass`, `minimal` —
+`classic` is exactly what 4.2 sounded like), and five per-event overrides sit on
+`auto` until one of them is wrong. Nine voices, all built from one oscillator,
+one gain envelope and — where it needs the edge taken off — one lowpass.
+
+Nothing is downloaded and no `AudioContext` exists while the setting is off; the
+first one is built inside the gesture that plays the first note, which is the
+only moment a browser allows it. A second play within 55 ms is dropped, so a tab
+press — a pointerdown *and* a nav — is one sound rather than two. Adding a sound
+to an app is therefore still never the answer: if a press should sound, it
+should be a control.
 
 **Asking is not synchronous.** `Shell.confirm` opens `#ask` and returns; what to
 do next is the second argument, or the promise it answers with when there is no
@@ -408,6 +426,8 @@ Other anchors, and the single rule that makes each dial real:
 | `--readable` | Max content width | the `min-width:560px` cap |
 | `--title-scale` | Title size | `.view > .h-top .h-logo` in `shell.css`, times the one `--title-base` |
 | `--title-cap` | (not a dial) | Syne's cap height as a fraction of the em, **measured** (35.1px of box at 54px). Only ever sizes boxes around `text-box`-trimmed text — the wordmark's row, the day number. A different display face is one number |
+| `--band-drop` | Content offset | folded into `--sat`, so it moves the wordmark band *and* every sticky sub-screen header at once. It exists because five theories about rasterisation did not fix "the top bar is blurred" and the sixth answer was "just move it down a bit" — see tokens.css |
+| `--nav-fh` `--nav-r` `--nav-icon` | Bar height / Bar corners / Tab icon size | the bottom pill, in `shell.css`. `--nav-r` is a length rather than `--r-pill` so one dial spans a square bar to the pill it ships as; at the default 29px on a 58px bar it resolves to exactly what 999px did |
 | `--band-row` | (not a dial) | the wordmark's row, and the floor under it: the trimmed title or this, whichever is taller, for **every** app. DO's tab strip sets the number |
 | `--t-fade` `--t-title-in` `--t-title-out` `--t-flip` | (not a dial) | the shell's own motion — the tab cross-fade, the title morph, PLAN's FLIPs — all multiplied by `--mo` |
 
@@ -444,6 +464,7 @@ versions still work off the same data.
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read (the project's name and colour and its groups), which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
+| `tools_v1` | TOOLS | what each instrument is doing, and the day's tally: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the stopwatch's start and banked time and its laps, the countdown's end and total, the decider's list and last answer, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds, capped at the last 90 days, because it is a "today" number and a year of them is a store that only grows. The four pomodoro lengths, the quick-timer chips and the decider's lists are **not** here: they are Config |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_tab` | shell | last tab, so a reload lands where you left |
@@ -1294,8 +1315,10 @@ in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
 app list and the shell's TABS all follow `Prefs.APPS` — and because `apps` is
 stored whole, `appsSeen` is what actually gets the new tab onto an install that
 already has an app list. That is automatic, but read the §6 note before
-assuming a new tab appears: for CAL it did not. CREATE is the worked example —
-3.0 added it and touched exactly the list above and nothing else. Use the `card` class on the app's raised surfaces so the depth
+assuming a new tab appears: for CAL it did not. **TOOLS is the current worked
+example** — 4.3 added it and touched exactly the list above and nothing else,
+plus one line in `search.js`'s `CONTENT` for its decider lists and one row in
+`GROUPS` for `tools_v1`. CREATE (3.0) is the previous one. Use the `card` class on the app's raised surfaces so the depth
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
@@ -1320,7 +1343,12 @@ STORE's pin in 2.22, and CREATE's stages, ticks, sessions and editors in 3.0, an
 undo pill, CREATE's tab strip, its per-area fields, its curate tab against a
 stubbed Todoist, LOG's folded and unlinked blocks, the fortnight's six charts,
 and the two invariants those left behind — nothing on PLAN clips its own text
-against a line-height of 1, and no module declares one function name twice. jsdom has no
+against a line-height of 1, and no module declares one function name twice,
+and in 4.3 the loose session, CREATE's tally
+and its two progress bars, the stage palettes, the sound kit and its per-event
+map, the four new layout dials, PLAN's patch mode against a stored day, and
+TOOLS' four instruments — including a pomodoro phase whose end is already in
+the past, which is the whole argument for a timestamp over a counter. jsdom has no
 layout and no Web Animations, so anything measured or animated is invisible to
 it unless the harness stands in for both, as it does for PLAN's transition. A
 throw part-way through prints every result that ran before it rather than
@@ -1396,6 +1424,36 @@ not ROOT's — it appears once, in the warning text, deliberately not in Config,
 because making it editable here would let it drift out of step with the side
 that actually does the archiving.
 
+`mode: patch` (4.3) is the third, and it is the narrow one: **write the slot
+lines and change nothing else on the day.** Not the other slots, not the fixed
+rows, not the start, not the template. It exists because `blocks` was being
+read as a whole-day instruction — it carries `start:` and `template:`, so the
+day was rebuilt around whatever was sent and every slot that was not sent came
+back empty, with the start pulled back to whatever the template said.
+
+Two rules make it honest:
+
+- **The header repeats the stored day's own `start:` and `template:`**, not the
+  form's. The four fields are still a contract and none may go missing, but a
+  patch is not allowed to move the day, so the only new information in the
+  whole description is the slot lines.
+- **It cannot be picked for a day ROOT has no record of.** The chip is drawn,
+  dimmed, and refuses with a word — the same shape as a slot the template does
+  not have. There is nothing to patch into, and inventing the rest of the day
+  from a template would be `blocks` wearing a different name.
+
+The panel also says, under the mode chips, whether the chosen day already has a
+schedule — its template, its start, how many blocks are filled and when it was
+exported — read out of CAL's record. PLAN still cannot see Google and never
+will; what it can see is what it last wrote down itself.
+
+**The agent has to be taught each mode.** It validates `mode:` strictly and
+aborts on anything it does not recognise, so a new mode is two changes and this
+repo only holds one of them: `SCHEDULE-AGENT-PROMPT.md` at the workspace root
+carries the routine's prompt, and the routine holds its own copy that has to be
+replaced by hand. A mode ROOT can send and the agent cannot read is a task that
+fails silently at 22:00.
+
 ### The two templates
 
 `plan.dayTemplates`, editable under settings → apps → plan → content. Every
@@ -1469,6 +1527,19 @@ in flight mode.
 Google calendar, only what ROOT asked for. If the agent failed at 22:00, CAL
 still shows the day as planned — the same way PLAN's sent list shows what was
 sent, not what survived.
+
+### Two doors in, and only two
+
+`CAL.write()` replaces a day whole — re-exporting a day is how you correct it,
+so the last export wins rather than merging. `CAL.patch()` (4.3) is the other
+one: it takes the same record shape, writes **only the slots it names** into a
+day that already exists, and touches nothing else — not the start, not the
+template, not the notes, not the fixed rows, not the other slots. A patched row
+keeps its own stored hours; the patch says *what* is in the slot, and when that
+slot happens is the day's business (it may have been shifted by a wake-up time
+since). It returns how many rows it merged, or `false` on a day with no record
+— which is the refusal PLAN's `patch` chip is gated on. The day is marked
+`localEdit` afterwards, like every other change made here after the export.
 
 ### The record
 
@@ -1606,6 +1677,249 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.3 — 2026-09-07 — a TOOLS tab, sound becomes a kit you can map, and PLAN can patch one block of a day
+
+Ten Todoist requests, one version. Two `@idea` tasks were read, listed and left
+alone.
+
+#### TOOLS — a tenth app
+
+> *"new tab: tools / this has a bunch of productivity tools that you would
+> need. (eg: pomodoro timer)"*
+
+Four small instruments behind one strip: a **pomodoro**, a **stopwatch**, a
+**countdown** and a **decider**.
+
+**Why it is one tab and not four.** None of these is an app. Each is one
+control, one readout and one number you keep for the day; four tabs would be
+four tabs that are empty most of the time. So it is CREATE's tab strip again —
+what you want is *an instrument*, and choosing which is a tap rather than a
+place to navigate to. There are no sub-screens either, deliberately: a place to
+navigate to is a place to forget you left something running.
+
+**The clock is a timestamp, never a counter.** Nothing in here counts intervals.
+Every running thing stores the wall-clock moment it ends — the stopwatch stores
+the moment it started plus what was already banked — and every readout is
+`Date.now()` measured against that. A `setInterval` that increments a number is
+wrong on this device three times over: a background tab is throttled to once a
+second at best, a phone that sleeps stops firing it entirely, and a reload loses
+it. All three are exactly the case a pomodoro is used in. The interval that does
+exist only *paints*, runs whatever tab you are on (a timer that finishes while
+you are in LOG still has to say so), and is not created at all while nothing is
+running. The harness proves the point directly: a phase whose end is already
+five seconds in the past finishes on the very next tick.
+
+What is Config's and what is the store's follows the usual line. The four
+pomodoro lengths, the quick-timer chips and the decider's lists are content —
+50/10 is a different working day, not a different-looking one — so they are
+editable in Settings → tools and travel with the content export. What is
+*running*, and the day's tally of finished focus rounds, are in `tools_v1`.
+
+Everything §7 asks for and nothing else: a slide, `css/tools.css`, `js/tools.js`
+with its `Shell.register`, a `tab-tools` sprite, `'tools'` in `Prefs.APPS`, a
+settings panel ending in its content box, the five settings.js lists, a `GROUPS`
+row, and one line in `search.js`'s `CONTENT` so the decider's lists are findable.
+It is the current worked example in §7 for that reason.
+
+#### Sound — a kit, and a map over it
+
+> *"update the sound. there should be more variety. sounds need to be clicky but
+> sublte. like a small tick sound. what you had is good it just needs to have
+> more variety. add multiple preset sounds, some options, and the ability to map
+> the sounds"*
+
+4.2 had three voices hardwired to three moments. 4.3 splits that into the three
+things that were tangled together, the way 2.0 split content, appearance and
+behaviour:
+
+- a **voice** is a timbre. Nine of them — `tick` `click` `wood` `pop` `thunk`
+  `blip` `swell` `chime` `glass` — plus `none`, which is a real answer. The
+  clicky five are square and triangle waves with a lowpass rolling the top off:
+  that is the difference between a tick and a beep. `blip`, `swell` and `chime`
+  are the three 4.2 shipped, kept under their own names.
+- an **event** is a moment. Five now, not three: `tap`, `nav`, **`menu`**,
+  **`done`** and `msg`.
+- a **kit** maps the five onto voices. `tick` (the new default), `classic`
+  (exactly what 4.2 sounded like — nothing that was liked has been taken away),
+  `wood`, `glass`, `minimal`.
+
+Then five per-event overrides, each sitting on `auto` — "whatever the kit says"
+— until one of them is wrong. Pick a kit for the character, move the one event
+that is off. Every chip in both controls plays its own sound as it is picked,
+because "thunk" and "glass" are not words anyone can choose between by reading.
+
+**The two new moments are decided in the shell, not announced by an app.** That
+rule is the whole reason a tenth app needs no line of audio, and it was not
+traded for two more sounds: `pressVoice()` in `shell.js` reads the element under
+the finger. A tick that is about to go **on** is `done`; one coming back off is
+a plain `tap`, because a sound that disagrees with what happened is noise. There
+are still exactly three call sites in `shell.js` and zero in every app module,
+and the harness fails if either number moves.
+
+#### The top bar, and the bottom pill
+
+> *"the top bar still has a blur attached to it. to fix that i propose that you
+> just bring all the content down a few pixels."*
+
+Taken literally, and that is the point. "The top of the band is blurred" has now
+survived `--title-px` (2.24.0), `--sat` (2.24.1), `-webkit-overflow-scrolling`
+(2.25.0), the translucent status bar (2.25.1) and `--mu`'s contrast (2.26). Five
+answers, four of them rendering theories, every one of them a real defect that is
+staying fixed — and the sixth answer is not a sixth theory. It is a dial.
+
+**Content offset** is 0–24px, six by default, and it is folded into `--sat`
+rather than into one rule, so it moves the wordmark band *and* every sticky
+sub-screen header at once. Whole pixels only, rounded in `Prefs.apply()` rather
+than trusted from the store, because a fraction there would land in every
+header's padding and the band's min-height — which is the exact shape of the bug
+this exists to stop chasing.
+
+> *"add options to the corner radius/height/icon size of the bottom pill"*
+
+Three dials: **Bar height** (44–76px), **Bar corners** (0–34px) and **Tab icon
+size** (14–26px). The pill was 58px tall with a 999px radius and 19px icons, all
+literals — the one piece of chrome on screen on every slide had less say over
+itself than a card did. `--nav-r` is a *length* rather than `--r-pill`, so one
+dial spans a square bar to the pill it ships as; at the default 29px on a 58px
+bar it resolves to exactly what 999px did, and an install that never touches it
+looks identical. `--nav-icon` also reaches the two rules that used to override
+the icon size outright (the wide breakpoint, and labels-off), as ratios of
+itself, so the dial is not silently cancelled at either.
+
+#### PLAN — patching one block instead of rewriting the day
+
+> *"make it possible to overwrite blocks when exporting in plan… currently if i
+> do that, it rewrites the schedule completely and leaves empty the other blocks.
+> it even adjusts the start of the day back to what was programmed"*
+
+`mode: patch` is a third mode in the export contract, and it is the narrow one:
+write the slot lines and change nothing else on the day. `blocks` was being read
+as a whole-day instruction, and fairly — it carries `start:` and `template:`, so
+the day gets rebuilt around whatever was sent.
+
+Two rules make it honest. The header repeats **the stored day's own** `start:`
+and `template:` rather than the form's, so a patch cannot move the day; the four
+fields stay a contract and none goes missing, but the only new information in
+the description is the slot lines. And it cannot be picked for a day ROOT has no
+record of: the chip is drawn, dimmed, and refuses with a word — the same shape a
+slot the template does not have has. Changing the date out from under a picked
+`patch` drops it back to `blocks`, out loud, the way switching to `rest` drops
+the b3s.
+
+`CAL.patch()` is the local half: the same record shape, only the named slots
+written into a day that already exists, and nothing else touched — not the
+start, not the template, not the notes, not the fixed rows, not the other slots.
+A patched row keeps its own stored hours (the day may have been shifted by a
+wake-up time since). It returns how many rows it merged, or `false` on a day
+with no record, which is the refusal the chip is gated on. CAL still has no URL,
+no `fetch` and no `XMLHttpRequest` in it, and the harness still checks.
+
+> *"make it so that when i am exporting to a day that already has a schedule
+> saved there is just an indicator that there already is one."*
+
+Under the mode chips: whether the chosen day has a schedule, its template, its
+start, how many blocks are filled and when it was exported. In `patch` it also
+names the slots about to change — "overwrite just this block" is only worth
+trusting if you can see which block — and in `blocks` it says out loud that the
+day will be rebuilt around what you send, which is the thing nobody had been
+told.
+
+#### CREATE
+
+> *"the number in the title bar changes to the total tasks in todoist for the
+> curate project but does not switch back"*
+
+Two things. The bug: the band is not part of the home screen — the shell lifts it
+out — so the area chip redrew the shelf and left the last chip's number sitting
+on the row. It calls `render()` now, in the listener and in the exported `area()`
+alike, and there is a check on it.
+
+The ask: on `all`, one number was three unlike things added together — songs on
+the desk, mixes on the desk, and somebody else's open list. It is a **tally**
+now: one number per chip, each captioned with the chip it counts, in the place
+the single rolling number sat. Curate is a column exactly when curate is a chip.
+Every other filter keeps the single number and its shuffle.
+
+> *"should be able to log without being in a song/mix. sometimes i am just
+> tinkering."*
+
+A **loose session**: the same form the work screen has, on the session log, with
+no work behind it. The store already allowed it — `work` has been nullable since
+the migration that split songs from works — so this is a form and a row style,
+not a shape change. The area is still asked, because "which of the two was I
+doing" is the one thing about a loose hour worth keeping. Its row says the area
+instead of a name rather than showing a dash, and it counts in the totals, the
+week and LOG's note like any other hour at the desk.
+
+> *"make the progress bars a rounded square and change it to two progress bars, a
+> big one that corresponds to the stages and 1 that correspond to the steps"*
+
+The tick strip said how far through *this stage* a work is and nothing at all
+about where the stage sits on the path: a song four ticks into `idea` and one
+four ticks into `master` drew the identical shape. Two bars now — the stages of
+the area, lit up to and including the one it is on, then the steps of that
+stage — stacked, because they are the same measurement at two scales and reading
+them top-down is reading zoomed out then zoomed in. Rounded squares at `--r1`: a
+segment reads as a block someone filled in, where the 1px slivers read as
+hatching. A terminal stage has no step bar at all rather than an empty rail.
+The rail fallback past 16 items applies to the step bar alone.
+
+> *"add colour palette presets for the stages"*
+
+Six ramps in the CREATE editor, one tap each: `spectrum`, `ember`, `ocean`,
+`forest`, `dusk`, `mono`. Picking a stage colour is really picking six or seven
+colours that have to read as a *sequence* — which is exactly what the new stage
+bar draws — and doing it one `<input type=color>` at a time is choosing each
+colour without seeing the others. A ramp is **sampled** across however many
+stages the area has rather than cycled, so the last stage always lands on the
+last colour whether the path is four stages or nine, and the area itself takes
+the head of its own ramp. The swatches stay editable afterwards and nothing
+records which palette was used: it is a starting point, not a mode.
+
+`data-ed` is the editor's third verb alongside `add` and `del` — an action that
+is neither, which the palettes are the first of.
+
+#### The other half of the contract
+
+The description is parsed by the 22:00 cloud agent, which validates `mode:`
+strictly and aborts on anything it does not know — so ROOT's half alone would
+have produced a task that fails on the night. `SCHEDULE-AGENT-PROMPT.md` gained
+a `MODE: patch` section: compute every slot from the calendar's actual
+`routine p1` and ignore `start:` entirely, archive-then-write each **named**
+slot the `full` way, touch nothing else, refuse a spec that names no slots. The
+grammar line, the validation line, the notification shape and the never-broken
+rule about deleting were widened with it, and a new §3.4 records the one trade —
+`patch` has no start-time tolerance and reports no discrepancy, because ROOT
+sends back the day's own start rather than the form's.
+
+That file is not in this repo and a commit here cannot deploy it. The routine
+holds its own copy of the prompt and it has to be replaced by hand.
+
+#### Parked, not built
+
+Two `@idea` tasks were read and left where they are, per the protocol:
+
+- conditions for scheduled routine, multiple dates, id two dates on the same
+  day, take the latest
+- bring content down: triple tap screen to bring elements down 50% to make it
+  more reachable from my hands on the screen
+
+The second is close enough to the Content offset dial to be worth saying out
+loud: the dial is a persistent few pixels for every screen, and the idea is a
+gesture that halves the reach on demand. They are not the same thing and the
+idea is still open.
+
+#### The harness
+
+992 → 995 checks. The app count, the `--sat` shape, CREATE's band and progress
+bars and the sound stub were all updated where 4.3 deliberately changed the
+behaviour they asserted, and one of them — the number shuffling on a work being
+added — was rewritten because it had been passing on a stale animation left over
+from three steps earlier rather than on the thing it names. The stub gained
+`createBiquadFilter`, which a real browser has had since WebAudio shipped.
+
+---
 
 ### 4.2 — 2026-09-07 — the curate list can be ticked off, labels get their colours, and the app makes a sound
 

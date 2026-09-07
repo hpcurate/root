@@ -58,6 +58,7 @@
   <link rel="stylesheet" href="css/learn.css">
   <link rel="stylesheet" href="css/cal.css">
   <link rel="stylesheet" href="css/create.css">
+  <link rel="stylesheet" href="css/tools.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -120,6 +121,14 @@
     <line x1="3" y1="10" x2="3" y2="14"/><line x1="7.5" y1="6" x2="7.5" y2="18"/>
     <line x1="12" y1="3" x2="12" y2="21"/><line x1="16.5" y1="7" x2="16.5" y2="17"/>
     <line x1="21" y1="10.5" x2="21" y2="13.5"/>
+  </symbol>
+  <!-- TOOLS: a stopwatch. A circle with a stem on top and one hand pointing
+       up-right — the harness takes a signature of each symbol's shapes and
+       fails on a repeat, and this is the only circle-plus-two-lines in here
+       (DAY's is a squared page, LEARN's is a stack). -->
+  <symbol id="tab-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="13.5" r="7.5"/><line x1="9.5" y1="2.5" x2="14.5" y2="2.5"/>
+    <line x1="12" y1="13.5" x2="15.2" y2="10.3"/>
   </symbol>
   <!-- the "!" a tab wears in place of its own icon while something is overdue
        (Shell.alert) — one stroke and its dot, at the icon's own weight -->
@@ -1121,6 +1130,10 @@
       <div class="h-logo-row">
         <div class="h-logo">CREATE<em>.</em></div>
         <div class="h-daynum" id="cr-daynum" aria-hidden="true"><span class="dn-cur"></span></div>
+        <!-- On "all" the single number is put away and this takes its place:
+             one number per chip — each area, then curate — with a caption
+             saying which. Three unlike things added together answered nothing. -->
+        <div class="cr-tally hidden" id="cr-tally"></div>
       </div>
     </div>
     <div class="cnt">
@@ -1161,6 +1174,33 @@
            moves the glider instead of rebuilding the rail underneath it -->
       <div class="cr-areas cr-areas-log hidden" id="cr-log-tabs"></div>
       <div id="cr-sessions"></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TOOLS — four small instruments behind one strip
+     ═════════════════════════════════════════════════════════════════════════ -->
+<section class="view ns-tools" id="view-tools" aria-label="TOOLS">
+
+  <!-- One screen. The strip picks the instrument; everything under it is
+       written by TOOLS.render(). There are no sub-screens on purpose: each of
+       these is one control and one readout, and a place to navigate to would
+       be a place to forget you left something running. -->
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <!-- what the number opposite the wordmark is counting — it changes with
+           the instrument, because "3" means nothing without it -->
+      <div class="h-label" id="tl-label">focus rounds today</div>
+      <div class="h-logo-row">
+        <div class="h-logo">TOOLS<em>.</em></div>
+        <div class="h-daynum" id="tl-daynum" aria-hidden="true"><span class="dn-cur"></span></div>
+      </div>
+    </div>
+    <div class="cnt">
+      <div class="tl-tabs" id="tl-tabs"></div>
+      <div class="tl-body" id="tl-body"></div>
     </div>
   </div>
 </section>
@@ -1935,6 +1975,40 @@
       <div class="set-content" data-content-for="create"></div>
     </div>
 
+    <!-- ── TOOLS ── -->
+    <div class="set-panel ns-tools" data-panel="tools">
+      <div class="sec"><span>Status</span></div>
+      <div class="settings-status idle" id="tl-status">nothing running</div>
+
+      <div class="sec"><span>Pomodoro</span></div>
+      <div class="set-note">The four numbers the cycle is made of. They are content,
+        not preferences: a clock that runs 50/10 is a different working day, not a
+        different-looking one, so they live with the lists below and travel with
+        your content export.</div>
+      <div class="ed-pair">
+        <div class="f"><label class="lbl">Focus</label>
+          <input type="number" id="tl-set-focus" data-cfg="tools.pomodoro" data-sub="focus" min="1" max="180" step="1" aria-label="focus minutes"></div>
+        <div class="f"><label class="lbl">Short break</label>
+          <input type="number" id="tl-set-short" data-cfg="tools.pomodoro" data-sub="short" min="1" max="180" step="1" aria-label="short break minutes"></div>
+      </div>
+      <div class="ed-pair">
+        <div class="f"><label class="lbl">Long break</label>
+          <input type="number" id="tl-set-long" data-cfg="tools.pomodoro" data-sub="long" min="1" max="180" step="1" aria-label="long break minutes"></div>
+        <div class="f"><label class="lbl">Rounds before it</label>
+          <input type="number" id="tl-set-rounds" data-cfg="tools.pomodoro" data-sub="rounds" min="1" max="12" step="1" aria-label="rounds before a long break"></div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-lbl">Roll straight on<small>the next phase starts the moment the last one ends, instead of waiting for you</small></span>
+        <button class="tog" id="tl-set-auto" data-cfg-toggle="tools.pomodoro.autoStart" role="switch" aria-checked="false" aria-label="roll straight on"></button>
+      </div>
+
+      <div class="sec"><span>Content</span></div>
+      <div class="set-content" data-content-for="tools"></div>
+
+      <div class="sec"><span>Reset</span></div>
+      <button class="btn btn-2" data-act="reset">reset TOOLS</button>
+    </div>
+
   </div><!-- /#s-cat -->
 </section>
 
@@ -1991,6 +2065,9 @@
   </button>
   <button class="tab-b" data-app="create" role="tab" aria-selected="false" aria-label="CREATE">
     <svg aria-hidden="true"><use href="#tab-create"/></svg><span class="tb-l">create</span>
+  </button>
+  <button class="tab-b" data-app="tools" role="tab" aria-selected="false" aria-label="TOOLS">
+    <svg aria-hidden="true"><use href="#tab-tools"/></svg><span class="tb-l">tools</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
@@ -2250,6 +2327,7 @@
      which needs every module to exist to render its panels -->
 <script src="js/cal.js"></script>
 <script src="js/create.js"></script>
+<script src="js/tools.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/search.js"></script>
 </body>

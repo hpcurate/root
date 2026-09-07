@@ -422,3 +422,23 @@
 .ns-plan .send-log .ok{color:var(--gr)}
 .ns-plan .send-log .err{color:var(--re)}
 .ns-plan .send-log .pending{color:var(--mu)}
+
+/* ── What the day already holds ──────────────────────────────────────────────
+   The line under the mode chips: whether the chosen day has a schedule stored,
+   and — in patch — which slots the export is about to touch. Three states, and
+   the colour is the whole message: grey for nothing there, accent for "there
+   is a day here", orange for "this will rewrite more than you may think".
+
+   `.opt-b.off` is the patch chip on a day with no record. Dimmed and still
+   tappable, exactly like a slot the template does not have (above): the tap is
+   what explains why it cannot be used. */
+.ns-plan .exp-onfile{margin-top:calc(7px * var(--dens));display:flex;flex-direction:column;
+  gap:calc(4px * var(--dens))}
+.ns-plan .exp-onfile em{font-style:normal;font:400 9.5px/1.6 var(--mono);letter-spacing:.03em;
+  color:var(--mu)}
+.ns-plan .exp-onfile em.on{color:var(--y)}
+.ns-plan .exp-onfile em.ok{color:var(--gr,#5cdb7d)}
+.ns-plan .exp-onfile em.warn{color:#ff9a14}
+.ns-plan .opt-b.off{opacity:.4;border-style:dashed}
+/* the patch warning is a reassurance, not an alarm — same box, other hue */
+.ns-plan .exp-warn.ok{background:rgba(92,219,125,.1);border-color:rgba(92,219,125,.32);color:#5cdb7d}

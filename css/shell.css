@@ -327,7 +327,8 @@ body{
   background:var(--chrome-bg);
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
   border:var(--bw) solid var(--bd);
-  border-radius:var(--r-pill);
+  /* the Pill corners dial — 29px on a 58px bar is what 999px resolved to */
+  border-radius:var(--nav-r);
   box-shadow:var(--shadow-chrome);
   transition:opacity .26s ease, transform .26s ease}
 #nav.chrome-off{opacity:0;transform:translateX(-50%) translateY(22px);pointer-events:none}
@@ -336,7 +337,7 @@ body{
   flex:1;min-width:0;background:none;border:none;cursor:pointer;position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   padding:0;color:var(--mu);
-  border-radius:var(--r-pill);
+  border-radius:max(0px, calc(var(--nav-r) - 5px));
   transition:color .18s ease;
   /* ── The active indicator, in six variables ───────────────────────────────
      What the mark around the selected tab is, what colour it is and how it
@@ -366,7 +367,7 @@ body{
   --tab-r:var(--r-pill);--tab-t:translate(0,0);
   --tab-s0:.55;--tab-y0:0px;--tab-dur:.24s;--tab-ease:cubic-bezier(.34,1.4,.5,1)}
 .tab-b svg,.tab-b .tb-l{position:relative;z-index:1}
-.tab-b svg{width:19px;height:19px;flex-shrink:0}
+.tab-b svg{width:var(--nav-icon);height:var(--nav-icon);flex-shrink:0}
 .tab-b .tb-l{font:700 7px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
 /* the filled pill IS the active indicator, and it grows into place */
 .tab-b::before{
@@ -412,7 +413,7 @@ body{
 .nav-arrow{
   position:fixed;z-index:59;
   bottom:calc(max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + (var(--nav-fh) - 44px)/2);
-  width:44px;height:44px;border-radius:var(--r-pill);
+  width:44px;height:44px;border-radius:min(22px, var(--nav-r));
   display:flex;align-items:center;justify-content:center;
   background:var(--chrome-bg);
   -webkit-backdrop-filter:var(--chrome-blur);backdrop-filter:var(--chrome-blur);
@@ -611,7 +612,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   /* the rail is never in the way, so it never hides */
   #nav.chrome-off{opacity:1;transform:none;pointer-events:auto}
   .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
-  .tab-b svg{width:20px;height:20px}
+  .tab-b svg{width:calc(var(--nav-icon) * 1.05);height:calc(var(--nav-icon) * 1.05)}
   .tab-b .tb-l{font-size:8px}
   /* the rail's tabs are wide boxes, so the default pill squares off here — a
      shape the user picked outright keeps whatever it picked (themes.css) */

@@ -116,6 +116,65 @@ function write(day) {
   return true;
 }
 
+/* ── Patching one block, not replacing the day ────────────────────────────────
+   `write()` is "the last export wins", which is right when the export *is* the
+   day: re-exporting is how a day gets corrected. It is wrong when the export
+   is one block of a day that is already planned — the other five slots go back
+   to idle and the start time is pulled back to whatever the template says,
+   which is precisely the complaint 4.3 is answering.
+
+   So there is a second door, and it is deliberately narrow:
+
+     · only the slots the export actually assigned are written
+     · **nothing else about the day is touched** — not the start, not the
+       template, not the notes, not the fixed rows, and not the other slots,
+       whether they hold a task or are idle
+     · a slot the stored day does not have is skipped rather than appended: a
+       row with no hours behind it is a row DAY cannot draw
+
+   It refuses on a day that has no record. That refusal is the whole reason
+   PLAN can offer the mode as a chip that is *there but unavailable* — there is
+   nothing to patch into, and inventing the rest of the day from a template
+   would be `write()` wearing a different name.
+
+   The day is marked `localEdit`, like every other change made after the
+   export: the head says "edited" and that is honest — what Google holds and
+   what this record holds were last agreed at different moments. */
+function patch(day) {
+  if (!day || !isoRe.test(String(day.day || ''))) return false;
+  load();
+  const rec = DB.days[day.day];
+  if (!rec || !Array.isArray(rec.events) || !rec.events.length) return false;
+  const bySlot = {};
+  (Array.isArray(day.events) ? day.events : []).forEach(e => {
+    if (e.kind === 'task' && e.slot) bySlot[e.slot] = e;
+  });
+  if (!Object.keys(bySlot).length) return false;
+  let n = 0;
+  rec.events = rec.events.map(e => {
+    const hit = e.slot && bySlot[e.slot];
+    if (!hit) return e;
+    n++;
+    /* The stored row keeps its own hours. The patch says *what* is in the
+       slot; when that slot happens is the day's business, and the day on
+       screen may have been shifted by a wake-up time or a dragged row since
+       it was written. */
+    return Object.assign({}, e, {
+      kind:'task', name: hit.name == null ? '' : String(hit.name),
+      cal: hit.cal || null, project: hit.project || null,
+      projectLabel: hit.projectLabel || null, section: hit.section || null,
+      color: hit.color || null, done: false,
+    });
+  });
+  if (!n) return false;
+  rec.localEdit = Date.now();
+  save();
+  sel = day.day;
+  sched = null;
+  render();
+  return n;
+}
+
 /* ── The days on offer ─────────────────────────────────────────────────────────
    Today (planned or not) and every planned day within the window ahead, plus
    any planned day still inside the keep window behind. Today is always a chip
@@ -963,7 +1022,7 @@ Shell.register('cal', {
   },
 });
 
-return { write, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
+return { write, patch, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
          toggleEvent, deleteEvent, setWake, startDay, openSched, closeSched, pickSlot, applySched, paintNow,
          /* Anything that finishes a task calls this: DAY's own rows, DO's blocks
             and DO's today list. `on:false` takes the mark back. */

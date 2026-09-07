@@ -338,3 +338,29 @@ input[type=range].sl::-moz-range-thumb{
   .ns-set .set-app-b:hover,.ns-set .set-cat-b:hover{border-color:var(--mu)}
   .ns-set .hd-back:hover{color:var(--y)}
 }
+
+/* ── Stage palettes ──────────────────────────────────────────────────────────
+   A grid of ramps under an area's stages: the six colours as one strip, the
+   name under it. The strip is the control — a palette is picked by looking at
+   it, not by reading what it is called — so the swatches get the height and
+   the name is a caption. */
+.ed-pals{display:grid;grid-template-columns:repeat(auto-fit, minmax(88px, 1fr));gap:6px;margin-top:8px}
+.ed-pal{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);
+  padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:5px;text-align:left}
+.ed-pal:active,.ed-pal:hover{border-color:var(--y)}
+.ed-pal-sw{display:flex;height:12px;border-radius:calc(var(--r1) * .6);overflow:hidden}
+.ed-pal-sw i{flex:1 1 0}
+.ed-pal-n{font:400 9px/1 var(--mono);letter-spacing:.06em;text-transform:var(--caps);color:var(--tx-2)}
+
+/* ── The sound map ───────────────────────────────────────────────────────────
+   Five rows of voice chips under the kit. Indented and hairlined off to the
+   left so it reads as belonging to the kit above it rather than as five more
+   top-level settings — it is the kit, opened up. */
+.snd-map{margin:0 0 14px;padding-left:12px;border-left:var(--bw) solid var(--bd)}
+.snd-map .opt-set{margin-bottom:10px}
+.snd-map .opt-set:last-child{margin-bottom:0}
+.snd-map .chips{gap:4px}
+/* A control that will not make a noise yet still says what it is set to; it is
+   dimmed rather than disabled, because picking a kit before turning sound on
+   is a reasonable order to do it in. */
+.opt-set.is-off > .lbl,.opt-set.is-off .chips{opacity:.55}

@@ -159,7 +159,7 @@ const THEME_CHARACTER = {
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
-const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create'];
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools'];
 
 /* ── Schema ───────────────────────────────────────────────────────────────────
    Every setting in one table: its default, its kind, and its bounds. The
@@ -218,6 +218,17 @@ const SCHEMA = {
   iconStroke:   { kind:'range',  def:2,    min:1,   max:3,   step:0.1,              cssVar:'--icon-stroke' },
   chromeAlpha:  { kind:'range',  def:0.82, min:0.35,max:1,   step:0.01,             cssVar:'--chrome-alpha' },
   contentWidth: { kind:'range',  def:780,  min:560, max:1400,step:20,  unit:'px',   cssVar:'--readable' },
+  /* A few pixels of air under the status bar, folded into `--sat` so it moves
+     every header in the app at once — see tokens.css for why it is a dial and
+     not a fix. */
+  bandDrop:     { kind:'range',  def:6,    min:0,   max:24,  step:1,   unit:'px',   cssVar:'--band-drop' },
+  /* The bottom pill's three: how tall, how round and how big its icons are.
+     The defaults are the literals they replaced, so nothing moves until one is
+     touched. The floor on the height is 44px — the arrows are centred against
+     it and a shorter bar would push them off the bottom of their own row. */
+  navHeight:    { kind:'range',  def:58,   min:44,  max:76,  step:1,   unit:'px',   cssVar:'--nav-fh' },
+  navRadius:    { kind:'range',  def:29,   min:0,   max:34,  step:1,   unit:'px',   cssVar:'--nav-r' },
+  navIcon:      { kind:'range',  def:19,   min:14,  max:26,  step:1,   unit:'px',   cssVar:'--nav-icon' },
   textureAmount:{ kind:'range',  def:1,    min:0,   max:2,   step:0.1,              cssVar:'--tex-mult' },
 
   // appearance — flags
@@ -255,6 +266,17 @@ const SCHEMA = {
      is off until it is asked for — the same reason haptics is. */
   sounds:       { kind:'bool',   def:false },
   soundLevel:   { kind:'range',  def:0.3,  min:0.05, max:1, step:0.05 },
+  /* The kit sets the character of all five moments at once; the five dials
+     under it each override one. `auto` is "whatever the kit says" and is the
+     default for every one of them, so the map only exists for someone who
+     goes looking for it. `classic` is what 4.2 sounded like — see the note
+     over VOICES. */
+  soundKit:     { kind:'enum',   def:'tick', values:() => SOUND_KIT_IDS },
+  sndTap:       { kind:'enum',   def:'auto', values:() => ['auto', ...VOICE_IDS] },
+  sndNav:       { kind:'enum',   def:'auto', values:() => ['auto', ...VOICE_IDS] },
+  sndMenu:      { kind:'enum',   def:'auto', values:() => ['auto', ...VOICE_IDS] },
+  sndDone:      { kind:'enum',   def:'auto', values:() => ['auto', ...VOICE_IDS] },
+  sndMsg:       { kind:'enum',   def:'auto', values:() => ['auto', ...VOICE_IDS] },
   confirmDestructive:{ kind:'bool', def:true },
   /* The in-app numpad on fields that only take a number. `auto` means "where
      the keyboard is a virtual one" — a laptop's number field is fine as it is,
@@ -582,6 +604,15 @@ function apply() {
   st.setProperty('--chrome-alpha',prefs.chromeAlpha);
   st.setProperty('--readable',    prefs.contentWidth + 'px');
   st.setProperty('--tex-mult',    prefs.textureAmount);
+  /* Whole pixels, and rounded here rather than trusted from the store: a
+     fraction in `--band-drop` reaches every header's padding *and* the band's
+     min-height, which is the exact shape of the bug this dial exists to stop
+     chasing (tokens.css). The three nav dials are rounded for the same
+     reason — a pill on a half pixel is a pill with a soft edge. */
+  st.setProperty('--band-drop',   Math.round(+prefs.bandDrop  || 0) + 'px');
+  st.setProperty('--nav-fh',      Math.round(+prefs.navHeight || 58) + 'px');
+  st.setProperty('--nav-r',       Math.round(+prefs.navRadius || 0) + 'px');
+  st.setProperty('--nav-icon',    Math.round(+prefs.navIcon   || 19) + 'px');
 
   // accent
   const acc = accentHex();
@@ -666,16 +697,90 @@ function tap(ms = 8) {
      hearing both is the difference between "smooth" and "cheap". A play inside
      `GAP` of the last one is dropped rather than layered, which also covers a
      fast scrubber and a key held down. */
+/* ── Voices, events, kits ─────────────────────────────────────────────────────
+   4.2 had three voices hardwired to three moments. 4.3 splits that into three
+   things that were tangled together, the way the 2.0 vision splits content,
+   appearance and behaviour:
+
+     · a **voice** is a timbre — what a sound *is*. Nine of them, none longer
+       than a fifteenth of a second, all built from one oscillator, one gain
+       envelope and (where it needs the edge taken off) one lowpass.
+     · an **event** is a moment — what just happened. Five: a control under a
+       finger, a slide arriving, a sheet or menu opening, an item being
+       completed, and a message.
+     · a **kit** is a mapping of the five events onto voices. Five of them,
+       and `classic` is exactly what 4.2 sounded like, so nothing that was
+       already liked has been taken away.
+
+   On top of the kit, each event has its own dial that can override it — that
+   is the "map the sounds" half: pick a kit for the character, then move the
+   one event that is wrong. `auto` on an event means "whatever the kit says",
+   and it is the default for all five, so picking a kit is one tap and the
+   overrides only exist for someone who wants them.
+
+   The rule that has not changed: **nothing calls this from a module.** Sound
+   is wired in shell.js and nowhere else, so a tenth app needs no line of it.
+   `done` and `menu` are decided there too, by what was pressed — not by an
+   app announcing it — for exactly that reason.
+
+   `lp` is a lowpass corner. A square or triangle wave is what makes a sound
+   *clicky*, and unfiltered it is also what makes it cheap; rolling the top off
+   leaves the transient and takes the buzz, which is the difference between a
+   tick and a beep. */
 const VOICES = {
-  tap:  { hz: 660,  to: 560,  ms: 32, peak: 0.045, type: 'sine' },
-  nav:  { hz: 420,  to: 520,  ms: 46, peak: 0.040, type: 'sine' },
-  ok:   { hz: 880,  to: 1180, ms: 55, peak: 0.035, type: 'triangle' },
+  /* clicky — a transient and almost no tail */
+  tick:  { type:'square',   hz: 2100, to: 1500, ms: 14, peak: 0.030, lp: 3200 },
+  click: { type:'triangle', hz: 1300, to:  900, ms: 18, peak: 0.038, lp: 4200 },
+  wood:  { type:'triangle', hz:  760, to:  520, ms: 22, peak: 0.048, lp: 2600 },
+  pop:   { type:'sine',     hz:  520, to:  240, ms: 26, peak: 0.052, lp: 1800 },
+  thunk: { type:'sine',     hz:  180, to:  110, ms: 44, peak: 0.070, lp:  900 },
+  /* tonal — the three 4.2 shipped, kept under their own names */
+  blip:  { type:'sine',     hz:  660, to:  560, ms: 32, peak: 0.045 },
+  swell: { type:'sine',     hz:  420, to:  520, ms: 46, peak: 0.040 },
+  chime: { type:'triangle', hz:  880, to: 1180, ms: 55, peak: 0.035 },
+  glass: { type:'sine',     hz: 1760, to: 2100, ms: 52, peak: 0.026 },
+  /* the tenth is silence, and it is a real answer: "not for that one" */
+  none:  null,
 };
+const VOICE_IDS = Object.keys(VOICES);
+
+const SOUND_EVENTS = [
+  { k:'tap',  label:'a control',   hint:'anything pressable, on the way down' },
+  { k:'nav',  label:'a tab',       hint:'the slide actually changing' },
+  { k:'menu', label:'a menu',      hint:'a sheet, a dialog or an overlay opening' },
+  { k:'done', label:'completing',  hint:'ticking something off — not un-ticking it' },
+  { k:'msg',  label:'a message',   hint:'a toast, and the undo pill' },
+];
+const SOUND_EVENT_KEYS = SOUND_EVENTS.map(e => e.k);
+
+const SOUND_KITS = {
+  tick:    { tap:'tick',  nav:'click', menu:'wood',  done:'pop',   msg:'blip'  },
+  classic: { tap:'blip',  nav:'swell', menu:'swell', done:'blip',  msg:'chime' },
+  wood:    { tap:'wood',  nav:'thunk', menu:'wood',  done:'pop',   msg:'wood'  },
+  glass:   { tap:'glass', nav:'blip',  menu:'chime', done:'chime', msg:'glass' },
+  minimal: { tap:'tick',  nav:'none',  menu:'none',  done:'tick',  msg:'none'  },
+};
+const SOUND_KIT_IDS = Object.keys(SOUND_KITS);
+
+/* The one place the kit and the five overrides are resolved. An override is
+   only honoured if it names a voice that exists, so a kit renamed out from
+   under a stored value falls back rather than going silent. */
+function voiceOf(event) {
+  const kit = SOUND_KITS[prefs.soundKit] || SOUND_KITS.tick;
+  const own = prefs['snd' + event.charAt(0).toUpperCase() + event.slice(1)];
+  const id = (own && own !== 'auto' && VOICE_IDS.includes(own)) ? own : kit[event];
+  return VOICES[id] || null;
+}
+
 const GAP = 55;
 let ac = null, lastSound = 0;
-function sound(voice = 'tap') {
+/* `event` is one of SOUND_EVENT_KEYS. A raw voice id is also accepted, which
+   is what the settings panel's preview passes — it wants to play *that* sound,
+   not whatever the map currently points at. */
+function sound(event = 'tap') {
   if (!prefs.sounds) return;
-  const v = VOICES[voice]; if (!v) return;
+  const v = SOUND_EVENT_KEYS.includes(event) ? voiceOf(event) : VOICES[event];
+  if (!v) return;                            // `none`, or a name nothing knows
   const now = Date.now();
   if (now - lastSound < GAP) return;
   lastSound = now;
@@ -699,7 +804,16 @@ function sound(voice = 'tap') {
     gain.gain.setValueAtTime(0.0001, t);
     gain.gain.exponentialRampToValueAtTime(peak, t + 0.006);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(gain); gain.connect(ac.destination);
+    /* One filter, and only where the voice asks for one — a lowpass on a sine
+       is a node that does nothing, and every node here is built and thrown
+       away on every press. */
+    let tail = gain;
+    if (v.lp && ac.createBiquadFilter) {
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(v.lp, t); lp.Q.setValueAtTime(0.7, t);
+      gain.connect(lp); tail = lp;
+    }
+    osc.connect(gain); tail.connect(ac.destination);
     osc.start(t); osc.stop(t + dur + 0.02);
   } catch {}
 }
@@ -730,6 +844,7 @@ try {
 } catch {}
 
 return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER, APPS,
+         SOUND_KITS, SOUND_KIT_IDS, SOUND_EVENTS, SOUND_EVENT_KEYS, VOICE_IDS,
          get, set, setMany, all, reset, resetAll, subscribe,
          apply, preview, revert, activeTheme, themeInfo, character,
          resolvedDisplay, resolvedMono, accentHex, normHex, luminance,

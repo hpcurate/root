@@ -119,7 +119,23 @@
   --chrome-blur:saturate(140%) blur(18px);
 
   /* ── Shell metrics ───────────────────────────────────────────────────── */
+  /* ── The bottom pill, in three dials ─────────────────────────────────────
+     Settings → appearance → layout → Navigation. The bar was 58px tall with a
+     999px radius and 19px icons, and all three were literals: the one piece of
+     chrome that is on screen on every slide had less say over itself than a
+     card did.
+
+     `--nav-r` is a length rather than `--r-pill` because a pill *is* a radius
+     — half the height — so one dial covers the whole range from a square bar
+     to the pill it ships as. At the default 29px on a 58px bar it resolves to
+     exactly what 999px did, so an install that never touches it looks
+     identical.
+
+     `--nav-icon` reaches the two rules that used to override the icon size
+     outright (the wide breakpoint, and labels-off), as a ratio of itself. */
   --nav-fh:58px;
+  --nav-r:29px;
+  --nav-icon:19px;
   /* the pill sits right on the safe area; shell.css keeps 6px where there is
      none (a laptop, an older phone) so it never touches the screen edge */
   --nav-gap:0px;
@@ -148,7 +164,26 @@
      min-height — so with `justify-content:flex-end` every row inside was still
      being pushed to a third of a pixel, and small text was still resampled.
      Every header in the app measures itself from this instead now. */
-  --sat:env(safe-area-inset-top);
+  --sat:calc(env(safe-area-inset-top) + var(--band-drop));
+
+  /* ── The content offset ──────────────────────────────────────────────────
+     Settings → appearance → layout → "Content offset". A few pixels of air
+     between the status bar and the first thing the app draws, folded into
+     `--sat` so it reaches **every** header at once — the eight wordmark bands
+     and every sticky sub-screen header — rather than the one that was
+     complained about.
+
+     It exists because "the top bar still has a blur attached to it" survived
+     four rendering fixes (2.24.0's `--title-px`, 2.24.1's `--sat`, 2.25.0's
+     `-webkit-overflow-scrolling`, 2.25.1's status bar) and one colour fix
+     (2.26's `--mu`), and the fifth answer was not a sixth theory about
+     rasterisation: it was "just bring all the content down a few pixels".
+     That is a dial, and a dial is a thing that can be turned until it looks
+     right on the phone it is being looked at on, which is more than any of
+     the five could say for themselves.
+
+     Whole pixels only, for the reason the rest of this block exists. */
+  --band-drop:6px;
 
   /* ── The sticky sub-screen title ──
      The header a sub-screen brings with it (`.hd` — DO's routine list, LOG's
@@ -381,7 +416,7 @@ html{height:100%}
   /* rounded *up*, never down: this is a clearance from the physical notch, and
      a header that ends a fraction of a pixel higher than the system wanted is
      a header with the clock sitting on it */
-  :root{--sat:round(up, env(safe-area-inset-top), 1px)}
+  :root{--sat:calc(round(up, env(safe-area-inset-top), 1px) + var(--band-drop))}
   :root{--hd-title-px:round(calc(var(--hd-base) * var(--hd-scale)), 1px);
         --hd-pad:round(calc(var(--hd-base) * var(--hd-scale) * .93), 1px)}
   /* the em resolves against the element the shadow lands on, so this rounds

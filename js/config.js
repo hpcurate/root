@@ -336,6 +336,43 @@ const DEFAULTS = {
     idleLabel: 'free',
   },
 
+  /* ── TOOLS ──────────────────────────────────────────────────────────────────
+     The four instruments' vocabulary. What is *running* is in `tools_v1`;
+     what is here is the shape of the working day you are asking them for.
+
+     The pomodoro's four numbers are content rather than preferences on
+     purpose: 50/10 is a different working day, not a different-looking one,
+     and the line ROOT.md draws is that appearance is how a thing looks and
+     content is what it is about. They travel with the content export for the
+     same reason. */
+  tools: {
+    pomodoro: {
+      focus: 25,        // minutes of work
+      short: 5,         // the break after each one
+      long:  15,        // the break after a full set
+      rounds: 4,        // focuses before the long one
+      /* Off by default. A cycle that rolls straight on is a cycle that starts
+         a break while you are still finishing a sentence, and the first thing
+         most people want from a pomodoro is that it waits for them. */
+      autoStart: false,
+    },
+    /* The countdown's quick chips, in minutes. A tea, a stretch, a phone call,
+       a pomodoro, a nap, an hour. "other…" covers everything else, so this is
+       a list of the ones worth one tap rather than a list of every length. */
+    timers: [1, 3, 5, 10, 15, 25, 45, 60],
+    /* The decider: named lists, one answer pulled out at random. It is here
+       and not in DO because none of these is a thing to be done — it is the
+       question you are stuck on, and the app's whole job is to stop you
+       weighing it for the fourth time. */
+    decks: {
+      'what next': ['the thing you have been avoiding', 'the quickest one',
+                    'the one with a deadline', 'the one you started',
+                    'nothing — take ten minutes'],
+      'break': ['walk round the block', 'stretch', 'water', 'stand at the window',
+                'ten push-ups', 'nothing at all'],
+    },
+  },
+
   /* ── STORE ──────────────────────────────────────────────────────────────── */
   store: {
     /* `icon` is a sprite id from index.html. Adding a category with an unknown

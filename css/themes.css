@@ -219,7 +219,7 @@
   [data-nav="minimal"] #nav{display:none}
 }
 [data-tab-labels="off"] .tb-l{display:none}
-[data-tab-labels="off"] .tab-b svg{width:21px;height:21px}
+[data-tab-labels="off"] .tab-b svg{width:calc(var(--nav-icon) * 1.1);height:calc(var(--nav-icon) * 1.1)}
 
 /* === THE TAB BAR'S ACTIVE MARK ==============================================
    Three dials, and they are three because they answer three questions: which
