@@ -290,6 +290,17 @@ until it finds a level with more than one thing on it — so a screen's sections
 are whatever that screen's markup actually says they are, with no per-app list
 to keep in step.
 
+**Blocks come from the open screen**, not from the slide: a `.view` has only two
+children (the band and `.view-body`), so its "blocks" would be the band and the
+entire page. The band is one block; the rest are the sections of whichever
+`.scr` is `.on`. A lone child is unwrapped only when it is a group *of groups* —
+a container whose children are the controls themselves is the block, which is
+what keeps a grid from becoming one block per tile.
+
+**`shown()` is asked in ROOT's vocabulary**, never through `offsetParent`: that
+is null for `position:fixed` elements *and* for everything under jsdom, which is
+what kept this feature untestable through three rewrites.
+
 **Movement is spatial.** Each direction picks the nearest candidate that
 actually lies that way, off `getBoundingClientRect` — walking the list in
 document order is what made a two-column grid send *down* to the right. Sharing
@@ -1825,6 +1836,42 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.11 — 2026-09-09 — the blocks were the whole page, and now the cursor can be tested
+
+One request, direct, and the reason the previous three attempts kept missing.
+
+- **"The selector appears but I can't go into one block."** Two causes, both in
+  `blocksOf()`. A `.view` has exactly **two** children — the title band and
+  `.view-body` — so asking it for a screen's blocks answered "the band, and
+  everything else on the page"; stepping into the second handed back a flat list
+  of every control, which is the thing blocks were added to replace. And on
+  DO's home the descent then unwrapped the routine grid into six cards, so every
+  block was a **leaf** with nothing inside it — there was genuinely nothing to
+  step into. Blocks now come from the **open screen**, with the band as one of
+  them, and a lone child is unwrapped only when it is a group *of groups*: a
+  container whose children are the controls themselves is the block. DO's home
+  is the band and the grid; entering the grid walks its cards.
+- **`shown()` no longer asks `offsetParent`,** and this is the more important
+  half. `offsetParent` is null for anything `position:fixed` — the numpad, the
+  sheets, the nav — so the cursor considered the only thing on screen to be off
+  it. It is also null for *everything* under jsdom, which is why three versions
+  of this shipped without one check that could move the cursor: the part of the
+  app that most needed testing was the part the harness could not touch. The
+  question is asked in ROOT's own vocabulary now — a `.scr` without `.on`, a
+  `.view` without `.cur`, `[hidden]`, `.hidden`, inline `display:none` — which
+  is both more correct in a browser and answerable from the DOM alone.
+- **`Shell.cursor` is exposed for the harness.** Nothing in the app calls it;
+  the keyboard does. A feature rebuilt four times deserves checks that drive it
+  rather than checks that read its source.
+- Pre-edit backup: `../root-backup-2026-09-09T20-52-41-824Z/` (2,096 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1122 behavior checks and 6 runner tests passed** (13 added, and
+  for the first time they *move the cursor*: what a screen's blocks are, that
+  none of them is the scroller, that a grid is one block rather than one block
+  per card, stepping in, the ring being bounded by the block, coming back out,
+  and refusing to leave from the top). Still no browser — how it *feels* is
+  Hugo's call — but the mechanism is now observable rather than argued for.
 
 ### 4.10 — 2026-09-09 — a direction is a direction, and the layouts actually switch
 

@@ -6251,8 +6251,8 @@ check('the rebindable keys are findable by name, like every other dial',
 
   /* blocksOf descends through single-child wrappers, so a screen wrapped in one
      .cnt still reports its sections rather than reporting the wrapper. */
-  check('a screen wrapped in a single container reports its sections, not the wrapper',
-    /if \(kids\.length === 1\) \{ node = kids\[0\]; continue; \}/.test(shellJs49));
+  check('a lone child is unwrapped only when it is a group of groups',
+    /inner\.length > 1 && inner\.some\(el => !isLeaf\(el\)\)/.test(shellJs49));
 }
 
 /* 4.9 — today's log can ride the Todoist push, and only today's. */
@@ -6400,6 +6400,83 @@ check('the rebindable keys are findable by name, like every other dial',
   w.Prefs.set('toolsLayout', 'plain');
   check('… and again, for each of them', !!$('.ns-tools .tl-plain'));
   w.Prefs.reset('toolsLayout');
+}
+
+/* 4.11 — the cursor, driven at last.
+   Three versions of this shipped without a single check that could move it,
+   because `shown()` asked `offsetParent` and jsdom never populates one. Asking
+   the question in ROOT's own vocabulary instead — a screen without `.on`, a
+   slide without `.cur`, `[hidden]`, `.hidden`, inline display:none — is both
+   more correct in a browser (offsetParent is null for position:fixed too) and
+   answerable here. Everything below is the feature itself, not its source. */
+{
+  const C = w.Shell.cursor;
+  w.Shell.go('do');
+
+  check('the slide on screen is on screen, and the ones behind it are not',
+    !!C.shown($('#view-do')) && !C.shown($('#view-log')),
+    'do: ' + C.shown($('#view-do')) + ' log: ' + C.shown($('#view-log')));
+  check('… and a hidden section is not, however it was hidden',
+    (() => { const box = $('.ns-do #do-hist');
+             if (!box) return true;
+             box.classList.add('hidden');
+             const no = C.shown(box);
+             box.classList.remove('hidden');
+             return !no; })());
+
+  const blocks = C.blocks();
+  /* The bug: a `.view` has exactly two children — the band and `.view-body` —
+     so asking *it* for blocks answered "the band, and the whole rest of the
+     page". Blocks come from the open screen now. */
+  check("DO's blocks come from the open screen, never from the scroller",
+    blocks.length >= 2 && !blocks.some(b => b.classList.contains('view-body')),
+    blocks.map(b => b.id || b.className).join(' | '));
+  check('… the band is one of them, and so is the routine grid',
+    blocks.some(b => b.classList.contains('h-top')) &&
+    blocks.some(b => b.id === 'home-grid'),
+    blocks.map(b => b.id || b.className).join(' | '));
+
+  /* The other half of the bug: the grid used to be unwrapped into its cards, so
+     every "block" was a leaf with nothing inside — which is exactly what "I
+     can't go into one block" was. */
+  const grid = blocks.find(b => b.id === 'home-grid');
+  check('the grid is one block holding its cards, not one block per card',
+    C.items(grid).length > 1 && C.items(grid).every(el => el.classList.contains('card')),
+    String(C.items(grid).length));
+
+  C.to(grid);
+  check('the cursor starts at block level', C.level() === 'block' && C.at() === grid);
+  check('stepping into a block works, and lands on its first control',
+    C.enter() === true && C.level() === 'item' && C.at() === C.items(grid)[0],
+    C.level() + ' / ' + (C.at() && C.at().className));
+  check('… the ring inside is that block, and nothing outside it',
+    C.ring().length === C.items(grid).length && C.ring().every(el => grid.contains(el)),
+    String(C.ring().length));
+  check('… and coming back out returns to the block you came from',
+    C.leave() === true && C.level() === 'block' && C.at() === grid);
+  check('… while leaving from the top level says so rather than pretending',
+    C.leave() === false);
+
+  /* A block holding one control is that control: stepping in would be a step
+     that did nothing, so act presses it instead. */
+  const band = blocks.find(b => b.classList.contains('h-top'));
+  C.to(band);
+  check('a band with several controls can be stepped into',
+    C.items(band).length > 1 ? C.enter() === true : C.enter() === false,
+    String(C.items(band).length) + ' in the band');
+  C.leave();
+
+  /* Every tab must give blocks that are neither nothing nor everything. */
+  const shape = {};
+  ['do', 'log', 'store', 'plan', 'tend', 'settings'].forEach(t => {
+    w.Shell.go(t);
+    const b = C.blocks();
+    shape[t] = b.length;
+  });
+  check('every tab reports blocks — some, and never the one giant one',
+    Object.values(shape).every(n => n >= 2), JSON.stringify(shape));
+  w.Shell.go('do');
+  C.clear();
 }
 
 check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));

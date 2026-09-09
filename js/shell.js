@@ -864,7 +864,29 @@ window.Shell = (function () {
   let markEl = null;                // the arrow, made on first use
 
   const liveView = () => document.querySelector('#track .view.cur');
-  const shown = el => !!(el && el.offsetParent !== null && !el.disabled);
+
+  /* Is this on screen?
+     Asked in ROOT's own vocabulary rather than through `offsetParent`, for two
+     reasons. `offsetParent` is null for anything `position:fixed`, so the pad,
+     the sheets and the nav all read as hidden when they are the only thing you
+     can see. And it is null for *everything* under jsdom, which is why the
+     cursor shipped three times without a single check that could drive it —
+     the part of the app that most needed testing was the part the harness
+     could not touch. These rules are how this app actually hides things, and
+     every one of them is answerable from the DOM alone. */
+  function shown(el) {
+    if (!el || el.disabled) return false;
+    for (let n = el; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) {
+      if (n.hidden) return false;
+      if (n.style && n.style.display === 'none') return false;
+      const c = n.classList;
+      if (!c) continue;
+      if (c.contains('hidden')) return false;
+      if (c.contains('scr')  && !c.contains('on'))  return false;   // a screen not open
+      if (c.contains('view') && !c.contains('cur')) return false;   // a slide not current
+    }
+    return true;
+  }
   const focusablesIn = root =>
     root ? Array.from(root.querySelectorAll(FOCUSABLE)).filter(shown) : [];
   /* A block that is itself pressable counts as its own content — a routine card
@@ -876,18 +898,57 @@ window.Shell = (function () {
     return shown(block) && block.matches(FOCUSABLE) ? [block] : [];
   };
 
-  /* This screen's own sections. Descend through single-child wrappers — `.cnt`,
-     a lone grid — until there is more than one thing to choose between, which
-     is the level a person would call "the blocks on this screen". */
-  function blocksOf(root) {
-    let node = root;
+  /* This screen's own sections.
+
+     The **root** matters more than the descent, and getting it wrong is what
+     made "step into a block" do nothing useful: a `.view` has exactly two
+     children — the title band and `.view-body` — so asking it for its blocks
+     answered "the band, and everything else on the page". Stepping into the
+     second handed back a flat list of every control on the screen, which is
+     precisely what blocks were added to replace.
+
+     So the band is one block, and the rest are the sections of whichever
+     screen is actually open. From there, descend through any run of
+     single-child wrappers — a lone `.cnt`, a lone grid — until there is more
+     than one thing to choose between. */
+  const isLeaf = el => itemsOf(el).length <= 1;
+  function sectionsOf(node) {
     for (let depth = 0; depth < 8 && node; depth++) {
       const kids = Array.from(node.children).filter(el => shown(el) && itemsOf(el).length);
+      if (!kids.length) return [];
       if (kids.length > 1) return kids;
-      if (kids.length === 1) { node = kids[0]; continue; }
-      break;
+      /* Exactly one child, and whether to unwrap it is the whole question.
+         DO's home is the case that got this wrong: its only child with anything
+         in it is the routine grid, and unwrapping that handed back six cards as
+         six "blocks" — every one of them a leaf with nothing to step into,
+         which is exactly "I can't go into one block".
+
+         So a lone child is only unwrapped when it is a group **of groups**. A
+         container whose children are the controls themselves is the block. */
+      const only = kids[0];
+      const inner = Array.from(only.children).filter(el => shown(el) && itemsOf(el).length);
+      if (inner.length > 1 && inner.some(el => !isLeaf(el))) { node = only; continue; }
+      return [only];
     }
-    return node && node !== root ? [node] : focusablesIn(root);
+    return [];
+  }
+
+  function blocksOf(view) {
+    if (!view) return [];
+    const out = [];
+    const band = Array.from(view.children).find(el => el.classList.contains('h-top'));
+    if (band && shown(band) && itemsOf(band).length) out.push(band);
+
+    const body = view.querySelector('.view-body') || view;
+    /* The open screen, not the scroller: `.view-body` holds every screen the
+       app has and only one of them is `.on`. */
+    const scr = Array.from(body.children).find(el => el.classList.contains('scr') && shown(el))
+             || body;
+    out.push(...sectionsOf(scr));
+
+    /* A screen with nothing to group is its own controls — a flat list beats
+       an empty one. */
+    return out.length ? out : focusablesIn(view);
   }
 
   const level = () => (selBlock ? 'item' : 'block');
@@ -1010,6 +1071,30 @@ window.Shell = (function () {
     if (selEl) selEl.classList.remove('kb-sel');
     selEl = next;
     paintSel();
+  }
+
+  /* Into a block, or onto the thing the block is. A block holding one control
+     *is* that control, so stepping in and immediately having to press again
+     would be a step that did nothing. */
+  function enterSel() {
+    if (level() === 'item' || !selEl) return false;
+    const items = itemsOf(selEl);
+    if (items.length <= 1) return false;      // nothing inside worth a level
+    selBlock = selEl;
+    selEl.classList.remove('kb-sel');
+    selEl = items[0];
+    paintSel();
+    return true;
+  }
+  function leaveSel() {
+    if (level() !== 'item') return false;
+    const was = selBlock;
+    if (selEl) selEl.classList.remove('kb-sel');
+    selBlock = null;
+    const list = ring();
+    selEl = list.includes(was) ? was : (list[0] || null);
+    if (selEl) paintSel(); else clearSel();
+    return true;
   }
 
   /* Answers whether it did anything, so the act key with nothing selected is
@@ -1624,7 +1709,19 @@ window.Shell = (function () {
     Prefs.sound(pressVoice(el));
   }, true);
 
-  return { toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
+  /* The cursor, exposed for the harness. Nothing in the app calls these — the
+     keyboard does — but a feature rebuilt three times deserves checks that
+     drive it rather than checks that read its source. */
+  const cursor = {
+    blocks: () => blocksOf(liveView()),
+    items: el => itemsOf(el),
+    ring, shown, level,
+    move: moveSel, enter: enterSel, leave: leaveSel, act: actOnSel, clear: clearSel,
+    at: () => selEl, block: () => selBlock,
+    to: el => { if (selEl) selEl.classList.remove('kb-sel'); selEl = el; if (el) paintSel(); },
+  };
+
+  return { cursor, toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
            hashTarget, searchApps,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,
