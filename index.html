@@ -1212,6 +1212,44 @@
         <button class="setting-btn" id="set-td-test" onclick="SET.testToken()">test key</button>
       </div>
 
+      <div class="sec"><span>Sync between devices</span></div>
+      <div class="data-warn">
+        Two routes, because not everything belongs in the same place. Todoist
+        carries what is not private and is already signed in on both devices.
+        The private file carries what is: it is written here, moved by you, and
+        read back on the other device. Both reach the same number of days
+        either side of today, and neither ever replaces a day outright — a day
+        written in two halves on two devices arrives as one day.
+      </div>
+      <div id="sync-window"></div>
+
+      <div class="sync-route" id="sync-todoist">
+        <div class="sync-head"><span class="sync-name">todoist</span>
+          <span class="sync-apps">DO, DAY, CREATE and TEND</span></div>
+        <div class="sync-when" id="sync-todoist-when">never pushed</div>
+        <div class="td-acts">
+          <button class="setting-btn" data-act="sync-push-todoist">↑ export</button>
+          <button class="setting-btn" data-act="sync-pull-todoist">↓ import</button>
+        </div>
+      </div>
+
+      <div class="sync-route" id="sync-file">
+        <div class="sync-head"><span class="sync-name">private file</span>
+          <span class="sync-apps">LOG, TRACK and STORE</span></div>
+        <div class="sync-when" id="sync-file-when">never written</div>
+        <div class="td-acts">
+          <button class="setting-btn" data-act="sync-push-file">↑ write .md</button>
+          <button class="setting-btn" data-act="sync-pull-file">↓ read a .md</button>
+        </div>
+        <input type="file" id="sync-file-input" accept="text/markdown,.md,.txt" class="hidden"
+               onchange="SET.syncReadFile(event)">
+      </div>
+
+      <div class="setting-row" id="sync-undo-row" hidden>
+        <span class="setting-lbl">Undo the last import<small>puts back every key it overwrote</small></span>
+        <button class="setting-btn danger" data-act="sync-undo">undo</button>
+      </div>
+
       <div class="sec"><span>Backup</span></div>
       <div class="data-warn">
         One file with every key the apps keep on this device — checklists,
@@ -2118,6 +2156,24 @@
   <div id="search-out"></div>
 </div>
 
+<!-- OVERLAP — what an import found on both devices.
+     A sibling of #views like every other sheet, so the track's transform can
+     never become its containing block. It only ever holds the things the merge
+     could not settle on its own: everything unambiguous is already applied by
+     the time this opens. -->
+<div class="ns-set">
+  <div class="sheet-back" id="ovl-back" onclick="SET.syncCancel()"></div>
+  <div class="sheet" id="ovl">
+    <div class="sheet-head">
+      <span class="sheet-ttl"><i class="sheet-dot"></i><span id="ovl-ttl">on both devices</span></span>
+      <button class="sheet-close" onclick="SET.syncCancel()">cancel</button>
+    </div>
+    <div class="data-warn" id="ovl-lead"></div>
+    <div id="ovl-list"></div>
+    <button class="btn" onclick="SET.syncApply()">apply</button>
+  </div>
+</div>
+
 <!-- the portrait curtain: shown by shell.css in landscape on a phone while
      Settings → behaviour → "stay in portrait" is on -->
 <div id="rotate" aria-hidden="true">
@@ -2266,6 +2322,7 @@
      config  the content the apps render, before any of them reads it
      shell   defines Creds and Shell.toast, which the modules use while booting
      apps    each registers itself with Shell and subscribes to Config
+     sync     reads every app's storage keys, so it follows all of them
      settings owns the settings view and needs every module to exist first
      search   reads SET's index and every module's search hook, so it is last
      (js/prefs.js is already loaded, from <head>, before the stylesheets) -->
@@ -2283,6 +2340,9 @@
 <script src="js/cal.js"></script>
 <script src="js/create.js"></script>
 <script src="js/tools.js"></script>
+<!-- after every app, because it reads their storage keys, and before settings,
+     which draws its two buttons. No app module knows it exists. -->
+<script src="js/sync.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/search.js"></script>
 </body>

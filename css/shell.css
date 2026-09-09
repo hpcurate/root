@@ -441,10 +441,17 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 /* The settings view lives in css/settings.css — it grew past what belonged in
    the frame's stylesheet when the panel count went from five to nine. */
 
+/* What a wide window does with the extra room — two modes, and they are
+   complementary: every viewport at or over 560px gets exactly one of them.
+   `rail` is the original behaviour and every block below is gated on it;
+   `frame` (the default) is underneath and deliberately leaves the phone rules
+   completely alone. Settings → layout → "On a wide screen". */
+
 /* Content width: cap the line length once the window has room */
 @media (min-width:560px){
-  .view .scr,.view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
-  .view > .h-top{width:100%}
+  [data-desktop="rail"] .view .scr,
+  [data-desktop="rail"] .view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
+  [data-desktop="rail"] .view > .h-top{width:100%}
 }
 
 /* Fluid grids
@@ -452,21 +459,21 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
    the moment the window grows. auto-fill keeps the tile size honest and lets the
    column count follow the width, so nothing reflows into a stretched mess. */
 @media (min-width:560px){
-  .ns-do .grid,
-  .ns-log .grid,
-  .ns-store .qa-grid   {grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
-  .ns-store .cat-grid  {grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
-  .ns-store .item-grid {grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
-  .ns-log .blk-g       {grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
-  .ns-store .cp-grid   {grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
-  .ns-plan .proj-grid  {grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+  [data-desktop="rail"] .ns-do .grid,
+  [data-desktop="rail"] .ns-log .grid,
+  [data-desktop="rail"] .ns-store .qa-grid   {grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+  [data-desktop="rail"] .ns-store .cat-grid  {grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+  [data-desktop="rail"] .ns-store .item-grid {grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+  [data-desktop="rail"] .ns-log .blk-g       {grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+  [data-desktop="rail"] .ns-store .cp-grid   {grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  [data-desktop="rail"] .ns-plan .proj-grid  {grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 }
 
-/* Desktop: the pill becomes a rail */
+/* Desktop, rail mode: the pill becomes a rail */
 @media (min-width:880px){
-  :root{--scr-pad-b:calc(78px + env(safe-area-inset-bottom))}
-  #views{left:var(--rail-w)}
-  #nav{
+  [data-desktop="rail"]{--scr-pad-b:calc(78px + env(safe-area-inset-bottom))}
+  [data-desktop="rail"] #views{left:var(--rail-w)}
+  [data-desktop="rail"] #nav{
     left:0;top:0;bottom:0;transform:none;
     width:var(--rail-w);height:auto;
     flex-direction:column;justify-content:flex-start;gap:4px;
@@ -474,27 +481,78 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
     background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;
     padding:calc(var(--sat) + 20px) 8px 20px}
   /* the rail is never in the way, so it never hides */
-  #nav.chrome-off{opacity:1;transform:none;pointer-events:auto}
-  .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
-  .tab-b svg{width:calc(var(--nav-icon) * 1.05);height:calc(var(--nav-icon) * 1.05)}
-  .tab-b .tb-l{font-size:8px}
+  [data-desktop="rail"] #nav.chrome-off{opacity:1;transform:none;pointer-events:auto}
+  [data-desktop="rail"] .tab-b{flex:0 0 auto;padding:13px 6px;gap:6px;border-radius:var(--r3)}
+  [data-desktop="rail"] .tab-b svg{width:calc(var(--nav-icon) * 1.05);height:calc(var(--nav-icon) * 1.05)}
+  [data-desktop="rail"] .tab-b .tb-l{font-size:8px}
   /* the rail's tabs are wide boxes, so the default pill squares off here — a
      shape the user picked outright keeps whatever it picked (themes.css) */
-  [data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
-  #nav-prev{left:calc(var(--rail-w) + 14px)}
-  #toast,.undo-pill{bottom:28px;left:calc(50% + var(--rail-w)/2)}
-  .sheet,.npad,.ns-store .pad{left:var(--rail-w)}
+  [data-desktop="rail"][data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
+  [data-desktop="rail"] #nav-prev{left:calc(var(--rail-w) + 14px)}
+  [data-desktop="rail"] #toast,
+  [data-desktop="rail"] .undo-pill{bottom:28px;left:calc(50% + var(--rail-w)/2)}
+  [data-desktop="rail"] .sheet,
+  [data-desktop="rail"] .npad,
+  [data-desktop="rail"] .ns-store .pad{left:var(--rail-w)}
 }
 @media (min-width:1180px){
-  #views{left:var(--rail-w-wide)}
-  #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
-  .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
-  .tab-b .tb-badge{position:static;margin-left:auto}
-  .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
-  .tab-b .tb-l{font-size:10px}
-  #nav-prev{left:calc(var(--rail-w-wide) + 14px)}
-  #toast,.undo-pill{left:calc(50% + var(--rail-w-wide)/2)}
-  .sheet,.npad,.ns-store .pad{left:var(--rail-w-wide)}
+  [data-desktop="rail"] #views{left:var(--rail-w-wide)}
+  [data-desktop="rail"] #nav{width:var(--rail-w-wide);padding-left:12px;padding-right:12px}
+  [data-desktop="rail"] .tab-b{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
+  [data-desktop="rail"] .tab-b .tb-badge{position:static;margin-left:auto}
+  [data-desktop="rail"] .tab-b.on .tb-badge{margin-left:0;font-size:15px;width:20px;text-align:center}
+  [data-desktop="rail"] .tab-b .tb-l{font-size:10px}
+  [data-desktop="rail"] #nav-prev{left:calc(var(--rail-w-wide) + 14px)}
+  [data-desktop="rail"] #toast,
+  [data-desktop="rail"] .undo-pill{left:calc(50% + var(--rail-w-wide)/2)}
+  [data-desktop="rail"] .sheet,
+  [data-desktop="rail"] .npad,
+  [data-desktop="rail"] .ns-store .pad{left:var(--rail-w-wide)}
+}
+
+/* Desktop, frame mode (the default)
+   The app is pinned to a phone-shaped box in the middle of the screen and
+   every phone rule above is left exactly as it is — the pill stays a pill, the
+   grids stay two columns, the bands keep their shape. Nothing is re-laid out
+   for the width, because the width is gone.
+
+   The transform is doing two jobs and the second one is the load-bearing one:
+   it centres the box, and it makes <body> the containing block for its own
+   position:fixed children. That is the same mechanism §6 warns about inside
+   #track, used deliberately and one level up — every piece of floating chrome
+   (the pill, the arrows, the toast, the undo pill, #ask, the numpad, search,
+   DAY's stepper and all the app sheets) is a child of <body>, so one rule puts
+   the whole lot inside the frame instead of against the viewport. Anything
+   fixed added later lands inside it for free.
+
+   This is why the frame is a body rule and not a wrapper element: a wrapper
+   would mean moving eleven scattered nodes in index.html and remembering to
+   move the twelfth. */
+@media (min-width:560px){
+  [data-desktop="frame"] body{
+    top:50%;left:50%;right:auto;bottom:auto;
+    width:min(var(--frame-w), 100vw);
+    height:min(var(--frame-h), 100vh);
+    transform:translate(-50%,-50%);
+    border:var(--bw) solid var(--bd);
+    border-radius:var(--frame-r);
+    overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.45)}
+  /* the ground the frame sits on, a shade off the app's own so the edge reads */
+  [data-desktop="frame"]{background:var(--s2)}
+  /* Anything measured in vw or vh is measuring the wrong box in here: the
+     frame is the window now. These are all of them — the pill's width, the two
+     toasts' caps, and the heights the sheets and the panels cap themselves at. */
+  [data-desktop="frame"] #nav{width:min(322px, calc(var(--frame-w) - 136px))}
+  [data-desktop="frame"] #toast,
+  [data-desktop="frame"] .ns-tend .undo{max-width:calc(var(--frame-w) * .84)}
+  [data-desktop="frame"] .sheet{max-height:calc(var(--frame-h) * .78)}
+  [data-desktop="frame"] #search{max-height:calc(var(--frame-h) * .82)}
+  [data-desktop="frame"] .ns-store .clog-list,
+  [data-desktop="frame"] .ns-set #ovl-list{max-height:calc(var(--frame-h) * .46)}
+  [data-desktop="frame"] .ns-learn .card-face img{max-height:calc(var(--frame-h) * .55)}
+  [data-desktop="frame"] .ns-learn .study-wrap{
+    min-height:calc(var(--frame-h) - 56px - var(--scr-pad-b) - var(--sat))}
 }
 
 /* Pointer affordances
@@ -540,6 +598,17 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 /* Focus: keyboard users get a visible ring, pointers do not */
 :focus{outline:none}
 :focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
+
+/* The keyboard selector
+   Where the up/down keys have got to. It is deliberately the same ring as
+   :focus-visible rather than a second look: a control the cursor is on and a
+   control the tab key reached are the same state, and drawing them differently
+   would be inventing a distinction the user does not have. It is a separate
+   class only because the cursor does *not* focus text fields — see the note
+   over the roving cursor in shell.js — so on those there is nothing for
+   :focus-visible to paint. */
+.kb-sel{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
+.kb-sel:focus-visible{outline-offset:2px}
 
 @media (prefers-reduced-motion:reduce){
   .view,#nav,.nav-arrow,.tab-b::before{transition:none}

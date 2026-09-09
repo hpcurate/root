@@ -27,6 +27,7 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **TOOLS** | Four small instruments behind one strip: a **pomodoro**, a **stopwatch**, a **countdown** and a **decider**. None of them is an app on its own — each is one control, one readout and one number kept for the day — so they are one tab rather than four that are empty most of the time. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it twelve panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
+| **Sync** | Not a tab either: two routes under settings → data, one through Todoist and one through a file you move yourself, and a merge that completes a day rather than replacing it — see §10. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
 Which of the ten get a tab, and in what order, is itself a setting
@@ -113,6 +114,7 @@ root/
     ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js  cal.js
     ├── create.js       the songs being made
     ├── tools.js        the pomodoro, the stopwatch, the countdown, the decider
+    ├── sync.js        the two sync routes and the merge — see §10
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
 ```
@@ -126,6 +128,7 @@ root/
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
          do / log / plan / store / tend / track / learn / cal / create / tools
+         sync.js           reads every app's keys, so it follows all of them
          settings.js       needs every module to exist to render its panels
          search.js         reads SET.searchIndex() and the modules' search hooks
 ```
@@ -481,6 +484,8 @@ versions still work off the same data.
 | `tools_v1` | TOOLS | what each instrument is doing, and the day's tally: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the stopwatch's start and banked time and its laps, the countdown's end and total, the decider's list and last answer, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds, capped at the last 90 days, because it is a "today" number and a year of them is a store that only grows. The four pomodoro lengths, the quick-timer chips and the decider's lists are **not** here: they are Config |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
+| `root_sync_v1` | SYNC | this install's device id and, per route, when it last pushed and last imported. Nothing else — the data itself is never cached here |
+| `root_sync_undo_v1` | SYNC | the raw value of every key the **last** import overwrote, so it can be taken back once. A snapshot, not a history: the next import replaces it, and undoing removes it |
 | `root_tab` | shell | last tab, so a reload lands where you left |
 | `root_theme` | shell | legacy; kept in step with the active theme for the standalone apps |
 | **`root_prefs_v1`** | Prefs | every appearance and behaviour setting, plus `appsSeen` — every app this install has ever been offered, which is what lets a new app arrive (§6) |
@@ -496,6 +501,16 @@ both say so, and a new device needs the `.apkg` imported again.
 ## 6. Things that will bite you
 
 - **`#track` and `position:fixed`** — see §3. This has caused two bugs already.
+- **`<body>` and `position:fixed`, which is the same mechanism used on purpose.**
+  In `desktopMode: frame` the body is transformed to centre the frame, which
+  makes it the containing block for every fixed element in the page. That is
+  what puts the pill, the arrows, the toast, `#ask`, the numpad, search, DAY's
+  stepper and the app sheets *inside* the frame rather than against the viewport,
+  and it is why they all have to stay direct children of `<body>` — the same
+  rule §3 already gives for keeping them out of `#track`, now load-bearing at
+  both ends. Two consequences: a fixed element added later needs no frame rule
+  of its own, and any `vw` measurement on one is measuring the window rather
+  than the frame and must be re-expressed against `--frame-w` (three were).
 - **`touch-action`** — the track claims horizontal gestures via `pan-y`, but
   `#track input,textarea,[contenteditable]{touch-action:auto}` gives them back
   inside a field. Without it a sideways drag steals caret placement and the paste
@@ -1673,10 +1688,176 @@ point of the thing.
 
 ---
 
+## 10. SYNC — the same day, written on two devices
+
+### Two routes, deliberately not one
+
+| Route | Carries | Transport |
+| --- | --- | --- |
+| `todoist` | DO's progress, DAY's calendar, CREATE, TEND | tasks in `04 \| core` → `claude/codex` |
+| `file` | LOG, TRACK, STORE | a `.md` you move yourself |
+
+The split is about what the data *is*, not about what is convenient. LOG is a
+private journal and does not belong on someone else's server; a routine tick is
+not. The two are the same machine underneath — the same payload, the same
+merge, the same overlap sheet — and only the transport differs.
+
+Both are manual. There is no background sync and no automatic pull: an import
+that runs on its own is an import you cannot be standing next to when it goes
+wrong, and the thing it would go wrong with is twenty days of log.
+
+### Sync belongs to the shell, not to the apps
+
+`js/sync.js` reads and writes localStorage keys. No app module knows it exists,
+and a harness check fails if `sync.js` ever names one. That is what keeps
+CREATE's "the shelf has no network" (§1) true while CREATE's shelf still
+travels, and it means a new app joins the sync by having its key added to a
+list here rather than by growing a sync of its own.
+
+### Never a whole-record replace
+
+The rule the whole thing is built around: **an import completes a day, it does
+not overwrite one.**
+
+- **LOG, per half.** `saveMorning()` and `saveEvening()` stamp `m.saved` and
+  `e.saved` (log.js), so a morning written on the phone and an evening written
+  on the desktop are not a conflict — they are one day arriving in two pieces.
+  Missing on one side is taken; both present takes the newer; both present and
+  written in the same moment is a question.
+- **`e.blocks`, `e.media` and `entries` union regardless of the timestamps.**
+  `setBlock()` and `setMedia()` write straight to storage *without* touching
+  `e.saved`, so a block ticked from DO on the other device would be dropped by
+  a timestamp rule. This is the trap in this feature.
+- **DO's ticks union.** A tick is a fact; an untick losing to a tick is the safe
+  way round.
+- **DAY compares `written`,** which cal.js already stamps on every export.
+- **State records ask.** `create_v1`, `tend.v3`, `capTracker.v2`, `store_state_v1`
+  and the rest have no timestamp inside them, and inventing one would be worse
+  than asking. Identical is a no-op, missing on one side is taken, and anything
+  else goes to the overlap sheet.
+
+### `do_<iso>` is today only
+
+DO deletes every other `do_` day on the first load of a new day, folding it into
+`do-stats-v1` first (`loadState()` / `foldDay()`). An imported past day would
+therefore be counted into the tally a second time and then swept anyway. The
+history travels as the tally, which is the record that actually survives.
+
+### Tokens never travel
+
+Every record is walked on the way out and any field called `token` is dropped —
+`do_todoist_v1` and `store_state_v1` both carry one, and a Todoist key inside a
+Todoist task is not a thing that should exist. On the way back the local token
+is put back whatever arrived, so a scrubbed payload can never blank a working
+key.
+
+### The payload, and the fence
+
+One task per day plus one `ROOT · state`, matched on title so a second export
+updates rather than duplicates, and **with no due date** — a dated task would
+turn a backup into twenty things to do today. The description is a line of
+prose and then the payload inside a ```` ```root ```` fence; the fence is the
+contract, the prose is free to change. The file route writes the same payload
+under a readable header.
+
+### Nothing is written until it has been looked at
+
+`plan()` computes every write and every conflict and touches no storage.
+`commit()` copies the raw value of each key it is about to overwrite into
+`root_sync_undo_v1` first, so the last import can be taken back exactly once.
+It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
+
+---
+
 ## Changelog
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.6 — 2026-09-09 — the same day, written on two devices
+
+- **Two sync routes, split by what the data is.** `todoist` carries DO's
+  progress, DAY's calendar, CREATE and TEND as tasks in `04 | core` →
+  `claude/codex`; `file` carries LOG, TRACK and STORE as a `.md` you move
+  yourself. LOG is a private journal and does not belong on someone else's
+  server; a routine tick is not. Same payload, same merge, same sheet — only the
+  transport differs. Both are manual, and there is no background pull: an import
+  that runs on its own is one you cannot be standing next to when it goes wrong.
+- **An import completes a day, it never replaces one.** LOG merges *per half* —
+  `m.saved` and `e.saved` already existed (log.js), so a morning written on the
+  phone and an evening written on the desktop are one day arriving in two
+  pieces rather than a conflict. Missing takes, newer wins, same-moment asks.
+- **`e.blocks`, `e.media` and `entries` union whatever the timestamps say.**
+  `setBlock()` and `setMedia()` write straight to storage without touching
+  `e.saved`, so a timestamp rule would have quietly dropped every block ticked
+  from DO on the other device. This was the trap in the feature.
+- **The overlap sheet is only for what is genuinely ambiguous.** Everything the
+  merge can settle is settled before it opens, so it lists the handful of things
+  written on both devices that disagree and nothing else. `keep mine` is the
+  default on every row.
+- **Nothing is written until it has been looked at.** `plan()` computes every
+  write and touches no storage; `commit()` snapshots the raw value of each key
+  it is about to overwrite first, so the last import can be taken back once.
+- **Tokens never travel.** Every record is walked on the way out and any `token`
+  field is dropped — `do_todoist_v1` and `store_state_v1` both carry one, and a
+  Todoist key inside a Todoist task should not exist. The local one is put back
+  on the way in, so a scrubbed payload cannot blank a working key.
+- **`do_<iso>` is pushed for today only.** DO sweeps every other `do_` day on
+  the next day roll and folds it into `do-stats-v1` first, so an imported past
+  day would be counted into the tally twice and then swept. The history travels
+  as the tally.
+- **Sync is the shell's, not the apps'.** `js/sync.js` reads and writes storage
+  keys; no app module knows it exists, and a check fails if `sync.js` ever names
+  one. CREATE's "the shelf has no network" (§1) stays true while its shelf
+  travels. New: §10, and `root_sync_v1` / `root_sync_undo_v1` in §5.
+- Pre-edit backup: `../root-backup-2026-09-09T15-51-14-874Z/` (1,998 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1042 behavior checks and 6 runner tests passed** (29 added, most
+  of them the merge). **The Todoist transport has not been run against the live
+  API** — the harness stubs networking and pushing would have written to the real
+  account — so the section resolves and the payload round-trips in tests, but the
+  first real export is the first real test of it. The panel was not seen in a
+  browser either; the extension would not connect.
+
+### 4.5 — 2026-09-09 — a window instead of a sprawl, and the keyboard reaches the controls
+
+- **A wide window gets a frame, not a rail.** `desktopMode` (layout → "On a wide
+  screen"), `frame` by default, with `frameW` / `frameH` under it. The app is
+  pinned to a phone-shaped box in the middle of the screen and *every phone rule
+  is left alone* — the pill stays a pill, the grids stay two columns. The 2.8
+  rail is intact and is what `rail` selects; each of its three media blocks is
+  now gated on it, so the two modes are complementary at 560, 880 and 1180.
+- **The frame is one rule on `<body>`, and the transform is load-bearing.** It
+  centres the box *and* makes body the containing block for its own fixed
+  children — the same mechanism §6 warns about inside `#track`, used deliberately
+  one level up. Every piece of floating chrome is a child of body, so the whole
+  lot lands inside the frame, including anything fixed added later. A wrapper
+  element would have meant moving eleven scattered nodes and remembering the
+  twelfth. The three `vw` measurements that were sizing against the window (the
+  pill, the two toasts) now read `--frame-w`.
+- **A roving cursor.** Up and down walk the controls of the slide you are on and
+  the selected one wears the focus ring; the act key ticks it, presses it, or
+  steps into it if it is a field. The list is rebuilt on every move rather than
+  cached — these screens re-render constantly and a cached list goes stale — so
+  a miss restarts at the top instead of pointing at a detached node.
+- **A text field is selected but not focused.** The bindings are letters, so a
+  focused field would swallow them *and* type them. The cursor stops on the
+  field wearing the ring, the act key steps in, Escape steps back out. That is
+  also why the ring is a class rather than `:focus-visible`.
+- **Five rebindable keys** (`keyMap`: prev, next, up, down, act — a, e, comma, o,
+  space). The arrows, 1–9 and `/` stay built in: they read the same on every
+  keyboard, so there is nothing to choose. These five are defaults guessed at a
+  layout, which is what makes them a dial. Settings captures the next key
+  pressed rather than asking anyone to spell `arrowup` into a text field, on the
+  capture phase so rebinding onto `e` does not change tab mid-choice; a key
+  already bound elsewhere is taken off that action rather than shadowed.
+- Pre-edit backup: `../root-backup-2026-09-09T15-34-55-997Z/` (1,998 files, verified).
+- Validated through the runner: 19 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1013 behavior checks and 6 runner tests passed** (twelve added).
+  **Not seen in a browser** — the extension would not connect — so the frame's
+  geometry and the cursor's ring have been reasoned about, not looked at. The
+  cursor is also the one part the harness cannot reach at all: it filters on
+  `offsetParent`, which jsdom never populates.
 
 ### 4.4 — 2026-09-09 — the tab you are on colours the app, and the palette can be your own
 

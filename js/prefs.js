@@ -209,6 +209,16 @@ const SCHEMA = {
   iconStroke:   { kind:'range',  def:2,    min:1,   max:3,   step:0.1,              cssVar:'--icon-stroke' },
   chromeAlpha:  { kind:'range',  def:0.82, min:0.35,max:1,   step:0.01,             cssVar:'--chrome-alpha' },
   contentWidth: { kind:'range',  def:780,  min:560, max:1400,step:20,  unit:'px',   cssVar:'--readable' },
+  /* What a window wider than the phone does with the extra room. `rail` is the
+     2.8 behaviour — the pill unrolls into a side rail and the content spreads
+     to `contentWidth`. `frame` pins the app to a phone-shaped box in the middle
+     of the screen and leaves every phone rule exactly as it is, pill included,
+     which is the layout the app was actually designed against. The frame is
+     also what makes the *whole* of the floating chrome land inside the box —
+     see the note in shell.css, and §6. */
+  desktopMode:  { kind:'enum',   def:'frame', values:['frame','rail'],  attr:'data-desktop' },
+  frameW:       { kind:'range',  def:420,  min:320, max:640, step:10,  unit:'px',   cssVar:'--frame-w' },
+  frameH:       { kind:'range',  def:880,  min:560, max:1200,step:10,  unit:'px',   cssVar:'--frame-h' },
   /* A few pixels of air under the status bar, folded into `--sat` so it moves
      every header in the app at once — see tokens.css for why it is a dial and
      not a fix. */
@@ -280,7 +290,18 @@ const SCHEMA = {
      you never think about and this is the one you might. 0 pins it: it stays
      until it is tapped or the next clear replaces it. */
   undoSec:      { kind:'range',  def:5,    min:0,   max:30,   step:1, unit:'s' },
+  /* How far either side of today a sync reaches. Both routes read it, so the
+     two windows cannot drift apart. */
+  syncDays:     { kind:'range',  def:10,   min:1,   max:60,  step:1, unit:' days either side' },
   keyboardNav:  { kind:'bool',   def:true },
+  /* The five bindings that are letters rather than arrows, each one rebindable.
+     The arrows, 1–9 and "/" are built in and are *not* in here: they are the
+     bindings that read the same on every keyboard, so there is nothing to
+     choose. These five are the ones whose defaults are a guess about a layout
+     — a, e, comma and o sit under the fingers on some and nowhere near them on
+     others — which is exactly why they are a dial. A key held here is stored
+     folded (lower case, `e.key`), and an empty string means "no key". */
+  keyMap:       { kind:'keys',   def:{ prev:'a', next:'e', up:',', down:'o', act:' ' } },
   lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
 
   // formatting
@@ -448,6 +469,20 @@ function coerce(k, v) {
     TAB_IDS.forEach(a => { if (v[a]) out[a] = normHex(v[a]); });
     return out;
   }
+  /* the rebindable keys: the five known actions only, one folded key each. A
+     missing action falls back to the shipped default, so a pasted look written
+     before an action existed still binds it; an explicit empty string is kept,
+     because "no key" is a thing to choose. */
+  if (s.kind === 'keys') {
+    const out = Object.assign({}, s.def);
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      Object.keys(s.def).forEach(a => {
+        if (typeof v[a] !== 'string') return;
+        out[a] = v[a] === '' ? '' : v[a].toLowerCase().slice(0, 20);
+      });
+    }
+    return out;
+  }
   // a pasted "look" can carry anything; keep text and colour well-formed
   if (s.kind === 'text')  return String(v ?? '').slice(0, 8) || s.def;
   if (s.kind === 'color') return normHex(v);
@@ -600,6 +635,7 @@ function apply() {
   root.setAttribute('data-tips',        prefs.tips         ? 'on' : 'off');
   root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
+  root.setAttribute('data-desktop',  prefs.desktopMode);
   root.style.colorScheme = info.mode;
 
   // continuous → inline custom properties (null means "leave it to the theme")
@@ -618,6 +654,8 @@ function apply() {
   st.setProperty('--mo-scale', String(Math.round((1 / speed) * 1000) / 1000));
   st.setProperty('--chrome-alpha',prefs.chromeAlpha);
   st.setProperty('--readable',    prefs.contentWidth + 'px');
+  st.setProperty('--frame-w',     Math.round(+prefs.frameW || 420) + 'px');
+  st.setProperty('--frame-h',     Math.round(+prefs.frameH || 880) + 'px');
   st.setProperty('--tex-mult',    prefs.textureAmount);
   /* Whole pixels, and rounded here rather than trusted from the store: a
      fraction in `--band-drop` reaches every header's padding *and* the band's

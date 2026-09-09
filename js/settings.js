@@ -354,7 +354,8 @@ function layoutHTML() {
     ${chips('hdTitleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Sub-screen title size', 'the sticky header inside a screen — its bar grows with it')}
-    ${slider('contentWidth', 'Max content width', v => Math.round(v) + 'px')}
+    ${slider('contentWidth', 'Max content width', v => Math.round(v) + 'px',
+      'only while a wide window fills the screen — inside the frame the frame is the width')}
     ${slider('iconStroke', 'Icon weight', v => v.toFixed(1))}
     ${slider('bandDrop', 'Content offset', v => Math.round(v) + 'px', 'how far under the status bar every header starts — the band and every sticky sub-screen title move together')}
 
@@ -365,10 +366,20 @@ function layoutHTML() {
     ], 'Overlay', Prefs.get('texture') === 'auto' ? Prefs.character().texture : '')}
     ${slider('textureAmount', 'Strength', v => pct(v))}
 
+    ${sectionHead('On a wide screen')}
+    ${chips('desktopMode', [
+      { v:'frame', l:'a phone-shaped frame' }, { v:'rail', l:'fill the window' },
+    ], 'Wide windows', 'the frame pins the app to a box in the middle of the screen and keeps every phone rule — the pill stays a pill. Filling the window unrolls the pill into a side rail and lets the content spread')}
+    ${Prefs.get('desktopMode') === 'frame' ? `
+      ${slider('frameW', 'Frame width', v => Math.round(v) + 'px')}
+      ${slider('frameH', 'Frame height', v => Math.round(v) + 'px')}
+      <div class="set-note">Under 560px of window there is nothing to centre, so
+        the frame steps aside and the app fills the screen as it does on a phone.</div>` : ''}
+
     ${sectionHead('Navigation')}
     ${chips('navStyle', [
       { v:'pill', l:'floating pill' }, { v:'bar', l:'bottom bar' }, { v:'minimal', l:'hidden' },
-    ], 'Tab bar', 'on a wide window it becomes a side rail regardless')}
+    ], 'Tab bar', 'in a frame it stays a pill at every size; filling the window turns it into a side rail')}
     ${toggle('showTabLabels', 'Show tab names', 'off leaves the icons alone')}
     ${chips('navShape', [
       { v:'pill', l:'pill' }, { v:'round', l:'rounded' }, { v:'square', l:'square' },
@@ -503,6 +514,72 @@ function soundMapHTML() {
   }).join('')}</div>`;
 }
 
+/* The five rebindable keys. Each row captures the next key pressed rather than
+   taking typed text: a binding is a key, and asking someone to spell "arrowup"
+   into a text field is asking them to know what the browser calls it. The
+   capture reads e.key, which is the layout's own character, so a comma is a
+   comma on every keyboard that has one somewhere. */
+const KEY_ROWS = [
+  { k:'prev', label:'Previous tab',    hint:'the arrow keys always do this too' },
+  { k:'next', label:'Next tab',        hint:'and this' },
+  { k:'up',   label:'Move the cursor up',   hint:'walks the controls of the screen you are on' },
+  { k:'down', label:'Move the cursor down', hint:'the selected control wears a ring' },
+  { k:'act',  label:'Use the selected control', hint:'ticks a box, presses a button, steps into a field' },
+];
+
+const KEY_SHOWN = { ' ': 'space', ',': 'comma', '.': 'period', '/': 'slash' };
+const keyLabel = v => v === '' ? 'none' : (KEY_SHOWN[v] || v);
+
+function keyMapHTML() {
+  const map = Prefs.get('keyMap') || {};
+  return `<div class="key-map">${KEY_ROWS.map(r => `
+    <div class="setting-row">
+      <span class="setting-lbl">${esc(r.label)}<small>${esc(r.hint)}</small></span>
+      <button class="setting-btn key-cap" data-key-cap="${esc(r.k)}"
+              aria-label="${esc(r.label)} — press to rebind">${esc(keyLabel(map[r.k] ?? ''))}</button>
+    </div>`).join('')}
+    <div class="setting-row">
+      <span class="setting-lbl">Start again<small>back to a, e, comma, o and space</small></span>
+      <button class="setting-btn" data-act="reset-keymap">reset</button>
+    </div>
+  </div>`;
+}
+
+/* Reads the next key pressed and binds it. Capture phase and stopPropagation,
+   because the whole point is to catch keys the shell itself binds — without it,
+   rebinding anything onto "e" would change tab while you were choosing it.
+   Escape cancels, backspace unbinds. */
+let capturing = null;
+function captureKey(btn) {
+  if (capturing) capturing();                 // a second press moves the capture
+  const action = btn.dataset.keyCap;
+  const was = btn.textContent;
+  btn.classList.add('on');
+  btn.textContent = 'press a key';
+
+  const done = () => {
+    document.removeEventListener('keydown', onKey, true);
+    capturing = null;
+    btn.classList.remove('on');
+    btn.textContent = was;
+  };
+  function onKey(e) {
+    e.preventDefault(); e.stopPropagation();
+    done();
+    if (e.key === 'Escape') return;
+    const map = Object.assign({}, Prefs.get('keyMap'));
+    /* A key already bound to another action is taken off it: two actions on one
+       key means the first one in the list wins and the second silently does
+       nothing, which reads as a broken setting rather than a choice. */
+    const v = (e.key === 'Backspace' || e.key === 'Delete') ? '' : e.key.toLowerCase();
+    if (v) Object.keys(map).forEach(k => { if (map[k] === v) map[k] = ''; });
+    map[action] = v;
+    keepScroll(() => { Prefs.set('keyMap', map); Prefs.tap(); renderBehave(); });
+  }
+  capturing = done;
+  document.addEventListener('keydown', onKey, true);
+}
+
 /* BEHAVE */
 
 function behaveHTML() {
@@ -521,7 +598,8 @@ function behaveHTML() {
     ${sectionHead('Gestures')}
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
-    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search')}
+    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search, and the five below')}
+    ${Prefs.get('keyboardNav') ? keyMapHTML() : ''}
     ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
     ${toggle('sounds', 'Interface sounds', 'a very quiet click under a control, a note when a tab arrives and another when a message shows — synthesised, nothing is downloaded')}
@@ -1567,9 +1645,183 @@ function renderStorage() {
 function renderData() {
   renderToken();
   renderStorage();
+  renderSync();
   const n = Config.customPaths().length;
   const el = $id('set-custom-count');
   if (el) el.textContent = n ? `${n} section${n === 1 ? '' : 's'} customised` : 'nothing customised yet';
+}
+
+/* SYNC — the two routes, the overlap sheet, and the one undo behind them.
+   Everything the merge can settle is applied before the sheet ever opens; it
+   holds only the things that were written on both devices and disagree. */
+
+const agoText = t => {
+  if (!t) return null;
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + ' min ago';
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.round(hrs / 24) + 'd ago';
+};
+
+function renderSync() {
+  if (!window.SYNC) return;
+  const win = $id('sync-window');
+  if (win) win.innerHTML = slider('syncDays', 'How far the window reaches',
+    v => '±' + Math.round(v) + ' days');
+  ['todoist', 'file'].forEach(r => {
+    const el = $id('sync-' + r + '-when');
+    if (!el) return;
+    const push = agoText(SYNC.lastAt(r, 'push'));
+    const pull = agoText(SYNC.lastAt(r, 'pull'));
+    const bits = [];
+    if (push) bits.push((r === 'file' ? 'written ' : 'pushed ') + push);
+    if (pull) bits.push('imported ' + pull);
+    el.textContent = bits.join(' · ') || (r === 'file' ? 'never written' : 'never pushed');
+  });
+  const undoRow = $id('sync-undo-row');
+  if (undoRow) undoRow.hidden = !SYNC.canUndo();
+}
+
+/* The plan being asked about, held between opening the sheet and applying it.
+   Nothing is written to storage while this is set. */
+let syncPending = null;
+
+function syncOpen(planned, route) {
+  syncPending = { planned, route, take: new Set() };
+  const n = planned.conflicts.length;
+  $id('ovl-ttl').textContent = 'on both devices';
+  $id('ovl-lead').innerHTML =
+    (planned.notes.length
+      ? esc(planned.notes.length + ' change' + (planned.notes.length === 1 ? '' : 's') + ' merged on its own. ')
+      : '') +
+    `${n} thing${n === 1 ? '' : 's'} ${n === 1 ? 'was' : 'were'} written on both devices and ` +
+    `${n === 1 ? 'does' : 'do'} not match. Pick which side wins — anything left on ` +
+    `<em>keep mine</em> stays exactly as it is here.`;
+  $id('ovl-list').innerHTML = planned.conflicts.map((c, i) => `
+    <div class="ovl-row">
+      <div class="ovl-name">${esc(c.label)}<small>${esc(c.why)}</small></div>
+      <div class="chips">
+        <button class="chip on" data-ovl="${i}" data-ovl-take="0"
+                onclick="SET.syncPick(${i}, 0)">keep mine</button>
+        <button class="chip" data-ovl="${i}" data-ovl-take="1"
+                onclick="SET.syncPick(${i}, 1)">take theirs</button>
+      </div>
+    </div>`).join('');
+  $id('ovl-back').classList.add('on');
+  $id('ovl').classList.add('on');
+  if (window.Prefs && Prefs.sound) Prefs.sound('menu');
+}
+
+function syncCancel() {
+  syncPending = null;
+  $id('ovl-back').classList.remove('on');
+  $id('ovl').classList.remove('on');
+}
+
+function syncPick(i, take) {
+  if (!syncPending) return;
+  if (take) syncPending.take.add(i); else syncPending.take.delete(i);
+  $all(`#ovl [data-ovl="${i}"]`).forEach(b =>
+    b.classList.toggle('on', (b.dataset.ovlTake === '1') === !!take));
+}
+
+function syncApply() {
+  if (!syncPending) { syncCancel(); return; }
+  const { planned, route, take } = syncPending;
+  const taken = planned.conflicts.filter((_, i) => take.has(i));
+  syncCancel();
+  syncWrite(planned, taken, route);
+}
+
+function syncWrite(planned, taken, route) {
+  const res = SYNC.commit(planned, taken);
+  if (!res.ok) { Shell.toast('storage full — nothing changed'); return; }
+  SYNC.markPulled(route);
+  Shell.ask({
+    title: `Imported ${res.written} record${res.written === 1 ? '' : 's'}`,
+    body: 'Every view re-reads its data on reload. Nothing else on this device was touched, '
+        + 'and this import can be undone from this panel.',
+    yes: 'reload now', no: 'later',
+    done: a => { if (a) location.reload(); else renderSync(); },
+  });
+}
+
+/* Nothing is written until the plan has been looked at: a silent import that
+   overwrites twenty days is the worst thing this panel could do. */
+function syncReview(payload, route) {
+  let planned;
+  try { planned = SYNC.plan(route, payload); }
+  catch (err) { Shell.toast(String(err.message || err)); return; }
+
+  if (!planned.writes.length && !planned.conflicts.length) {
+    Shell.toast('already up to date'); renderSync(); return;
+  }
+  if (planned.conflicts.length) { syncOpen(planned, route); return; }
+  Shell.ask({
+    title: `Apply ${planned.writes.length} change${planned.writes.length === 1 ? '' : 's'}?`,
+    body: (planned.notes.slice(0, 8).join(' · ') || 'records this device did not have')
+        + (planned.notes.length > 8 ? ` · and ${planned.notes.length - 8} more` : '')
+        + '. Nothing here is replaced outright — a day only gains what it was missing.',
+    yes: 'import',
+    done: a => { if (a) syncWrite(planned, [], route); },
+  });
+}
+
+async function syncPushTodoist(btn) {
+  if (!Creds.token()) { Shell.toast('no Todoist key saved'); return; }
+  const was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'sending…'; }
+  try {
+    const r = await SYNC.pushTodoist();
+    Shell.toast(`${r.added} new · ${r.updated} updated`);
+  } catch (err) { Shell.toast(String(err.message || err)); }
+  if (btn) { btn.disabled = false; btn.textContent = was; }
+  renderSync();
+}
+
+async function syncPullTodoist(btn) {
+  if (!Creds.token()) { Shell.toast('no Todoist key saved'); return; }
+  const was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'reading…'; }
+  let payload = null;
+  try { payload = await SYNC.pullTodoist(); }
+  catch (err) { Shell.toast(String(err.message || err)); }
+  if (btn) { btn.disabled = false; btn.textContent = was; }
+  if (payload) syncReview(payload, 'todoist');
+}
+
+async function syncPushFile() {
+  try { const name = await SYNC.exportFile(); if (name) Shell.toast('wrote ' + name); }
+  catch (err) { Shell.toast(String(err.message || err)); }
+  renderSync();
+}
+
+function syncPickFile() { $id('sync-file-input').click(); }
+
+function syncReadFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    event.target.value = '';
+    let payload;
+    try { payload = SYNC.parseFile(reader.result); }
+    catch (err) { Shell.toast(String(err.message || err)); return; }
+    syncReview(payload, 'file');
+  };
+  reader.readAsText(file);
+}
+
+function syncUndo() {
+  Shell.ask({
+    title: 'Undo the last import?',
+    body: 'Every key it overwrote goes back to what it held before. Anything changed since '
+        + 'is overwritten in turn, so this is worth doing straight away or not at all.',
+    yes: 'undo', danger: true,
+    done: a => { if (a && SYNC.undoImport()) location.reload(); },
+  });
 }
 
 /* Deliberately not filtered to the known prefixes: a backup that silently drops
@@ -1701,8 +1953,9 @@ function sectionOf(el) {
   return '';
 }
 function indexPanel(root, panelName, out, seen) {
-  root.querySelectorAll('[data-pref],[data-cfg],[data-cfg-toggle],[data-slider]').forEach(el => {
-    const key = el.dataset.pref || el.dataset.cfg || el.dataset.cfgToggle || el.dataset.slider;
+  root.querySelectorAll('[data-pref],[data-cfg],[data-cfg-toggle],[data-slider],[data-key-cap]').forEach(el => {
+    const key = el.dataset.pref || el.dataset.cfg || el.dataset.cfgToggle || el.dataset.slider
+             || (el.dataset.keyCap && 'keyMap.' + el.dataset.keyCap);
     if (!key) return;
     const id = panelName + ':' + key;
     if (seen.has(id)) return;
@@ -2019,7 +2272,7 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-key-cap],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
   if (!t) return;
 
   // the home menu and the pill bar
@@ -2127,7 +2380,7 @@ view.addEventListener('click', e => {
        'navShape','navAnim','tabPalette','tabColors','tabAccent','cardStyle',
        'accentUse','radius','border',
        'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
-       'bandDrop','navHeight','navRadius','navIcon',
+       'bandDrop','navHeight','navRadius','navIcon','desktopMode','frameW','frameH',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');
     });
@@ -2137,7 +2390,7 @@ view.addEventListener('click', e => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
        'soundKit','sndTap','sndNav','sndMenu','sndDone','sndMsg',
        'confirmDestructive','numpad',
-       'toastMs','undoSec','keyboardNav','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
+       'toastMs','undoSec','keyboardNav','keyMap','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });
   }
@@ -2150,6 +2403,15 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-tab-colors') {
     keepScroll(() => { Prefs.reset('tabColors'); Prefs.tap(); renderLayout(); }); return;
   }
+  if (t.dataset.act === 'sync-push-todoist') { syncPushTodoist(t); return; }
+  if (t.dataset.act === 'sync-pull-todoist') { syncPullTodoist(t); return; }
+  if (t.dataset.act === 'sync-push-file')    { syncPushFile(); return; }
+  if (t.dataset.act === 'sync-pull-file')    { syncPickFile(); return; }
+  if (t.dataset.act === 'sync-undo')         { syncUndo(); return; }
+  if (t.dataset.act === 'reset-keymap') {
+    keepScroll(() => { Prefs.reset('keyMap'); Prefs.tap(); renderBehave(); }); return;
+  }
+  if (t.dataset.keyCap) { captureKey(t); return; }
   if (t.dataset.act === 'search') { Prefs.tap(); if (window.SEARCH) SEARCH.open(); }
   if (t.dataset.act === 'export-look') exportLook();
   if (t.dataset.act === 'import-look') importLook();
@@ -2208,6 +2470,7 @@ if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub)
 
 return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
+         syncCancel, syncApply, syncPick, syncReadFile, renderSync,
          searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,
          reload: () => location.reload() };
 })();

@@ -94,6 +94,13 @@
   --rail-w:88px;
   --rail-w-wide:186px;
   --readable:780px;
+  /* The desktop frame — a phone-shaped box in the middle of a big screen.
+     Both are dials (Settings → layout → On a wide screen); the radius follows
+     the theme's own shape rather than being a third dial, at four times
+     --r-base so the box reads as a device and not as a large card. */
+  --frame-w:420px;
+  --frame-h:880px;
+  --frame-r:calc(var(--r-base) * 4);
   --scr-pad-b:calc(var(--nav-fh) + 30px + env(safe-area-inset-bottom));
 
   /* One wordmark size for all eight slides — the title band is measured off

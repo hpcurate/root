@@ -610,6 +610,8 @@ window.Shell = (function () {
        live chip — and a note for standing still is a note for nothing. */
     if (i !== index && window.Prefs && Prefs.sound) Prefs.sound('nav');
     const dir = i < index ? -1 : 1;      // which way the titles slide
+    // the cursor belongs to the slide it was on, however the move was made
+    if (i !== index) clearSel();
     index = i;
     show(true, dir);
     paintNav();
@@ -811,22 +813,113 @@ window.Shell = (function () {
     if (name === 'settings' && sub && window.SET) SET.panel(sub);
   });
 
+  /* The roving cursor
+     Up and down walk the controls of the slide you are on and SPACE works the
+     one they are sitting on, so a laptop can reach a tick box without a mouse
+     and without tabbing past every control above it.
+
+     Two decisions worth keeping:
+
+     The list is rebuilt on every move rather than cached. These screens
+     re-render constantly — a tick, a config change, a day rolling over — and a
+     cached list would hand back nodes that are no longer in the document. Any
+     miss simply restarts at the top, so the cursor heals itself instead of
+     going stale.
+
+     A text field is *selected but not focused*. The bindings are letters, so a
+     focused field would both swallow them and type them; the cursor stops on
+     the field wearing the ring, SPACE steps into it and Escape steps back out.
+     That is also why the ring is a class and not :focus-visible — see the note
+     in shell.css. */
+  const FOCUSABLE = 'button,[role="switch"],[role="tab"],a[href],input,select,' +
+                    'textarea,summary,[tabindex]:not([tabindex="-1"])';
+  let selEl = null;
+
+  function focusables() {
+    const view = document.querySelector('#track .view.cur');
+    if (!view) return [];
+    return Array.from(view.querySelectorAll(FOCUSABLE))
+      .filter(el => !el.disabled && el.offsetParent !== null);
+  }
+
+  function clearSel() { if (selEl) selEl.classList.remove('kb-sel'); selEl = null; }
+
+  function moveSel(step) {
+    const list = focusables();
+    if (!list.length) { clearSel(); return; }
+    const at = selEl ? list.indexOf(selEl) : -1;
+    const i = at < 0 ? (step > 0 ? 0 : list.length - 1)
+                     : (at + step + list.length) % list.length;
+    clearSel();
+    selEl = list[i];
+    selEl.classList.add('kb-sel');
+    try { selEl.scrollIntoView({ block: 'nearest' }); } catch {}
+    if (!isEditable(selEl)) { try { selEl.focus({ preventScroll: true }); } catch {} }
+  }
+
+  /* Answers whether it did anything, so SPACE with nothing selected is still
+     the page-scroll key the browser makes it. */
+  function actOnSel() {
+    if (!selEl || !selEl.isConnected) { clearSel(); return false; }
+    if (isEditable(selEl)) { try { selEl.focus(); } catch {} return true; }
+    selEl.click();
+    return true;
+  }
+
   /* Keyboard
      ROOT is a phone app that also runs on a laptop, where five slides and no
      keyboard route is a real gap. Every binding is ignored while a field has
      focus, so typing never navigates, and while a sheet is up, because a sheet
      owns the keyboard — STORE's numpad reads digits, and "3" used to type a 3
-     AND jump to PLAN. */
+     AND jump to PLAN.
+
+     The arrows, 1-9 and "/" are built in: they read the same on every keyboard,
+     so there is nothing to choose. The five in `keyMap` are rebindable because
+     their defaults are a guess about a layout — see Prefs.SCHEMA. A custom
+     binding is checked first, so rebinding `up` onto a digit is allowed to win
+     over the jump-to-tab key. */
+  const KEY_ACTIONS = ['prev', 'next', 'up', 'down', 'act'];
+
+  function actionFor(e) {
+    const map = (window.Prefs && Prefs.get('keyMap')) || {};
+    const k = e.key.toLowerCase();
+    for (let i = 0; i < KEY_ACTIONS.length; i++) {
+      const a = KEY_ACTIONS[i];
+      if (map[a] && map[a] === k) return a;
+    }
+    if (e.key === 'ArrowLeft')  return 'prev';
+    if (e.key === 'ArrowRight') return 'next';
+    if (e.key === 'ArrowUp')    return 'up';
+    if (e.key === 'ArrowDown')  return 'down';
+    return null;
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && overlayOpen()) { closeOverlays(); return; }
     if (!pref('keyboardNav', true)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (overlayOpen()) return;
-    const el = document.activeElement;
-    if (el && el.closest && el.closest('input,textarea,select,[contenteditable]')) return;
-    if (e.key === 'ArrowRight') { go(index + 1); e.preventDefault(); }
-    else if (e.key === 'ArrowLeft') { go(index - 1); e.preventDefault(); }
-    else if (e.key >= '1' && e.key <= '9') { go(+e.key - 1); e.preventDefault(); }
+
+    /* Escape is the only binding that reaches a focused field: it is the way
+       back out of one the cursor stepped into. */
+    if (isEditable(document.activeElement)) {
+      if (e.key !== 'Escape') return;
+      try { document.activeElement.blur(); } catch {}
+      if (selEl) selEl.classList.add('kb-sel');
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Escape') { clearSel(); return; }
+
+    switch (actionFor(e)) {
+      case 'prev': clearSel(); go(index - 1); e.preventDefault(); return;
+      case 'next': clearSel(); go(index + 1); e.preventDefault(); return;
+      case 'up':   moveSel(-1); e.preventDefault(); return;
+      case 'down': moveSel(1);  e.preventDefault(); return;
+      case 'act':  if (actOnSel()) e.preventDefault(); return;
+    }
+
+    if (e.key >= '1' && e.key <= '9') { clearSel(); go(+e.key - 1); e.preventDefault(); }
     /* "/" is search now. It used to open settings, which was a shortcut to a
        menu rather than to a thing; search reaches the same panels by name, and
        everything else besides. Without the search module it still opens

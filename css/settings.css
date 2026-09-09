@@ -101,6 +101,29 @@
 /* a picked one in a row of them — LOG's alert preview */
 .ns-set .setting-btn.on{border-color:var(--y);color:var(--y);background:var(--y-fade)}
 .ns-set .setting-btn.danger{color:var(--re)}
+/* the rebind buttons hold their width so the row does not jump between a
+   one-character binding and "press a key" */
+.ns-set .key-cap{min-width:104px;text-align:center}
+
+/* Sync — one block per route, so the two never read as one control with two
+   destinations. The route's name and what it carries sit on the same line:
+   which apps travel by which route is the thing you actually need to know. */
+.ns-set .sync-route{border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(12px * var(--dens)) calc(13px * var(--dens));margin-bottom:10px;background:var(--s1)}
+.ns-set .sync-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ns-set .sync-name{font:700 11px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);color:var(--tx)}
+.ns-set .sync-apps{font:400 9.5px/1.4 var(--mono);letter-spacing:.05em;color:var(--mu)}
+.ns-set .sync-when{font:400 10px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin:6px 0 10px}
+.ns-set .sync-route .td-acts{margin:0}
+
+/* The overlap sheet's rows. Each is one thing that was written on both
+   devices; the chips are the answer, not a preference. */
+.ns-set .ovl-row{border-top:var(--bw) solid var(--bd);padding:11px 0}
+.ns-set .ovl-row:first-child{border-top:none}
+.ns-set .ovl-name{font:400 11.5px/1.4 var(--mono);color:var(--tx);margin-bottom:8px}
+.ns-set .ovl-name small{display:block;font:400 9.5px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em}
+.ns-set #ovl .chips{margin:0}
+.ns-set #ovl-list{max-height:46vh;overflow-y:auto;margin-bottom:14px}
 .ns-set .setting-btn.danger:active{border-color:var(--re)}
 
 .ns-set .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);

@@ -299,6 +299,61 @@ w.Shell.go('do');
 key('5'); check('key 5 jumps to TEND', $('.tab-b.on')?.dataset.app === 'tend', $('.tab-b.on')?.dataset.app);
 key('7'); check('key 7 jumps to LEARN', $('.tab-b.on')?.dataset.app === 'learn', $('.tab-b.on')?.dataset.app);
 
+/* 4.5 — the rebindable keys and the desktop frame.
+   The roving cursor itself is deliberately not checked here: it filters on
+   offsetParent, which jsdom never populates, so every assertion about where
+   the cursor went would be an assertion about jsdom rather than about ROOT.
+   It needs a browser. What is checkable is the binding layer underneath. */
+const kmWas = w.Prefs.get('keyMap');
+check('keyMap ships as a, e, comma, o and space',
+  ['prev','next','up','down','act'].map(a => kmWas[a]).join('') === 'ae,o ', JSON.stringify(kmWas));
+
+w.Shell.go('plan');
+key('a'); check('the bound key steps to the previous tab', $('.tab-b.on')?.dataset.app === 'log',
+  $('.tab-b.on')?.dataset.app);
+key('e'); check('the bound key steps to the next tab', $('.tab-b.on')?.dataset.app === 'plan',
+  $('.tab-b.on')?.dataset.app);
+key('ArrowLeft'); check('the arrows still work alongside the letters',
+  $('.tab-b.on')?.dataset.app === 'log', $('.tab-b.on')?.dataset.app);
+
+w.Prefs.set('keyMap', Object.assign({}, kmWas, { prev: 'q' }));
+w.Shell.go('plan');
+key('q'); check('a rebound key takes effect', $('.tab-b.on')?.dataset.app === 'log',
+  $('.tab-b.on')?.dataset.app);
+w.Shell.go('plan');
+key('a'); check('the key it replaced goes dead', $('.tab-b.on')?.dataset.app === 'plan',
+  $('.tab-b.on')?.dataset.app);
+
+/* An unknown action in a pasted look is dropped and a missing one falls back,
+   so a look written before an action existed still binds it. */
+w.Prefs.set('keyMap', { prev: 'z', bogus: 'x' });
+const kmCo = w.Prefs.get('keyMap');
+check('keyMap coerces to the known actions only',
+  kmCo.bogus === undefined && kmCo.prev === 'z' && kmCo.next === 'e', JSON.stringify(kmCo));
+
+w.Prefs.reset('keyMap');
+check('keyMap resets to the shipped bindings', w.Prefs.get('keyMap').prev === 'a');
+
+/* Typing never navigates — the guard that keeps "e" a letter inside a field. */
+w.Shell.go('plan');
+const kbField = d.createElement('input');
+d.body.appendChild(kbField);
+kbField.focus();
+key('e', kbField);
+check('a bound letter typed into a field does not change tab',
+  $('.tab-b.on')?.dataset.app === 'plan', $('.tab-b.on')?.dataset.app);
+kbField.blur(); kbField.remove();
+
+check('the desktop mode is on the root element as an attribute',
+  d.documentElement.dataset.desktop === 'frame', d.documentElement.dataset.desktop);
+w.Prefs.set('desktopMode', 'rail');
+check('switching to the rail repaints the attribute', d.documentElement.dataset.desktop === 'rail');
+w.Prefs.set('desktopMode', 'frame');
+check('the frame size dials reach the root as custom properties',
+  d.documentElement.style.getPropertyValue('--frame-w') === '420px' &&
+  d.documentElement.style.getPropertyValue('--frame-h') === '880px',
+  d.documentElement.style.getPropertyValue('--frame-w'));
+
 // the app list: order + visibility
 w.Prefs.set('apps', ['track', 'do']);
 check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settings' &&
@@ -5734,6 +5789,207 @@ w.Shell.go('do');
 
 check('no errors through the whole of 4.3', errors.length === 0, errors.slice(0, 3).join(' | '));
 
+
+/* 4.5 — SYNC.
+   The merge is the whole feature and it is pure enough to test properly: what
+   goes wrong here is a day silently losing half of itself, which is the one
+   failure this app cannot afford. The transports are not exercised (one needs
+   Todoist, the other a file picker); the thing between them is. */
+const M = w.SYNC._merge;
+const LS = w.localStorage;
+
+// a half each, written on two devices — the case the whole design exists for
+{
+  const mine = { date: '2026-09-01', m: { nrg: '4', saved: 100 }, e: {} };
+  const theirs = { date: '2026-09-01', m: {}, e: { stress: '2', saved: 200 } };
+  const r = M.mergeLogDay('2026-09-01', mine, theirs);
+  check('a morning here and an evening there merge into one day',
+    r.out.m.nrg === '4' && r.out.e.stress === '2' && r.conflicts.length === 0,
+    JSON.stringify(r.out));
+}
+
+// both halves written: the newer one wins, the older is left alone
+{
+  const mine = { m: { nrg: '2', saved: 100 }, e: { stress: '5', saved: 900 } };
+  const theirs = { m: { nrg: '4', saved: 500 }, e: { stress: '1', saved: 200 } };
+  const r = M.mergeLogDay('2026-09-02', mine, theirs);
+  check('the newer half wins and the older half is untouched',
+    r.out.m.nrg === '4' && r.out.e.stress === '5' && r.conflicts.length === 0,
+    JSON.stringify({ m: r.out.m.nrg, e: r.out.e.stress }));
+}
+
+// written at the same moment and different: that is a question, not a guess
+{
+  const mine = { m: { nrg: '2', saved: 100 }, e: {} };
+  const theirs = { m: { nrg: '4', saved: 100 }, e: {} };
+  const r = M.mergeLogDay('2026-09-03', mine, theirs);
+  check('two halves saved at the same moment raise an overlap instead of guessing',
+    r.conflicts.length === 1 && r.conflicts[0].label === 'LOG 2026-09-03 · morning' &&
+    r.out.m.nrg === '2', JSON.stringify(r.conflicts.map(c => c.label)));
+}
+
+/* Blocks and media are written by setBlock/setMedia without touching e.saved,
+   so a timestamp rule would drop a block ticked from DO on the other device.
+   They union whatever the halves did — including when our half is newer. */
+{
+  const mine = { m: {}, e: { saved: 900, blocks: ['gym'], media: [{ name: 'Dune', kind: 'movie' }] },
+                 entries: [{ time: '09:00', text: 'a' }] };
+  const theirs = { m: {}, e: { saved: 100, blocks: ['study'], media: [{ name: 'Solaris', kind: 'movie' }] },
+                   entries: [{ time: '21:00', text: 'b' }] };
+  const r = M.mergeLogDay('2026-09-04', mine, theirs);
+  check('blocks, media and entries union even when our half is the newer one',
+    r.out.e.blocks.join(',') === 'gym,study' &&
+    r.out.e.media.length === 2 &&
+    r.out.entries.length === 2, JSON.stringify(r.out.e.blocks));
+}
+
+// DO's ticks are facts: they union, and an untick never beats a tick
+{
+  const r = M.mergeDoDay('2026-09-05', { morning: { teeth: true } }, { morning: { water: true } });
+  check("DO's ticks union rather than replace",
+    r.out.morning.teeth === true && r.out.morning.water === true, JSON.stringify(r.out));
+}
+
+// DAY stamps every export, so it has a real timestamp to compare
+{
+  const r = M.mergeCalDay('2026-09-06', { written: 100, notes: 'old' }, { written: 500, notes: 'new' });
+  check('DAY takes the more recently written day', r.out.notes === 'new');
+  const r2 = M.mergeCalDay('2026-09-06', { written: 500, notes: 'mine' }, { written: 100, notes: 'theirs' });
+  check('… and keeps ours when ours is the newer one', r2.out.notes === 'mine');
+  const r3 = M.mergeCalDay('2026-09-06', { written: 100, notes: 'a' }, { written: 100, notes: 'b' });
+  check('… and asks when both were written at the same moment', r3.conflicts.length === 1);
+}
+
+// state records have no timestamp inside, so identical is silent and different asks
+{
+  check('an identical state record is a no-op',
+    M.mergeState('k', { a: 1 }, { a: 1 }).conflicts.length === 0 &&
+    M.mergeState('k', { a: 1 }, { a: 1 }).notes.length === 0);
+  check('a state record this device does not have is simply taken',
+    M.mergeState('k', null, { a: 1 }).out.a === 1);
+  check('a state record that differs on both devices is asked about, never guessed',
+    M.mergeState('k', { a: 1 }, { a: 2 }).conflicts.length === 1);
+}
+
+/* A Todoist key must never travel inside a Todoist task. */
+{
+  const scrubbed = M.scrub({ token: 'secret', target: 'x', todoist: { token: 'secret', project: 'p' } });
+  check('every token is stripped on the way out',
+    !JSON.stringify(scrubbed).includes('secret') && scrubbed.target === 'x' &&
+    scrubbed.todoist.project === 'p', JSON.stringify(scrubbed));
+}
+
+/* The window, and DO's day being today-only — an imported past `do_` day would
+   be folded into do-stats-v1 a second time and then swept. */
+{
+  w.Prefs.set('syncDays', 2);
+  check('the window is the dial, either side of today', w.SYNC.window(w.SYNC.span()).length === 5,
+    String(w.SYNC.window(w.SYNC.span()).length));
+  const yday = w.SYNC.window(1)[0];
+  LS.setItem('do_' + yday, JSON.stringify({ morning: { teeth: true } }));
+  const built = w.SYNC.build('todoist');
+  check('a past DO day is deliberately not pushed — only today is',
+    !(built.days[yday] && built.days[yday].day), JSON.stringify(Object.keys(built.days)));
+  LS.removeItem('do_' + yday);
+  check('the payload never carries a token', !JSON.stringify(built).includes('"token"'));
+  w.Prefs.reset('syncDays');
+}
+
+/* Plan → commit → undo, against real storage. */
+{
+  const day = w.SYNC.window(0)[0];
+  // LOG writes log-scale-v2 at boot; the point of this check is the branch
+  // where the record is absent, so it is cleared and put back afterwards
+  const before = LS.getItem('log-scale-v2');
+  LS.removeItem('log-scale-v2');
+  const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
+                    written: Date.now(), days: {}, state: { 'log-scale-v2': 'done' } };
+  const planned = w.SYNC.plan('file', payload);
+  check('a record this device lacks is planned as a write, with nothing written yet',
+    planned.writes.some(x => x.key === 'log-scale-v2') && LS.getItem('log-scale-v2') === null,
+    JSON.stringify(planned.writes.map(x => x.key)));
+  const res = w.SYNC.commit(planned, []);
+  check('committing writes it', res.ok && JSON.parse(LS.getItem('log-scale-v2')) === 'done');
+  check('and the import can be taken back', w.SYNC.canUndo());
+  w.SYNC.undoImport();
+  check('undo puts every overwritten key back as it was',
+    LS.getItem('log-scale-v2') === null && !w.SYNC.canUndo(), LS.getItem('log-scale-v2'));
+  if (before === null) LS.removeItem('log-scale-v2'); else LS.setItem('log-scale-v2', before);
+  void day;
+}
+
+/* The fence is the contract between the two transports. */
+{
+  const body = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'd',
+                 written: 1, days: {}, state: {} };
+  check('what the wrapper writes is what the reader gets back',
+    JSON.stringify(w.SYNC.unwrap(w.SYNC.wrap('x', body))) === JSON.stringify(body));
+  check('a file that is not a sync file is refused rather than half-read',
+    (() => { try { w.SYNC.parseFile('# just a note'); return false; } catch { return true; } })());
+}
+
+check('SYNC reaches no app module — every app stays as networkless as it was',
+  !/\b(DO|LOG|PLAN|STORE|TEND|TRACK|LEARN|CAL|CREATE|TOOLS)\s*\./
+    .test(fs.readFileSync(path.join(ROOT, 'js/sync.js'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')));
+
+/* The panel, and the sheet that is the only thing standing between an import
+   and twenty overwritten days. */
+w.SET.panel('data');
+check('the data panel offers both routes, and says which apps take which',
+  /todoist/.test($('.ns-set #sync-todoist').textContent) &&
+  /DO, DAY, CREATE and TEND/.test($('.ns-set #sync-todoist').textContent) &&
+  /LOG, TRACK and STORE/.test($('.ns-set #sync-file').textContent));
+
+{
+  const before = LS.getItem('log-scale-v2');
+  LS.setItem('log-scale-v2', JSON.stringify('mine'));
+  const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
+                    written: Date.now(), days: {}, state: { 'log-scale-v2': 'theirs' } };
+  const planned = w.SYNC.plan('file', payload);
+  check('a record changed on both devices reaches the overlap sheet, not storage',
+    planned.conflicts.length === 1 && JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
+
+  // keep mine: the default, and it must leave storage exactly as it was
+  w.SYNC.commit(planned, []);
+  check('"keep mine" leaves the record alone', JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
+  w.SYNC.undoImport();
+
+  // take theirs
+  w.SYNC.commit(planned, planned.conflicts);
+  check('"take theirs" writes the incoming value', JSON.parse(LS.getItem('log-scale-v2')) === 'theirs');
+  w.SYNC.undoImport();
+  check('and undo puts it back', JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
+  if (before === null) LS.removeItem('log-scale-v2'); else LS.setItem('log-scale-v2', before);
+}
+
+/* Two halves of one day can both be conflicts, and answering the second must
+   not throw away the answer to the first — they are layered onto one record. */
+{
+  const day = w.SYNC.window(0)[0];
+  const before = LS.getItem('log_' + day);
+  LS.setItem('log_' + day, JSON.stringify({ date: day, m: { nrg: '1', saved: 5 },
+                                            e: { stress: '1', saved: 5 }, entries: [] }));
+  const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
+                    written: Date.now(), days: { [day]: { day: { date: day,
+                      m: { nrg: '9', saved: 5 }, e: { stress: '9', saved: 5 }, entries: [] } } },
+                    state: {} };
+  const planned = w.SYNC.plan('file', payload);
+  check('both halves of one day can be raised as separate overlaps',
+    planned.conflicts.length === 2, String(planned.conflicts.length));
+  w.SYNC.commit(planned, planned.conflicts);
+  const got = JSON.parse(LS.getItem('log_' + day));
+  check('taking both halves keeps both — the second answer does not undo the first',
+    got.m.nrg === '9' && got.e.stress === '9', JSON.stringify({ m: got.m.nrg, e: got.e.stress }));
+  w.SYNC.undoImport();
+  if (before === null) LS.removeItem('log_' + day); else LS.setItem('log_' + day, before);
+}
+
+check('the rebindable keys are findable by name, like every other dial',
+  w.SEARCH.results('cursor').some(r => r.kind === 'setting' && /cursor/i.test(r.title)),
+  w.SEARCH.results('cursor').map(r => r.title).join(', ').slice(0, 80));
+
+check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 
 console.log(results.join('\n'));
