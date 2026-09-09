@@ -6208,6 +6208,107 @@ check('the rebindable keys are findable by name, like every other dial',
   w.Prefs.reset('undoIcon'); w.Prefs.reset('undoText');
 }
 
+/* 4.9 — the cursor walks two levels, and DO's routines are reachable at all. */
+{
+  const shellJs49 = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
+  /* The bug was the selector: DO's routine cards are `<div onclick>` and TEND,
+     CAL, CREATE and TOOLS all dispatch off data-act, so a flat list of buttons
+     and links could not see any of them. */
+  check('the cursor can see a control that is neither a button nor a link',
+    /\[onclick\]/.test(shellJs49) && /\[data-act\]/.test(shellJs49),
+    'FOCUSABLE still only knows about real controls');
+  check("… which is what makes DO's routine cards reachable",
+    (() => { const m = shellJs49.match(/const FOCUSABLE = ([\s\S]*?);/);
+             if (!m) return false;
+             const sel = m[1].replace(/['\n+ ]/g, '');
+             const card = d.querySelector('.ns-do #home-grid .card');
+             return !!card && card.matches(sel); })(),
+    'a routine card does not match the selector');
+
+  check('the two levels and their keys exist', /function blocksOf\(/.test(shellJs49) &&
+    /KEY_ACTIONS = \['prev', 'next', 'up', 'down', 'act', 'in', 'out'\]/.test(shellJs49));
+  check('… and both are rebindable, with defaults for each',
+    ['prev','next','up','down','act','in','out'].every(a => a in w.Prefs.get('keyMap')),
+    JSON.stringify(w.Prefs.get('keyMap')));
+  check('… while Escape climbs a level rather than only giving up',
+    /if \(!leaveSel\(\)\) clearSel\(\)/.test(shellJs49));
+
+  /* The mark replaced the ring: a full accent outline round half a screen read
+     as an error state rather than as a cursor. */
+  const shellCss49 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+  check('the selection is a wash now, not a ring around half the screen',
+    /\.kb-sel\{outline:1px solid var\(--yb\)/.test(shellCss49) &&
+    !/\.kb-sel\{outline:2px/.test(shellCss49));
+  check('… and what you follow is an arrow that hovers at the corner',
+    /#kb-mark\{/.test(shellCss49) && /position:fixed/.test(shellCss49.slice(shellCss49.indexOf('#kb-mark{'))) &&
+    /#kb-mark\.deep\{/.test(shellCss49));
+  check('… which lives outside #track, like every other fixed thing (§6)',
+    /document\.body\.appendChild\(markEl\)/.test(shellJs49));
+
+  /* blocksOf descends through single-child wrappers, so a screen wrapped in one
+     .cnt still reports its sections rather than reporting the wrapper. */
+  check('a screen wrapped in a single container reports its sections, not the wrapper',
+    /if \(kids\.length === 1\) \{ node = kids\[0\]; continue; \}/.test(shellJs49));
+}
+
+/* 4.9 — today's log can ride the Todoist push, and only today's. */
+{
+  const iso49 = w.Shell.today();
+  const was = LS.getItem('log_' + iso49);
+  LS.setItem('log_' + iso49, JSON.stringify({ date: iso49, m: { nrg: '4', saved: 10 }, e: {}, entries: [] }));
+
+  w.Prefs.set('syncTodayPrivate', false);
+  check('the private day stays out of the Todoist push by default',
+    !w.SYNC.build('todoist').today, JSON.stringify(w.SYNC.build('todoist').today));
+
+  w.Prefs.set('syncTodayPrivate', true);
+  const built49 = w.SYNC.build('todoist');
+  check('… and rides it when the switch is on, under its own key',
+    !!built49.today && built49.todayFor === iso49 && built49.today.day.m.nrg === '4',
+    JSON.stringify(built49.todayFor));
+  check('… today only — yesterday never travels this way',
+    Object.keys(built49).filter(k => k === 'today').length === 1 &&
+    built49.todayFor === iso49);
+  check('… and it is still scrubbed of anything token-shaped',
+    !JSON.stringify(built49).includes('"token"'));
+
+  /* Coming back it is merged by LOG's rules, not the Todoist route's: a half
+     each on two devices is one day, not a conflict. */
+  LS.setItem('log_' + iso49, JSON.stringify({ date: iso49, m: {}, e: { stress: '2', saved: 20 }, entries: [] }));
+  const planned49 = w.SYNC.plan('todoist', built49);
+  const write49 = planned49.writes.find(x => x.key === 'log_' + iso49);
+  check('an imported private day merges by half, filling what this device lacks',
+    !!write49 && write49.value.m.nrg === '4' && write49.value.e.stress === '2',
+    JSON.stringify(write49 && write49.value));
+
+  w.Prefs.reset('syncTodayPrivate');
+  if (was === null) LS.removeItem('log_' + iso49); else LS.setItem('log_' + iso49, was);
+}
+
+/* 4.9 — four drawings of one number. */
+{
+  w.Shell.go('tools');
+  const big = () => $('.ns-tools #tl-big') && $('.ns-tools #tl-big').textContent;
+  const before = big();
+  const seen = {};
+  ['ring', 'bar', 'stack', 'plain'].forEach(l => {
+    w.Prefs.set('toolsLayout', l);
+    w.TOOLS.render();
+    seen[l] = !!$('.ns-tools .tl-' + (l === 'ring' ? 'ring' : l));
+  });
+  check('every layout draws its own box', Object.values(seen).every(Boolean), JSON.stringify(seen));
+  check('… and the readout says the same thing in all of them', big() === before,
+    before + ' → ' + big());
+  check('… all four carry the fraction the paint loop writes',
+    !!$('.ns-tools .tl-plain') && $('.ns-tools .tl-plain').style.getPropertyValue('--tl-frac') !== '',
+    $('.ns-tools .tl-plain') && $('.ns-tools .tl-plain').getAttribute('style'));
+  const toolsCss49 = fs.readFileSync(path.join(ROOT, 'css/tools.css'), 'utf8');
+  check('… and the phase colours are on the readout, not on the ring alone',
+    /\.ns-tools \.break\{--tl-c/.test(toolsCss49) && /\.ns-tools \.whf\.hold\{--tl-c/.test(toolsCss49));
+  w.Prefs.reset('toolsLayout');
+  w.TOOLS.render();
+}
+
 check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 

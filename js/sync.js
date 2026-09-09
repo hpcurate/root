@@ -141,11 +141,34 @@ window.SYNC = (function () {
     return out;
   }
 
+  /* Today's private day, carried on the Todoist route on purpose.
+     The split (§10) is about what the data *is*, and LOG is a journal — which
+     is why it goes by file. But the file is a thing you have to remember to
+     move, and the one day you actually want on the other device is the one you
+     are in the middle of. So this is opt-in, off by default, and **today
+     only**: it is the difference between "my morning is on the laptop" and
+     "my journal lives on someone else's server".
+
+     It rides under its own key so an importer that does not want it can drop
+     it without unpicking the day, and so it is obvious in the task what it is. */
+  function todayPrivate() {
+    const iso = Shell.today();
+    const out = {};
+    const log = readJSON('log_' + iso);
+    if (log) out.day = scrub(log);
+    return Object.keys(out).length ? out : null;
+  }
+
   function build(route) {
     const days = {};
     window_(span()).forEach(d => { const p = dayPayload(route, d); if (p) days[d] = p; });
-    return { app: 'root', kind: 'sync', version: 1, route,
-             device: deviceId(), written: Date.now(), days, state: statePayload(route) };
+    const body = { app: 'root', kind: 'sync', version: 1, route,
+                   device: deviceId(), written: Date.now(), days, state: statePayload(route) };
+    if (route === 'todoist' && window.Prefs && Prefs.get('syncTodayPrivate')) {
+      const p = todayPrivate();
+      if (p) { body.today = p; body.todayFor = Shell.today(); }
+    }
+    return body;
   }
 
   /* ── The merge ────────────────────────────────────────────────────────── */
@@ -317,6 +340,19 @@ window.SYNC = (function () {
       }
     });
 
+    /* Today's private day, if the push was asked to carry it. It is merged by
+       LOG's own rules — per half, arrays unioned — and not by the Todoist
+       route's, because it is a LOG record wherever it travelled. */
+    if (payload.today && payload.today.day && payload.todayFor) {
+      const key = 'log_' + payload.todayFor;
+      const local = readJSON(key);
+      const r = mergeLogDay(payload.todayFor, local, payload.today.day);
+      notes.push(...r.notes);
+      if (r.conflicts.length) bases[key] = clone(r.out);
+      r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key, applyTo: c.apply })));
+      if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
+    }
+
     R.state.forEach(key => {
       const incoming = (payload.state || {})[key];
       const local = readJSON(key);
@@ -423,7 +459,8 @@ window.SYNC = (function () {
     wanted.push({ title: TITLE + 'state',
                   text: wrap('state', { app: 'root', kind: 'sync', version: 1, route: 'todoist',
                                         device: body.device, written: body.written,
-                                        days: {}, state: body.state }) });
+                                        days: {}, state: body.state,
+                                        today: body.today, todayFor: body.todayFor }) });
 
     let added = 0, updated = 0;
     for (const w of wanted) {
@@ -457,6 +494,7 @@ window.SYNC = (function () {
       found++;
       Object.keys(body.days || {}).forEach(d => { if (keep.has(d)) merged.days[d] = body.days[d]; });
       Object.assign(merged.state, body.state || {});
+      if (body.today && body.todayFor) { merged.today = body.today; merged.todayFor = body.todayFor; }
       if (+body.written > merged.written) { merged.written = +body.written; merged.device = body.device || ''; }
     });
     if (!found) throw new Error(`nothing to import — no "${TITLE.trim()}…" tasks in ${SECTION}`);
@@ -622,7 +660,7 @@ ${JSON.stringify(body)}
 
   const markPulled = route => stamp(route, 'pull');
 
-  return { ROUTES, build, plan, commit, canUndo, undoImport, markPulled,
+  return { ROUTES, build, plan, commit, canUndo, undoImport, markPulled, todayPrivate,
            exportEverything, parseEverything, restoreEverything, everythingCount, everythingText,
            pushTodoist, pullTodoist, exportFile, parseFile, fileText,
            lastAt, window: window_, span, unwrap, wrap, deviceId,

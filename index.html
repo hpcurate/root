@@ -1238,6 +1238,13 @@
           <button class="setting-btn" data-act="sync-push-todoist">↑ export</button>
           <button class="setting-btn" data-act="sync-pull-todoist">↓ import</button>
         </div>
+        <label class="sync-tog">
+          <input type="checkbox" data-pref="syncTodayPrivate" data-check="1"> carry today's log too
+        </label>
+        <div class="sync-fine">Off by default, and <b>today only</b>. The private
+          route exists because a journal does not belong on someone else's server;
+          the one honest exception is the day you are still in the middle of, which
+          is also the day a file you have not moved yet cannot help with.</div>
       </div>
 
       <div class="sync-route" id="sync-file">
@@ -2015,6 +2022,19 @@
       <div class="setting-row">
         <span class="setting-lbl">Roll straight on<small>the next phase starts the moment the last one ends, instead of waiting for you</small></span>
         <button class="tog" id="tl-set-auto" data-cfg-toggle="tools.pomodoro.autoStart" role="switch" aria-checked="false" aria-label="roll straight on"></button>
+      </div>
+
+      <div class="sec">Readout</div>
+      <div class="set-note">Four drawings of the same number, and the instrument
+        underneath is identical in all of them: a circle emptying, a departure
+        board, a column that fills, or nothing but type.</div>
+      <div class="opt-set">
+        <div class="chips">
+          <button class="chip" data-pref="toolsLayout" data-val="ring">ring</button>
+          <button class="chip" data-pref="toolsLayout" data-val="bar">board</button>
+          <button class="chip" data-pref="toolsLayout" data-val="stack">blocks</button>
+          <button class="chip" data-pref="toolsLayout" data-val="plain">type</button>
+        </div>
       </div>
 
       <div class="sec"><span>Content</span></div>

@@ -821,12 +821,24 @@ window.Shell = (function () {
     if (name === 'settings' && sub && window.SET) SET.panel(sub);
   });
 
-  /* The roving cursor
-     Up and down walk the controls of the slide you are on and SPACE works the
-     one they are sitting on, so a laptop can reach a tick box without a mouse
-     and without tabbing past every control above it.
+  /* The cursor
+     Up and down walk the slide you are on, so a laptop can reach a tick box
+     without a mouse and without tabbing past every control above it.
 
-     Two decisions worth keeping:
+     **It walks two levels.** 4.5 shipped one flat list, and on a dense screen
+     that is forty steps to reach the bottom — which is what "it scrolls
+     between elements inconsistently" was really describing. So the cursor
+     starts on **blocks**, the act key steps *into* one, and up/down then walk
+     that block's own controls. Escape (or the `out` key) steps back out.
+
+     What counts as a block is derived, not listed. A per-app list of container
+     classes would be ten things to keep in step and would go stale the first
+     time a screen was rebuilt. Instead `blocksOf()` walks down from the screen
+     through any run of single-child wrappers until it reaches a level with
+     more than one thing on it — which is that screen's own idea of its
+     sections, whatever the markup happens to be called.
+
+     Two rules from 4.5 that carry over:
 
      The list is rebuilt on every move rather than cached. These screens
      re-render constantly — a tick, a config change, a day rolling over — and a
@@ -836,43 +848,149 @@ window.Shell = (function () {
 
      A text field is *selected but not focused*. The bindings are letters, so a
      focused field would both swallow them and type them; the cursor stops on
-     the field wearing the ring, SPACE steps into it and Escape steps back out.
-     That is also why the ring is a class and not :focus-visible — see the note
-     in shell.css. */
-  const FOCUSABLE = 'button,[role="switch"],[role="tab"],a[href],input,select,' +
-                    'textarea,summary,[tabindex]:not([tabindex="-1"])';
-  let selEl = null;
+     the field, the act key steps into it and Escape steps back out. */
 
-  function focusables() {
-    const view = document.querySelector('#track .view.cur');
-    if (!view) return [];
-    return Array.from(view.querySelectorAll(FOCUSABLE))
-      .filter(el => !el.disabled && el.offsetParent !== null);
+  /* Anything that answers to a press. `[onclick]` and `[data-act]` are in here
+     because half of ROOT's controls are neither buttons nor links — DO's
+     routine cards are `<div onclick>`, and TEND, CAL, CREATE and TOOLS all
+     dispatch off `data-act`. Leaving them out is why a routine could not be
+     selected at all. */
+  const FOCUSABLE = 'button,[role="switch"],[role="tab"],[role="button"],a[href],' +
+                    'input,select,textarea,summary,[onclick],[data-act],' +
+                    '[tabindex]:not([tabindex="-1"])';
+
+  let selEl = null;                 // what the cursor is on
+  let selBlock = null;              // the block it came out of, while inside one
+  let markEl = null;                // the arrow, made on first use
+
+  const liveView = () => document.querySelector('#track .view.cur');
+  const shown = el => !!(el && el.offsetParent !== null && !el.disabled);
+  const focusablesIn = root =>
+    root ? Array.from(root.querySelectorAll(FOCUSABLE)).filter(shown) : [];
+  /* A block that is itself pressable counts as its own content — a routine card
+     is one thing, not a container of one thing. */
+  const itemsOf = block => {
+    if (!block) return [];
+    const inner = focusablesIn(block);
+    if (inner.length) return inner;
+    return shown(block) && block.matches(FOCUSABLE) ? [block] : [];
+  };
+
+  /* This screen's own sections. Descend through single-child wrappers — `.cnt`,
+     a lone grid — until there is more than one thing to choose between, which
+     is the level a person would call "the blocks on this screen". */
+  function blocksOf(root) {
+    let node = root;
+    for (let depth = 0; depth < 8 && node; depth++) {
+      const kids = Array.from(node.children).filter(el => shown(el) && itemsOf(el).length);
+      if (kids.length > 1) return kids;
+      if (kids.length === 1) { node = kids[0]; continue; }
+      break;
+    }
+    return node && node !== root ? [node] : focusablesIn(root);
   }
 
-  function clearSel() { if (selEl) selEl.classList.remove('kb-sel'); selEl = null; }
+  const level = () => (selBlock ? 'item' : 'block');
+  function ring() {
+    const view = liveView();
+    if (!view) return [];
+    return selBlock ? itemsOf(selBlock) : blocksOf(view);
+  }
+
+  /* The mark
+     A small arrow that hovers at the bottom-right of whatever is selected,
+     rather than an outline around it. It is `position:fixed` and a sibling of
+     #views for the reason §6 gives — inside #track a transformed ancestor
+     would become its containing block — and it is measured off
+     getBoundingClientRect, so it follows an element of any shape without that
+     element needing to know it exists. */
+  function mark(el) {
+    if (!el) { if (markEl) markEl.classList.remove('on'); return; }
+    if (!markEl) {
+      markEl = document.createElement('div');
+      markEl.id = 'kb-mark';
+      markEl.setAttribute('aria-hidden', 'true');
+      markEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M7 17L17 7M17 7h-7M17 7v7"/></svg>';
+      document.body.appendChild(markEl);
+    }
+    const r = el.getBoundingClientRect();
+    markEl.style.left = Math.round(r.right) + 'px';
+    markEl.style.top  = Math.round(r.bottom) + 'px';
+    markEl.classList.toggle('deep', level() === 'item');
+    markEl.classList.add('on');
+  }
+
+  function clearSel() {
+    if (selEl) selEl.classList.remove('kb-sel');
+    selEl = null; selBlock = null;
+    mark(null);
+  }
+  function paintSel() {
+    if (!selEl) return;
+    selEl.classList.add('kb-sel');
+    try { selEl.scrollIntoView({ block: 'nearest' }); } catch {}
+    /* The arrow is measured after the scroll, or it points at where the
+       element used to be. */
+    mark(selEl);
+    if (level() === 'item' && !isEditable(selEl)) { try { selEl.focus({ preventScroll: true }); } catch {} }
+  }
 
   function moveSel(step) {
-    const list = focusables();
+    const list = ring();
     if (!list.length) { clearSel(); return; }
     const at = selEl ? list.indexOf(selEl) : -1;
     const i = at < 0 ? (step > 0 ? 0 : list.length - 1)
                      : (at + step + list.length) % list.length;
-    clearSel();
+    if (selEl) selEl.classList.remove('kb-sel');
     selEl = list[i];
-    selEl.classList.add('kb-sel');
-    try { selEl.scrollIntoView({ block: 'nearest' }); } catch {}
-    if (!isEditable(selEl)) { try { selEl.focus({ preventScroll: true }); } catch {} }
+    paintSel();
   }
 
-  /* Answers whether it did anything, so SPACE with nothing selected is still
-     the page-scroll key the browser makes it. */
+  /* Into a block, or onto the thing the block is. A block holding one control
+     is that control, so stepping in and immediately having to press again
+     would be a step that did nothing. */
+  function enterSel() {
+    if (level() === 'item' || !selEl) return false;
+    const items = itemsOf(selEl);
+    if (items.length <= 1) return false;      // nothing inside worth a level
+    selBlock = selEl;
+    selEl.classList.remove('kb-sel');
+    selEl = items[0];
+    paintSel();
+    return true;
+  }
+  function leaveSel() {
+    if (level() !== 'item') return false;
+    const was = selBlock;
+    if (selEl) selEl.classList.remove('kb-sel');
+    selBlock = null;
+    const list = ring();
+    selEl = list.includes(was) ? was : (list[0] || null);
+    if (selEl) paintSel(); else clearSel();
+    return true;
+  }
+
+  /* Answers whether it did anything, so the act key with nothing selected is
+     still the page-scroll key the browser makes it. */
   function actOnSel() {
     if (!selEl || !selEl.isConnected) { clearSel(); return false; }
     if (isEditable(selEl)) { try { selEl.focus(); } catch {} return true; }
-    selEl.click();
+    if (level() === 'block' && enterSel()) return true;
+    /* A block of one is that one control — press it rather than descending
+       into a level with a single occupant. */
+    const target = level() === 'block' ? (itemsOf(selEl)[0] || selEl) : selEl;
+    target.click();
+    /* The press almost always re-renders the screen underneath the cursor. */
+    setTimeout(() => { if (selEl && !selEl.isConnected) clearSel(); else if (selEl) mark(selEl); }, 0);
     return true;
   }
+
+  /* The arrow is measured in viewport coordinates, so anything that moves the
+     page moves it too. */
+  ['scroll', 'resize'].forEach(ev =>
+    window.addEventListener(ev, () => { if (selEl) mark(selEl); }, true));
 
   /* Keyboard
      ROOT is a phone app that also runs on a laptop, where five slides and no
@@ -882,11 +1000,11 @@ window.Shell = (function () {
      AND jump to PLAN.
 
      The arrows, 1-9 and "/" are built in: they read the same on every keyboard,
-     so there is nothing to choose. The five in `keyMap` are rebindable because
+     so there is nothing to choose. The seven in `keyMap` are rebindable because
      their defaults are a guess about a layout — see Prefs.SCHEMA. A custom
      binding is checked first, so rebinding `up` onto a digit is allowed to win
      over the jump-to-tab key. */
-  const KEY_ACTIONS = ['prev', 'next', 'up', 'down', 'act'];
+  const KEY_ACTIONS = ['prev', 'next', 'up', 'down', 'act', 'in', 'out'];
 
   function actionFor(e) {
     const map = (window.Prefs && Prefs.get('keyMap')) || {};
@@ -913,17 +1031,21 @@ window.Shell = (function () {
     if (isEditable(document.activeElement)) {
       if (e.key !== 'Escape') return;
       try { document.activeElement.blur(); } catch {}
-      if (selEl) selEl.classList.add('kb-sel');
+      if (selEl) { selEl.classList.add('kb-sel'); mark(selEl); }
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { clearSel(); return; }
+    /* Escape climbs one level before it gives up the cursor altogether, so the
+       way out is the same key however deep you are. */
+    if (e.key === 'Escape') { if (!leaveSel()) clearSel(); return; }
 
     switch (actionFor(e)) {
       case 'prev': clearSel(); go(index - 1); e.preventDefault(); return;
       case 'next': clearSel(); go(index + 1); e.preventDefault(); return;
       case 'up':   moveSel(-1); e.preventDefault(); return;
       case 'down': moveSel(1);  e.preventDefault(); return;
+      case 'in':   if (!selEl) moveSel(1); else enterSel(); e.preventDefault(); return;
+      case 'out':  if (!leaveSel()) clearSel(); e.preventDefault(); return;
       case 'act':  if (actOnSel()) e.preventDefault(); return;
     }
 

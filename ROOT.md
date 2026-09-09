@@ -281,6 +281,29 @@ contact with the next six months.
 Routes: `#do` … `#settings` pick a tab; `#settings/<panel>` lands on one
 settings panel and is kept in the address bar as you switch panels.
 
+### The cursor
+
+The keyboard's way around, and it walks **two levels**: a screen's blocks first,
+then the controls inside whichever block you step into. `blocksOf()` derives the
+blocks by walking down from the screen through any run of single-child wrappers
+until it finds a level with more than one thing on it — so a screen's sections
+are whatever that screen's markup actually says they are, with no per-app list
+to keep in step.
+
+Two rules it is built on:
+
+- **The list is rebuilt on every move, never cached.** These screens re-render
+  constantly, and a cached list hands back detached nodes. A miss restarts at
+  the top, so the cursor heals rather than breaks.
+- **A text field is selected but not focused.** The bindings are letters; a
+  focused field would swallow them *and* type them.
+
+What is selectable is `FOCUSABLE` in `shell.js`, and it includes `[onclick]` and
+`[data-act]` — half of ROOT's controls are neither buttons nor links, and
+leaving those out is why DO's routine cards were unreachable until 4.9.
+
+The mark (`#kb-mark`) is a child of `<body>`, not of `#track` — §6.
+
 ### The slide track
 
 `#track` holds up to eight slides **stacked**, and a tab change is a
@@ -1760,6 +1783,18 @@ prose and then the payload inside a ```` ```root ```` fence; the fence is the
 contract, the prose is free to change. The file route writes the same payload
 under a readable header.
 
+### Today's log, on the Todoist route
+
+`syncTodayPrivate`, off by default. It lets the Todoist push carry **today's**
+`log_<iso>` as well, under its own `today` key. The split above is about what
+the data *is*, and LOG is a journal — but the file is a thing you have to
+remember to move, and the one day you actually want on the other device is the
+day you are in the middle of. So it is opt-in, today only, and the panel says
+what the trade is rather than hiding it behind a switch label.
+
+Coming back it is merged by `mergeLogDay()` — per half, arrays unioned — not by
+the Todoist route's own rules, because it is a LOG record wherever it travelled.
+
 ### Everything — the third button, which is not a route
 
 `exportEverything()` / `restoreEverything()` write and read the whole origin as
@@ -1783,6 +1818,61 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.9 — 2026-09-09 — the cursor walks in two levels, TOOLS is four drawings, and today's log can travel
+
+Three Todoist requests, `@claude`-labelled, fetched 2026-09-09.
+
+- **The cursor could not see half the app** (`@fix`, other). Its selector knew
+  about buttons, links and fields — and DO's routine cards are `<div onclick>`,
+  while TEND, CAL, CREATE and TOOLS all dispatch off `data-act`. So "routines in
+  do don't seem to register as an element" was not a DO bug at all: none of
+  those controls existed as far as the cursor was concerned. `[onclick]` and
+  `[data-act]` are in the selector now.
+- **It walks two levels.** 4.5 shipped one flat list, and on a dense screen
+  that is forty steps to reach the bottom — which is what "it scrolls between
+  elements inconsistently" was describing. The cursor starts on a screen's
+  **blocks**, the act key steps *into* one, and up/down then walk that block's
+  own controls. Escape climbs a level before it gives up the cursor, so the way
+  out is the same key however deep you are.
+- **What counts as a block is derived, not listed.** A per-app list of container
+  classes would be ten things to keep in step and would go stale the first time
+  a screen was rebuilt. `blocksOf()` walks down from the screen through any run
+  of single-child wrappers until it reaches a level with more than one thing on
+  it — which is that screen's own idea of its sections, whatever the markup is
+  called.
+- **The mark replaced the ring.** A full accent outline around a block is an
+  outline around half the screen, and it read as an error state rather than as
+  a cursor. The selection is a hairline wash now, and what you follow is a small
+  arrow hovering at its bottom-right corner — fixed, measured off
+  `getBoundingClientRect`, and filled in and turned by 90° at the second level,
+  so "which level am I on" is answered by the same object rather than by a
+  second one elsewhere. It is a child of `<body>` for the reason §6 gives.
+- **Seven rebindable keys**, not five: `in` and `out` join the map.
+- **Today's log can ride the Todoist push** (`@change`, other). Off by default,
+  and deliberately **today only**. The private route exists because a journal
+  does not belong on someone else's server; the one honest exception is the day
+  you are still in the middle of, which is also the day a file you have not
+  moved yet cannot help with. It travels under its own key and is merged by
+  LOG's own per-half rules on the way back, because it is a LOG record wherever
+  it travelled. §10.
+- **TOOLS is four drawings of one number** (`@change`, tools). The ring stays as
+  one of them; `bar` is a departure board (large tabular figures, a hairline
+  filling left to right, nothing enclosing anything), `stack` is a column of
+  twelve blocks filling from the bottom — a quantity you can see rather than a
+  number you read — and `plain` has no container at all. Every layout is handed
+  the same 0-to-1 fraction and carries `#tl-big`, `#tl-sub` and a `--tl-frac`,
+  so `paint()` moves one number and one word and does not care which drawing is
+  on screen. The phase colours moved off `.tl-ring` onto the readout, so a
+  layout never restates what colour a break is.
+- Pre-edit backup: `../root-backup-2026-09-09T19-26-03-555Z/` (2,054 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1092 behavior checks and 6 runner tests passed** (18 added).
+  **Not seen in a browser** — the extension would not connect — so the arrow's
+  placement, the three new layouts and the two-level walk itself are reasoned
+  about, not looked at. The cursor is still the one part the harness cannot
+  drive at all: it filters on `offsetParent`, which jsdom never populates, so
+  every check here is about the layer underneath the walk.
 
 ### 4.8 — 2026-09-09 — TOOLS is two instruments, the timetable can be rearranged, and a finished routine always closes
 

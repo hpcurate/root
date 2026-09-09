@@ -526,9 +526,11 @@ function soundMapHTML() {
 const KEY_ROWS = [
   { k:'prev', label:'Previous tab',    hint:'the arrow keys always do this too' },
   { k:'next', label:'Next tab',        hint:'and this' },
-  { k:'up',   label:'Move the cursor up',   hint:'walks the controls of the screen you are on' },
-  { k:'down', label:'Move the cursor down', hint:'the selected control wears a ring' },
-  { k:'act',  label:'Use the selected control', hint:'ticks a box, presses a button, steps into a field' },
+  { k:'up',   label:'Move the cursor up',   hint:'walks the blocks of the screen, then the controls inside one' },
+  { k:'down', label:'Move the cursor down', hint:'an arrow hovers at the corner of whatever is selected' },
+  { k:'in',   label:'Step into a block',    hint:'from the blocks of a screen down to the controls in one' },
+  { k:'out',  label:'Back out to the blocks', hint:'Escape does this too, so the way back is never unbound' },
+  { k:'act',  label:'Use the selected control', hint:'ticks a box, presses a button, steps into a field — and steps into a block, so this key alone gets you anywhere' },
 ];
 
 const KEY_SHOWN = { ' ': 'space', ',': 'comma', '.': 'period', '/': 'slash' };
@@ -602,7 +604,11 @@ function behaveHTML() {
     ${sectionHead('Gestures')}
     ${toggle('swipe', 'Swipe between tabs', 'a drag inside a text field always belongs to the field')}
     ${slider('swipeStrength', 'Swipe commitment', v => Math.round(v * 100) + '% of the width')}
-    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search, and the five below')}
+    ${toggle('keyboardNav', 'Keyboard shortcuts', '← → between tabs, 1–9 to jump, / to search, and the seven below')}
+    ${Prefs.get('keyboardNav') ? `<div class="set-note">The cursor walks in two
+      levels: the <em>blocks</em> of a screen first, then the controls inside
+      whichever block you step into. On a dense screen that is six steps to the
+      thing you want rather than forty.</div>` : ''}
     ${Prefs.get('keyboardNav') ? keyMapHTML() : ''}
     ${toggle('lockPortrait', 'Stay in portrait', 'a phone turned sideways shows a curtain until it is turned back — iOS cannot lock the rotation itself')}
     ${toggle('haptics', 'Haptic feedback', 'Android only — iOS browsers do not expose the vibration API')}
@@ -2173,6 +2179,7 @@ function syncStatic(root, name) {
       el.classList.toggle('on', String(v) === el.dataset.val);
       return;
     }
+    if (el.type === 'checkbox') { el.checked = !!v; return; }
     if (el.type === 'range') {
       el.value = v;
       const out = el.closest('.slider-row');
@@ -2317,6 +2324,9 @@ view.addEventListener('change', e => {
     if (tag) tag.remove();
     return;
   }
+  /* A checkbox carrying data-pref: the delegated click path is for .tog
+     buttons, and a real checkbox reports through change instead. */
+  if (el.dataset && el.dataset.check && el.dataset.pref) { Prefs.set(el.dataset.pref, el.checked); return; }
   if (el.id === 'cur-sym') Prefs.set('currency', el.value.slice(0, 3) || '€');
 });
 
@@ -2452,7 +2462,7 @@ view.addEventListener('click', e => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
        'soundKit','sndTap','sndNav','sndMenu','sndDone','sndMsg',
        'confirmDestructive','numpad',
-       'toastMs','undoSec','undoIcon','undoText','keyboardNav','keyMap','lockPortrait',
+       'toastMs','undoSec','undoIcon','undoText','keyboardNav','keyMap','lockPortrait','syncTodayPrivate',
        'dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });

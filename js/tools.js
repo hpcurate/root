@@ -375,24 +375,70 @@ function paintBand() {
    conic-gradient, so it animates on the property browsers can animate cheaply
    and it is the same drawing at any size. */
 const R = 78, CIRC = 2 * Math.PI * R;
-function ringHTML(frac, cls, big, sub, pips, breath) {
-  const off = CIRC * (1 - Math.max(0, Math.min(1, frac)));
-  /* The breathing disc reads its own fraction off the element rather than off
-     a class, because it moves five times a second and a class per step would
-     be fifty rules. Written here for the first paint and by paint() after. */
-  const bv = breath == null ? '' : ` style="--tl-breath:${breath.toFixed(3)}"`;
-  return `<div class="tl-ring ${cls}"${bv}>
-    <svg viewBox="0 0 180 180" aria-hidden="true">
-      <circle class="tr" cx="90" cy="90" r="${R}"></circle>
-      <circle class="tp" cx="90" cy="90" r="${R}"
-              stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"></circle>
-    </svg>
-    <div class="tl-read">
+const layout = () => (window.Prefs && Prefs.get('toolsLayout')) || 'ring';
+
+/* The readout, four ways.
+   Every layout is handed the same 0-to-1 fraction and the same two strings, and
+   every one of them carries `#tl-big`, `#tl-sub` and a `--tl-frac` on its outer
+   box — so paint() moves one number and one word and does not care which
+   drawing is on screen. That is the whole reason these are four *layouts* and
+   not four forks of the instrument.
+
+     ring    the original: an SVG circle emptying anticlockwise.
+     bar     a departure board — the time set in big tabular figures, a hairline
+             rule under it filling left to right, nothing enclosing anything.
+     stack   a column of blocks that fill from the bottom, so the readout has a
+             quantity you can see across the room rather than a number to read.
+     plain   no container at all: the time, very large, and a word under it.
+
+   `--tl-breath` is separate from `--tl-frac` because the breathing disc swells
+   and settles on its own curve — see the note in tools.css. */
+function readoutHTML(frac, cls, big, sub, pips, breath) {
+  const f = Math.max(0, Math.min(1, frac));
+  const lay = layout();
+  const vars = `--tl-frac:${f.toFixed(4)}` + (breath == null ? '' : `;--tl-breath:${breath.toFixed(3)}`);
+  const inner = `<div class="tl-read">
       <div class="tl-big" id="tl-big">${esc(big)}</div>
       <div class="tl-sub" id="tl-sub">${esc(sub)}</div>
-    </div>
+    </div>`;
+
+  if (lay === 'ring') {
+    const off = CIRC * (1 - f);
+    return `<div class="tl-ring ${cls}" style="${vars}">
+      <svg viewBox="0 0 180 180" aria-hidden="true">
+        <circle class="tr" cx="90" cy="90" r="${R}"></circle>
+        <circle class="tp" cx="90" cy="90" r="${R}"
+                stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"></circle>
+      </svg>
+      ${inner}
+    </div>${pips || ''}`;
+  }
+
+  if (lay === 'bar') {
+    return `<div class="tl-bar ${cls}" style="${vars}">
+      ${inner}
+      <div class="tl-rule"><i></i></div>
+    </div>${pips || ''}`;
+  }
+
+  if (lay === 'stack') {
+    /* Twelve blocks is enough to read a fraction at a glance and few enough
+       that each one is still a block rather than a stripe. */
+    let cells = '';
+    for (let i = 0; i < 12; i++) cells += `<i style="--n:${i}"></i>`;
+    return `<div class="tl-stack ${cls}" style="${vars}">
+      <div class="tl-cells">${cells}</div>
+      ${inner}
+    </div>${pips || ''}`;
+  }
+
+  return `<div class="tl-plain ${cls}" style="${vars}">
+    ${inner}
+    <div class="tl-underline"><i></i></div>
   </div>${pips || ''}`;
 }
+/* Kept under its old name so the four call sites read the same as they did. */
+const ringHTML = readoutHTML;
 
 /* Rounds as dots rather than "round 2 of 4". A count you read is a count you
    have to do; a row of dots is one you see. */
@@ -526,13 +572,16 @@ function paint() {
   } else if (DB.whf.phase === 'recover') {
     const l = whfLeft(); text = clock(l); frac = l / (WHF.recovery * 1000);
   } else return;
+  const f = Math.max(0, Math.min(1, frac));
   if (big) big.textContent = text;
   if (word && sub && sub.textContent !== word) sub.textContent = word;
-  if (ring) ring.setAttribute('stroke-dashoffset',
-    (CIRC * (1 - Math.max(0, Math.min(1, frac)))).toFixed(1));
-  if (DB.whf.phase === 'breathe') {
-    const box = view && view.querySelector('.tl-ring.breathe');
-    if (box) box.style.setProperty('--tl-breath', frac.toFixed(3));
+  if (ring) ring.setAttribute('stroke-dashoffset', (CIRC * (1 - f)).toFixed(1));
+  /* Every layout reads the fraction off its own box, so this one write drives
+     the bar's fill, the stack's blocks and the underline as well as the ring. */
+  const box = view && view.querySelector('.tl-ring,.tl-bar,.tl-stack,.tl-plain');
+  if (box) {
+    box.style.setProperty('--tl-frac', f.toFixed(4));
+    if (DB.whf.phase === 'breathe') box.style.setProperty('--tl-breath', f.toFixed(3));
   }
 }
 

@@ -118,6 +118,11 @@
 .ns-set .sync-tog{display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;
   font:400 10px/1.4 var(--mono);letter-spacing:.04em;color:var(--mu)}
 .ns-set .sync-tog input{accent-color:var(--y);width:14px;height:14px;cursor:pointer}
+/* the small print under a switch that trades privacy for convenience — it is
+   the one place in this panel where the reason matters more than the label */
+.ns-set .sync-fine{font:400 9.5px/1.6 var(--mono);letter-spacing:.03em;color:var(--mu);
+  margin-top:7px}
+.ns-set .sync-fine b{color:var(--tx-2);font-weight:400}
 
 /* The overlap sheet's rows. Each is one thing that was written on both
    devices; the chips are the answer, not a preference. */

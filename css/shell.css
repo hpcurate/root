@@ -615,15 +615,46 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 :focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
 
 /* The keyboard selector
-   Where the up/down keys have got to. It is deliberately the same ring as
-   :focus-visible rather than a second look: a control the cursor is on and a
-   control the tab key reached are the same state, and drawing them differently
-   would be inventing a distinction the user does not have. It is a separate
-   class only because the cursor does *not* focus text fields — see the note
-   over the roving cursor in shell.js — so on those there is nothing for
-   :focus-visible to paint. */
-.kb-sel{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
-.kb-sel:focus-visible{outline-offset:2px}
+   4.5 drew a full accent ring around the selection. At block level that is a
+   box around half the screen, which reads as an error state rather than as a
+   cursor — so the selection itself is now barely there (a hairline wash) and
+   the thing you actually follow is the arrow below.
+
+   It is a separate class from :focus-visible because the cursor does *not*
+   focus text fields — see the note over the cursor in shell.js — so on those
+   there would be nothing for :focus-visible to paint. */
+.kb-sel{outline:1px solid var(--yb);outline-offset:2px;border-radius:var(--r1);
+  background-color:var(--y-fade)}
+
+/* The mark
+   A small arrow hovering at the bottom-right corner of whatever is selected.
+   Fixed and a sibling of #views, for the reason §6 gives: inside #track a
+   transformed ancestor would become its containing block. Shell measures the
+   selection and writes left/top, so it follows an element of any shape.
+
+   `.deep` is the second level — the arrow fills in and turns, so "which of the
+   two levels am I on" is answered by the same object rather than by a second
+   one somewhere else. */
+#kb-mark{
+  position:fixed;z-index:118;pointer-events:none;
+  width:22px;height:22px;margin:-11px 0 0 -11px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:var(--bg);border:var(--bw) solid var(--y);color:var(--y);
+  opacity:0;transform:scale(.6);
+  transition:left .16s var(--ease), top .16s var(--ease),
+             opacity .16s ease, transform .16s var(--ease-out), background .16s ease}
+#kb-mark svg{width:12px;height:12px;display:block}
+#kb-mark.on{opacity:1;transform:scale(1);animation:kb-bob 1.9s ease-in-out infinite}
+#kb-mark.deep{background:var(--y);color:var(--on-y);transform:scale(1) rotate(90deg)}
+@keyframes kb-bob{
+  0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--y) 40%, transparent)}
+  50%{box-shadow:0 0 0 5px color-mix(in srgb, var(--y) 0%, transparent)}
+}
+@media (prefers-reduced-motion:reduce){
+  #kb-mark.on{animation:none}
+  #kb-mark{transition:opacity .16s ease}
+}
 
 @media (prefers-reduced-motion:reduce){
   .view,#nav,.nav-arrow,.tab-b::before{transition:none}

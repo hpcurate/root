@@ -300,6 +300,11 @@ const SCHEMA = {
   /* How far either side of today a sync reaches. Both routes read it, so the
      two windows cannot drift apart. */
   syncDays:     { kind:'range',  def:10,   min:1,   max:60,  step:1, unit:' days either side' },
+  /* Let the Todoist push carry **today's** LOG day as well. Off by default and
+     deliberately today-only: the private route exists because a journal does
+     not belong on someone else's server, and the one honest exception is the
+     day you are still in the middle of. See ROOT.md §10. */
+  syncTodayPrivate: { kind:'bool', def:false },
   keyboardNav:  { kind:'bool',   def:true },
   /* The five bindings that are letters rather than arrows, each one rebindable.
      The arrows, 1–9 and "/" are built in and are *not* in here: they are the
@@ -307,8 +312,13 @@ const SCHEMA = {
      choose. These five are the ones whose defaults are a guess about a layout
      — a, e, comma and o sit under the fingers on some and nowhere near them on
      others — which is exactly why they are a dial. A key held here is stored
-     folded (lower case, `e.key`), and an empty string means "no key". */
-  keyMap:       { kind:'keys',   def:{ prev:'a', next:'e', up:',', down:'o', act:' ' } },
+     folded (lower case, `e.key`), and an empty string means "no key".
+
+     `in` and `out` are the two levels: the cursor walks a screen's blocks, `in`
+     steps inside one and `out` comes back. Escape does `out` too and is built
+     in, so the way back is never a key you have to have bound. */
+  keyMap:       { kind:'keys',
+                  def:{ prev:'a', next:'e', up:',', down:'o', act:' ', in:'u', out:'y' } },
   lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
 
   // formatting
@@ -340,6 +350,12 @@ const SCHEMA = {
 
   /* DO's routine cards. `doHideDone` drops a finished routine off the grid
      rather than greying it; `doCardStyle` is how much of a card is drawn. */
+  /* What TOOLS draws its readout as. Four genuinely different approaches
+     rather than four skins of one: a ring, a bar, a column of blocks, and no
+     container at all. The instrument underneath is identical — every one of
+     them is fed the same 0-to-1 fraction — so this is a look, not a mode. */
+  toolsLayout:  { kind:'enum',   def:'ring', values:['ring','bar','stack','plain'],
+                                              attr:'data-tools-layout' },
   doHideDone:   { kind:'bool',   def:false },
   doCardStyle:  { kind:'enum',   def:'full', values:['full','minimal'] },
 };
@@ -644,6 +660,7 @@ function apply() {
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.setAttribute('data-desktop',  prefs.desktopMode);
   root.setAttribute('data-undo-icon', prefs.undoIcon);
+  root.setAttribute('data-tools-layout', prefs.toolsLayout);
   root.setAttribute('data-undo-text', prefs.undoText ? 'on' : 'off');
   /* Whether the app's own box is wide enough to lay out for, which a media
      query cannot answer: in frame mode the box is a dial, not the window. The
