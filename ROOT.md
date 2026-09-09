@@ -1760,6 +1760,16 @@ prose and then the payload inside a ```` ```root ```` fence; the fence is the
 contract, the prose is free to change. The file route writes the same payload
 under a readable header.
 
+### Everything — the third button, which is not a route
+
+`exportEverything()` / `restoreEverything()` write and read the whole origin as
+one `.md`: every key, unfiltered, the same rule the JSON backup follows. It is
+for moving to a new device, not for keeping two in step, and it **replaces**
+rather than merges — that is what the request means. The Todoist key is left out
+unless the switch is on; `plan_token` is the only key that is nothing but the
+token, so it is the only one omitted outright. It uses the same snapshot as an
+import, so it too can be taken back once.
+
 ### Nothing is written until it has been looked at
 
 `plan()` computes every write and every conflict and touches no storage.
@@ -1773,6 +1783,34 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.7 — 2026-09-09 — the frame is any size you like, and everything fits in one file
+
+- **The frame dials open right up** — 320–2000 wide, 400–1600 tall, capped by
+  the window it sits in. A frame past 560px wide now behaves like a wide window
+  *inside itself*: the grids grow columns and the text stops at Max content
+  width, so a big frame is roomy rather than stretched. CSS cannot measure a box
+  whose size is a dial, so Prefs stamps `data-frame-wide` and the cap and the
+  grids read that alongside their media queries.
+- **Export everything / import everything**, as one `.md`. Not a route — the two
+  sync routes keep two devices in step on a Tuesday, this is for a new phone.
+  Every key on the origin, unfiltered, the same rule the JSON backup follows:
+  appearance, behaviour, content edits, every logged day, every list, the queue,
+  the plants, the curriculum, the calendar, the works in progress.
+- **The Todoist key is left out by default**, with a switch to include it. A file
+  that goes through a chat app should not carry it, and it is two taps to paste
+  back. A record that merely *contains* one keeps everything else — dropping
+  STORE's whole state to hide one field would be the wrong trade; `plan_token`
+  is the one key that is nothing but the token, so it is the one key omitted.
+- **Restoring replaces rather than merges**, deliberately: "move me to a new
+  phone" means replace, and a half-and-half install is nobody's intent. It says
+  how many keys are new and how many are replaced before it does anything, and
+  it goes through the same snapshot as a sync import, so it can be taken back
+  once. LEARN's decks still cannot travel — IndexedDB — and the file says so.
+- Pre-edit backup: `../root-backup-2026-09-09T17-00-42-186Z/` (2,014 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1057 behavior checks and 6 runner tests passed** (thirteen added).
+  Still not seen in a browser — the extension would not connect.
 
 ### 4.6 — 2026-09-09 — the same day, written on two devices
 

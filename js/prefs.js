@@ -217,8 +217,8 @@ const SCHEMA = {
      also what makes the *whole* of the floating chrome land inside the box —
      see the note in shell.css, and §6. */
   desktopMode:  { kind:'enum',   def:'frame', values:['frame','rail'],  attr:'data-desktop' },
-  frameW:       { kind:'range',  def:420,  min:320, max:640, step:10,  unit:'px',   cssVar:'--frame-w' },
-  frameH:       { kind:'range',  def:880,  min:560, max:1200,step:10,  unit:'px',   cssVar:'--frame-h' },
+  frameW:       { kind:'range',  def:420,  min:320, max:2000,step:10,  unit:'px',   cssVar:'--frame-w' },
+  frameH:       { kind:'range',  def:880,  min:400, max:1600,step:10,  unit:'px',   cssVar:'--frame-h' },
   /* A few pixels of air under the status bar, folded into `--sat` so it moves
      every header in the app at once — see tokens.css for why it is a dial and
      not a fix. */
@@ -636,6 +636,13 @@ function apply() {
   root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.setAttribute('data-desktop',  prefs.desktopMode);
+  /* Whether the app's own box is wide enough to lay out for, which a media
+     query cannot answer: in frame mode the box is a dial, not the window. The
+     content cap and the fluid grids read this, so a 1200px frame gets the same
+     treatment a 1200px window does. 560 is the breakpoint the media queries
+     already use, kept in step deliberately. */
+  root.setAttribute('data-frame-wide',
+    prefs.desktopMode === 'frame' && +prefs.frameW >= 560 ? 'on' : 'off');
   root.style.colorScheme = info.mode;
 
   // continuous → inline custom properties (null means "leave it to the theme")

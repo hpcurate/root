@@ -1220,6 +1220,8 @@
         read back on the other device. Both reach the same number of days
         either side of today, and neither ever replaces a day outright — a day
         written in two halves on two devices arrives as one day.
+        <b>Everything</b> is the third and is not a route: it is the whole
+        install as one file, for a new phone rather than for a Tuesday.
       </div>
       <div id="sync-window"></div>
 
@@ -1243,6 +1245,21 @@
         </div>
         <input type="file" id="sync-file-input" accept="text/markdown,.md,.txt" class="hidden"
                onchange="SET.syncReadFile(event)">
+      </div>
+
+      <div class="sync-route" id="sync-all">
+        <div class="sync-head"><span class="sync-name">everything</span>
+          <span class="sync-apps">every key on this device</span></div>
+        <div class="sync-when" id="sync-all-when">appearance, content edits, every day, every list</div>
+        <div class="td-acts">
+          <button class="setting-btn" data-act="sync-push-all">↑ export everything</button>
+          <button class="setting-btn" data-act="sync-pull-all">↓ import everything</button>
+        </div>
+        <label class="sync-tog">
+          <input type="checkbox" id="sync-all-token"> include the Todoist key
+        </label>
+        <input type="file" id="sync-all-input" accept="text/markdown,.md,.txt" class="hidden"
+               onchange="SET.syncReadAll(event)">
       </div>
 
       <div class="setting-row" id="sync-undo-row" hidden>

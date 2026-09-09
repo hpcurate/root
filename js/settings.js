@@ -373,8 +373,12 @@ function layoutHTML() {
     ${Prefs.get('desktopMode') === 'frame' ? `
       ${slider('frameW', 'Frame width', v => Math.round(v) + 'px')}
       ${slider('frameH', 'Frame height', v => Math.round(v) + 'px')}
-      <div class="set-note">Under 560px of window there is nothing to centre, so
-        the frame steps aside and the app fills the screen as it does on a phone.</div>` : ''}
+      <div class="set-note">Any size you like, capped by the window it is sitting
+        in. Past 560px wide the frame starts behaving like a wide window inside
+        itself — the grids grow columns and the text stops at
+        <em>Max content width</em> — so a big frame is roomy rather than stretched.
+        Under 560px of <em>window</em> there is nothing to centre, so the frame
+        steps aside and the app fills the screen as it does on a phone.</div>` : ''}
 
     ${sectionHead('Navigation')}
     ${chips('navStyle', [
@@ -1814,6 +1818,48 @@ function syncReadFile(event) {
   reader.readAsText(file);
 }
 
+/* Everything: the whole install as one .md. Not a merge — a restore replaces
+   what the file names, which is what "move me to a new phone" means. It still
+   goes through the sync snapshot, so it can be taken back once. */
+async function syncPushAll(btn) {
+  const withToken = !!$id('sync-all-token')?.checked;
+  const was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'writing…'; }
+  try { const name = await SYNC.exportEverything(withToken); if (name) Shell.toast('wrote ' + name); }
+  catch (err) { Shell.toast(String(err.message || err)); }
+  if (btn) { btn.disabled = false; btn.textContent = was; }
+}
+
+function syncPickAll() { $id('sync-all-input').click(); }
+
+function syncReadAll(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    event.target.value = '';
+    let body;
+    try { body = SYNC.parseEverything(reader.result); }
+    catch (err) { Shell.toast(String(err.message || err)); return; }
+    const c = SYNC.everythingCount(body);
+    Shell.ask({
+      title: `Restore ${c.total} key${c.total === 1 ? '' : 's'}?`,
+      body: `${c.fresh} new · ${c.over} replaced. This is not a merge: every key the file `
+          + `names is replaced outright, and anything on this device it does not name is left `
+          + `alone. ${body.token ? 'It carries a Todoist key. ' : 'It carries no Todoist key, so yours stays. '}`
+          + `The app reloads afterwards, and this can be undone from here.`,
+      yes: 'restore', danger: true,
+      done: a => {
+        if (!a) return;
+        const res = SYNC.restoreEverything(body);
+        if (!res.ok) { Shell.toast('storage full — some keys were not written'); return; }
+        location.reload();
+      },
+    });
+  };
+  reader.readAsText(file);
+}
+
 function syncUndo() {
   Shell.ask({
     title: 'Undo the last import?',
@@ -2407,6 +2453,8 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'sync-pull-todoist') { syncPullTodoist(t); return; }
   if (t.dataset.act === 'sync-push-file')    { syncPushFile(); return; }
   if (t.dataset.act === 'sync-pull-file')    { syncPickFile(); return; }
+  if (t.dataset.act === 'sync-push-all')     { syncPushAll(t); return; }
+  if (t.dataset.act === 'sync-pull-all')     { syncPickAll(); return; }
   if (t.dataset.act === 'sync-undo')         { syncUndo(); return; }
   if (t.dataset.act === 'reset-keymap') {
     keepScroll(() => { Prefs.reset('keyMap'); Prefs.tap(); renderBehave(); }); return;
@@ -2470,7 +2518,7 @@ if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub)
 
 return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
-         syncCancel, syncApply, syncPick, syncReadFile, renderSync,
+         syncCancel, syncApply, syncPick, syncReadFile, syncReadAll, renderSync,
          searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,
          reload: () => location.reload() };
 })();

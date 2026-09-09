@@ -447,12 +447,19 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
    `frame` (the default) is underneath and deliberately leaves the phone rules
    completely alone. Settings → layout → "On a wide screen". */
 
-/* Content width: cap the line length once the window has room */
+/* Content width: cap the line length once the box has room.
+   Two selectors rather than one media query, because "the box" is the window
+   in rail mode and a dial in frame mode — Prefs stamps data-frame-wide for the
+   half CSS cannot measure. A wide frame is still a frame; it just stops
+   stretching a paragraph across all of it. */
 @media (min-width:560px){
   [data-desktop="rail"] .view .scr,
   [data-desktop="rail"] .view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
   [data-desktop="rail"] .view > .h-top{width:100%}
 }
+[data-frame-wide="on"] .view .scr,
+[data-frame-wide="on"] .view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
+[data-frame-wide="on"] .view > .h-top{width:100%}
 
 /* Fluid grids
    The apps ship fixed two-column grids, which is right on a phone and wasteful
@@ -468,6 +475,14 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   [data-desktop="rail"] .ns-store .cp-grid   {grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
   [data-desktop="rail"] .ns-plan .proj-grid  {grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 }
+[data-frame-wide="on"] .ns-do .grid,
+[data-frame-wide="on"] .ns-log .grid,
+[data-frame-wide="on"] .ns-store .qa-grid   {grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+[data-frame-wide="on"] .ns-store .cat-grid  {grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+[data-frame-wide="on"] .ns-store .item-grid {grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+[data-frame-wide="on"] .ns-log .blk-g       {grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+[data-frame-wide="on"] .ns-store .cp-grid   {grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+[data-frame-wide="on"] .ns-plan .proj-grid  {grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 
 /* Desktop, rail mode: the pill becomes a rail */
 @media (min-width:880px){

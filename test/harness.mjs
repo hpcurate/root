@@ -5985,6 +5985,67 @@ check('the data panel offers both routes, and says which apps take which',
   if (before === null) LS.removeItem('log_' + day); else LS.setItem('log_' + day, before);
 }
 
+/* 4.7 — the frame is any size, and "everything" is one file. */
+{
+  w.Prefs.set('frameW', 1200);
+  check('a wide frame is treated as a wide box, which no media query could tell it',
+    d.documentElement.dataset.frameWide === 'on', d.documentElement.dataset.frameWide);
+  w.Prefs.set('frameW', 420);
+  check('a phone-sized frame is not', d.documentElement.dataset.frameWide === 'off');
+  w.Prefs.set('desktopMode', 'rail');
+  check('the rail never claims it — its own media queries answer that question',
+    d.documentElement.dataset.frameWide === 'off');
+  w.Prefs.set('desktopMode', 'frame');
+  w.Prefs.set('frameW', 1800);
+  check('the width dial reaches past a laptop',
+    d.documentElement.style.getPropertyValue('--frame-w') === '1800px',
+    d.documentElement.style.getPropertyValue('--frame-w'));
+  w.Prefs.reset('frameW'); w.Prefs.reset('frameH');
+}
+
+{
+  LS.setItem('a-made-up-key', 'kept');
+  const withOut = w.SYNC.parseEverything(w.SYNC.everythingText(false));
+  /* Unfiltered, with one deliberate exception: `plan_token` is nothing but the
+     token, so leaving the token out leaves that key out. Every other key is
+     carried whether this build knows what it is or not. */
+  const missing = [];
+  for (let i = 0; i < LS.length; i++) { const k = LS.key(i); if (!(k in withOut.data)) missing.push(k); }
+  check('everything means everything — an unknown key is carried, not filtered out',
+    withOut.data['a-made-up-key'] === 'kept' &&
+    missing.filter(k => k !== 'plan_token').length === 0, missing.join(','));
+  check('… and with the key included, nothing at all is left behind',
+    Object.keys(w.SYNC.parseEverything(w.SYNC.everythingText(true)).data).length === LS.length);
+
+  const tokenWas = LS.getItem('root_todoist_v1');
+  LS.setItem('root_todoist_v1', JSON.stringify({ token: 'sekrit', saved: 1 }));
+  LS.setItem('store_state_v1', JSON.stringify({ list: ['milk'], todoist: { token: 'sekrit', project: 'p' } }));
+  const clean = w.SYNC.everythingText(false);
+  check('the Todoist key is left out by default, wherever it is hiding',
+    !clean.includes('sekrit'), 'leaked');
+  check('… and the record that held it keeps everything else',
+    JSON.parse(w.SYNC.parseEverything(clean).data['store_state_v1']).list[0] === 'milk');
+  check('… and it is included when asked for', w.SYNC.everythingText(true).includes('sekrit'));
+
+  const body = w.SYNC.parseEverything(clean);
+  const c = w.SYNC.everythingCount(body);
+  check('the restore says how many keys it replaces before it does it',
+    c.total === Object.keys(body.data).length && c.over > 0, JSON.stringify(c));
+
+  LS.setItem('a-made-up-key', 'changed');
+  w.SYNC.restoreEverything(body);
+  check('restoring replaces what the file names', LS.getItem('a-made-up-key') === 'kept');
+  w.SYNC.undoImport();
+  check('and a whole-install restore can still be taken back', LS.getItem('a-made-up-key') === 'changed');
+
+  check('a sync file offered to the everything importer is refused with the reason why',
+    (() => { try { w.SYNC.parseEverything(w.SYNC.fileText()); return false; }
+             catch (e) { return /sync file/.test(e.message); } })());
+
+  LS.removeItem('a-made-up-key');
+  if (tokenWas === null) LS.removeItem('root_todoist_v1'); else LS.setItem('root_todoist_v1', tokenWas);
+}
+
 check('the rebindable keys are findable by name, like every other dial',
   w.SEARCH.results('cursor').some(r => r.kind === 'setting' && /cursor/i.test(r.title)),
   w.SEARCH.results('cursor').map(r => r.title).join(', ').slice(0, 80));

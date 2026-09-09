@@ -505,9 +505,125 @@ ${JSON.stringify(body)}
     return body;
   }
 
+  /* ── Everything ───────────────────────────────────────────────────────────
+     Not a route: the whole origin, every key, as one `.md`. The two routes
+     above are for keeping two devices in step day to day; this is for moving
+     to a new phone, or for a copy you keep somewhere safe.
+
+     Deliberately unfiltered — the same rule the JSON backup follows: a backup
+     that silently drops a key is worse than one carrying a few bytes too many.
+     So it takes settings, content edits, every logged day, every list, the
+     sync stamps, everything. It cannot carry LEARN's decks, which live in
+     IndexedDB, and it says so on the page rather than only here.
+
+     The one thing it *does* filter is the Todoist key, and only when asked:
+     see `withToken`. A file that goes through a chat app should not carry it
+     by default, and the key is two taps to paste back. */
+  function allKeys() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) out.push(localStorage.key(i));
+    return out.sort();
+  }
+
+  const TOKEN_KEYS = ['root_todoist_v1', 'do_todoist_v1', 'plan_token', 'store_state_v1'];
+
+  function everythingBody(withToken) {
+    const data = {};
+    allKeys().forEach(k => {
+      const raw = localStorage.getItem(k);
+      if (withToken || !TOKEN_KEYS.includes(k)) { data[k] = raw; return; }
+      /* A record that only *contains* a token keeps everything else — dropping
+         STORE's whole state to hide one field would be the wrong trade. */
+      let parsed = null;
+      try { parsed = JSON.parse(raw); } catch {}
+      if (parsed && typeof parsed === 'object') data[k] = JSON.stringify(scrub(parsed));
+      else if (k !== 'plan_token') data[k] = raw;
+    });
+    return { app: 'root', kind: 'everything', version: 1,
+             device: deviceId(), written: Date.now(), token: !!withToken, data };
+  }
+
+  function everythingText(withToken) {
+    const body = everythingBody(withToken);
+    const n = Object.keys(body.data).length;
+    const bytes = JSON.stringify(body.data).length;
+    return (
+`# ROOT — everything
+
+Every key this install holds: appearance, behaviour, content edits, logged days,
+checklists, the plan queue and its history, the shopping list, the plants, the
+curriculum, the calendar, the works in progress and the sync stamps.
+
+- **${n} keys**, about ${Math.round(bytes / 1024)} KB.
+- Written ${new Date(body.written).toLocaleString()} on device \`${body.device}\`.
+- Todoist key: **${withToken ? 'included' : 'left out'}**.
+- LEARN's decks are **not** in here — they live in IndexedDB. Re-import the
+  \`.apkg\` on the other device.
+
+Restore it under settings → data → everything. Restoring replaces every key the
+file names and leaves the rest alone, then reloads.
+
+${FENCE}
+${JSON.stringify(body)}
+\`\`\`
+`);
+  }
+
+  async function exportEverything(withToken) {
+    const text = everythingText(withToken);
+    const name = `root_everything_${Shell.today()}.md`;
+    try {
+      const file = new File([text], name, { type: 'text/markdown' });
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file] }); return name; }
+      if (navigator.share) { await navigator.share({ title: name, text }); return name; }
+    } catch (err) { if (err && err.name === 'AbortError') return null; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
+    a.download = name; a.click();
+    return name;
+  }
+
+  function parseEverything(text) {
+    const body = unwrap(text);
+    if (!body || body.kind !== 'everything') {
+      throw new Error(body && body.kind === 'sync'
+        ? 'that is a sync file — import it under sync, not here'
+        : 'not a ROOT everything file');
+    }
+    if (!body.data || typeof body.data !== 'object') throw new Error('nothing in that file');
+    return body;
+  }
+
+  /* Restoring is the one write in this module that is not a merge: a whole-app
+     restore is meant to replace, and pretending otherwise would leave a
+     half-and-half install nobody asked for. It still goes through the same
+     snapshot, so it can be taken back once. */
+  function restoreEverything(body) {
+    const keys = Object.keys(body.data);
+    const undo = {};
+    keys.forEach(k => { undo[k] = localStorage.getItem(k); });
+    writeJSON(BACKUP, { at: Date.now(), keys: undo });
+    let n = 0;
+    for (const k of keys) {
+      const v = body.data[k];
+      if (typeof v !== 'string') continue;
+      try { localStorage.setItem(k, v); } catch { return { ok: false, written: n }; }
+      n++;
+    }
+    return { ok: true, written: n };
+  }
+
+  function everythingCount(body) {
+    const incoming = Object.keys(body.data);
+    const here = new Set(allKeys());
+    const over = incoming.filter(k => here.has(k)).length;
+    return { total: incoming.length, over, fresh: incoming.length - over };
+  }
+
   const markPulled = route => stamp(route, 'pull');
 
   return { ROUTES, build, plan, commit, canUndo, undoImport, markPulled,
+           exportEverything, parseEverything, restoreEverything, everythingCount, everythingText,
            pushTodoist, pullTodoist, exportFile, parseFile, fileText,
            lastAt, window: window_, span, unwrap, wrap, deviceId,
            _merge: { mergeLogDay, mergeDoDay, mergeCalDay, mergeState, mergeStats, unionBy, scrub } };

@@ -115,6 +115,9 @@
 .ns-set .sync-apps{font:400 9.5px/1.4 var(--mono);letter-spacing:.05em;color:var(--mu)}
 .ns-set .sync-when{font:400 10px/1.5 var(--mono);letter-spacing:.04em;color:var(--tx-2);margin:6px 0 10px}
 .ns-set .sync-route .td-acts{margin:0}
+.ns-set .sync-tog{display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;
+  font:400 10px/1.4 var(--mono);letter-spacing:.04em;color:var(--mu)}
+.ns-set .sync-tog input{accent-color:var(--y);width:14px;height:14px;cursor:pointer}
 
 /* The overlap sheet's rows. Each is one thing that was written on both
    devices; the chips are the answer, not a preference. */
