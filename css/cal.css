@@ -164,6 +164,24 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .ev-del:active{color:var(--re);background:var(--press)}
 .ns-cal .cal-ev.done .ev-del{color:var(--bd-2)}
 
+/* Move up / move down
+   Stacked into the width of one control rather than sitting beside the delete:
+   a short row is 28px tall and two arrows side by side would take more width
+   than the name has to spare. They are the same hairline grey the delete is,
+   so the row still reads as a row and not as a toolbar. */
+.ns-cal .ev-mvs{flex:0 0 auto;align-self:center;display:flex;flex-direction:column;
+  width:20px;margin-right:2px}
+.ns-cal .ev-mv{height:14px;display:flex;align-items:center;justify-content:center;
+  color:var(--bd);cursor:pointer;border-radius:var(--r1);
+  transition:color var(--dur-1),background var(--dur-1)}
+.ns-cal .ev-mv svg{width:10px;height:10px;display:block}
+.ns-cal .ev-mv:active{color:var(--y);background:var(--press)}
+.ns-cal .cal-ev.done .ev-mv{color:var(--bd-2)}
+@media (hover:hover) and (pointer:fine){
+  .ns-cal .ev-mv:hover{color:var(--y)}
+  .ns-cal .ev-del:hover{color:var(--re)}
+}
+
 .ns-cal .ev-check{flex:0 0 auto;align-self:center;width:15px;height:15px;border-radius:50%;
   border:var(--bw) solid var(--bd);display:flex;align-items:center;justify-content:center;
   color:transparent;transition:color var(--dur-1),background var(--dur-1),border-color var(--dur-1)}

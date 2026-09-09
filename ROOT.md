@@ -24,8 +24,8 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
 | **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have. Since 4.3 that number is a **tally** while the filter is `all` (one number per chip, each captioned — three unlike things added together answered nothing), a work's progress is **two** bars (the stages of its area, then the steps of the stage it is on), and an hour at the desk that made no song can be logged loose from the session log. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
-| **TOOLS** | Four small instruments behind one strip: a **pomodoro**, a **stopwatch**, a **countdown** and a **decider**. None of them is an app on its own — each is one control, one readout and one number kept for the day — so they are one tab rather than four that are empty most of the time. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 4.8 a row can be **moved** with the arrows on it — a swap with the neighbour that re-times the pair from the earlier one's start, so the pair keeps the span it had and nothing outside it moves; a `fixed` row is an anchor and neither moves nor is moved past. `+ gap` adds an empty hour on the end, to be walked up into place with the same arrows, which is why it asks for a length and not for a position. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **TOOLS** | Two instruments behind one strip: a **pomodoro** and a **Wim Hof round**. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3 with four; 4.8 cut the stopwatch and the countdown (the phone's own two clocks with a worse readout) and the decider (which answered a question by not answering it), and added the breathing round — three phases a round, a retention that is **not** timed because its length is the measurement, and a finished session written into LOG's day as a block and onto DAY's schedule as a mark. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it twelve panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Sync** | Not a tab either: two routes under settings → data, one through Todoist and one through a file you move yourself, and a merge that completes a day rather than replacing it — see §10. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -481,7 +481,7 @@ versions still work off the same data.
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read (the project's name and colour and its groups), which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
-| `tools_v1` | TOOLS | what each instrument is doing, and the day's tally: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the stopwatch's start and banked time and its laps, the countdown's end and total, the decider's list and last answer, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds, capped at the last 90 days, because it is a "today" number and a year of them is a store that only grows. The four pomodoro lengths, the quick-timer chips and the decider's lists are **not** here: they are Config |
+| `tools_v1` | TOOLS | what each instrument is doing, and the day's tallies: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the breathing round's phase, round, the moment the current phase began and this session's holds, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds — and `whf.days` is `{ iso: [session] }`, both capped at the last 90 days because they are "today" numbers and a year of them is a store that only grows. Carries `v`; `v:1` is the pre-4.8 shape and its `sw`, `timer` and `decide` branches are **dropped rather than migrated** — there is nowhere for a lap list to go — while `pom.days` is kept, because LOG's note reads it. The lengths are **not** here: they are Config |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_sync_v1` | SYNC | this install's device id and, per route, when it last pushed and last imported. Nothing else — the data itself is never cached here |
@@ -1783,6 +1783,69 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.8 — 2026-09-09 — TOOLS is two instruments, the timetable can be rearranged, and a finished routine always closes
+
+Five Todoist requests, `@claude`-labelled, fetched 2026-09-09.
+
+- **The minimal routine card keeps its progress bar** (`@fix`, do). It used to be
+  cut along with everything else that took height. It is the one part of the
+  card read at a glance rather than counted, so it rides the **bottom edge** of
+  the row now and costs no height at all — which was the only reason to drop it.
+- **A finished routine no longer "sometimes" fails to close in Todoist**
+  (`@fix`, do). `tdBusy` is one lock over six operations. Five are button
+  presses and dropping those is right — the button is visibly disabled. The
+  sixth is the close fired by ticking the last item, which is not a Todoist
+  control at all: no disabled button, no toast, no idea a fetch was in flight.
+  It queued nothing and returned. It takes a ticket now, and every operation
+  releases through one path that drains the queue.
+- **The timetable can be rearranged, and empty time added** (`@fix`, plan). Two
+  arrows on every movable row: a swap with the neighbour, re-timed from the
+  earlier one's start, so the pair keeps its span and nothing outside it moves.
+  A whole-day recompute was the other way, and it would move rows nobody
+  touched — which is how a timetable stops being trusted. `+ gap` appends an
+  empty hour to be walked into place with the same arrows. Fixed rows are
+  anchors. §9.
+- **The undo pill is yours** (`@change`, store/shell). The offset title shadow
+  is gone **permanently** — it belongs on a wordmark read across a room, not on
+  a control two words wide that shows for five seconds. Its mark is now a dial
+  (`undoIcon`: hook, circle, arrow, chevron, none) and its words another
+  (`undoText`). Turning both off would leave an empty control, so the words come
+  back whenever the mark is off.
+- **TOOLS, rebuilt** (`@change`, tools). Four instruments to two. The stopwatch
+  and the countdown were the phone's own two clocks with a worse readout, and
+  the decider answered a question by not answering it. What is left is what the
+  phone does *not* have.
+  - The **pomodoro** is a control now rather than a paragraph: one 74px round
+    button, the round as **dots** rather than "round 2 of 4", skip and reset as
+    small icons off to the side where they cannot be hit mid-phase, and a wash
+    of the phase's own colour behind the ring while it runs.
+  - The **Wim Hof round** is new. Three phases: the breaths, at a pace the ring
+    actually breathes to; the **retention**, which counts *up* and is ended by
+    you, because how long it lasted is the measurement and a timer cutting it
+    off at a guess would be measuring the guess; then the recovery hold. A
+    finished session is written into **LOG's day** as a block and onto **DAY's
+    schedule** as a mark, through the calls both apps already offer anything
+    that finishes something — neither grows a feature for it.
+  - The phase cue is a **toast**, not a tone TOOLS plays. ROOT has one place
+    that makes noise and it is `shell.js` (§3); an app reaching for the sound
+    engine is exactly what that rule stops, and a harness check fails on it.
+    Shell.toast already sounds, so the cue is the sound *and* the instruction —
+    the better half of the trade with your eyes shut.
+  - `tools.timers` and `tools.decks` leave Config; `tools.wimhof` arrives. A
+    `v:1` store keeps its focus history and drops the three dead branches.
+- **Task `6hV37Rcx3pppGXVG` said `project: hub | tab: store`.** The undo toast is
+  root's shell and `store` is a root tab; hub has no such tab. Built as **root**
+  and recorded here, per the protocol's rule on malformed fields.
+- Pre-edit backup: `../root-backup-2026-09-09T18-36-43-010Z/` (2,027 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1074 behavior checks and 6 runner tests passed** (17 added, and 6
+  rewritten where they pinned behaviour that was asked to change). **Not seen in
+  a browser** — the extension would not connect — so the new TOOLS layout, the
+  breathing animation and the move arrows have been reasoned about, not looked
+  at. The Todoist auto-close fix is covered structurally rather than
+  behaviourally: the harness stubs networking, so the queue draining under a
+  real in-flight call is unverified.
 
 ### 4.7 — 2026-09-09 — the frame is any size you like, and everything fits in one file
 

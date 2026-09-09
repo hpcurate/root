@@ -56,9 +56,8 @@ const CONTENT = [
         .concat((st.items || []).map(i => ({ name: i, sub: 'checklist · ' + a.label + ' · ' + st.label })))))) },
   { path:'create.curate',      app:'create',
     rows: v => (v && v.project) ? [{ name: v.project, sub:'the curate tab · todoist project' }] : [] },
-  { path:'tools.decks',        app:'tools',
-    rows: v => Object.keys(v || {}).flatMap(k => [{ name: k, sub:'decide list' }]
-      .concat((v[k] || []).map(i => ({ name: i, sub: 'decide · ' + k })))) },
+  { path:'tools.wimhof',       app:'tools',
+    rows: v => (v && v.label) ? [{ name: v.label, sub:'the breathing round' }] : [] },
 ];
 
 function contentHits(q) {

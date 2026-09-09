@@ -290,6 +290,13 @@ const SCHEMA = {
      you never think about and this is the one you might. 0 pins it: it stays
      until it is tapped or the next clear replaces it. */
   undoSec:      { kind:'range',  def:5,    min:0,   max:30,   step:1, unit:'s' },
+  /* What the undo pill is made of. Two dials rather than one because the label
+     and the glyph answer different questions: the label says what is being put
+     back, the glyph says the pill is an undo at all. `none` on the glyph forces
+     the label back on — see tokens.css. */
+  undoIcon:     { kind:'enum',   def:'undo',
+                  values:['undo','undo-round','back','chev-l','none'], attr:'data-undo-icon' },
+  undoText:     { kind:'bool',   def:true, attr:'data-undo-text' },
   /* How far either side of today a sync reaches. Both routes read it, so the
      two windows cannot drift apart. */
   syncDays:     { kind:'range',  def:10,   min:1,   max:60,  step:1, unit:' days either side' },
@@ -636,6 +643,8 @@ function apply() {
   root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
   root.setAttribute('data-portrait', prefs.lockPortrait ? 'lock' : 'free');
   root.setAttribute('data-desktop',  prefs.desktopMode);
+  root.setAttribute('data-undo-icon', prefs.undoIcon);
+  root.setAttribute('data-undo-text', prefs.undoText ? 'on' : 'off');
   /* Whether the app's own box is wide enough to lay out for, which a media
      query cannot answer: in frame mode the box is a dial, not the window. The
      content cap and the fluid grids read this, so a 1200px frame gets the same

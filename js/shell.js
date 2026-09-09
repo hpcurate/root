@@ -427,6 +427,14 @@ window.Shell = (function () {
     if (!undoEl) { if (typeof restore === 'function') toast(label); return; }
     undoFn = typeof restore === 'function' ? restore : null;
     if (undoTxt) undoTxt.textContent = label;
+    /* The glyph is a dial, so it is set when the pill is shown rather than
+       written into the markup. `none` is handled in CSS — the <use> is left
+       pointing at something valid so switching back has nothing to repair. */
+    const ico = undoEl.querySelector('.up-ico use');
+    if (ico) {
+      const pick = pref('undoIcon', 'undo');
+      ico.setAttribute('href', '#ico-' + (pick === 'none' ? 'undo' : pick));
+    }
     undoEl.classList.add('show');
     clearTimeout(undoTimer);
     /* 0 pins it: it stays until it is tapped, or until the next clear takes

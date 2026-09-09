@@ -1,7 +1,13 @@
-/* TOOLS: pomodoro, stopwatch, countdown and decider.
-   Config holds durations/lists; tools_v1 holds state and daily tallies.
+/* TOOLS: the pomodoro and the Wim Hof round.
+   Config holds the lengths; tools_v1 holds state and the daily tallies.
    Use wall-clock timestamps so sleep, throttling and reloads preserve elapsed
-   time. The interval checks completion across tabs and paints visible readouts. */
+   time. The interval checks completion across tabs and paints visible readouts.
+
+   4.8 cut this from four instruments to two. The stopwatch and the countdown
+   were a phone's own two clocks with a worse readout, and the decider answered
+   a question by not answering it. What is left are the two things the phone
+   does *not* have: a focus cycle that remembers the day's rounds, and a
+   breathing round that writes itself into the day. */
 window.TOOLS = (function () {
 'use strict';
 
@@ -15,17 +21,24 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 const KEY = 'tools_v1';
 
 /* Content */
-let POM, QUICK, DECKS;
+let POM, WHF;
 function readConfig() {
   POM = Object.assign({ focus:25, short:5, long:15, rounds:4, autoStart:false },
                       Config.get('tools.pomodoro') || {});
   ['focus','short','long'].forEach(k => { POM[k] = Math.max(1, Math.min(180, +POM[k] || 1)); });
   POM.rounds = Math.max(1, Math.min(12, +POM.rounds || 4));
   POM.autoStart = !!POM.autoStart;
-  QUICK = (Config.get('tools.timers') || []).map(n => Math.max(1, Math.min(600, +n || 0)))
-            .filter(Boolean);
-  if (!QUICK.length) QUICK = [5, 10, 25];
-  DECKS = Config.get('tools.decks') || {};
+
+  WHF = Object.assign({ rounds:3, breaths:30, pace:2.2, recovery:15, chime:true, label:'wim hof' },
+                      Config.get('tools.wimhof') || {});
+  WHF.rounds   = Math.max(1, Math.min(10, +WHF.rounds || 3));
+  WHF.breaths  = Math.max(5, Math.min(80, +WHF.breaths || 30));
+  /* Seconds for one in-and-out. Below 1s nobody can follow the ring and above
+     6s it is not the method any more. */
+  WHF.pace     = Math.max(1, Math.min(6, +WHF.pace || 2.2));
+  WHF.recovery = Math.max(5, Math.min(60, +WHF.recovery || 15));
+  WHF.chime    = !!WHF.chime;
+  WHF.label    = String(WHF.label || 'wim hof').slice(0, 40) || 'wim hof';
 }
 readConfig();
 
@@ -35,12 +48,14 @@ readConfig();
    never both set — a paused thing has no end, and a running thing has nothing
    banked. Every readout asks which of the two is filled. */
 const blank = () => ({
-  v: 1,
+  v: 2,
   tool: 'pom',
   pom:   { phase:'focus', round:1, endsAt:0, left:0, days:{} },
-  sw:    { startedAt:0, banked:0, laps:[] },
-  timer: { endsAt:0, left:0, total:0, label:'' },
-  decide:{ deck:'', last:'' },
+  /* The breathing round. `phase` is idle until a session starts; `startedAt`
+     is when the current phase began, which is what the hold counts up from.
+     `holds` collects this session's retention times, and `days` keeps the
+     finished sessions per day the way pom.days keeps rounds. */
+  whf:   { phase:'idle', round:1, breath:0, startedAt:0, endsAt:0, holds:[], days:{} },
 });
 
 let DB = blank();
@@ -51,12 +66,17 @@ function load() {
 }
 /* Rebuilt from its known keys, never trusted. The curate cache in CREATE
    earned this rule the hard way (ROOT.md §6): one undefined array out of a
-   store nobody validated took out a whole tab. */
+   store nobody validated took out a whole tab.
+
+   A v1 record carries `sw`, `timer` and `decide` for instruments that no
+   longer exist. They are dropped rather than migrated: there is nowhere for a
+   lap list to go. `pom.days` is the one thing in a v1 record worth keeping,
+   and it is kept — the day's focus count is the number LOG's note reads. */
 function normalise(s) {
   const d = blank();
   if (!s || typeof s !== 'object') return d;
-  const p = s.pom || {}, w = s.sw || {}, t = s.timer || {}, dc = s.decide || {};
-  d.tool = ['pom','sw','timer','decide'].includes(s.tool) ? s.tool : 'pom';
+  const p = s.pom || {}, w = s.whf || {};
+  d.tool = ['pom','whf'].includes(s.tool) ? s.tool : 'pom';
   d.pom = {
     phase: ['focus','short','long'].includes(p.phase) ? p.phase : 'focus',
     round: Math.max(1, +p.round || 1),
@@ -64,18 +84,15 @@ function normalise(s) {
     left:   Math.max(0, +p.left || 0),
     days: (p.days && typeof p.days === 'object') ? p.days : {},
   };
-  d.sw = {
+  d.whf = {
+    phase: ['idle','breathe','hold','recover'].includes(w.phase) ? w.phase : 'idle',
+    round:  Math.max(1, +w.round || 1),
+    breath: Math.max(0, +w.breath || 0),
     startedAt: Math.max(0, +w.startedAt || 0),
-    banked:    Math.max(0, +w.banked || 0),
-    laps: Array.isArray(w.laps) ? w.laps.map(x => Math.max(0, +x || 0)).slice(0, 200) : [],
+    endsAt:    Math.max(0, +w.endsAt || 0),
+    holds: Array.isArray(w.holds) ? w.holds.map(x => Math.max(0, +x || 0)).slice(0, 20) : [],
+    days: (w.days && typeof w.days === 'object') ? w.days : {},
   };
-  d.timer = {
-    endsAt: Math.max(0, +t.endsAt || 0),
-    left:   Math.max(0, +t.left || 0),
-    total:  Math.max(0, +t.total || 0),
-    label:  String(t.label == null ? '' : t.label),
-  };
-  d.decide = { deck: String(dc.deck || ''), last: String(dc.last || '') };
   return d;
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} }
@@ -91,16 +108,14 @@ function clock(ms) {
   const mm = String(m).padStart(2, '0'), ss = String(x).padStart(2, '0');
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
-/* The stopwatch says hundredths, because that is the only reason to use one
-   rather than the countdown. */
-function clockCs(ms) {
-  const cs = Math.max(0, Math.floor(ms / 10));
-  const s = Math.floor(cs / 100), h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60), x = s % 60;
-  const mm = String(m).padStart(2, '0'), ss = String(x).padStart(2, '0');
-  const cc = String(cs % 100).padStart(2, '0');
-  return (h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`) + '.' + cc;
-}
+const hhmmNow = () => { const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+/* A retention is spoken in minutes and seconds and never in hundredths — it is
+   a number you tell someone, not one you race. */
+const holdText = ms => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 /* The pomodoro */
 const PHASES = {
@@ -158,69 +173,119 @@ function pomAdvance(finished) {
 }
 function pomSkip() { pomAdvance(false); render(); toast(pomPhase().label); }
 
-/* The stopwatch */
-const swElapsed = () => DB.sw.banked + (DB.sw.startedAt ? Date.now() - DB.sw.startedAt : 0);
-const swRunning = () => !!DB.sw.startedAt;
-function swToggle() {
-  if (swRunning()) { DB.sw.banked = swElapsed(); DB.sw.startedAt = 0; }
-  else DB.sw.startedAt = Date.now();
-  save(); render();
+/* The Wim Hof round
+   Three phases per round, and only two of them have a length:
+
+     breathe   `breaths` breaths at `pace` seconds each. The ring is the breath,
+               not the phase — it fills on the way in and empties on the way
+               out, so the thing you follow is the thing you do.
+     hold      the retention, after the last exhale. It counts **up** and has no
+               end: how long you last is the measurement, and a timer that cut
+               it off at a guess would be measuring the guess. Tapping ends it.
+     recover   `recovery` seconds after the big inhale, counting down.
+
+   A session ends after the last round's recovery and is written down twice —
+   into LOG's day as a block and onto DAY's schedule as a mark. Neither app
+   grows a feature for it: both already take exactly this. */
+const WPHASE = { breathe:'breathe', hold:'hold', recover:'recover' };
+const whfOn      = () => DB.whf.phase !== 'idle';
+const whfRunning = () => DB.whf.phase === 'breathe' || DB.whf.phase === 'recover';
+const whfTotalBreath = () => WHF.breaths * WHF.pace * 1000;
+const whfLeft = () => DB.whf.endsAt ? Math.max(0, DB.whf.endsAt - Date.now()) : 0;
+const whfHeld = () => DB.whf.startedAt ? Date.now() - DB.whf.startedAt : 0;
+const whfToday = () => (DB.whf.days[Shell.today()] || []).length;
+
+function whfStart() {
+  DB.whf.phase = 'breathe';
+  DB.whf.round = 1;
+  DB.whf.breath = 0;
+  DB.whf.holds = [];
+  DB.whf.startedAt = Date.now();
+  DB.whf.endsAt = Date.now() + whfTotalBreath();
+  save(); render(); announce('round 1 · breathe');
 }
-function swLap() {
-  if (!swRunning() && !DB.sw.banked) return;
-  DB.sw.laps.unshift(swElapsed());
-  DB.sw.laps = DB.sw.laps.slice(0, 200);
-  save(); render();
+/* The breathing is over; the retention begins and is not timed by us. */
+function whfToHold() {
+  DB.whf.phase = 'hold';
+  DB.whf.endsAt = 0;
+  DB.whf.startedAt = Date.now();
+  save(); render(); announce('hold');
 }
-function swReset() {
-  DB.sw = { startedAt:0, banked:0, laps:[] };
-  save(); render();
+/* The user says when the hold ends, which is the only honest way to end it. */
+function whfEndHold() {
+  if (DB.whf.phase !== 'hold') return;
+  DB.whf.holds.push(whfHeld());
+  DB.whf.phase = 'recover';
+  DB.whf.startedAt = Date.now();
+  DB.whf.endsAt = Date.now() + WHF.recovery * 1000;
+  save(); render(); announce('breathe in · hold it');
+}
+function whfNextRound() {
+  if (DB.whf.round >= WHF.rounds) { whfFinish(); return; }
+  DB.whf.round += 1;
+  DB.whf.breath = 0;
+  DB.whf.phase = 'breathe';
+  DB.whf.startedAt = Date.now();
+  DB.whf.endsAt = Date.now() + whfTotalBreath();
+  save(); render(); announce('round ' + DB.whf.round + ' · breathe');
 }
 
-/* The countdown */
-const tmLeft    = () => DB.timer.endsAt ? Math.max(0, DB.timer.endsAt - Date.now()) : DB.timer.left;
-const tmRunning = () => !!DB.timer.endsAt;
-const tmArmed   = () => tmRunning() || DB.timer.left > 0;
-function tmSet(mins, label) {
-  const ms = Math.max(1, Math.min(600, +mins || 0)) * MIN;
-  DB.timer = { endsAt: Date.now() + ms, left:0, total: ms, label: String(label || '') };
-  save(); render();
+/* Writing the session down
+   The block goes to LOG and the mark goes to DAY, both through the calls those
+   apps already offer to anything that finishes something (LOG.setBlock,
+   CAL.markDone). Neither is required to be present: TOOLS works on its own and
+   simply records less if an app is switched off. */
+function whfFinish() {
+  const w = DB.whf;
+  const iso = Shell.today();
+  const best = w.holds.length ? Math.max(...w.holds) : 0;
+  const session = { at: hhmmNow(), rounds: w.holds.length,
+                    holds: w.holds.slice(), best, done: Date.now() };
+  const list = (w.days[iso] || []).concat([session]);
+  w.days[iso] = list.slice(-12);
+  const floor = Object.keys(w.days).sort().slice(-90);
+  w.days = floor.reduce((o, d) => { o[d] = w.days[d]; return o; }, {});
+
+  w.phase = 'idle'; w.round = 1; w.breath = 0; w.startedAt = 0; w.endsAt = 0; w.holds = [];
+  save();
+
+  try { if (window.LOG && LOG.setBlock) LOG.setBlock(WHF.label, true); } catch {}
+  try { if (window.CAL && CAL.markDone) CAL.markDone(WHF.label, true); } catch {}
+
+  render(); renderSettings();
+  toast(session.rounds
+    ? `${session.rounds} round${session.rounds === 1 ? '' : 's'} · best ${holdText(best)} · written to log`
+    : 'session done');
 }
-function tmToggle() {
-  if (tmRunning()) { DB.timer.left = tmLeft(); DB.timer.endsAt = 0; }
-  else if (DB.timer.left > 0) { DB.timer.endsAt = Date.now() + DB.timer.left; DB.timer.left = 0; }
-  else return;
-  save(); render();
-}
-function tmClear() {
-  DB.timer = { endsAt:0, left:0, total:0, label:'' };
-  save(); render();
-}
-function tmCustom() {
-  Shell.prompt('How many minutes?\nA whole number, up to 600.', '', v => {
-    const n = Math.round(parseFloat(String(v).replace(',', '.')) || 0);
-    if (!n) return;
-    tmSet(n, '');
+function whfStop() {
+  Shell.confirm('Stop the session?\nNothing is written down — a session counts when it finishes.', () => {
+    DB.whf = Object.assign(DB.whf, { phase:'idle', round:1, breath:0, startedAt:0, endsAt:0, holds:[] });
+    save(); render();
   });
 }
+/* Calling out the phase
+   The cue is a **toast**, not a tone this module plays. ROOT has exactly one
+   place that makes noise and it is shell.js (§3) — an app that reaches for the
+   sound engine itself is the thing that rule exists to stop, and a harness
+   check fails on it. Shell.toast already sounds, so a toast is the cue *and*
+   the instruction, which is the better half of the trade: a breathing round is
+   done with your eyes shut, and "breathe in" tells you more than a note does. */
+function announce(msg) { if (WHF.chime && msg) toast(msg); }
 
-/* The decider */
-const deckNames = () => Object.keys(DECKS);
-function deckKey() {
-  const k = DB.decide.deck;
-  return DECKS[k] ? k : (deckNames()[0] || '');
+/* Which breath the round is on, derived from the clock rather than counted, so
+   a backgrounded tab comes back to the right number. */
+function whfBreathNow() {
+  if (DB.whf.phase !== 'breathe') return 0;
+  const gone = whfTotalBreath() - whfLeft();
+  return Math.min(WHF.breaths, Math.floor(gone / (WHF.pace * 1000)) + 1);
 }
-function decide() {
-  const items = (DECKS[deckKey()] || []).filter(Boolean);
-  if (!items.length) { toast('that list is empty'); return; }
-  /* Avoid repeats when another distinct choice exists. */
-  let pick = items[Math.floor(Math.random() * items.length)];
-  if (items.length > 1 && pick === DB.decide.last) {
-    const rest = items.filter(x => x !== DB.decide.last);
-    if (rest.length) pick = rest[Math.floor(Math.random() * rest.length)];
-  }
-  DB.decide.last = pick;
-  save(); render();
+/* 0 → 1 → 0 across one breath: in on the first half, out on the second. */
+function whfBreathFrac() {
+  if (DB.whf.phase !== 'breathe') return 0;
+  const per = WHF.pace * 1000;
+  const gone = (whfTotalBreath() - whfLeft()) % per;
+  const half = per / 2;
+  return gone < half ? gone / half : 1 - (gone - half) / half;
 }
 
 /* The tick
@@ -229,12 +294,12 @@ function decide() {
    same job: **finishing** a phase, which must happen wherever you are, and
    **painting** the readout, which only matters if the readout is on screen.
 
-   250ms rather than 1000: the stopwatch shows hundredths, and a second-long
-   tick under a hundredths readout is a number that jumps by 25. */
+   200ms rather than 1000: the breathing ring is an animation and a second-long
+   tick under it would step rather than breathe. */
 let timer = null;
-function needsTick() { return pomRunning() || swRunning() || tmRunning(); }
+function needsTick() { return pomRunning() || whfOn(); }
 function syncTick() {
-  if (needsTick() && !timer) timer = setInterval(tick, 250);
+  if (needsTick() && !timer) timer = setInterval(tick, 200);
   else if (!needsTick() && timer) { clearInterval(timer); timer = null; }
 }
 function tick() {
@@ -245,16 +310,12 @@ function tick() {
     toast(was + ' done · ' + pomPhase().label + ' next');
     fired = true;
   }
-  if (tmRunning() && tmLeft() <= 0) {
-    const l = DB.timer.label;
-    tmClear();
-    toast(l ? l + ' · time' : 'timer done');
-    fired = true;
-  }
+  if (DB.whf.phase === 'breathe' && whfLeft() <= 0) { whfToHold(); return; }
+  if (DB.whf.phase === 'recover' && whfLeft() <= 0) { whfNextRound(); return; }
   /* A phase ending changes more than the digits — the ring's colour, the
      button's word, the round — so that is a full draw. Every other tick moves
-     the two things that actually moved, because rebuilding the body four
-     times a second would take the focus out of anything under a finger. */
+     the things that actually moved, because rebuilding the body five times a
+     second would take the focus out of anything under a finger. */
   if (fired) { render(); return; }
   if (isOn()) paint();
   syncTick();
@@ -265,10 +326,8 @@ const isOn = () => !!view && view.classList.contains('cur');
 
 /* Screens */
 const TOOLS = [
-  { key:'pom',    label:'pomodoro' },
-  { key:'sw',     label:'stopwatch' },
-  { key:'timer',  label:'timer' },
-  { key:'decide', label:'decide' },
+  { key:'pom', label:'pomodoro' },
+  { key:'whf', label:'wim hof' },
 ];
 const tool = () => (TOOLS.some(t => t.key === DB.tool) ? DB.tool : 'pom');
 
@@ -299,32 +358,30 @@ function renderTabs() {
 }
 
 /* The band: what the number opposite the wordmark is counting depends on the
-   instrument, because "3" means nothing without it. Focus rounds today, laps
-   taken, minutes set, choices on the list. */
+   instrument, because "3" means nothing without it. */
 function paintBand() {
   const box = $id('tl-daynum'), lab = $id('tl-label');
   const t = tool();
-  const n = t === 'pom'  ? pomToday()
-          : t === 'sw'   ? DB.sw.laps.length
-          : t === 'timer'? Math.round((DB.timer.total || 0) / MIN)
-          : (DECKS[deckKey()] || []).length;
-  const word = t === 'pom'  ? 'focus rounds today'
-             : t === 'sw'   ? 'laps'
-             : t === 'timer'? (DB.timer.label || 'minutes set')
-             : (deckKey() || 'nothing to choose from');
+  const n = t === 'pom' ? pomToday() : whfToday();
+  const word = t === 'pom' ? 'focus rounds today'
+                           : whfToday() === 1 ? 'session today' : 'sessions today';
   if (lab) lab.textContent = word;
   if (box && window.Shell && Shell.rollNum) Shell.rollNum(box, String(n), n);
 }
 
 /* The big readout
-   One shape for all three clocks: a ring that empties, the time inside it, and
+   One shape for both instruments: a ring that empties, the time inside it, and
    a word under it. It is an SVG circle with a dash offset rather than a
    conic-gradient, so it animates on the property browsers can animate cheaply
    and it is the same drawing at any size. */
 const R = 78, CIRC = 2 * Math.PI * R;
-function ringHTML(frac, cls, big, sub, note) {
+function ringHTML(frac, cls, big, sub, pips, breath) {
   const off = CIRC * (1 - Math.max(0, Math.min(1, frac)));
-  return `<div class="tl-ring ${cls}">
+  /* The breathing disc reads its own fraction off the element rather than off
+     a class, because it moves five times a second and a class per step would
+     be fifty rules. Written here for the first paint and by paint() after. */
+  const bv = breath == null ? '' : ` style="--tl-breath:${breath.toFixed(3)}"`;
+  return `<div class="tl-ring ${cls}"${bv}>
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <circle class="tr" cx="90" cy="90" r="${R}"></circle>
       <circle class="tp" cx="90" cy="90" r="${R}"
@@ -332,98 +389,151 @@ function ringHTML(frac, cls, big, sub, note) {
     </svg>
     <div class="tl-read">
       <div class="tl-big" id="tl-big">${esc(big)}</div>
-      <div class="tl-sub">${esc(sub)}</div>
+      <div class="tl-sub" id="tl-sub">${esc(sub)}</div>
     </div>
-  </div>${note ? `<div class="tl-note">${esc(note)}</div>` : ''}`;
+  </div>${pips || ''}`;
+}
+
+/* Rounds as dots rather than "round 2 of 4". A count you read is a count you
+   have to do; a row of dots is one you see. */
+function pipsHTML(done, total, cls) {
+  let out = '';
+  for (let i = 0; i < total; i++) out += `<i class="${i < done ? 'on' : ''}"></i>`;
+  return `<div class="tl-pips ${cls || ''}">${out}</div>`;
 }
 
 function pomHTML() {
   const total = pomTotal(), left = pomLeft() || total;
   const ph = pomPhase();
   const done = pomToday();
-  return ringHTML(left / total, ph.cls, clock(left),
-                  ph.label + ' · round ' + DB.pom.round + '/' + POM.rounds,
-                  done ? done + ' focus round' + (done === 1 ? '' : 's') + ' finished today'
-                       : 'nothing finished yet today') + `
-    <div class="tl-acts">
-      <button class="tl-go${pomRunning() ? ' on' : ''}" data-act="pom-toggle">${pomRunning() ? 'pause' : 'start'}</button>
-      <button class="tl-b" data-act="pom-skip">skip →</button>
-      <button class="tl-b" data-act="pom-reset">reset</button>
+  const running = pomRunning();
+  return ringHTML(left / total, ph.cls + (running ? ' live' : ''), clock(left), ph.label,
+                  pipsHTML(DB.pom.round - 1, POM.rounds, 'focus')) + `
+    <div class="tl-main">
+      <button class="tl-big-btn${running ? ' on' : ''}" data-act="pom-toggle"
+              aria-label="${running ? 'pause' : 'start'}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">${running
+          ? '<rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/>'
+          : '<path d="M8 5.5v13l11-6.5z"/>'}</svg>
+      </button>
     </div>
-    <div class="tl-hint">${esc(POM.focus)} focus · ${esc(POM.short)} short · ${esc(POM.long)} long, every ${esc(POM.rounds)} rounds${
-      POM.autoStart ? ' · rolls straight on' : ''}</div>`;
+    <div class="tl-side">
+      <button class="tl-icon" data-act="pom-skip" aria-label="skip this phase">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l9 7-9 7z"/><line x1="18" y1="5" x2="18" y2="19"/></svg>
+        <span>skip</span>
+      </button>
+      <button class="tl-icon" data-act="pom-reset" aria-label="reset this phase">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><polyline points="3 4 3 10 9 10"/></svg>
+        <span>reset</span>
+      </button>
+    </div>
+    <div class="tl-tally">${done
+      ? `<b>${done}</b> focus round${done === 1 ? '' : 's'} today`
+      : 'nothing finished yet today'}</div>`;
 }
 
-function swHTML() {
-  const e = swElapsed();
-  const laps = DB.sw.laps;
-  return ringHTML(swRunning() ? (e % 60000) / 60000 : 0, 'watch', clockCs(e),
-                  swRunning() ? 'running' : e ? 'stopped' : 'ready', '') + `
-    <div class="tl-acts">
-      <button class="tl-go${swRunning() ? ' on' : ''}" data-act="sw-toggle">${swRunning() ? 'stop' : e ? 'resume' : 'start'}</button>
-      <button class="tl-b" data-act="sw-lap"${e ? '' : ' disabled'}>lap</button>
-      <button class="tl-b" data-act="sw-reset"${e ? '' : ' disabled'}>reset</button>
-    </div>
-    ${laps.length ? `<div class="tl-sec"><span>Laps</span><em>${laps.length}</em></div>
-      ${laps.map((ms, i) => {
-        const prev = laps[i + 1] || 0;
-        return `<div class="tl-lap"><span class="n">${laps.length - i}</span>
-          <span class="s">+${esc(clockCs(ms - prev))}</span>
-          <span class="t">${esc(clockCs(ms))}</span></div>`;
-      }).join('')}` : ''}`;
-}
+function whfHTML() {
+  const w = DB.whf;
+  const sessions = DB.whf.days[Shell.today()] || [];
 
-function tmHTML() {
-  const left = tmLeft(), total = DB.timer.total;
-  return ringHTML(total ? left / total : 0, 'timer',
-                  total ? clock(left) : '––:––',
-                  DB.timer.label || (tmRunning() ? 'running' : total ? 'paused' : 'pick a length'), '') + `
-    <div class="tl-acts">
-      <button class="tl-go${tmRunning() ? ' on' : ''}" data-act="tm-toggle"${tmArmed() ? '' : ' disabled'}>${
-        tmRunning() ? 'pause' : 'start'}</button>
-      <button class="tl-b" data-act="tm-clear"${tmArmed() ? '' : ' disabled'}>clear</button>
-    </div>
-    <div class="tl-sec"><span>Quick</span><em>minutes</em></div>
-    <div class="tl-chips">${QUICK.map(n =>
-      `<button class="tl-chip" data-act="tm-set" data-m="${n}">${n}</button>`).join('')}
-      <button class="tl-chip alt" data-act="tm-custom">other…</button></div>`;
-}
-
-function decideHTML() {
-  const names = deckNames(), k = deckKey();
-  const items = DECKS[k] || [];
-  if (!names.length) {
-    return `<div class="tl-empty">No lists yet.<br>Settings → tools gives this one something to choose from.</div>`;
+  if (!whfOn()) {
+    const best = sessions.reduce((m, s) => Math.max(m, +s.best || 0), 0);
+    return ringHTML(0, 'whf ready', String(WHF.rounds), 'rounds ready',
+                    pipsHTML(0, WHF.rounds, 'whf')) + `
+      <div class="tl-main">
+        <button class="tl-big-btn go" data-act="whf-start" aria-label="start the session">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        </button>
+      </div>
+      <div class="tl-tally">${esc(WHF.breaths)} breaths · ${esc(WHF.pace)}s each · ${esc(WHF.recovery)}s recovery</div>
+      ${sessionsHTML(sessions, best)}`;
   }
-  return `${names.length > 1 ? `<div class="tl-chips">${names.map(n =>
-      `<button class="tl-chip${n === k ? ' on' : ''}" data-act="deck" data-d="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
-    <div class="tl-pick${DB.decide.last ? ' has' : ''}">${DB.decide.last
-      ? esc(DB.decide.last) : 'tap below and stop thinking about it'}</div>
-    <div class="tl-acts">
-      <button class="tl-go" data-act="decide"${items.length ? '' : ' disabled'}>pick one</button>
+
+  const ph = w.phase;
+  if (ph === 'breathe') {
+    const n = whfBreathNow();
+    const frac = whfBreathFrac();
+    const inBreath = frac > 0.02 && (whfTotalBreath() - whfLeft()) % (WHF.pace * 1000) < (WHF.pace * 1000) / 2;
+    return ringHTML(frac, 'whf breathe live', String(n), inBreath ? 'breathe in' : 'let go',
+                    pipsHTML(w.round - 1, WHF.rounds, 'whf'), frac) + `
+      <div class="tl-main">
+        <button class="tl-big-btn wide" data-act="whf-hold" aria-label="go to the hold">
+          <span>hold now</span>
+        </button>
+      </div>
+      <div class="tl-tally"><b>${esc(n)}</b> of ${esc(WHF.breaths)} · round ${esc(w.round)} of ${esc(WHF.rounds)}</div>
+      <div class="tl-side one"><button class="tl-icon" data-act="whf-stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span>stop</span></button></div>`;
+  }
+
+  if (ph === 'hold') {
+    const best = w.holds.length ? Math.max(...w.holds) : 0;
+    return ringHTML(1, 'whf hold live', holdText(whfHeld()), 'hold',
+                    pipsHTML(w.round - 1, WHF.rounds, 'whf')) + `
+      <div class="tl-main">
+        <button class="tl-big-btn wide go" data-act="whf-breathe" aria-label="end the hold and breathe in">
+          <span>breathe in</span>
+        </button>
+      </div>
+      <div class="tl-tally">round ${esc(w.round)} of ${esc(WHF.rounds)}${
+        best ? ` · best so far ${esc(holdText(best))}` : ''}</div>
+      <div class="tl-side one"><button class="tl-icon" data-act="whf-stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg><span>stop</span></button></div>`;
+  }
+
+  const left = whfLeft(), tot = WHF.recovery * 1000;
+  const last = w.holds[w.holds.length - 1] || 0;
+  return ringHTML(left / tot, 'whf recover live', clock(left), 'hold it in',
+                  pipsHTML(w.round, WHF.rounds, 'whf')) + `
+    <div class="tl-main">
+      <button class="tl-big-btn wide" data-act="whf-next" aria-label="skip to the next round">
+        <span>${w.round >= WHF.rounds ? 'finish' : 'next round'}</span>
+      </button>
     </div>
-    <div class="tl-sec"><span>${esc(k)}</span><em>${items.length} option${items.length === 1 ? '' : 's'}</em></div>
-    <div class="tl-list">${items.map(i =>
-      `<div class="tl-row${i === DB.decide.last ? ' on' : ''}">${esc(i)}</div>`).join('')}</div>`;
+    <div class="tl-tally">held <b>${esc(holdText(last))}</b> · round ${esc(w.round)} of ${esc(WHF.rounds)}</div>`;
 }
 
-/* Only the readout is repainted on a tick — rebuilding the whole body four
-   times a second would take the focus out of anything under a finger and make
-   the lap list flicker. The shape is written once by render(); paint() moves
-   the two things that actually change. */
+/* Today's sessions, and the best hold in them. A session is three numbers and
+   a time, so it is a row rather than a card. */
+function sessionsHTML(sessions, best) {
+  if (!sessions.length) return '';
+  return `<div class="tl-sec"><span>Today</span><em>best ${esc(holdText(best))}</em></div>
+    ${sessions.slice().reverse().map(s => `<div class="tl-sess">
+      <span class="ss-at">${esc(s.at)}</span>
+      <span class="ss-holds">${(s.holds || []).map(h =>
+        `<b${(+h === +s.best) ? ' class="best"' : ''}>${esc(holdText(h))}</b>`).join('')}</span>
+      <span class="ss-n">${esc(s.rounds)}×</span>
+    </div>`).join('')}`;
+}
+
+/* Only the readout is repainted on a tick — rebuilding the whole body five
+   times a second would take the focus out of anything under a finger. The
+   shape is written once by render(); paint() moves what actually changes. */
 function paint() {
   const t = tool();
-  const big = $id('tl-big');
+  const big = $id('tl-big'), sub = $id('tl-sub');
   const ring = view && view.querySelector('.tl-ring .tp');
-  let text = '', frac = 0;
-  if (t === 'pom')   { const total = pomTotal(), l = pomLeft() || total; text = clock(l); frac = l / total; }
-  else if (t === 'sw') { const e = swElapsed(); text = clockCs(e); frac = swRunning() ? (e % 60000) / 60000 : 0; }
-  else if (t === 'timer') { const l = tmLeft(); text = DB.timer.total ? clock(l) : '––:––';
-                            frac = DB.timer.total ? l / DB.timer.total : 0; }
-  else return;
+  let text = '', frac = 0, word = null;
+  if (t === 'pom') {
+    const total = pomTotal(), l = pomLeft() || total;
+    text = clock(l); frac = l / total;
+  } else if (DB.whf.phase === 'breathe') {
+    const per = WHF.pace * 1000;
+    const gone = (whfTotalBreath() - whfLeft()) % per;
+    text = String(whfBreathNow());
+    frac = whfBreathFrac();
+    word = gone < per / 2 ? 'breathe in' : 'let go';
+  } else if (DB.whf.phase === 'hold') {
+    text = holdText(whfHeld()); frac = 1;
+  } else if (DB.whf.phase === 'recover') {
+    const l = whfLeft(); text = clock(l); frac = l / (WHF.recovery * 1000);
+  } else return;
   if (big) big.textContent = text;
+  if (word && sub && sub.textContent !== word) sub.textContent = word;
   if (ring) ring.setAttribute('stroke-dashoffset',
     (CIRC * (1 - Math.max(0, Math.min(1, frac)))).toFixed(1));
+  if (DB.whf.phase === 'breathe') {
+    const box = view && view.querySelector('.tl-ring.breathe');
+    if (box) box.style.setProperty('--tl-breath', frac.toFixed(3));
+  }
 }
 
 function render() {
@@ -433,8 +543,7 @@ function render() {
   if (box) {
     const t = tool();
     box.className = 'tl-body t-' + t;
-    box.innerHTML = t === 'pom' ? pomHTML() : t === 'sw' ? swHTML()
-                  : t === 'timer' ? tmHTML() : decideHTML();
+    box.innerHTML = t === 'pom' ? pomHTML() : whfHTML();
   }
   syncTick();
 }
@@ -446,35 +555,31 @@ document.addEventListener('click', ev => {
   const act = t && t.dataset.act;
   if (!act || t.disabled) return;
 
-  if (act === 'tool')       { DB.tool = t.dataset.t; save(); render(); return; }
-  if (act === 'pom-toggle') { pomRunning() ? pomPause() : pomStart(); return; }
-  if (act === 'pom-skip')   { pomSkip(); return; }
-  if (act === 'pom-reset')  { pomReset(); return; }
-  if (act === 'sw-toggle')  { swToggle(); return; }
-  if (act === 'sw-lap')     { swLap(); return; }
-  if (act === 'sw-reset')   { swReset(); return; }
-  if (act === 'tm-toggle')  { tmToggle(); return; }
-  if (act === 'tm-clear')   { tmClear(); return; }
-  if (act === 'tm-set')     { tmSet(t.dataset.m, ''); return; }
-  if (act === 'tm-custom')  { tmCustom(); return; }
-  if (act === 'deck')       { DB.decide.deck = t.dataset.d; DB.decide.last = ''; save(); render(); return; }
-  if (act === 'decide')     { decide(); return; }
-  if (act === 'reset')      { resetAll(); return; }
+  if (act === 'tool')        { DB.tool = t.dataset.t; save(); render(); return; }
+  if (act === 'pom-toggle')  { pomRunning() ? pomPause() : pomStart(); return; }
+  if (act === 'pom-skip')    { pomSkip(); return; }
+  if (act === 'pom-reset')   { pomReset(); return; }
+  if (act === 'whf-start')   { whfStart(); return; }
+  if (act === 'whf-hold')    { whfToHold(); return; }
+  if (act === 'whf-breathe') { whfEndHold(); return; }
+  if (act === 'whf-next')    { whfNextRound(); return; }
+  if (act === 'whf-stop')    { whfStop(); return; }
+  if (act === 'reset')       { resetAll(); return; }
 });
 
 /* Settings */
 function renderSettings() {
   const st = document.querySelector('.ns-tools #tl-status');
   if (!st) return;
-  const n = pomToday(), running = [pomRunning() && 'pomodoro', swRunning() && 'stopwatch',
-                                   tmRunning() && 'timer'].filter(Boolean);
+  const n = pomToday(), s = whfToday();
+  const running = [pomRunning() && 'pomodoro', whfOn() && 'wim hof'].filter(Boolean);
   st.className = 'settings-status ' + (running.length ? 'ok' : 'idle');
   st.textContent = (running.length ? running.join(' + ') + ' running' : 'nothing running') +
-    ' · ' + n + ' focus round' + (n === 1 ? '' : 's') + ' today';
+    ` · ${n} focus round${n === 1 ? '' : 's'} · ${s} session${s === 1 ? '' : 's'} today`;
 }
 
 function resetAll() {
-  Shell.confirm('Reset TOOLS?\nEvery running clock stops and the day’s focus count goes. The lengths and the lists are settings and stay.', () => {
+  Shell.confirm('Reset TOOLS?\nEvery running clock stops and the day’s focus count and sessions go. The lengths are settings and stay.', () => {
     DB = blank();
     save(); syncTick(); render(); renderSettings();
     toast('tools reset');
@@ -488,25 +593,12 @@ Shell.register('tools', {
   onDayChange: () => { paintBand(); render(); },
   /* No `home` hook: the tab tapped while you are already on it means "go back
      to the top screen", and TOOLS has one screen. Throwing the strip back to
-     the pomodoro would be losing the stopwatch you were watching. */
-  search: q => {
-    const out = [];
-    TOOLS.forEach(t => {
-      if (!t.label.includes(q)) return;
-      out.push({ title: t.label, sub: 'tools',
-                 go: () => { DB.tool = t.key; save();
-                             Shell.TABS.includes('tools') ? Shell.go('tools') : Shell.open('tools');
-                             render(); } });
-    });
-    deckNames().forEach(n => {
-      if (!n.toLowerCase().includes(q)) return;
-      out.push({ title: n, sub: 'tools · decide list',
-                 go: () => { DB.tool = 'decide'; DB.decide.deck = n; save();
-                             Shell.TABS.includes('tools') ? Shell.go('tools') : Shell.open('tools');
-                             render(); } });
-    });
-    return out;
-  },
+     the pomodoro would be losing the round you were in. */
+  search: q => TOOLS.filter(t => t.label.includes(q)).map(t => ({
+    title: t.label, sub: 'tools',
+    go: () => { DB.tool = t.key; save();
+                Shell.TABS.includes('tools') ? Shell.go('tools') : Shell.open('tools');
+                render(); } })),
 });
 
 render();
@@ -518,6 +610,11 @@ return { render, renderSettings, resetAll,
          reload: () => { load(); render(); renderSettings(); },
          state: () => JSON.parse(JSON.stringify(DB)),
          /* read-only, for LOG's note and anything else that wants the day's
-            focus time without reaching into the store */
-         today: () => ({ rounds: pomToday(), minutes: pomToday() * POM.focus }) };
+            focus time and breathing without reaching into the store */
+         today: () => {
+           const s = DB.whf.days[Shell.today()] || [];
+           return { rounds: pomToday(), minutes: pomToday() * POM.focus,
+                    sessions: s.length,
+                    best: s.reduce((m, x) => Math.max(m, +x.best || 0), 0) };
+         } };
 })();

@@ -3514,12 +3514,17 @@ check('a full card carries its name, its ratio and a bar',
   !d.querySelector('.ns-do #home-grid.mini'),
   cards()[0]?.textContent.replace(/\s+/g, ' ').trim());
 w.Prefs.set('doCardStyle', 'minimal');
-check('minimal drops the bar and the word, keeps the ratio, and goes to one column',
+/* 4.8 put the bar back. It is the one part of the card read at a glance rather
+   than counted, and as a strip along the bottom edge it costs no height — which
+   was the only reason it was ever dropped. */
+check('minimal drops the word, keeps the ratio and the bar, and goes to one column',
   d.querySelector('.ns-do #home-grid').classList.contains('mini') &&
-  cards().every(c => c.classList.contains('mini') && !c.querySelector('.card-bar')) &&
+  cards().every(c => c.classList.contains('mini') && !!c.querySelector('.card-bar')) &&
   /^\d+ \/ \d+$/.test(cards()[0].querySelector('.card-s').textContent) &&
   /\.ns-do \.grid\.mini\{grid-template-columns:1fr/.test(doCss2),
   cards()[0]?.textContent.replace(/\s+/g, ' ').trim());
+check('… and it rides the bottom edge, so the row is no taller for it',
+  /\.ns-do \.card\.mini \.card-bar\{position:absolute/.test(doCss2));
 w.Prefs.set('doCardStyle', 'full');
 /* toggleAll() works on whichever routine is open and *toggles*, so finishing
    one means opening it first and coming back — the same three taps a person
@@ -4468,10 +4473,13 @@ const undoPill = () => $('#undo-pill');
 check('the undo pill is a sibling of #views, not inside the transformed track',
   !!undoPill() && !undoPill().closest('#track') && !!$('#undo-pill .up-ico'),
   undoPill() ? 'present' : 'missing');
-check('… it wears the title: the display face at the wordmark’s weight, with the offset copy',
+/* 4.8 took the offset shadow off it for good. It belongs on a wordmark read
+   across a room, not on a control two words wide that shows for five seconds —
+   at this size it read as a printing fault. The display face stays. */
+check('… it wears the display face, and no longer the offset shadow',
   /\.undo-pill\{[^}]*font:800 12px\/1 var\(--head\)/.test(tokensCss41) &&
-  /\.undo-pill\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(tokensCss41) &&
-  /\.undo-pill \.up-ico\{[^}]*drop-shadow\(var\(--title-sh-x\) 0 0 var\(--title-sh-c\)\)/.test(tokensCss41));
+  !/\.undo-pill\{[^}]*text-shadow/.test(tokensCss41) &&
+  !/\.undo-pill \.up-ico\{[^}]*drop-shadow/.test(tokensCss41));
 check('… and the arrow is drawn from the sprite, not typed',
   !!$('#ico-undo') && /<use href="#ico-undo"/.test($('#undo-pill').innerHTML));
 
@@ -5662,14 +5670,20 @@ check('… its icon is its own symbol, and the tab points at it',
   $('.tab-b[data-app="tools"] use').getAttribute('href') === '#tab-tools');
 w.Shell.go('tools');
 await tick();
-check('… four instruments behind one strip, and no sub-screen to lose one in',
-  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',') === 'pom,sw,timer,decide' &&
+/* 4.8 cut it to two. The stopwatch and the countdown were the phone's own two
+   clocks with a worse readout, and the decider answered a question by not
+   answering it. The round is dots now rather than "round 1/4" in the sub. */
+check('… two instruments behind one strip, and no sub-screen to lose one in',
+  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',') === 'pom,whf' &&
   d.querySelectorAll('.ns-tools .scr').length === 1,
   [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(','));
 check('the pomodoro opens on its focus length, read off Config rather than a constant',
   $('.ns-tools #tl-big').textContent === '25:00' &&
-  /focus · round 1\/4/.test($('.ns-tools .tl-sub').textContent),
+  /focus/.test($('.ns-tools .tl-sub').textContent),
   $('.ns-tools #tl-big').textContent + ' / ' + $('.ns-tools .tl-sub').textContent);
+check('… and the rounds are dots rather than a sentence to read',
+  d.querySelectorAll('.ns-tools .tl-pips i').length === 4,
+  String(d.querySelectorAll('.ns-tools .tl-pips i').length));
 w.Config.set('tools.pomodoro', { focus: 30, short: 5, long: 15, rounds: 2, autoStart: false });
 check('… and editing the length in Config moves it, without a reload',
   $('.ns-tools #tl-big').textContent === '30:00', $('.ns-tools #tl-big').textContent);
@@ -5711,80 +5725,121 @@ check('… the clock stops being asked once nothing is running',
   tlStore43().pom.endsAt === 0 && tlStore43().pom.left === 0);
 w.Config.reset('tools.pomodoro');
 
-click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'timer'));
-check('the countdown offers the quick lengths Config names',
-  [...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].map(b => b.dataset.m).join(',') ===
-  (w.Config.get('tools.timers') || []).join(','),
-  [...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].map(b => b.dataset.m).join(','));
-click([...d.querySelectorAll('.ns-tools [data-act="tm-set"]')].find(b => b.dataset.m === '10'));
-check('… and setting one arms it against the clock, with its total remembered',
-  tlStore43().timer.total === 600000 && tlStore43().timer.endsAt > w.Date.now() &&
-  $('.ns-tools #tl-big').textContent === '10:00',
-  $('.ns-tools #tl-big').textContent);
-click($('.ns-tools [data-act="tm-clear"]'));
-check('… clearing it puts the readout back to nothing rather than to zero',
-  $('.ns-tools #tl-big').textContent === '––:––' && tlStore43().timer.total === 0,
-  $('.ns-tools #tl-big').textContent);
+/* The breathing round
+   Three phases, and only two of them have a length. The retention counts *up*
+   and is ended by the person, because how long it lasted is the measurement —
+   a timer that cut it off at a guess would be measuring the guess. */
+w.Config.set('tools.wimhof', { rounds:2, breaths:5, pace:1, recovery:5, chime:false, label:'wim hof' });
+click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'whf'));
+check('the breathing round opens ready, with a dot per round',
+  tlStore43().whf.phase === 'idle' &&
+  d.querySelectorAll('.ns-tools .tl-pips i').length === 2 &&
+  !!$('.ns-tools [data-act="whf-start"]'),
+  tlStore43().whf.phase);
 
-click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'sw'));
-click($('.ns-tools [data-act="sw-toggle"]'));
+click($('.ns-tools [data-act="whf-start"]'));
+check('starting it breathes against the clock, not against a count of ticks',
+  tlStore43().whf.phase === 'breathe' && tlStore43().whf.endsAt > w.Date.now(),
+  JSON.stringify(tlStore43().whf));
+
+/* the hold is not timed by us */
+click($('.ns-tools [data-act="whf-hold"]'));
+check('the hold has no end — it counts up from when it began',
+  tlStore43().whf.phase === 'hold' && tlStore43().whf.endsAt === 0 &&
+  tlStore43().whf.startedAt > 0,
+  JSON.stringify(tlStore43().whf));
 await tick(40);
-click($('.ns-tools [data-act="sw-lap"]'));
-check('the stopwatch banks a lap against the elapsed time, newest first',
-  tlStore43().sw.laps.length === 1 && tlStore43().sw.laps[0] > 0 &&
-  d.querySelectorAll('.ns-tools .tl-lap').length === 1,
-  JSON.stringify(tlStore43().sw.laps));
-click($('.ns-tools [data-act="sw-toggle"]'));
-check('… stopping banks the elapsed time instead of losing it',
-  tlStore43().sw.startedAt === 0 && tlStore43().sw.banked > 0,
-  JSON.stringify(tlStore43().sw));
-click($('.ns-tools [data-act="sw-reset"]'));
-check('… and reset clears the laps with it',
-  tlStore43().sw.banked === 0 && tlStore43().sw.laps.length === 0);
+click($('.ns-tools [data-act="whf-breathe"]'));
+check('… and ending it banks what was held, then recovers against the clock',
+  tlStore43().whf.holds.length === 1 && tlStore43().whf.holds[0] > 0 &&
+  tlStore43().whf.phase === 'recover' && tlStore43().whf.endsAt > w.Date.now(),
+  JSON.stringify(tlStore43().whf));
 
-click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'decide'));
-check('the decider lists what Config gives it, under the list it is asking',
-  [...d.querySelectorAll('.ns-tools [data-act="deck"]')].map(b => b.dataset.d).join(',') ===
-  Object.keys(w.Config.get('tools.decks')).join(','),
-  [...d.querySelectorAll('.ns-tools [data-act="deck"]')].map(b => b.dataset.d).join(','));
-click($('.ns-tools [data-act="decide"]'));
-const pick43 = tlStore43().decide.last;
-check('… picking one takes it from that list and shows it as the answer',
-  !!pick43 && (w.Config.get('tools.decks')[tlStore43().decide.deck || 'what next'] || []).includes(pick43) &&
-  $('.ns-tools .tl-pick').classList.contains('has'),
-  pick43);
-check('… and it never answers the same thing twice running',
-  (() => { for (let i = 0; i < 12; i++) {
-             const was = tlStore43().decide.last;
-             click($('.ns-tools [data-act="decide"]'));
-             if (tlStore43().decide.last === was) return false;
-           } return true; })());
-const savedDeciderDecks = w.Config.get('tools.decks');
-w.Config.set('tools.decks', { duplicates: ['same', 'same'] });
-click($('.ns-tools [data-act="decide"]'));
-click($('.ns-tools [data-act="decide"]'));
-check('duplicate-only decider lists keep a valid answer on repeated picks',
-  tlStore43().decide.last === 'same' && $('.ns-tools .tl-pick').textContent === 'same');
-w.Config.set('tools.decks', { duplicates: ['same', 'same', 'different'] });
-click($('.ns-tools [data-act="decide"]'));
-check('duplicate decider entries still avoid repeats when an alternative exists',
-  tlStore43().decide.last === 'different');
-w.Config.set('tools.decks', savedDeciderDecks);
+/* a phase whose end is already past finishes on the next tick, wherever you
+   were — the same timestamp rule the pomodoro is built on */
+const tlW = JSON.parse(w.localStorage.getItem('tools_v1'));
+tlW.whf.endsAt = w.Date.now() - 2000;
+w.localStorage.setItem('tools_v1', JSON.stringify(tlW));
+w.TOOLS.reload();
+await tick(400);
+check('a recovery already past its end rolls into the next round on its own',
+  tlStore43().whf.phase === 'breathe' && tlStore43().whf.round === 2,
+  JSON.stringify(tlStore43().whf));
+
+/* finishing writes the session down in three places: its own store, LOG's day
+   as a block, and DAY's schedule as a mark. Neither of the other two grows a
+   feature for it — both already take exactly this. */
+const logBefore = JSON.parse(w.localStorage.getItem('log_' + today) || '{}');
+void logBefore;
+click($('.ns-tools [data-act="whf-hold"]'));
+await tick(20);
+click($('.ns-tools [data-act="whf-breathe"]'));
+const tlW2 = JSON.parse(w.localStorage.getItem('tools_v1'));
+tlW2.whf.endsAt = w.Date.now() - 2000;
+w.localStorage.setItem('tools_v1', JSON.stringify(tlW2));
+w.TOOLS.reload();
+await tick(400);
+check('the last round finishes the session and files it under today',
+  tlStore43().whf.phase === 'idle' &&
+  (tlStore43().whf.days[today] || []).length === 1 &&
+  (tlStore43().whf.days[today] || [])[0].rounds === 2,
+  JSON.stringify(tlStore43().whf.days));
+check('… and TOOLS.today() reports it alongside the focus rounds',
+  w.TOOLS.today().sessions === 1 && w.TOOLS.today().best > 0,
+  JSON.stringify(w.TOOLS.today()));
+check('… the session lands in LOG\u2019s day as a block',
+  (JSON.parse(w.localStorage.getItem('log_' + today) || '{}').e || {}).blocks?.includes('wim hof'),
+  JSON.stringify((JSON.parse(w.localStorage.getItem('log_' + today) || '{}').e || {}).blocks));
+check('… and on DAY\u2019s schedule as a mark at the minute it finished',
+  w.CAL.marks(today).some(m => m.name === 'wim hof' && /^\d\d:\d\d$/.test(m.at)),
+  JSON.stringify(w.CAL.marks(today)));
+
+/* the label is Config's, so the block and the mark are named by the user */
+check('the name written into both is the one Config gives it',
+  /wimhof|wim hof/.test(JSON.stringify(w.Config.get('tools.wimhof'))));
+w.Config.reset('tools.wimhof');
+
+/* the instruments that went
+   The stopwatch and the countdown were the phone's own two clocks with a worse
+   readout, and the decider answered a question by not answering it. A v1 store
+   still carrying them must not resurrect them — and must not lose the one
+   thing in it worth keeping, which is the day's focus count. */
+w.localStorage.setItem('tools_v1', JSON.stringify({
+  v: 1, tool: 'decide',
+  pom: { phase:'focus', round:1, endsAt:0, left:0, days:{ '2026-09-01': 4 } },
+  sw: { startedAt:0, banked:99999, laps:[1,2,3] },
+  timer: { endsAt:0, left:0, total:600000, label:'tea' },
+  decide: { deck:'what next', last:'the quickest one' },
+}));
+w.TOOLS.reload();
+/* Reading normalises; the store itself is only rewritten on the next write,
+   which is why this asks the module what it holds and *then* asks the store. */
+check('a v1 store keeps its focus history and drops the instruments that went',
+  w.TOOLS.state().pom.days['2026-09-01'] === 4 &&
+  w.TOOLS.state().sw === undefined && w.TOOLS.state().timer === undefined &&
+  w.TOOLS.state().decide === undefined && w.TOOLS.state().tool === 'pom',
+  JSON.stringify(Object.keys(w.TOOLS.state())));
+click($('.ns-tools [data-act="pom-toggle"]'));
+click($('.ns-tools [data-act="pom-toggle"]'));
+check('… and the first write puts the old shape out of the store for good',
+  tlStore43().sw === undefined && tlStore43().decide === undefined &&
+  tlStore43().pom.days['2026-09-01'] === 4,
+  JSON.stringify(Object.keys(tlStore43())));
 
 /* Findable: the app by name, and its lists through search.js's CONTENT table
    — one line per Config path, which is all a new app owes search. */
-check('TOOLS is findable by name, and so is what its lists hold',
+check('TOOLS is findable by name, and so is what it is asked to call a session',
   w.SEARCH.results('tools').some(r => r.kind === 'app' && r.title === 'TOOLS') &&
-  w.SEARCH.results('walk round').some(r => r.kind === 'content'),
+  w.SEARCH.results('wim hof').some(r => r.kind === 'content'),
   w.SEARCH.results('tools').map(r => r.kind + ':' + r.title).join(', ').slice(0, 90));
 check('… and its own store is filed under its own name in the storage report',
   w.localStorage.getItem('tools_v1') !== null &&
   /TOOLS/.test((w.SET.panel('data'), $('.ns-set [data-panel="data"]').textContent)),
   'tools_v1');
 w.TOOLS.resetAll(); settle();
-check('… and resetting it stops every clock without touching the lengths or the lists',
-  tlStore43().pom.endsAt === 0 && tlStore43().sw.banked === 0 &&
-  !!w.Config.get('tools.pomodoro') && !!w.Config.get('tools.decks'));
+check('… and resetting it stops every clock without touching the lengths',
+  tlStore43().pom.endsAt === 0 && tlStore43().whf.phase === 'idle' &&
+  !!w.Config.get('tools.pomodoro') && !!w.Config.get('tools.wimhof'));
 w.Shell.go('do');
 
 check('no errors through the whole of 4.3', errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -6049,6 +6104,109 @@ check('the data panel offers both routes, and says which apps take which',
 check('the rebindable keys are findable by name, like every other dial',
   w.SEARCH.results('cursor').some(r => r.kind === 'setting' && /cursor/i.test(r.title)),
   w.SEARCH.results('cursor').map(r => r.title).join(', ').slice(0, 80));
+
+/* 4.8 — the three fixes that are not already covered above. */
+
+/* The auto-close that "sometimes" did not happen.
+   `tdBusy` is one lock over six Todoist operations. Five are button presses,
+   and dropping one of those while another runs is right — the button is
+   visibly disabled. The sixth is the close fired by ticking the last item of a
+   routine, which is not a Todoist control at all: no disabled button, no
+   toast, no idea a fetch was in flight. It queued nothing and returned. */
+{
+  const doJs48 = fs.readFileSync(path.join(ROOT, 'js/do.js'), 'utf8');
+  const bare = doJs48.replace(/\/\*[\s\S]*?\*\//g, '');
+  check('a routine finished while another Todoist call runs is queued, not dropped',
+    /tdPending\.add\(key\)/.test(bare) &&
+    !/async function tdAutoPush\(key\) \{\s*if \(tdBusy/.test(bare),
+    'tdAutoPush still bails on the lock');
+  check('… and every operation releases through the one path that drains it',
+    /function tdRelease\(\)/.test(bare) &&
+    (bare.match(/tdRelease\(\)/g) || []).length >= 7 &&
+    !/tdBusy = false; renderTdButtons\(\)/.test(bare),
+    (bare.match(/tdRelease\(\)/g) || []).length + ' release sites');
+}
+
+/* Rearranging the timetable, and adding an hour that is yours. */
+{
+  const iso48 = w.Shell.today();
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [
+      { from:'09:00', to:'09:30', dur:30, kind:'task', name:'first',  slot:'a', done:false },
+      { from:'09:30', to:'10:30', dur:60, kind:'task', name:'second', slot:'b', done:false },
+    ] });
+  w.Shell.go('cal');
+  const evs48 = () => (w.CAL.day(iso48) || {}).events || [];
+  check('a day can be written for the move to work on',
+    evs48().length === 2 && evs48()[0].name === 'first', JSON.stringify(evs48().map(e => e.name)));
+
+  const down = [...d.querySelectorAll('.ns-cal [data-act="mv"]')]
+    .find(b => b.dataset.i === '0' && b.dataset.j === '1');
+  check('every row that has somewhere to go carries an arrow', !!down,
+    [...d.querySelectorAll('.ns-cal [data-act="mv"]')].map(b => b.dataset.i + '>' + b.dataset.j).join(','));
+  if (down) click(down);
+  check('moving a row swaps the pair and re-times it from the earlier start',
+    evs48()[0].name === 'second' && evs48()[0].from === '09:00' && evs48()[0].to === '10:00' &&
+    evs48()[1].name === 'first'  && evs48()[1].from === '10:00' && evs48()[1].to === '10:30',
+    JSON.stringify(evs48().map(e => e.name + ' ' + e.from + '-' + e.to)));
+  check('… and the pair still ends where it ended, so nothing after it moves',
+    evs48()[1].to === '10:30');
+  check('… and the day is marked as edited here, like a delete is',
+    !!(w.CAL.day(iso48) || {}).localEdit);
+
+  /* A fixed row is an anchor: a train at six is at six. Written rather than
+     mutated in place — CAL re-reads the store on every write, so an in-memory
+     poke is gone by the next render. */
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [
+      { from:'09:00', to:'09:30', dur:30, kind:'task',  name:'first', slot:'a' },
+      { from:'09:30', to:'10:30', dur:60, kind:'fixed', name:'train', cal:'work' },
+    ] });
+  check('a fixed row is never given arrows to move it with',
+    d.querySelectorAll('.ns-cal [data-act="mv"]').length === 0,
+    [...d.querySelectorAll('.ns-cal [data-act="mv"]')].map(b => b.dataset.i + '>' + b.dataset.j).join(','));
+
+  /* back to two movable rows for the gap check */
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [
+      { from:'09:00', to:'10:00', dur:60, kind:'task', name:'second', slot:'b' },
+      { from:'10:00', to:'10:30', dur:30, kind:'task', name:'first',  slot:'a' },
+    ] });
+
+  click($('.ns-cal [data-act="gap"]'));
+  check('adding empty time asks for a length in the app, with a field',
+    askOpen() && !$('#ask-field').classList.contains('hidden'));
+  $('#ask-input').value = '45';
+  click($('#ask-yes'));
+  check('adding empty time appends an idle row of the length asked for',
+    evs48().length === 3 && evs48()[2].kind === 'idle' && evs48()[2].dur === 45 &&
+    evs48()[2].from === '10:30' && evs48()[2].to === '11:15',
+    JSON.stringify(evs48()[2]));
+  w.Shell.go('tools');
+}
+
+/* The undo pill: the shadow is gone, and what is left in it is two dials. */
+{
+  const root48 = d.documentElement;
+  check('the pill says what it is made of on the root element',
+    root48.dataset.undoIcon === 'undo' && root48.dataset.undoText === 'on',
+    root48.dataset.undoIcon + '/' + root48.dataset.undoText);
+  w.Prefs.set('undoIcon', 'back');
+  w.Shell.undo('cleared', () => {});
+  check('the chosen mark is the one drawn, not the one in the markup',
+    $('#undo-pill .up-ico use').getAttribute('href') === '#ico-back',
+    $('#undo-pill .up-ico use').getAttribute('href'));
+  w.Prefs.set('undoIcon', 'none');
+  w.Shell.undo('cleared', () => {});
+  check('… and "none" leaves a valid glyph in the markup for CSS to hide',
+    $('#undo-pill .up-ico use').getAttribute('href') === '#ico-undo' &&
+    root48.dataset.undoIcon === 'none');
+  const tokens48 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
+  check('hiding both would leave an empty control, so the words come back',
+    /\[data-undo-text="off"\]\[data-undo-icon="none"\] \.undo-pill \.up-txt\{display:block\}/.test(tokens48));
+  w.Shell.hideUndo();
+  w.Prefs.reset('undoIcon'); w.Prefs.reset('undoText');
+}
 
 check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));
 

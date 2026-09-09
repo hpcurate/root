@@ -371,12 +371,25 @@ body::before{
   padding:calc(9px * var(--dens)) calc(17px * var(--dens));
   color:var(--tx);cursor:pointer;
   font:800 12px/1 var(--head);letter-spacing:.04em;
-  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
   transition:opacity var(--dur-2) ease,transform var(--dur-2) ease,visibility 0s linear var(--dur-2);
   z-index:122;white-space:nowrap;max-width:84vw;box-shadow:var(--shadow-lift)}
-.undo-pill .up-ico{width:17px;height:17px;flex:0 0 auto;color:var(--y);
-  filter:drop-shadow(var(--title-sh-x) 0 0 var(--title-sh-c))}
+/* The offset title shadow is gone from here for good. It belongs on a wordmark
+   read across a room, not on a control the width of two words that appears for
+   five seconds — at this size it read as a printing fault. Titles keep it. */
+.undo-pill .up-ico{width:17px;height:17px;flex:0 0 auto;color:var(--y)}
 .undo-pill .up-txt{overflow:hidden;text-overflow:ellipsis}
+
+/* What the pill is made of — two dials, because the label and the glyph answer
+   different questions. The label says *what* is being put back ("cart
+   cleared"), the glyph says the pill is an undo at all. Hiding both would
+   leave a control with nothing in it, so the text comes back whenever the
+   glyph is off, whatever the dial says. */
+[data-undo-icon="none"] .undo-pill .up-ico{display:none}
+[data-undo-text="off"] .undo-pill .up-txt{display:none}
+[data-undo-text="off"][data-undo-icon="none"] .undo-pill .up-txt{display:block}
+/* with only a glyph in it the pill is round rather than a stretched capsule */
+[data-undo-text="off"]:not([data-undo-icon="none"]) .undo-pill{
+  padding:calc(9px * var(--dens)) calc(11px * var(--dens))}
 .undo-pill.show{
   transform:translateX(-50%) translateY(0);
   opacity:1;visibility:visible;pointer-events:auto;

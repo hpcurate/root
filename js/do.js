@@ -358,14 +358,17 @@ function renderHome() {
     const pct  = r.items.length ? Math.round((done / r.items.length) * 100) : 0;
     const isDone = done === r.items.length && r.items.length > 0;
     if (isDone && hideDone()) return '';
-    /* The minimal card is the same card with the two things that take height
-       taken out: the progress bar, and the "done" line under the name. What
-       is left is the name and the ratio on one row — enough to see how far in
-       you are, at a third of the height. */
+    /* The minimal card is the same card with the word "done" dropped and the
+       name and ratio put on one row — a third of the height, so a tab with six
+       routines is a screen rather than a scroll.
+       The bar stays. It used to be cut along with everything else that took
+       height, but it is the one part that is read at a glance rather than
+       counted, so on a minimal card it rides the bottom edge of the row
+       instead (do.css) and costs no height at all. */
     return `<div class="card${isDone ? ' done' : ''}${minimal ? ' mini' : ''}" onclick="DO.openRoutine('${key}')">
       <div class="card-t">${r.label}</div>
       <div class="card-s">${done} / ${r.items.length}${minimal ? '' : ' done'}</div>
-      ${minimal ? '' : `<div class="card-bar"><div class="card-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>`}
+      <div class="card-bar"><div class="card-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div>
     </div>`;
   }).join('');
 
@@ -381,7 +384,7 @@ function renderHome() {
       travelCard = `<div class="card${tDone ? ' done' : ''}${minimal ? ' mini' : ''}" onclick="DO.go('travel')">
         <div class="card-t">Travel</div>
         <div class="card-s">${sub}</div>
-        ${minimal ? '' : `<div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%;background:${barColor(tStat.pct)}"></div></div>`}
+        <div class="card-bar"><div class="card-bar-fill" style="width:${tStat.pct}%;background:${barColor(tStat.pct)}"></div></div>
       </div>`;
   }
 
@@ -800,6 +803,27 @@ const TD_DEFAULTS = { token:'', project:'04 | life', section:'daily routine',
                       quick:{ date:null, tasks:[], fetched:0 } };
 let td = { ...TD_DEFAULTS };
 let tdBusy = false;
+/* Routines whose auto-close arrived while the lock was held.
+   `tdBusy` is one lock over six Todoist operations, and five of them are
+   button presses — dropping those while another is running is right, because
+   the button is visibly disabled. The sixth, tdAutoPush(), is triggered by
+   ticking the last item of a list, which is not a Todoist control at all: the
+   user has no idea a fetch is in flight, sees no disabled button, and gets no
+   toast. That silent drop is why a finished routine "sometimes" did not close.
+   Now it waits its turn instead. */
+const tdPending = new Set();
+
+/* Every operation ends here, so a queued auto-close always gets its turn.
+   The drain is deferred by a tick so it starts after the finally block that
+   released the lock, rather than re-entering from inside it. */
+function tdRelease() {
+  tdBusy = false;
+  renderTdButtons();
+  if (!tdPending.size) return;
+  const key = tdPending.values().next().value;
+  tdPending.delete(key);
+  setTimeout(() => tdAutoPush(key), 0);
+}
 
 function loadTodoist() {
   try {
@@ -983,16 +1007,18 @@ async function syncTodoist() {
     toast('sync failed');
     tdStatus(e.message, 'bad');
   } finally {
-    tdBusy = false; renderTdButtons();
+    tdRelease();
   }
 }
 
 /* Ticking the last item closes just that one task, so a list finished here does
    not sit around waiting for the next manual sync. */
 async function tdAutoPush(key) {
-  if (tdBusy || !Creds.token() || !td.autoPush) return;
+  if (!Creds.token() || !td.autoPush) return;
   const today = tdLocalDate();
   if (td.closedOn[key] === today) return;
+  // the lock is held by another call: take a ticket rather than giving up
+  if (tdBusy) { tdPending.add(key); return; }
   tdBusy = true; renderTdButtons();
   try {
     const task = (await tdRoutineTasks()).get(key);
@@ -1005,7 +1031,7 @@ async function tdAutoPush(key) {
   } catch (e) {
     toast('todoist: ' + e.message);
   } finally {
-    tdBusy = false; renderTdButtons();
+    tdRelease();
   }
 }
 
@@ -1026,7 +1052,7 @@ async function testTodoist() {
   } catch (e) {
     tdStatus(e.message, 'bad');
   } finally {
-    tdBusy = false; renderTdButtons();
+    tdRelease();
   }
 }
 
@@ -1224,7 +1250,7 @@ async function moveBlocks(block) {
     tdPersist(); renderBlocks(); renderToday();
     if (window.LOG && LOG.renderPlanned) LOG.renderPlanned();
     toast(failed ? `${moved} moved · ${failed} failed` : `${moved} → tomorrow @${block}`);
-  } finally { tdBusy = false; renderTdButtons(); }
+  } finally { tdRelease(); }
 }
 function renderBlocks() {
   const box = $id('td-blocks'); if (!box) return;
@@ -1746,7 +1772,7 @@ async function refreshToday(quiet) {
     ttStatus(e.message);
     const box = $id('td-today');
     const s = box && box.querySelector('.tt-status'); if (s) s.textContent = e.message;
-  } finally { tdBusy = false; renderTdButtons(); }
+  } finally { tdRelease(); }
 }
 
 async function fetchTodayTasks(today) {
@@ -1939,7 +1965,7 @@ async function deferToday() {
     if (!tt.tasks.some(t => !t.done)) ttMove = false;   // nothing left to move: back to ticking
     tdPersist(); renderToday();
     toast(failed ? `${moved} moved · ${failed} failed` : `${moved} moved to tomorrow`);
-  } finally { tdBusy = false; renderTdButtons(); }
+  } finally { tdRelease(); }
 }
 
 /* Silently refetch when the tab comes back and the list is older than ten

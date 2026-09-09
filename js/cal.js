@@ -321,6 +321,87 @@ function deleteEvent(i) {
   });
 }
 
+/* Moving a row
+   A swap with the neighbour, and the pair keeps the span it already had: the
+   two exchange their place in the sequence and are re-timed against the
+   earlier one's start. Nothing before them moves and — because the pair still
+   ends where it ended — nothing after them moves either. A whole-day recompute
+   would have been the other way to do it, and it would move rows the user
+   never touched, which is exactly what makes a timetable stop being trusted.
+
+   `fixed` rows are anchors and do not move: a train at six is at six, and the
+   row above it cannot push it. That is also why a move *across* one is
+   refused rather than quietly reordered around it. */
+function moveEvent(i, j) {
+  const rec = sel && DB.days[sel];
+  const evs = rec && rec.events;
+  const a = +i, b = +j;
+  if (!evs || !evs[a] || !evs[b]) return;
+  if (evs[a].kind === 'fixed' || evs[b].kind === 'fixed') {
+    Shell.toast('a fixed row stays where it is');
+    return;
+  }
+  /* The two are neighbours on screen but not in the record: a row switched off
+     under settings → apps → cal is sitting between them, holding time neither
+     of these two can see. Swapping around it would move a row the user cannot
+     even look at, so it is refused and says why. */
+  if (Math.abs(a - b) !== 1) {
+    Shell.toast('a hidden row is in the way — switch it back on to reorder here');
+    return;
+  }
+  const first = Math.min(a, b), second = Math.max(a, b);
+  const startAt = minsOf(evs[first].from);
+  if (startAt == null) return;
+
+  const pair = [evs[second], evs[first]];        // swapped
+  let at = startAt;
+  pair.forEach(ev => {
+    const dur = +ev.dur || 0;
+    ev.from = hhmm(at);
+    ev.to = hhmm(at + dur);
+    ev.over = (at + dur) >= 1440;
+    at += dur;
+  });
+  evs[first] = pair[0];
+  evs[second] = pair[1];
+
+  rec.localEdit = Date.now();
+  save(); render(); renderSettings();
+  Prefs.tap();
+}
+
+/* Adding empty time
+   An hour that is yours rather than the day's. It goes on the end, where the
+   only thing it can push is nothing, and is then moved into place with the
+   same arrows every other row has — which is why this asks for a length and
+   not for a position. Composing the two beats a second dialog asking "after
+   which row?" and getting the answer wrong.
+
+   It is an `idle` row, the same shape "leave it free" makes when a row is
+   deleted, so everything that already knows what an unclaimed hour looks like
+   needs no changes. */
+function addGap() {
+  const rec = sel && DB.days[sel];
+  if (!rec) return;
+  const evs = rec.events || (rec.events = []);
+  const last = evs[evs.length - 1];
+  const from = last ? minsOf(last.to) : minsOf(rec.start);
+  if (from == null) { Shell.toast('this day has no clock to add to'); return; }
+  Shell.prompt('How many minutes?', '30', v => {
+    const dur = Math.round(+v);
+    if (!isFinite(dur) || dur <= 0) { Shell.toast('give it a length in minutes'); return; }
+    const cur = sel && DB.days[sel];
+    if (!cur || cur !== rec) return;             // the day changed under the question
+    cur.events.push({ from: hhmm(from), to: hhmm(from + dur), over: (from + dur) >= 1440,
+                      dur, kind:'idle', name:IDLE_LABEL, slot:null,
+                      cal:null, project:null, projectLabel:null, section:null,
+                      color:null, done:false });
+    cur.localEdit = Date.now();
+    save(); render(); renderSettings();
+    Shell.toast(`${dur} min added · move it with the arrows`);
+  });
+}
+
 /* The day starts when you woke up
    PLAN resolves a day against one start time, chosen the night before. The
    morning then happens, and by the time LOG's morning form is filled in the
@@ -531,7 +612,7 @@ function dayHTML() {
   ].filter(Boolean).join(' ');
   /* Which completions belong to a row on this day, and which are floating. */
   const { byRow, used } = stampsFor(evs);
-  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }) => {
+  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }, vi) => {
     const h = Math.max(18, Math.round((e.dur / 60) * per));
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
                 : e.kind === 'fixed' ? fixedColor(e.cal) : null;
@@ -552,6 +633,28 @@ function dayHTML() {
     const del = e.kind === 'idle' ? '' :
       `<span class="ev-del" role="button" tabindex="0" data-act="del" data-i="${i}"
              aria-label="delete ${esc(e.name)}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2L8 8M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>`;
+    /* Up and down, on every row that has somewhere to go. Spans with a role
+       for the same reason the delete is one — they sit inside a row that is
+       itself a button on a tickable row, and a nested <button> is invalid
+       markup that does not reliably get the tap. A fixed row is an anchor and
+       gets no arrows at all.
+
+       `i` indexes rec.events and `vi` this filtered list; the neighbour has to
+       be found in the list the user is actually looking at, and the swap has
+       to happen in the real one. moveEvent() is handed both and refuses if a
+       hidden row sits between them — see there. */
+    const up = vi > 0 ? evs[vi - 1] : null;
+    const dn = vi < evs.length - 1 ? evs[vi + 1] : null;
+    const movable = e.kind !== 'fixed';
+    const canUp = !!(movable && up && up.e.kind !== 'fixed');
+    const canDn = !!(movable && dn && dn.e.kind !== 'fixed');
+    const arrow = (dir, on, other, label) => on
+      ? `<span class="ev-mv" role="button" tabindex="0" data-act="mv" data-i="${i}" data-j="${other.i}"
+               aria-label="move ${esc(e.name)} ${label}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="${
+          dir < 0 ? 'M2 6L5 3L8 6' : 'M2 4L5 7L8 4'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
+      : '';
+    const mv = (canUp || canDn)
+      ? `<span class="ev-mvs">${arrow(-1, canUp, up, 'earlier')}${arrow(1, canDn, dn, 'later')}</span>` : '';
     /* The minute this row was ticked, if it was — written into the row rather
        than floated over it. See stampsFor(). */
     const at = byRow.get(i);
@@ -563,7 +666,7 @@ function dayHTML() {
         ${meta || at ? `<span class="ev-meta">${meta ? `<em>${esc(meta)}</em>` : ''}${
           at ? `<b class="ev-done-at">${esc(at)}</b>` : ''}</span>` : ''}
       </span>
-      ${del}
+      ${mv}${del}
       ${tickable(e) ? `<span class="ev-check"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
     </${tag}>`;
   }).join('')}${nowY == null ? '' :
@@ -683,6 +786,7 @@ function dayHead(rec) {
     <div class="ch-meta">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>
     <div class="ch-acts">
       ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">+ do</button>' : ''}
+      <button class="ch-act" data-act="gap">+ gap</button>
       <button class="ch-clear" data-act="clear-day">clear</button>
     </div>
   </div>`;
@@ -888,6 +992,10 @@ document.addEventListener('click', e => {
      own handler. Stopping it here is what keeps deleting a row from also
      ticking it. */
   if (act === 'del')         { e.stopPropagation(); e.preventDefault(); deleteEvent(t.dataset.i); return; }
+  /* Same reasoning as the delete: the arrows ride inside a row that is itself
+     a button, so their click has to stop here or moving a row also ticks it. */
+  if (act === 'mv')          { e.stopPropagation(); e.preventDefault(); moveEvent(t.dataset.i, t.dataset.j); return; }
+  if (act === 'gap')         { addGap(); return; }
   if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
   if (act === 'start-day')   { startDay(); return; }
   if (act === 'sched')       { openSched(); return; }

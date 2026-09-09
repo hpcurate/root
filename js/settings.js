@@ -622,6 +622,11 @@ function behaveHTML() {
     ${toggle('confirmDestructive', 'Confirm before clearing', 'off makes reset and clear buttons act immediately')}
     ${slider('toastMs', 'Toast duration', v => (v / 1000).toFixed(1) + 's')}
     ${slider('undoSec', 'Undo window', v => (+v ? v + 's' : 'until you tap it'))}
+    ${chips('undoIcon', [
+      { v:'undo', l:'hook' }, { v:'undo-round', l:'circle' }, { v:'back', l:'arrow' },
+      { v:'chev-l', l:'chevron' }, { v:'none', l:'none' },
+    ], 'Undo mark', 'the glyph on the pill')}
+    ${toggle('undoText', 'Say what was cleared', 'off leaves the mark alone — unless there is no mark either, in which case the words come back')}
     <div class="set-note">Clearing a list, a queue, a day or a counter offers the way back instead of a toast. Nothing else is undoable — a delete still asks first.</div>
 
     ${sectionHead('Formats')}
@@ -1440,51 +1445,49 @@ const EDITORS = {
   },
 
   /* TOOLS
-     Two lists and nothing clever. The quick chips are minutes, comma
-     separated; the decider's lists are the same shape STORE's aisles and DO's
-     routines are — a heading and one item per line — so there is one way to
-     edit a named list in this app and not a third one. */
-  'tools.timers': {
-    title: 'Quick timer lengths',
-    note: 'The countdown\u2019s one-tap chips, in minutes, comma separated. Anything else is typed into \u201cother\u2026\u201d, so this is the list worth a tap rather than the list of every length.',
+     One editor, because there is one thing here a person changes: the shape of
+     a breathing round. The pomodoro's four numbers are dials rather than
+     content and live with the rest of the app's dials. */
+  'tools.wimhof': {
+    title: 'The breathing round',
+    note: 'How a Wim Hof session is shaped. The retention is deliberately not here \u2014 it has no length, because how long you last is the thing being measured. The label is what the finished session is called in LOG\u2019s day and on DAY\u2019s schedule.',
     render() {
-      return `<div class="f"><input type="text" data-cfg="tools.timers" data-numlist="1"
-        value="${esc((Config.get('tools.timers') || []).join(', '))}" aria-label="quick timer lengths"></div>`;
-    },
-    read() { /* per-field, handled by the data-cfg listener */ },
-  },
-
-  'tools.decks': {
-    title: 'Decide lists',
-    note: 'What the decider pulls an answer out of. One list per card, one option per line. A list with one option is a list that has already decided.',
-    render() {
-      const d = Config.get('tools.decks') || {};
-      return Object.keys(d).map(k => `<div class="ed-card" data-key="${esc(k)}">
-          <div class="ed-head">
-            <input type="text" data-field="label" value="${esc(k)}" placeholder="list" aria-label="list name">
-            <button class="ed-del" data-del="${esc(k)}" aria-label="delete list">\u00d7</button>
-          </div>
-          <textarea data-field="items" rows="${Math.min(12, Math.max(2, (d[k] || []).length))}"
-                    spellcheck="false" aria-label="${esc(k)} options">${esc((d[k] || []).join('\n'))}</textarea>
-        </div>`).join('') + `<button class="ed-add" data-add="1">+ add a list</button>`;
+      const w = Object.assign({ rounds:3, breaths:30, pace:2.2, recovery:15, chime:true, label:'wim hof' },
+                              Config.get('tools.wimhof') || {});
+      const num = (k, label, min, max, step, hint) => `<div class="f">
+        <label class="lbl">${esc(label)}${hint ? `<em>${esc(hint)}</em>` : ''}</label>
+        <input type="number" data-field="${esc(k)}" value="${esc(w[k])}"
+               min="${min}" max="${max}" step="${step}" aria-label="${esc(label)}"></div>`;
+      return `<div class="ed-card">
+        ${num('rounds', 'Rounds', 1, 10, 1, 'a full breathe, hold and recover')}
+        ${num('breaths', 'Breaths per round', 5, 80, 1)}
+        ${num('pace', 'Seconds per breath', 1, 6, 0.1, 'in and out together \u2014 the ring follows it')}
+        ${num('recovery', 'Recovery hold', 5, 60, 1, 'seconds, on the big inhale')}
+        <div class="f"><label class="lbl">Name it</label>
+          <input type="text" data-field="label" value="${esc(w.label)}" maxlength="40"
+                 aria-label="session name"></div>
+        <div class="setting-row">
+          <span class="setting-lbl">Chime on each phase<small>uses the app\u2019s own sound \u2014 silent while sounds are off</small></span>
+          <button class="tog${w.chime ? ' on' : ''}" data-field="chime" data-toggle-cfg="1"
+                  role="switch" aria-checked="${w.chime}" aria-label="chime on each phase"></button>
+        </div>
+      </div>`;
     },
     read(box) {
-      const out = {};
-      box.querySelectorAll('.ed-card').forEach(card => {
-        const name = card.querySelector('[data-field=label]').value.trim() || card.dataset.key;
-        out[name] = lines(card.querySelector('[data-field=items]').value);
+      const card = box.querySelector('.ed-card'); if (!card) return;
+      const v = k => card.querySelector(`[data-field="${k}"]`);
+      const numOf = (k, dflt, min, max) => {
+        const n = parseFloat((v(k) || {}).value);
+        return isFinite(n) ? Math.min(max, Math.max(min, n)) : dflt;
+      };
+      Config.set('tools.wimhof', {
+        rounds:   numOf('rounds', 3, 1, 10),
+        breaths:  numOf('breaths', 30, 5, 80),
+        pace:     numOf('pace', 2.2, 1, 6),
+        recovery: numOf('recovery', 15, 5, 60),
+        chime:    (v('chime') || {}).classList ? v('chime').classList.contains('on') : true,
+        label:    ((v('label') || {}).value || 'wim hof').trim().slice(0, 40) || 'wim hof',
       });
-      Config.set('tools.decks', out);
-    },
-    add() {
-      const d = Config.get('tools.decks') || {};
-      d[uniqueKey('list', Object.keys(d))] = ['one', 'the other'];
-      Config.set('tools.decks', d);
-    },
-    del(k) {
-      const d = Config.get('tools.decks') || {};
-      delete d[k];
-      Config.set('tools.decks', d);
     },
   },
 
@@ -1514,7 +1517,7 @@ const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors',
-                      'create.areas','tools.timers','tools.decks'];
+                      'create.areas','tools.wimhof'];
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -2318,8 +2321,21 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-key-cap],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-toggle-cfg],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-key-cap],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
   if (!t) return;
+
+  /* A switch inside a content editor. Editors commit on `change`, which a
+     button never fires, so the one thing this needs is to flip itself and then
+     ask the group to read — the same wholesale read every other field in the
+     editor goes through, so there is still no per-field state. */
+  if (t.dataset.toggleCfg) {
+    const on = !t.classList.contains('on');
+    t.classList.toggle('on', on);
+    t.setAttribute('aria-checked', String(on));
+    Prefs.tap();
+    commitGroup(t);
+    return;
+  }
 
   // the home menu and the pill bar
   if (t.dataset.open) { Prefs.tap(); Shell.open(t.dataset.open); return; }
@@ -2436,7 +2452,8 @@ view.addEventListener('click', e => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
        'soundKit','sndTap','sndNav','sndMenu','sndDone','sndMsg',
        'confirmDestructive','numpad',
-       'toastMs','undoSec','keyboardNav','keyMap','lockPortrait','dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
+       'toastMs','undoSec','undoIcon','undoText','keyboardNav','keyMap','lockPortrait',
+       'dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });
   }

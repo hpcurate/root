@@ -333,20 +333,21 @@ const DEFAULTS = {
          most people want from a pomodoro is that it waits for them. */
       autoStart: false,
     },
-    /* The countdown's quick chips, in minutes. A tea, a stretch, a phone call,
-       a pomodoro, a nap, an hour. "other…" covers everything else, so this is
-       a list of the ones worth one tap rather than a list of every length. */
-    timers: [1, 3, 5, 10, 15, 25, 45, 60],
-    /* The decider: named lists, one answer pulled out at random. It is here
-       and not in DO because none of these is a thing to be done — it is the
-       question you are stuck on, and the app's whole job is to stop you
-       weighing it for the fourth time. */
-    decks: {
-      'what next': ['the thing you have been avoiding', 'the quickest one',
-                    'the one with a deadline', 'the one you started',
-                    'nothing — take ten minutes'],
-      'break': ['walk round the block', 'stretch', 'water', 'stand at the window',
-                'ten push-ups', 'nothing at all'],
+    /* The Wim Hof round. The numbers are the method's own: about thirty breaths,
+       a retention that is not timed because its length is the measurement, and
+       a recovery hold of fifteen seconds on a full inhale.
+
+       `pace` is seconds for one whole breath in and out — the ring follows it,
+       so it is the difference between a rhythm you can hold and one you chase.
+       `label` is what the finished session is called in LOG's day and on DAY's
+       schedule, which is why it is a word and not a fixed string in the code. */
+    wimhof: {
+      rounds: 3,
+      breaths: 30,
+      pace: 2.2,
+      recovery: 15,
+      chime: true,
+      label: 'wim hof',
     },
   },
 

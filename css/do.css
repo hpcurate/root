@@ -71,11 +71,21 @@
    and the ratio on a single row, no bar. Roughly a third of the height, so a
    tab with six routines is a screen rather than a scroll, and the grid goes to
    one column — two short rows side by side read as a table, and this is a
-   list. What is dropped is only the *drawing* of the progress: the ratio is
-   still there, and it is the same number the bar was showing. */
+   list.
+
+   The bar is kept, along the bottom edge of the row rather than under the
+   text: it is the one part of the card that is read at a glance rather than
+   counted, and as an inset strip it costs no height, which is the whole point
+   of the minimal card. It follows the card's own rounding so it reads as part
+   of the box and not as a rule under it. */
 .ns-do .grid.mini{grid-template-columns:1fr;gap:calc(6px * var(--dens))}
 .ns-do .card.mini{display:flex;align-items:center;justify-content:space-between;
   gap:calc(12px * var(--dens));padding:calc(11px * var(--dens)) calc(14px * var(--dens))}
+.ns-do .card.mini .card-bar{position:absolute;left:0;right:0;bottom:0;
+  background:none;border-radius:0 0 var(--r1) var(--r1)}
+.ns-do .card.mini .card-bar-fill{border-radius:0 0 0 var(--r1)}
+/* a full bar rounds both bottom corners, so it does not look clipped */
+.ns-do .card.mini.done .card-bar-fill{border-radius:0 0 var(--r1) var(--r1)}
 .ns-do .card.mini .card-t{margin-bottom:0;min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 .ns-do .card.mini .card-s{margin-bottom:0;flex:0 0 auto;font-variant-numeric:tabular-nums}
