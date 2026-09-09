@@ -290,7 +290,14 @@ until it finds a level with more than one thing on it — so a screen's sections
 are whatever that screen's markup actually says they are, with no per-app list
 to keep in step.
 
-Two rules it is built on:
+**Movement is spatial.** Each direction picks the nearest candidate that
+actually lies that way, off `getBoundingClientRect` — walking the list in
+document order is what made a two-column grid send *down* to the right. Sharing
+a row or column with the cursor counts for eight times more than distance. Up
+and down fall back to document order at a dead end so two keys reach everything;
+left and right do not.
+
+Three rules it is built on:
 
 - **The list is rebuilt on every move, never cached.** These screens re-render
   constantly, and a cached list hands back detached nodes. A miss restarts at
@@ -1818,6 +1825,55 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.10 — 2026-09-09 — a direction is a direction, and the layouts actually switch
+
+Two Todoist requests, `@claude`-labelled, fetched 2026-09-09.
+
+- **The cursor moved through the markup, not through the screen** (`@fix` p1,
+  other). That is what "navigates inconsistently" was, and it was the same bug
+  in both previous attempts: DO's home is a two-column grid, so the next node in
+  the document is the card to the **right**, and the one after that is
+  down-and-left. Pressing *down* moved *right*. Every grid, every row of chips
+  and every pair of buttons on a row behaved the same way.
+- **A direction is now a direction.** Each key picks the nearest thing that
+  genuinely lies that way, measured off the boxes the browser has already laid
+  out — the same rule the eye is using, which is why it needs no per-screen
+  knowledge to feel right. Something sharing a row or a column counts for eight
+  times more than raw distance, so the obvious neighbour wins over a closer one
+  that is off to the side. Up and down fall back to document order when nothing
+  is that way, so two keys still reach everything; left and right do not,
+  because a *left* that jumps to the end of the previous row is the surprise
+  this exists to remove.
+- **All four arrows are the cursor.** Two of them used to change tab, which
+  meant the four keys shaped like a direction pad did two unrelated jobs and
+  left/right could not mean what they obviously mean. Tabs are the letters and
+  1–9.
+- **"Let me use the app with one hand"** is a question about *where the keys
+  are*, and it cannot be answered from here — the defaults are already a guess
+  about one layout and this install may not be on it. So it is asked instead:
+  **set them** takes the four directions and the use key in order, binding each
+  as it is pressed. Whatever is comfortable is what gets bound, on any keyboard.
+- **The highlight is a choice of kind, not a volume knob.** 4.5's hard ring was
+  too loud and 4.9's hairline wash was too quiet, which is the shape of a
+  problem that is not solved by a slider. Four treatments (`kbMark`): **lift**
+  (the default — outlined, haloed and raised off the page), **corner arrow**
+  (4.9's), **edge bar** (a thick accent rule down the left, which the eye finds
+  at the margin without scanning), and **spotlight** (everything else goes dark,
+  done with one 100vmax shadow so nothing has to be targeted at the siblings).
+- **TOOLS' new layouts were set but never drawn** (`@fix`, tools). The dial
+  changed and the chip lit; the screen carried on drawing the ring. `tools.js`
+  subscribed to Config and not to Prefs — every other app has subscribed to
+  Prefs for versions, and TOOLS had never had a Prefs dial to subscribe for
+  until 4.9 gave it one. One line.
+- Pre-edit backup: `../root-backup-2026-09-09T20-24-24-999Z/` (2,077 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1110 behavior checks and 6 runner tests passed** (18 added, 2
+  rewritten where they pinned the arrows to the tabs). The scoring is checked
+  against a hand-built two-column grid — pure arithmetic on rectangles, so it is
+  provable here even though jsdom lays nothing out, and it is the part that was
+  actually wrong. **Still not seen in a browser**: the four highlights and the
+  feel of the movement are reasoned about, not looked at.
 
 ### 4.9 — 2026-09-09 — the cursor walks in two levels, TOOLS is four drawings, and today's log can travel
 

@@ -318,7 +318,14 @@ const SCHEMA = {
      steps inside one and `out` comes back. Escape does `out` too and is built
      in, so the way back is never a key you have to have bound. */
   keyMap:       { kind:'keys',
-                  def:{ prev:'a', next:'e', up:',', down:'o', act:' ', in:'u', out:'y' } },
+                  def:{ prev:'a', next:'e', up:',', down:'o', left:'c', right:'t',
+                        act:' ', in:'u', out:'y' } },
+  /* What "you are on this" looks like. Four genuinely different answers rather
+     than four strengths of one, because 4.5's hard ring was too loud and 4.9's
+     hairline wash was too quiet — which suggests the right answer is not a
+     volume knob but a choice of kind. */
+  kbMark:       { kind:'enum',   def:'glow', values:['glow','arrow','bar','spotlight'],
+                                              attr:'data-kb-mark' },
   lockPortrait: { kind:'bool',   def:true,  attr:'data-portrait' },
 
   // formatting
@@ -661,6 +668,7 @@ function apply() {
   root.setAttribute('data-desktop',  prefs.desktopMode);
   root.setAttribute('data-undo-icon', prefs.undoIcon);
   root.setAttribute('data-tools-layout', prefs.toolsLayout);
+  root.setAttribute('data-kb-mark',       prefs.kbMark);
   root.setAttribute('data-undo-text', prefs.undoText ? 'on' : 'off');
   /* Whether the app's own box is wide enough to lay out for, which a media
      query cannot answer: in frame mode the box is a dial, not the window. The

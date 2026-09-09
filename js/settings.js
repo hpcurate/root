@@ -523,14 +523,18 @@ function soundMapHTML() {
    into a text field is asking them to know what the browser calls it. The
    capture reads e.key, which is the layout's own character, so a comma is a
    comma on every keyboard that has one somewhere. */
+/* The five in the middle are the ones a hand sits on, so they are grouped
+   together and offered as one capture — see setAllKeys(). */
 const KEY_ROWS = [
-  { k:'prev', label:'Previous tab',    hint:'the arrow keys always do this too' },
-  { k:'next', label:'Next tab',        hint:'and this' },
-  { k:'up',   label:'Move the cursor up',   hint:'walks the blocks of the screen, then the controls inside one' },
-  { k:'down', label:'Move the cursor down', hint:'an arrow hovers at the corner of whatever is selected' },
-  { k:'in',   label:'Step into a block',    hint:'from the blocks of a screen down to the controls in one' },
-  { k:'out',  label:'Back out to the blocks', hint:'Escape does this too, so the way back is never unbound' },
-  { k:'act',  label:'Use the selected control', hint:'ticks a box, presses a button, steps into a field — and steps into a block, so this key alone gets you anywhere' },
+  { k:'up',    label:'Cursor up',    hint:'moves to whatever is actually above it, not to the next one in the markup' },
+  { k:'left',  label:'Cursor left',  hint:'along a row of chips, or to the tile beside this one' },
+  { k:'right', label:'Cursor right', hint:'the four arrow keys always do these too' },
+  { k:'down',  label:'Cursor down',  hint:'and down falls back to the next control when nothing is below' },
+  { k:'act',   label:'Use it',       hint:'ticks a box, presses a button, steps into a field — and into a block, so this key alone gets you anywhere' },
+  { k:'out',   label:'Back out to the blocks', hint:'Escape does this too, so the way back is never unbound' },
+  { k:'in',    label:'Step into a block',    hint:'optional — the act key already does it' },
+  { k:'prev',  label:'Previous tab',  hint:'1–9 jump straight to one' },
+  { k:'next',  label:'Next tab',      hint:'' },
 ];
 
 const KEY_SHOWN = { ' ': 'space', ',': 'comma', '.': 'period', '/': 'slash' };
@@ -538,7 +542,15 @@ const keyLabel = v => v === '' ? 'none' : (KEY_SHOWN[v] || v);
 
 function keyMapHTML() {
   const map = Prefs.get('keyMap') || {};
-  return `<div class="key-map">${KEY_ROWS.map(r => `
+  return `${chips('kbMark', [
+      { v:'glow', l:'lift' }, { v:'arrow', l:'corner arrow' },
+      { v:'bar', l:'edge bar' }, { v:'spotlight', l:'spotlight' },
+    ], 'What the cursor looks like', 'a lift off the page, a mark at the corner, a bar down the edge, or everything else going dark')}
+    <div class="setting-row">
+      <span class="setting-lbl">Set the five under one hand<small>press up, left, right, down and use — in that order — and it binds them as you go</small></span>
+      <button class="setting-btn" data-act="set-keys">set them</button>
+    </div>
+    <div class="key-map">${KEY_ROWS.map(r => `
     <div class="setting-row">
       <span class="setting-lbl">${esc(r.label)}<small>${esc(r.hint)}</small></span>
       <button class="setting-btn key-cap" data-key-cap="${esc(r.k)}"
@@ -549,6 +561,51 @@ function keyMapHTML() {
       <button class="setting-btn" data-act="reset-keymap">reset</button>
     </div>
   </div>`;
+}
+
+/* Binding the five that matter, in one pass.
+   "Let me use the app with one hand" is a question about *where the keys are*,
+   and the answer cannot be guessed from here — the defaults are already a guess
+   about one layout and this install may not be on it. So rather than shipping
+   another guess, this asks: put a hand down, press the four directions and the
+   use key, and each one is taken as it comes. Whatever is comfortable is what
+   gets bound, on any keyboard, in any layout. */
+const SET_ALL = [
+  { k:'up',    say:'press the key for UP' },
+  { k:'left',  say:'now LEFT' },
+  { k:'right', say:'now RIGHT' },
+  { k:'down',  say:'now DOWN' },
+  { k:'act',   say:'and the one that USES what is selected' },
+];
+function setAllKeys(btn) {
+  if (capturing) capturing();
+  let at = 0;
+  const map = Object.assign({}, Prefs.get('keyMap'));
+  const was = btn.textContent;
+  btn.classList.add('on');
+  const say = () => { btn.textContent = SET_ALL[at] ? SET_ALL[at].say : was; };
+  say();
+  const done = ok => {
+    document.removeEventListener('keydown', onKey, true);
+    capturing = null;
+    btn.classList.remove('on');
+    btn.textContent = was;
+    if (ok) keepScroll(() => { Prefs.set('keyMap', map); Prefs.tap(); renderBehave(); });
+  };
+  function onKey(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') { done(false); return; }
+    const v = e.key.toLowerCase();
+    /* A key cannot be two of these at once, so anything it was doing is
+       dropped as it is taken. */
+    Object.keys(map).forEach(k => { if (map[k] === v) map[k] = ''; });
+    map[SET_ALL[at].k] = v;
+    at++;
+    if (at >= SET_ALL.length) { done(true); Shell.toast('bound to your hand'); return; }
+    say();
+  }
+  capturing = done;
+  document.addEventListener('keydown', onKey, true);
 }
 
 /* Reads the next key pressed and binds it. Capture phase and stopPropagation,
@@ -2462,7 +2519,7 @@ view.addEventListener('click', e => {
       ['startTab','swipe','swipeStrength','autoHideChrome','haptics','sounds','soundLevel',
        'soundKit','sndTap','sndNav','sndMenu','sndDone','sndMsg',
        'confirmDestructive','numpad',
-       'toastMs','undoSec','undoIcon','undoText','keyboardNav','keyMap','lockPortrait','syncTodayPrivate',
+       'toastMs','undoSec','undoIcon','undoText','keyboardNav','keyMap','kbMark','lockPortrait','syncTodayPrivate',
        'dateFormat','weekStart','currency'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('behaviour reset');
     });
@@ -2483,6 +2540,7 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'sync-push-all')     { syncPushAll(t); return; }
   if (t.dataset.act === 'sync-pull-all')     { syncPickAll(); return; }
   if (t.dataset.act === 'sync-undo')         { syncUndo(); return; }
+  if (t.dataset.act === 'set-keys') { setAllKeys(t); return; }
   if (t.dataset.act === 'reset-keymap') {
     keepScroll(() => { Prefs.reset('keyMap'); Prefs.tap(); renderBehave(); }); return;
   }

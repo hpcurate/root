@@ -623,8 +623,41 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
    It is a separate class from :focus-visible because the cursor does *not*
    focus text fields — see the note over the cursor in shell.js — so on those
    there would be nothing for :focus-visible to paint. */
-.kb-sel{outline:1px solid var(--yb);outline-offset:2px;border-radius:var(--r1);
+/* Four ways of saying "you are on this", picked in settings → behaviour.
+   4.5 drew a hard 2px ring and it was too loud; 4.9 drew a hairline wash and it
+   was too quiet. That is not a volume problem, so this is a choice of kind
+   rather than a slider: a lift, a corner arrow, an edge bar, or everything else
+   going dark. All four are on the selection itself except the arrow. */
+.kb-sel{border-radius:var(--r1);
+  transition:box-shadow .14s ease, transform .14s var(--ease-out), background-color .14s ease}
+
+/* glow — the default. Raised and outlined and haloed, so it reads as lifted off
+   the page rather than as a box drawn around it. */
+[data-kb-mark="glow"] .kb-sel{
+  outline:2px solid var(--y);outline-offset:1px;
+  background-color:var(--y-fade);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--y) 18%, transparent),
+             0 6px 18px -8px color-mix(in srgb, var(--y) 55%, transparent);
+  transform:scale(1.015)}
+
+/* arrow — 4.9's: barely there, with the moving mark doing the work */
+[data-kb-mark="arrow"] .kb-sel{outline:1px solid var(--yb);outline-offset:2px;
   background-color:var(--y-fade)}
+
+/* bar — a thick accent edge down the left, and nothing else. The quietest of
+   the four that still cannot be missed, because the eye finds a vertical rule
+   at the margin without having to scan for it. */
+[data-kb-mark="bar"] .kb-sel{
+  box-shadow:inset 3px 0 0 0 var(--y), -3px 0 0 0 var(--y);
+  background-color:var(--y-fade)}
+
+/* spotlight — everything else goes dark. One enormous shadow does it, which is
+   why it needs nothing targeted at the siblings: the selection punches a hole
+   in a sheet laid over the whole screen. */
+[data-kb-mark="spotlight"] .kb-sel{
+  position:relative;z-index:70;
+  outline:2px solid var(--y);outline-offset:1px;
+  box-shadow:0 0 0 100vmax color-mix(in srgb, #000 62%, transparent)}
 
 /* The mark
    A small arrow hovering at the bottom-right corner of whatever is selected.

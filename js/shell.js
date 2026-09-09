@@ -906,6 +906,12 @@ window.Shell = (function () {
      element needing to know it exists. */
   function mark(el) {
     if (!el) { if (markEl) markEl.classList.remove('on'); return; }
+    /* Only the arrow style draws one; the others are all on the selection
+       itself, so there is nothing to place. */
+    if ((pref('kbMark', 'glow') || 'glow') !== 'arrow') {
+      if (markEl) markEl.classList.remove('on');
+      return;
+    }
     if (!markEl) {
       markEl = document.createElement('div');
       markEl.id = 'kb-mark';
@@ -937,39 +943,73 @@ window.Shell = (function () {
     if (level() === 'item' && !isEditable(selEl)) { try { selEl.focus({ preventScroll: true }); } catch {} }
   }
 
-  function moveSel(step) {
+  /* Moving, by where things actually are
+     4.5 and 4.9 both walked the list in **document order**, and that is what
+     "it scrolls between elements inconsistently" was: DO's home is a two-column
+     grid, so the next node in the document is the card to the *right*, and the
+     one after that is down-and-left. Pressing "down" moved right. Every grid,
+     every row of chips and every pair of buttons on a row had the same
+     problem.
+
+     So a direction is now a direction. Each key picks the nearest candidate
+     that genuinely lies that way, measured off the boxes the browser has
+     already laid out — which is the same rule a person's eye is using, and the
+     reason it needs no per-screen knowledge to feel right.
+
+     Up and down fall back to document order when nothing lies that way, so two
+     keys always reach everything on a screen; left and right do not, because a
+     left that jumps to the end of the previous row is the surprise this was
+     meant to remove. */
+  const boxOf = el => el.getBoundingClientRect();
+  const midX = r => r.left + r.width / 2;
+  const midY = r => r.top + r.height / 2;
+  const spanX = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  const spanY = (a, b) => Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+
+  function nearest(dir) {
     const list = ring();
-    if (!list.length) { clearSel(); return; }
-    const at = selEl ? list.indexOf(selEl) : -1;
-    const i = at < 0 ? (step > 0 ? 0 : list.length - 1)
-                     : (at + step + list.length) % list.length;
-    if (selEl) selEl.classList.remove('kb-sel');
-    selEl = list[i];
-    paintSel();
+    if (!selEl) return list[0] || null;
+    const a = boxOf(selEl);
+    let best = null, bestScore = Infinity;
+    for (const el of list) {
+      if (el === selEl) continue;
+      const r = boxOf(el);
+      let gap, off, lined;
+      if (dir === 'down')       { if (r.top    < a.bottom - 2) continue; gap = r.top - a.bottom;  off = Math.abs(midX(r) - midX(a)); lined = spanX(a, r) > 0; }
+      else if (dir === 'up')    { if (r.bottom > a.top    + 2) continue; gap = a.top - r.bottom;  off = Math.abs(midX(r) - midX(a)); lined = spanX(a, r) > 0; }
+      else if (dir === 'right') { if (r.left   < a.right  - 2) continue; gap = r.left - a.right;  off = Math.abs(midY(r) - midY(a)); lined = spanY(a, r) > 0; }
+      else                      { if (r.right  > a.left   + 2) continue; gap = a.left - r.right;  off = Math.abs(midY(r) - midY(a)); lined = spanY(a, r) > 0; }
+      /* Something sharing a row or a column with us is almost always the thing
+         meant, so being out of line costs eight times as much as distance. */
+      const score = Math.max(0, gap) + off * (lined ? 0.25 : 8);
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    return best;
   }
 
-  /* Into a block, or onto the thing the block is. A block holding one control
-     is that control, so stepping in and immediately having to press again
-     would be a step that did nothing. */
-  function enterSel() {
-    if (level() === 'item' || !selEl) return false;
-    const items = itemsOf(selEl);
-    if (items.length <= 1) return false;      // nothing inside worth a level
-    selBlock = selEl;
-    selEl.classList.remove('kb-sel');
-    selEl = items[0];
-    paintSel();
-    return true;
-  }
-  function leaveSel() {
-    if (level() !== 'item') return false;
-    const was = selBlock;
-    if (selEl) selEl.classList.remove('kb-sel');
-    selBlock = null;
+  /* Document order, for the fallback and for a first press. */
+  function stepSel(step) {
     const list = ring();
-    selEl = list.includes(was) ? was : (list[0] || null);
-    if (selEl) paintSel(); else clearSel();
-    return true;
+    if (!list.length) return null;
+    const at = selEl ? list.indexOf(selEl) : -1;
+    return list[at < 0 ? (step > 0 ? 0 : list.length - 1)
+                       : (at + step + list.length) % list.length] || null;
+  }
+
+  function moveSel(dir) {
+    const list = ring();
+    if (!list.length) { clearSel(); return; }
+    let next = null;
+    if (dir === 'up' || dir === 'down') {
+      next = nearest(dir) || stepSel(dir === 'down' ? 1 : -1);
+    } else {
+      next = nearest(dir);
+      if (!next && !selEl) next = list[0];
+    }
+    if (!next || next === selEl) return;
+    if (selEl) selEl.classList.remove('kb-sel');
+    selEl = next;
+    paintSel();
   }
 
   /* Answers whether it did anything, so the act key with nothing selected is
@@ -1004,7 +1044,7 @@ window.Shell = (function () {
      their defaults are a guess about a layout — see Prefs.SCHEMA. A custom
      binding is checked first, so rebinding `up` onto a digit is allowed to win
      over the jump-to-tab key. */
-  const KEY_ACTIONS = ['prev', 'next', 'up', 'down', 'act', 'in', 'out'];
+  const KEY_ACTIONS = ['prev', 'next', 'up', 'down', 'left', 'right', 'act', 'in', 'out'];
 
   function actionFor(e) {
     const map = (window.Prefs && Prefs.get('keyMap')) || {};
@@ -1013,10 +1053,14 @@ window.Shell = (function () {
       const a = KEY_ACTIONS[i];
       if (map[a] && map[a] === k) return a;
     }
-    if (e.key === 'ArrowLeft')  return 'prev';
-    if (e.key === 'ArrowRight') return 'next';
+    /* All four arrows are the cursor now. They used to be two cursor keys and
+       two tab keys, which meant the four keys that look like a direction pad
+       did two unrelated jobs — and left/right could not be used for what they
+       obviously mean. Tabs are the letters and 1-9. */
     if (e.key === 'ArrowUp')    return 'up';
     if (e.key === 'ArrowDown')  return 'down';
+    if (e.key === 'ArrowLeft')  return 'left';
+    if (e.key === 'ArrowRight') return 'right';
     return null;
   }
 
@@ -1040,13 +1084,15 @@ window.Shell = (function () {
     if (e.key === 'Escape') { if (!leaveSel()) clearSel(); return; }
 
     switch (actionFor(e)) {
-      case 'prev': clearSel(); go(index - 1); e.preventDefault(); return;
-      case 'next': clearSel(); go(index + 1); e.preventDefault(); return;
-      case 'up':   moveSel(-1); e.preventDefault(); return;
-      case 'down': moveSel(1);  e.preventDefault(); return;
-      case 'in':   if (!selEl) moveSel(1); else enterSel(); e.preventDefault(); return;
-      case 'out':  if (!leaveSel()) clearSel(); e.preventDefault(); return;
-      case 'act':  if (actOnSel()) e.preventDefault(); return;
+      case 'prev':  clearSel(); go(index - 1); e.preventDefault(); return;
+      case 'next':  clearSel(); go(index + 1); e.preventDefault(); return;
+      case 'up':    moveSel('up');    e.preventDefault(); return;
+      case 'down':  moveSel('down');  e.preventDefault(); return;
+      case 'left':  moveSel('left');  e.preventDefault(); return;
+      case 'right': moveSel('right'); e.preventDefault(); return;
+      case 'in':    if (!selEl) moveSel('down'); else enterSel(); e.preventDefault(); return;
+      case 'out':   if (!leaveSel()) clearSel(); e.preventDefault(); return;
+      case 'act':   if (actOnSel()) e.preventDefault(); return;
     }
 
     if (e.key >= '1' && e.key <= '9') { clearSel(); go(+e.key - 1); e.preventDefault(); }

@@ -636,6 +636,12 @@ function resetAll() {
 }
 
 Config.subscribe(() => { readConfig(); render(); renderSettings(); });
+/* 4.9 gave TOOLS its first *Prefs* dial (the readout layout) and this was the
+   line it needed to go with it: every other app has subscribed to Prefs for
+   versions, TOOLS had nothing to subscribe for. Without it the dial was set,
+   the chip lit, and the screen carried on drawing the old layout — which is
+   what "the new layouts are not selectable" actually was. */
+Prefs.subscribe(k => { if (k === '*' || k === 'toolsLayout') render(); });
 
 Shell.register('tools', {
   onShow: () => { render(); syncTick(); },

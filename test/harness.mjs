@@ -313,8 +313,12 @@ key('a'); check('the bound key steps to the previous tab', $('.tab-b.on')?.datas
   $('.tab-b.on')?.dataset.app);
 key('e'); check('the bound key steps to the next tab', $('.tab-b.on')?.dataset.app === 'plan',
   $('.tab-b.on')?.dataset.app);
-key('ArrowLeft'); check('the arrows still work alongside the letters',
-  $('.tab-b.on')?.dataset.app === 'log', $('.tab-b.on')?.dataset.app);
+/* 4.10 took the arrows off the tabs. All four are the cursor now — two of them
+   being tab keys meant the four keys that look like a direction pad did two
+   unrelated jobs, and left/right could not mean what they obviously mean.
+   Tabs are the letters and 1-9. */
+key('ArrowLeft'); check('the arrows no longer change tab — they are all cursor now',
+  $('.tab-b.on')?.dataset.app === 'plan', $('.tab-b.on')?.dataset.app);
 
 w.Prefs.set('keyMap', Object.assign({}, kmWas, { prev: 'q' }));
 w.Shell.go('plan');
@@ -6226,9 +6230,9 @@ check('the rebindable keys are findable by name, like every other dial',
     'a routine card does not match the selector');
 
   check('the two levels and their keys exist', /function blocksOf\(/.test(shellJs49) &&
-    /KEY_ACTIONS = \['prev', 'next', 'up', 'down', 'act', 'in', 'out'\]/.test(shellJs49));
-  check('… and both are rebindable, with defaults for each',
-    ['prev','next','up','down','act','in','out'].every(a => a in w.Prefs.get('keyMap')),
+    /KEY_ACTIONS = \['prev', 'next', 'up', 'down', 'left', 'right', 'act', 'in', 'out'\]/.test(shellJs49));
+  check('… and every one of them is rebindable, with a default',
+    ['prev','next','up','down','left','right','act','in','out'].every(a => a in w.Prefs.get('keyMap')),
     JSON.stringify(w.Prefs.get('keyMap')));
   check('… while Escape climbs a level rather than only giving up',
     /if \(!leaveSel\(\)\) clearSel\(\)/.test(shellJs49));
@@ -6307,6 +6311,95 @@ check('the rebindable keys are findable by name, like every other dial',
     /\.ns-tools \.break\{--tl-c/.test(toolsCss49) && /\.ns-tools \.whf\.hold\{--tl-c/.test(toolsCss49));
   w.Prefs.reset('toolsLayout');
   w.TOOLS.render();
+}
+
+/* 4.10 — a direction is a direction, and the layouts actually switch. */
+{
+  const shellJs410 = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
+  check('movement is measured off the boxes the browser laid out, not the markup',
+    /function nearest\(dir\)/.test(shellJs410) && /getBoundingClientRect/.test(shellJs410),
+    'still walking document order');
+  check('… and being out of line with the cursor costs more than distance does',
+    /off \* \(lined \? 0\.25 : 8\)/.test(shellJs410));
+  check('… while up and down still fall back to document order, so two keys reach everything',
+    /nearest\(dir\) \|\| stepSel\(dir === 'down' \? 1 : -1\)/.test(shellJs410));
+
+  /* The scoring is the whole fix, and it is pure arithmetic on rectangles — so
+     it can be checked here even though jsdom cannot lay anything out. This is
+     DO's home: two columns, four cards. In document order "down" from the first
+     card is the card to its RIGHT, which is exactly what was wrong. */
+  const grid = [
+    { name:'a', left:0,   right:150, top:0,   bottom:60 },
+    { name:'b', left:170, right:320, top:0,   bottom:60 },
+    { name:'c', left:0,   right:150, top:70,  bottom:130 },
+    { name:'d', left:170, right:320, top:70,  bottom:130 },
+  ].map(r => Object.assign(r, { width: r.right - r.left, height: r.bottom - r.top }));
+  const midX = r => r.left + r.width / 2, midY = r => r.top + r.height / 2;
+  const spanX = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  const spanY = (a, b) => Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+  /* the same scoring shell.js uses, applied to those rectangles */
+  const pick = (from, dir) => {
+    const a = grid.find(r => r.name === from);
+    let best = null, bestScore = Infinity;
+    for (const r of grid) {
+      if (r === a) continue;
+      let gap, off, lined;
+      if (dir === 'down')       { if (r.top    < a.bottom - 2) continue; gap = r.top - a.bottom;  off = Math.abs(midX(r) - midX(a)); lined = spanX(a, r) > 0; }
+      else if (dir === 'up')    { if (r.bottom > a.top    + 2) continue; gap = a.top - r.bottom;  off = Math.abs(midX(r) - midX(a)); lined = spanX(a, r) > 0; }
+      else if (dir === 'right') { if (r.left   < a.right  - 2) continue; gap = r.left - a.right;  off = Math.abs(midY(r) - midY(a)); lined = spanY(a, r) > 0; }
+      else                      { if (r.right  > a.left   + 2) continue; gap = a.left - r.right;  off = Math.abs(midY(r) - midY(a)); lined = spanY(a, r) > 0; }
+      const score = Math.max(0, gap) + off * (lined ? 0.25 : 8);
+      if (score < bestScore) { bestScore = score; best = r; }
+    }
+    return best && best.name;
+  };
+  check('down from the top-left card goes to the one under it, not the one beside it',
+    pick('a', 'down') === 'c', pick('a', 'down'));
+  check('right from it goes to the one beside it', pick('a', 'right') === 'b', pick('a', 'right'));
+  check('up from the bottom-right comes back up its own column',
+    pick('d', 'up') === 'b', pick('d', 'up'));
+  check('left from it crosses its own row', pick('d', 'left') === 'c', pick('d', 'left'));
+  check('and a direction with nothing that way picks nothing rather than something surprising',
+    !pick('a', 'up') && !pick('b', 'right'),
+    String(pick('a', 'up')) + '/' + String(pick('b', 'right')));
+
+  /* "Use the app with one hand" is a question about where the keys are, and
+     that cannot be guessed from here — so it is asked instead. */
+  check('the five that a hand sits on can be bound in one pass',
+    /function setAllKeys\(/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
+
+  /* The highlight is a choice of kind, not a volume knob. */
+  ['glow', 'arrow', 'bar', 'spotlight'].forEach(v => {
+    w.Prefs.set('kbMark', v);
+    check('the cursor can look like: ' + v, d.documentElement.dataset.kbMark === v,
+      d.documentElement.dataset.kbMark);
+  });
+  const shellCss410 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+  check('… and each one is a different treatment, not the same one restated',
+    /\[data-kb-mark="glow"\] \.kb-sel\{/.test(shellCss410) &&
+    /\[data-kb-mark="bar"\] \.kb-sel\{/.test(shellCss410) &&
+    /\[data-kb-mark="spotlight"\] \.kb-sel\{[^}]*100vmax/.test(shellCss410));
+  w.Prefs.reset('kbMark');
+}
+
+/* 4.10 — the TOOLS layouts were set but never drawn. */
+{
+  const toolsJs410 = fs.readFileSync(path.join(ROOT, 'js/tools.js'), 'utf8');
+  check('TOOLS listens to Prefs, which is what made its own dial do nothing',
+    /Prefs\.subscribe\(k => \{ if \(k === '\*' \|\| k === 'toolsLayout'\) render\(\); \}\)/.test(toolsJs410),
+    'tools.js still only subscribes to Config');
+
+  w.Shell.go('tools');
+  w.Prefs.set('toolsLayout', 'ring');
+  check('it starts on the ring', !!$('.ns-tools .tl-ring'));
+  /* the bug: setting the dial from settings, with no other call, must redraw */
+  w.Prefs.set('toolsLayout', 'stack');
+  check('setting the dial redraws it, with no other prompting',
+    !!$('.ns-tools .tl-stack') && !$('.ns-tools .tl-ring'),
+    ['tl-ring','tl-bar','tl-stack','tl-plain'].filter(c => $('.ns-tools .' + c)).join(',') || 'none');
+  w.Prefs.set('toolsLayout', 'plain');
+  check('… and again, for each of them', !!$('.ns-tools .tl-plain'));
+  w.Prefs.reset('toolsLayout');
 }
 
 check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));
