@@ -1,13 +1,9 @@
-/* ── DO ───────────────────────────────────────────────────────────────────────
-   Daily checklists + the persistent Travel packing lists. Every rule is the
-   original from complete/index.html, scoped under .ns-do so it cannot reach the
-   other three views. Only the screen box model changed: a screen used to be the
-   scrolling viewport itself, and is now a page inside its slide. */
+/* DO routines, tasks and packing lists. */
 
 .ns-do .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-do .scr.on{display:block}
 
-/* ── Sticky sub-screen header ── */
+/* Sticky sub-screen header ── */
 .ns-do .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
@@ -16,27 +12,17 @@
 .ns-do .hd-action{background:none;border:none;color:var(--mu);font:400 11px/1 var(--mono);cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-do .hd-action:active{color:var(--y)}
 
-/* ── Home top ──
+/* Home top ──
    The band's box — padding, height, the label row, the wordmark's size — is
    set once for all eight apps in shell.css, so nothing about it is repeated
    here. What is left is what is DO's own. */
 .ns-do .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-do .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-do .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-do .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-do .h-logo em{font-style:normal}
 
-/* ── Home tab selector ────────────────────────────────────────────────────────
-   The strip is built from Config, so its width follows however many tabs the
-   user has defined — it can no longer be drawn for the two it shipped with. It
-   shrinks to the row rather than running off the screen edge, and scrolls
-   sideways once the chips stop fitting, so a fifth tab is still reachable.
-
-   touch-action is what makes that scroll work at all: the browser resolves a
-   gesture by intersecting touch-action up the ancestor chain, and #track claims
-   pan-y, so without handing pan-x back here the strip is scrollable by mouse and
-   frozen under a finger. Shell's scrollsSideways() sees the same overflow and
-   declines the app-level swipe, so a drag on the strip moves the strip instead
-   of sliding the whole app to LOG. */
+/* Config can add tabs beyond the available width. Keep horizontal scrolling
+   and touch-action explicit; Shell yields app swipes over this strip. */
 /* In the band its height is declared (`--band-row`), not left to its padding:
    at a high density a padded chip grew past the row and made DO's band the odd
    one out, which is the thing the shared band shape exists to prevent. */
@@ -64,7 +50,7 @@
 .ns-do .h-act:active{color:var(--y)}
 .ns-do .h-act.sync{color:var(--y)}
 
-/* ── Card grid ── */
+/* Card grid ── */
 .ns-do .grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens));padding:0 calc(18px * var(--dens))}
 .ns-do .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
       padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));cursor:pointer;position:relative;
@@ -79,7 +65,7 @@
 .ns-do .card-bar-fill{height:100%;background:var(--y);border-radius:var(--r1);transition:width .25s ease}
 .ns-do .card.done .card-bar-fill{background:var(--gr)}
 
-/* ── Minimal cards ────────────────────────────────────────────────────────────
+/* Minimal cards
    Settings → apps → do → "Routine cards". The full card is a name, a "3 / 7
    done" line and a progress bar stacked in a box; the minimal one is the name
    and the ratio on a single row, no bar. Roughly a third of the height, so a
@@ -107,7 +93,7 @@
 .ns-do .grid-clear em{display:block;margin-top:8px;font:400 9px/1.5 var(--mono);
   letter-spacing:.04em;text-transform:none;color:var(--mu);font-style:normal}
 
-/* ── Checklist screen ── */
+/* Checklist screen ── */
 .ns-do .cnt{padding:calc(18px * var(--dens))}
 .ns-do .cl-progress{margin-bottom:16px}
 .ns-do .cl-bar{height:3px;background:var(--bd);border-radius:var(--r1);overflow:hidden;margin-bottom:8px}
@@ -117,7 +103,7 @@
 .ns-do .cl-stats em{color:var(--y);font-style:normal}
 .ns-do .cl-progress.all-done .cl-stats em{color:var(--gr)}
 
-/* ── Item toggle buttons ── */
+/* Item toggle buttons ── */
 .ns-do .item-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           color:var(--mu);font:400 13px/1 var(--mono);letter-spacing:.05em;
           padding:calc(15px * var(--dens)) calc(14px * var(--dens));cursor:pointer;text-align:left;
@@ -133,13 +119,13 @@
 .ns-do .item-check-svg{width:10px;height:10px;opacity:0;transition:opacity .1s}
 .ns-do .item-btn.checked .item-check-svg{opacity:1}
 
-/* ── Done banner ── */
+/* Done banner ── */
 .ns-do .done-banner{background:rgba(92,219,125,.07);border:var(--bw) solid rgba(92,219,125,.2);
              border-radius:var(--r1);font:400 11px/1.6 var(--mono);color:var(--gr);
              letter-spacing:.06em;text-align:center;padding:calc(14px * var(--dens));margin-bottom:14px;display:none}
 .ns-do .done-banner.show{display:block}
 
-/* ── Settings ── */
+/* Settings ── */
 .ns-do .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
      margin:20px 0 12px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
 .ns-do .setting-row{display:flex;align-items:center;justify-content:space-between;
@@ -155,7 +141,7 @@
 .ns-do .data-warn{font:400 10px/1.6 var(--mono);color:var(--mu);padding:calc(12px * var(--dens)) calc(14px * var(--dens));margin-bottom:16px;
            background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
 
-/* ── Todoist sync ── */
+/* Todoist sync ── */
 .ns-do .f{margin-bottom:14px}
 .ns-do .lbl{display:block;font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);
      color:var(--mu);margin-bottom:7px}
@@ -185,7 +171,7 @@
 .ns-do .tt-glyph{flex:0 0 auto;font-size:15px;line-height:1;margin-top:1px}
 .ns-do .tt-src{color:var(--tx-2)!important}
 
-/* ── Today's tasks from Todoist ───────────────────────────────────────────────
+/* Today's tasks from Todoist
    A block under the routine grid, not another card: a list you tick, with the
    labels and the priority Todoist gave each task. */
 /* a section owns its space below as well as above: with the blocks first, the
@@ -199,16 +185,8 @@
   font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   padding-bottom:calc(8px * var(--dens));margin-bottom:10px;border-bottom:var(--bw) solid var(--bd)}
 .ns-do .tt-head em{color:var(--mu);font:400 10px/1 var(--mono);letter-spacing:.06em;text-transform:none;margin-left:8px}
-/* The section's own title is the fold switch. It has to look like the plain
-   heading it replaced — a heading that is a button is only obvious once, and
-   after that it is just the heading — so the only tell is the caret.
-
-   **It is `.tt-fold`, not `.tt-name`.** `.tt-name` is declared twice in this
-   sheet: here, and again further down as a *task row's* name — 12.5px mono in
-   the foreground colour. Same specificity, and the row's rule is written later,
-   so it won every time: QUICK's heading had been set in a task row's font while
-   BLOCKS, TODAY and MEDIA used the head's own 10px letter-spaced accent caps.
-   The two names had nothing to do with each other and only ever collided. */
+/* Use tt-fold for the heading control: tt-name belongs to task rows and its
+   later rule would override the heading's typography. */
 .ns-do .tt-fold{display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;
   color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer;
   min-width:0}
@@ -282,7 +260,7 @@
 .ns-do .bk-move-b:disabled{opacity:.35;cursor:default}
 .ns-do .bk-move-hint{font:400 9px/1.4 var(--mono);color:var(--mu);letter-spacing:.04em;margin-left:auto}
 
-/* ── The days before today, when "show done" reaches past it ──────────────────
+/* The days before today, when "show done" reaches past it
    Names, not tiles. A past day's blocks come from LOG's record and carry no
    Todoist id, no colour and nothing to tick — drawing them as tiles would offer
    an action that does not exist. They are a list under a date, at the weight of
@@ -298,18 +276,8 @@
 .ns-do .bk-past-names{flex:1 1 auto;min-width:0;font:400 10.5px/1.5 var(--mono);
   color:var(--mu);word-break:break-word}
 .ns-do .bk.sel{background:color-mix(in srgb,var(--bk-c) 32%,var(--s1));box-shadow:0 0 0 2px var(--bk-c)}
-/* ── The media list ───────────────────────────────────────────────────────────
-   Rows, not tiles. The thing on a media row is a *title* — long, and the whole
-   point of the row — so it gets the full width and two lines before it gives
-   up, where the 2.8 tile gave it a third of a phone and an ellipsis. Every
-   other part of the row is subordinate to it: the colour is a 3px rail down
-   the left edge (the same device CAL uses for a project), the kind and the
-   second label are one small line beneath, and the tick sits on the right
-   where every tickable row in ROOT keeps it.
-
-   The rail rather than a wash: a list of twelve rows each washed in its own
-   label colour is a list nobody can read down. One colour per row, on one
-   edge, and the eye still groups them. */
+/* Media titles have two lines at full width. Label colour stays in the left
+   rail so mixed categories do not tint the text backgrounds. */
 .ns-do .md-group{margin-bottom:calc(14px * var(--dens))}
 .ns-do .md-group:last-child{margin-bottom:0}
 .ns-do .md-lbl{display:flex;align-items:baseline;gap:8px;margin-bottom:calc(7px * var(--dens));
@@ -355,7 +323,7 @@
 /* what "surprise me" landed on */
 .ns-do .md-row.picked{border-color:var(--bk-c);background:color-mix(in srgb,var(--bk-c) 12%,var(--s1))}
 
-/* ── The bar over the list ──
+/* The bar over the list ──
    Kind chips on one row, then find and sort on the next. The chips scroll
    sideways rather than wrapping — a fifth label should lengthen the strip, not
    push the tools down the screen — which means claiming pan-x, the same trap
@@ -390,7 +358,7 @@
   transition:color var(--dur-1),border-color var(--dur-1)}
 .ns-do .md-sort:active{color:var(--y);border-color:var(--y)}
 
-/* ── Quick tasks ──
+/* Quick tasks ──
    Card-shaped like a routine card, because that is what they are read as. One
    column, not two: a card with subtasks is a checklist and a checklist at half
    width wraps every row. A childless card is the same box with no list under
@@ -441,7 +409,7 @@
 .ns-do .qk-tick svg{width:9px;height:9px}
 .ns-do .qk-item.checked .qk-tick{background:var(--bk-c);border-color:var(--bk-c);color:var(--on-y)}
 
-/* ── The consistency strip ──
+/* The consistency strip ──
    One flexed cell per day, so however many days are asked for it is exactly as
    wide as the section — a fixed-width row here is what took DO's tabs off the
    right edge in 2.0. */
@@ -465,7 +433,7 @@
 .ns-do textarea:focus{border-color:var(--y)}
 .ns-do .lbl em{font-style:normal;color:var(--tx-2);text-transform:none;letter-spacing:.04em}
 
-/* ── Travel ── */
+/* Travel ── */
 .ns-do .tv-sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
         margin:22px 0 10px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd);
         display:flex;align-items:center;justify-content:space-between}

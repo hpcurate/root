@@ -1,42 +1,7 @@
-/* ── CREATE ───────────────────────────────────────────────────────────────────
-   The work being made, and what was done to it.
-
-   The shape of the app, in one sentence: a piece of work sits on a stage, the
-   stage asks a checklist of it, and every hour at the desk is written down.
-   Three screens — the shelf, one work, the session log — and no network at
-   all. CREATE never talks to Todoist: a song is not a task, it is not due, and
-   a shelf of unfinished things is the normal state of the room rather than a
-   backlog to clear.
-
-   ── Areas ───────────────────────────────────────────────────────────────────
-   4.0 is the version that made there be more than one kind of work in here.
-   **production** is the songs being made; **mixing** is the DJ sets being
-   built. They are not two apps: the machine is identical — a thing on a stage,
-   a checklist, hours in the log — and only the vocabulary differs. So an area
-   is a block in `create.areas`: its name, its colour, the noun for one of its
-   things, the stages it walks and the words its sessions are called. A third
-   area needs no code and no CSS.
-
-   Nothing in this file is written for two areas. Everything walks `AREAS`, and
-   the home screen is a combined view with the areas as its filter — which is
-   the whole reason the shelf can hold both without becoming two shelves.
-
-   What is Config's and what is this file's:
-     · the areas, their stages, their checklists and their session words are
-       Config (`create.areas`), so the path a work walks is editable in
-       Settings → create
-     · the works, their ticks, their notes and every session are in `create_v1`
-   A stage's `key` is the identity a work's stage and every one of its ticks is
-   filed under, and it only has to be unique inside its own area — a tick is
-   filed under `areaKey|stageKey|item text`, so both areas may have a stage
-   called `idea`. Reordering a checklist keeps every tick and rewording a line
-   drops that one line's — the trade written up in ROOT.md §6.
-
-   Markup is in two places (the slide and the settings panel), so every button
-   carries `data-act` and one document-level listener filtered on
-   `.closest('.ns-create')` dispatches — TEND's pattern, and for TEND's reason:
-   a work's name interpolated into an inline handler is one more thing to get
-   wrong. */
+/* CREATE: works, stage checklists and sessions, configured by create.areas
+   and stored in create_v1. Tick keys are area|stage|item text.
+   The curate tab reads Todoist and closes/reopens tasks; other screens are local.
+   Delegated data-act handlers also cover the settings panel. */
 window.CREATE = (function () {
 'use strict';
 
@@ -50,7 +15,7 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 
 const KEY = 'create_v1';
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 let AREAS, HOME, CURATE;
 /* The three meta chips a work can carry. An area names which of them it asks
    for — a song has a key, a DJ set does not — and an unnamed field is simply
@@ -129,7 +94,7 @@ const isDone  = w => !!stageOf(w).terminal;
 const tickKey = (areaKey, stageKey, item) => areaKey + '|' + stageKey + '|' + item;
 const colorOf = st => (st && st.color) || '#7a8699';
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 /* `curate` is a *cache*, not data: what the last read of Todoist returned, so
    the tab draws instantly and refetches in the background. Nothing in it is
    ever authored here and losing it costs one network call. */
@@ -139,7 +104,7 @@ let DB = blank();
 let uid = 0;
 const newId = p => p + '_' + Date.now().toString(36) + '_' + (uid++).toString(36);
 
-/* ── Reading what is stored ────────────────────────────────────────────────
+/* Reading what is stored
    A v1 record is a shelf of `songs`, every one of them a production song, and
    its ticks are filed under `stageKey|item` because there was only ever one
    area to file them under. Both are lifted here rather than left to a repair
@@ -197,7 +162,7 @@ function normalise(raw) {
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   db.settings = Object.assign({ sort:null, showDone:false, area:'all' }, db.settings || {});
-  /* ── The curate cache is rebuilt from its known keys, never trusted ────────
+  /* The curate cache is rebuilt from its known keys, never trusted
      It is the only thing in this record that did not come from the app itself,
      and it is the only thing whose *row shape* has changed between versions —
      4.1 cached label-query rows with no `subs`, 4.1.1 caches project rows that
@@ -259,7 +224,7 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {
 const workById = id => DB.works.find(w => w.id === id) || null;
 function touch(work) { work.touched = Shell.today(); }
 
-/* ── Dates ─────────────────────────────────────────────────────────────────── */
+/* Dates */
 const D = s => { const p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12, 0, 0); };
 const isISO = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const daysAgo = iso => isISO(iso) ? Math.round((D(Shell.today()) - D(iso)) / 864e5) : null;
@@ -278,7 +243,7 @@ function hrs(h) {
   return m ? whole + 'h' + String(m).padStart(2, '0') : whole + 'h';
 }
 
-/* ── Progress ──────────────────────────────────────────────────────────────── */
+/* Progress */
 function progress(work) {
   const a = areaOf(work), st = stageOf(work);
   const items = st.items || [];
@@ -286,7 +251,7 @@ function progress(work) {
   return { done, total: items.length, stage: st, area: a };
 }
 
-/* ── Sessions ──────────────────────────────────────────────────────────────── */
+/* Sessions */
 const sessionsFor = id => DB.sessions.filter(e => e.work === id);
 function weekWindow() {
   const days = Math.max(1, +HOME.weekDays || 7);
@@ -327,7 +292,7 @@ function weekStats(areaKey) {
            works: new Set(rows.map(e => e.work).filter(Boolean)).size };
 }
 
-/* ── Screens ───────────────────────────────────────────────────────────────── */
+/* Screens */
 let screen = 'home';
 let openId = null;
 /* The log form's own state, kept here rather than in the DOM so a tick or a
@@ -356,7 +321,7 @@ function render() {
   if (screen === 'sessions') renderSessions();
 }
 
-/* ── The shelf ─────────────────────────────────────────────────────────────
+/* The shelf
    One shelf holding every area, with the areas as its filter. That is the
    whole argument for not making mixing its own tab: what is on the desk this
    week is one question, and it stops being answerable the moment the answer
@@ -399,7 +364,7 @@ function sortWorks(rows) {
   return rows.slice().sort(by[m] || by.touched);
 }
 
-/* ── The tab strip ────────────────────────────────────────────────────────
+/* The tab strip
    DO's DAILY / MEDIA / OTHER selector, in CREATE: one bordered rail, flat
    chips inside it, and a glider that slides under the selected one. The shape
    lives in create.css and is a deliberate copy of `.ns-do .tabs` — ROOT.md §6
@@ -561,7 +526,7 @@ function renderHome() {
     <button class="cr-act" data-act="open-sessions">the whole session log →</button>`;
 }
 
-/* ── The band ──────────────────────────────────────────────────────────────
+/* The band
    One number, at the right end of the wordmark's row, in the box LOG's and
    DAY's day numbers live in — and it shuffles the same way, through
    `Shell.rollNum`. The label above the wordmark says what it is counting.
@@ -570,7 +535,7 @@ function renderHome() {
    on one digit, on the screen whose job is to list what is on the shelf. The
    total it also carried is not lost — the "Finished" fold below says how many
    are done, which is the same subtraction. */
-/* ── The tally ──────────────────────────────────────────────────────────────
+/* The tally
    On `all` the one number was a summary of things that are not the same kind
    of thing: songs on the desk, mixes on the desk, and somebody else's open
    list. Added together it answers nothing. So on `all` the row carries one
@@ -611,28 +576,8 @@ function renderBand() {
   if (box && !cols && window.Shell && Shell.rollNum) Shell.rollNum(box, String(n), n);
 }
 
-/* ── Two bars, not one ─────────────────────────────────────────────────────
-   4.1.2 drew one tick per checklist item, which said how far through *this
-   stage* the work is and nothing at all about where the stage sits on the
-   path. A song four ticks into `idea` and a song four ticks into `master`
-   drew the identical shape, and those are not the same song.
-
-   So there are two, stacked, and they answer the two questions separately:
-
-     · the **stage** bar — one segment per stage of the area, lit up to and
-       including the one the work is on. The long arc, and the reason a mix
-       three stages in reads differently from one that has just started.
-     · the **step** bar — one segment per item of that stage's checklist,
-       lit for what is ticked. The short arc, and the one that moves today.
-
-   Both are rounded squares rather than the 1px slivers the ticks were: at
-   `--r1` a segment reads as a block that was filled in, which is what it is.
-   A stage with no checklist (the terminal one) has no step bar at all rather
-   than an empty rail — there is nothing left to ask of it.
-
-   Past LONG_LIST the step segments would be thinner than the gaps between
-   them, so that one bar alone falls back to a rail. The stage bar never does:
-   an area with sixteen stages is not a thing anyone has. */
+/* Progress: one segment per stage, then one per current checklist item.
+   Omit the step bar for empty checklists; use a rail above LONG_LIST items. */
 const LONG_LIST = 16;
 function barHTML(cls, done, total, label) {
   if (total > LONG_LIST) {
@@ -665,36 +610,9 @@ function workRow(w) {
   </button>`;
 }
 
-/* ── CURATE — the one thing in here that reaches the network ──────────────────
-   A whole Todoist **project**, drawn under the sections it is arranged into, in
-   the order it is arranged in: section order, then each task's own order inside
-   its section, with subtasks nested under the task they belong to. That is what
-   "sorted nicely" means — the order you put them in over there, not an order
-   invented here.
-
-   **It reads, and it closes — nothing else.** Through 4.1 this tab was strictly
-   read-only, on the grounds that a third app with an opinion about the same
-   list is how two of them end up disagreeing. Ticking one off is the exception
-   that argument does not cover: a record you have gone and found is *done*, and
-   walking to DO to say so is the kind of errand that ends with the list never
-   being trusted. So a row can be closed and reopened, and that is the whole of
-   what CREATE writes. It still never moves, reschedules, renames or creates a
-   task — filing one is PLAN's job and always was.
-
-   The write is the same one DO and TEND make (`/tasks/<id>/close`), and it is
-   the safest call in the API: nothing is destroyed, and a task closed by
-   mistake is one tap from being reopened. What it cannot do is fail silently —
-   the tick is drawn at once, and put back if the call does not land.
-
-   The shelf has no network at all. This is the exception, kept to one function
-   and one cache: that project is the pile of records to find, subscriptions to
-   renew and tutorials to watch that a song or a set is *made out of*, which is
-   the same question the shelf answers, kept somewhere else.
-
-   The cache is `DB.curate`, drawn immediately on every visit and refreshed
-   behind it when it is older than `maxAgeMin`. A first visit with nothing
-   cached shows the empty state and the spinner together, which is the honest
-   thing for a screen whose content lives on someone else's server. */
+/* Curate preserves Todoist section/task order and nests subtasks.
+   Only close/reopen writes are allowed; optimistic ticks roll back on failure.
+   Draw DB.curate immediately, then refresh when older than maxAgeMin. */
 let curateBusy = false, curateErr = '';
 /* Ids whose close/reopen has not answered yet — one row cannot be tapped twice
    into two contradictory calls, and the second tap is the one that would win. */
@@ -930,7 +848,7 @@ function curateGroups(groups) {
   </div>`).join('');
 }
 
-/* ── One work ──────────────────────────────────────────────────────────────── */
+/* One work */
 function renderWork() {
   const w = workById(openId); if (!w) return;
   const a = areaOf(w), st = stageOf(w), c = colorOf(st);
@@ -1018,7 +936,7 @@ const sesRow = (e, withWork) => `<div class="cr-ses${e.work ? '' : ' loose'}">
   <button class="x" data-act="del-session" data-e="${esc(e.id)}" aria-label="remove session">×</button>
 </div>`;
 
-/* ── The session log ───────────────────────────────────────────────────────
+/* The session log
    The same filter the shelf has, for the same reason: the hours are one
    number until you want to know which of the two things ate the week. */
 let logArea = 'all';
@@ -1044,7 +962,7 @@ function renderSessionFilter() {
   positionGlider(bar);
 }
 
-/* ── A session that belongs to nothing ─────────────────────────────────────
+/* A session that belongs to nothing
    "sometimes i am just tinkering." An hour at the desk that produced no song
    and no mix is still an hour at the desk, and until 4.3 there was nowhere to
    put it: the only log form was on a work's own screen, so the record could
@@ -1103,7 +1021,7 @@ function renderSessionBody() {
       : `<div class="cr-empty">Nothing logged in ${esc(AREAS[areaIx(logArea)].label)} yet.</div>`}`;
 }
 
-/* ── Doing things ──────────────────────────────────────────────────────────── */
+/* Doing things */
 function addWork(areaKey) {
   const a = AREAS[areaIx(areaKey)];
   Shell.prompt('Name the ' + a.noun + '\nIt can be a working title — it is renamed from its own screen.', '', name => {
@@ -1189,7 +1107,7 @@ function deleteWork() {
   });
 }
 
-/* ── The delegated listener ────────────────────────────────────────────────── */
+/* The delegated listener */
 document.addEventListener('click', ev => {
   if (!ev.target.closest || !ev.target.closest('.ns-create')) return;
   const t = ev.target.closest('[data-act]');
@@ -1272,7 +1190,7 @@ document.addEventListener('change', ev => {
   if (el.id === 'cr-file') importData(ev);
 });
 
-/* ── Settings ──────────────────────────────────────────────────────────────── */
+/* Settings */
 function renderSettings() {
   /* The panel's three fields are declared in index.html and written by
      settings.js's data-cfg listener; what is filled in here is what they
@@ -1363,7 +1281,7 @@ function resetAll() {
   });
 }
 
-/* ── Boot ──────────────────────────────────────────────────────────────────── */
+/* Boot */
 load();
 render();
 
@@ -1403,7 +1321,7 @@ return { render, renderSettings, go, addWork, exportData, importData, resetAll,
          reload: () => { load(); openId = null; render(); renderSettings(); },
          works: () => DB.works.slice(), sessions: () => DB.sessions.slice(),
          areas: () => AREAS.slice(),
-         /* ── What LOG reads ──
+         /* What LOG reads ──
             One day's work at the desk, and the same over a range. Synchronous
             readers over `create_v1`, the shape TRACK.doneOn and
             LEARN.dailyStats already have: LOG stores nothing of CREATE's, it

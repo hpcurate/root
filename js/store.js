@@ -1,21 +1,15 @@
-/* ── STORE ────────────────────────────────────────────────────────────────────
-   Grocery list with auto-categorisation, in-store € counter with numpad and
-   entry log, premade meals, trip history, and add-only Todoist union sync.
-   Logic is unchanged from eat/index.html. Merge-only changes: one IIFE published
-   as window.STORE, DOM lookups scoped to .ns-store, the slide scrolls instead of
-   the window, toast() goes to the shell.
-   Storage keys are untouched: store_state_v1, with the one-time read of the
-   pre-rename eat_state_v1 still in place. */
+/* STORE: groceries, spending, meals, trips and add-only Todoist union sync.
+   Storage: store_state_v1, with a one-time migration from eat_state_v1. */
 window.STORE = (function () {
 'use strict';
 
 const SCOPE = '.ns-store ';
-const view  = document.querySelector('#view-store .view-body');   // the scroll container (Shell wraps it)
+const view  = document.querySelector('#view-store .view-body');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
-/* ─── Content ─────────────────────────────────────────────────────────────────
+/* Content
    The aisles and the premade meals used to be two literals here. They live in
    js/config.js now and are edited from Settings → content. Read once into
    module bindings — every render touches them repeatedly — and refreshed
@@ -30,7 +24,7 @@ let MEALS      = Config.get('store.meals');
    in nine places. */
 const CUR = () => Prefs.get('currency') || '€';
 
-// ─── Categorisation ──────────────────────────────────────────────────────────
+// Categorisation
 /* Extra vocabulary on top of the CATEGORIES item lists: synonyms, plurals the
    stemmer won't reach, brands, and French names (the item lists already mix in
    "porc", "origan", "creme fraiche"). Multi-word terms win over single words,
@@ -194,7 +188,7 @@ function classifyBase(raw) {
   return best.score >= 25 ? best : { cat: 'manual', score: best.score };
 }
 
-// ─── State ───────────────────────────────────────────────────────────────────
+// State
 const SK = 'store_state_v1';
 const SK_LEGACY = 'eat_state_v1';   // pre-rename key — read once, then migrate
 const TD_DEFAULTS = { token:'', project:'04|life', section:'home|groceries',
@@ -231,7 +225,7 @@ function saveState() {
   localStorage.setItem(SK, JSON.stringify(state));
 }
 
-// ─── Navigation ──────────────────────────────────────────────────────────────
+// Navigation
 function go(id) {
   $all('.scr').forEach(s => s.classList.remove('on'));
   $id('s-' + id).classList.add('on');
@@ -243,7 +237,7 @@ function go(id) {
   if (id === 'history')  renderHistory();
 }
 
-// ─── Cart counter ────────────────────────────────────────────────────────────
+// Cart counter
 const CART_LOG_MAX = 200;   // plenty for one shop, and keeps the save small
 
 /* Every change to the cart is logged so you can look back at what you punched
@@ -273,7 +267,7 @@ function resetCart() {
     });
   });
 }
-/* ── The counter, pinned ───────────────────────────────────────────────────────
+/* The counter, pinned
    In a shop the running total is the number you keep glancing at, and the list
    you are ticking is long enough to scroll it off the top. Pinned, the widget
    sticks to the top of the page (position:sticky — sticky, not fixed, because
@@ -296,7 +290,7 @@ function paintPin() {
   }
 }
 
-/* ── The band's right end ─────────────────────────────────────────────────────
+/* The band's right end
    How much of the list is ticked, always; and what the trip has cost, only
    while the counter is pinned. Pinning is the signal that you are in a shop
    and the total is the number you keep glancing at, so that is exactly when it
@@ -313,7 +307,7 @@ function paintPin() {
 let costWas = null;
 let costTimer = null;
 
-/* ── The face ─────────────────────────────────────────────────────────────────
+/* The face
    One cell per character, so a digit that changes can flip on its own the way a
    departure board does, and — the part that is not decoration — so that every
    element on screen survives a repaint.
@@ -362,7 +356,7 @@ function costFace(el, text) {
   return changed;
 }
 
-/* ── Which way it went ────────────────────────────────────────────────────────
+/* Which way it went
    A `+` or a `−` at the head of the number, for as long as the flash used to
    last. It replaced the green/red: colour said "something happened" and left you
    to work out what from a hue, and on a total that is already the accent's
@@ -465,7 +459,7 @@ function renderCart() {
   }
 }
 
-// ─── Cart log ────────────────────────────────────────────────────────────────
+// Cart log
 function openCartLog() {
   renderCartLog();
   $id('clog-back').classList.add('on');
@@ -501,7 +495,7 @@ function renderCartLog() {
   }).reverse().join('');
 }
 
-// ─── Numpad ──────────────────────────────────────────────────────────────────
+// Numpad
 let padBuf = '';   // raw typed digits, e.g. "12.5"
 let padN   = 1;    // how many of this item
 
@@ -579,7 +573,7 @@ function lerpColor(c1, c2, t) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ─── Home ────────────────────────────────────────────────────────────────────
+// Home
 function renderHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('date-label').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
@@ -588,7 +582,7 @@ function renderHome() {
   $id('hist-count').textContent = state.history.length;
 }
 
-// ─── List ────────────────────────────────────────────────────────────────────
+// List
 function addItem(name, cat) {
   const existing = state.list.find(i => i.name === name && i.cat === cat);
   if (existing) existing.qty = (existing.qty || 1) + 1;
@@ -745,7 +739,7 @@ function renderList() {
     }).join('');
 }
 
-// ─── Category picker ─────────────────────────────────────────────────────────
+// Category picker
 let cpIdx = null;
 function openCatPick(idx) {
   const it = state.list[idx];
@@ -782,7 +776,7 @@ function setCat(key) {
   toast(`${it.name} → ${CATEGORIES[key].label}`);
 }
 
-// ─── Categories ──────────────────────────────────────────────────────────────
+// Categories
 function renderCategories() {
   const grid = $id('cat-grid');
   grid.innerHTML = Object.entries(CATEGORIES)
@@ -828,7 +822,7 @@ function addItemAndRefresh(name, cat) {
   renderCategoryItems();
 }
 
-// ─── Meals ───────────────────────────────────────────────────────────────────
+// Meals
 function renderMeals() {
   const list = $id('meal-list');
   list.innerHTML = Object.entries(MEALS).map(([key, meal]) => {
@@ -868,7 +862,7 @@ function addMeal(key) {
   toast(`+ ${MEALS[key].label}`);
 }
 
-// ─── History ─────────────────────────────────────────────────────────────────
+// History
 function renderHistory() {
   const ul = $id('hist-list');
   if (!state.history.length) {
@@ -939,7 +933,7 @@ function clearHistory() {
   });
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// Settings
 function renderSettings() {
   $id('budget-input').value = state.budget > 0 ? state.budget : '';
   renderTodoistSettings();
@@ -957,7 +951,7 @@ function saveBudget() {
   toast(state.budget > 0 ? `budget set to ${CUR()}${state.budget.toFixed(2)}` : 'budget disabled');
 }
 
-// ─── Todoist sync ────────────────────────────────────────────────────────────
+// Todoist sync
 // REST v2 was retired 2026-02-10; everything below targets the unified v1 API.
 const TD_BASE = 'https://api.todoist.com/api/v1';
 let tdBusy = false;
@@ -1076,7 +1070,7 @@ async function syncTodoist() {
     });
     const localKeys = new Set(state.list.map(i => tdKey(i.name)).filter(Boolean));
 
-    // ── Todoist → STORE
+    // Todoist → STORE
     let pulled = 0;
     remoteByKey.forEach((item, k) => {
       if (localKeys.has(k)) return;
@@ -1086,7 +1080,7 @@ async function syncTodoist() {
     });
     if (pulled) { saveState(); renderList(); }
 
-    // ── STORE → Todoist (snapshot first: the pull above appended to state.list)
+    // STORE → Todoist (snapshot first: the pull above appended to state.list)
     const toPush = state.list.filter(i => {
       const k = tdKey(i.name);
       return k && !remoteByKey.has(k);
@@ -1165,12 +1159,12 @@ function renderTodoistSettings() {
   $id('td-file-warn').classList.toggle('hidden', location.protocol !== 'file:');
 }
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
+// Utils
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ─── Counter steps ───────────────────────────────────────────────────────────
+/* Counter steps
    The +10/+5/+1/+.5/+.1 rows were ten hardcoded buttons. The amounts are a
    setting now; the two rows are drawn from it, largest first. `.5` rather than
    `0.5` on the face keeps the button narrow enough for five across a phone. */
@@ -1186,7 +1180,7 @@ function renderSteps() {
     `<button class="cw-btn minus" onclick="STORE.addCart(${-n})">−${face(n)}</button>`).join('');
 }
 
-// ─── Boot ────────────────────────────────────────────────────────────────────
+// Boot
 loadState();
 renderSteps();
 renderHome();

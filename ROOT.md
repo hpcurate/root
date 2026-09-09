@@ -1678,6 +1678,25 @@ point of the thing.
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
 
+### 4.3.1 — 2026-09-09 — comment cleanup and decider fix
+
+- Backed up the entire project, including Git history and test dependencies,
+  to `../root-backup-20260909-115833/` before editing; verified every file by SHA-256.
+- Shortened historical explanations and decorative headings across JS, CSS,
+  HTML and test files. Removed repeated inline commentary; kept storage contracts,
+  migration notes and non-obvious constraints. Corrected stale descriptions of
+  CREATE networking, PLAN transitions, STORE colours and the retired scale migration.
+  Comment text is about 32% smaller, saving 167 KB.
+- Fixed TOOLS' decider returning no answer after repeated picks from a list such
+  as `same, same`. Repeat avoidance now requires a distinct alternative.
+  Added checks for duplicate-only lists and duplicates with another choice.
+- Removed a test that required an exact comment sentence and dropped a prose
+  condition from the chart CSS check. Existing zoom and chart behaviour checks remain.
+- Parser comparisons verified that all other JavaScript logic, CSS rules and
+  non-comment HTML are unchanged. Baseline: 995 checks passed. Final harness:
+  **996 passed, 0 failed** (two regression checks added, one prose-only check removed).
+  `git diff --check` passed. Browser layout was not tested; visual rules are unchanged.
+
 ### 4.3 — 2026-09-07 — a TOOLS tab, sound becomes a kit you can map, and PLAN can patch one block of a day
 
 Ten Todoist requests, one version. Two `@idea` tasks were read, listed and left

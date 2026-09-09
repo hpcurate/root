@@ -1,22 +1,6 @@
-/* ── TRACK ────────────────────────────────────────────────────────────────────
-   The CAP Électricien tracker. 54 topics ticked with a completion date; the
-   pace is derived from those dates over a rolling window, and everything else —
-   projected finish, the January squeeze, the chart, the milestones — is derived
-   from the pace against the exam, the internship and the revision buffer.
-
-   Ported from track/index.html for 2.2:
-     · the curriculum, the phase names, the level label, the PSE row and the
-       revision reminders moved to js/config.js (see the note there on why the
-       curriculum has no editor: the topic ids are what the ticks are filed under)
-     · the pace window and the "next up" count are Config fields, edited from
-       Settings → track alongside the dates
-     · the date settings render into that panel; the start date, which the
-       standalone app kept but never exposed, is editable there too
-     · "today" is Shell.today(), the whole view re-renders on the day rollover,
-       and the reset goes through Shell.confirm
-   Storage is untouched: capTracker.v2 (ticks, dates, open levels). The legacy
-   capTracker.weeks.v1 is still surfaced and still never migrated — a weekly
-   count cannot be attributed to specific topics. */
+/* TRACK derives pace and milestones from topic completion dates.
+   Preserve topic IDs and capTracker.v2. Surface capTracker.weeks.v1 without
+   migration: weekly counts cannot be assigned to individual topics. */
 window.TRACK = (function () {
 'use strict';
 
@@ -30,7 +14,7 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 
 const KEY = 'capTracker.v2', LEGACY_KEY = 'capTracker.weeks.v1';
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 let C, PHASES, LEVEL_LABEL, PSE, REVISION, PACE_WIN, NEXT_N, TOTAL, N_EX, N_TH, LEVELS;
 function readConfig() {
   C = (Config.get('track.curriculum') || []).map(c => Object.assign({}, c, { ex:!!c.ex, lv:+c.lv || 1 }));
@@ -47,7 +31,7 @@ function readConfig() {
 }
 readConfig();
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 const DEF = {
   startDate:'2026-09-01', examDate:'2027-05-15', stageStart:'2027-01-04', stageEnd:'2027-06-30',
   /* The day tracking began. Ticks dated before it are the progress you already
@@ -70,7 +54,7 @@ function load() {
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
 
-/* ── Dates ─────────────────────────────────────────────────────────────────── */
+/* Dates */
 const WK = 7 * 864e5;
 const isISO = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 function D(s) { const p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12, 0, 0); }
@@ -81,7 +65,7 @@ function fmt(d)  { return d.toLocaleDateString('en-GB', { day:'numeric', month:'
 function fmtY(d) { return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' }); }
 function n1(x)   { return (Math.round(x * 10) / 10).toFixed(1); }
 
-/* ── Derived ───────────────────────────────────────────────────────────────── */
+/* Derived */
 const doneCount = () => C.filter(c => S.done[c.id]).length;
 const lvlItems  = lv => C.filter(c => c.lv === lv);
 /* Every tick that carries a date. */
@@ -139,7 +123,7 @@ function verdict(j) {
   return ['r', 'Finishing after the exam'];
 }
 
-/* ── Render ────────────────────────────────────────────────────────────────── */
+/* Render */
 function render() {
   if (!$id('cum')) return;
   const j = project(), done = doneCount();
@@ -325,7 +309,7 @@ function renderExtras() {
     </div>`;
 }
 
-/* ── Settings panel ────────────────────────────────────────────────────────── */
+/* Settings panel */
 function renderSettings() {
   if (!$id('setExam')) return;
   const fill = (id, v) => { const el = $id(id); if (el && document.activeElement !== el) el.value = v; };
@@ -377,7 +361,7 @@ function resetAll() {
   });
 }
 
-/* ── Interaction ───────────────────────────────────────────────────────────── */
+/* Interaction */
 function toggle(id) {
   if (S.done[id]) delete S.done[id]; else S.done[id] = Shell.today();
   save(); render(); Prefs.tap();
@@ -430,7 +414,7 @@ bind('setFactor', 'input', e => {
   $id('legacyX').onclick = () => { el.style.display = 'none'; };
 })();
 
-/* ── Boot ──────────────────────────────────────────────────────────────────── */
+/* Boot */
 if (!Object.keys(S.open).length) {                 // open the first unfinished level
   const lv = (C.find(c => !S.done[c.id]) || { lv:LEVELS[0] || 1 }).lv;
   S.open[lv] = true;

@@ -1,33 +1,7 @@
-/* ── Prefs ────────────────────────────────────────────────────────────────────
-   The appearance and behaviour engine. Loaded FIRST, from <head>, before any
-   stylesheet — it only ever touches document.documentElement, which exists by
-   then, so the whole look is stamped on before the first paint and a non-default
-   theme never flashes the default palette.
-
-   How the look is expressed
-   ─────────────────────────
-   Two mechanisms, deliberately split:
-
-     data-* attributes on <html>    enumerated choices whose effect is more than
-                                    one value — a theme, a depth ramp, a texture,
-                                    a font pairing. themes.css keys off these.
-
-     inline custom properties       continuous choices — the radius scale, the
-                                    border weight, the density multiplier, the UI
-                                    scale, a custom accent. Inline wins over any
-                                    stylesheet rule, so a dial always beats the
-                                    preset it is layered on.
-
-   That is the whole trick behind "the themes decide the look": a preset is not a
-   palette swap, it sets the shape, depth, type and density tokens too, and every
-   one of those remains individually overridable afterwards.
-
-   Storage key: root_prefs_v1. The legacy root_theme key is read once on first
-   run so an existing install keeps its theme.
-
-   Anything here that is NOT appearance (start tab, haptics, date format …) lives
-   in the same object under the same API — one place to look, one thing to back
-   up. Shell and the app modules read them through Prefs.get(). */
+/* Prefs applies appearance to <html> before stylesheets load.
+   Enums use data attributes; continuous settings use inline custom properties
+   so user dials override presets. Storage: root_prefs_v1, with legacy root_theme
+   migration. Modules read behaviour settings live through Prefs.get(). */
 window.Prefs = (function () {
 'use strict';
 
@@ -35,12 +9,12 @@ const KEY        = 'root_prefs_v1';
 const LEGACY_KEY = 'root_theme';
 const root       = document.documentElement;
 
-/* ── Themes ───────────────────────────────────────────────────────────────────
+/* Themes
    `mode` drives color-scheme and the address-bar colour. `swatch` is what the
    picker draws: ground, surface, accent, text. `fonts` is the pairing the preset
    asks for; the user's own font choice, if they make one, overrides it. */
 const THEMES = [
-  // ── dark ──
+  // dark ──
   { id:'void',      name:'Void',      mode:'dark',  group:'dark',
     desc:'the original — near-black, violet', sw:['#0e0e0e','#161616','#A78BFA','#dedede'] },
   { id:'ember',     name:'Ember',     mode:'dark',  group:'dark',
@@ -62,7 +36,7 @@ const THEMES = [
   { id:'carbon',    name:'Carbon',    mode:'dark',  group:'dark',
     desc:'brutalist grey, white accent, heavy rules', sw:['#121212','#1a1a1a','#ffffff','#e8e8e8'] },
 
-  // ── light ──
+  // light ──
   { id:'paper',     name:'Paper',     mode:'light', group:'light',
     desc:'warm stock, serif display, real shadows', sw:['#f2ede3','#fffdf7','#6b4df0','#22201c'] },
   { id:'linen',     name:'Linen',     mode:'light', group:'light',
@@ -154,14 +128,14 @@ const THEME_CHARACTER = {
   noir:      { display:'archivo',   mono:'jetbrains', radius:0,  border:1, depth:'flat',  texture:'none' },
 };
 
-/* ── Apps ─────────────────────────────────────────────────────────────────────
+/* Apps
    Every app the shell can host, in the order they ship. `apps` below is the
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
 const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools'];
 
-/* ── Schema ───────────────────────────────────────────────────────────────────
+/* Schema
    Every setting in one table: its default, its kind, and its bounds. The
    settings UI is generated from this, so adding a knob is one line here plus
    whatever CSS reads it. `auto` means "take it from the theme's character". */
@@ -325,7 +299,7 @@ const SCHEMA = {
   doCardStyle:  { kind:'enum',   def:'full', values:['full','minimal'] },
 };
 
-/* ── State ────────────────────────────────────────────────────────────────── */
+/* State */
 let prefs = {};
 const subs = [];
 
@@ -342,7 +316,7 @@ function defaultsOf() {
    then never again. */
 const APPS_BEFORE_SEEN = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn'];
 
-/* ── A new app has to arrive on an install that already has an app list ───────
+/* A new app has to arrive on an install that already has an app list
    `apps` is stored whole and replaces the default whole — the same rule Config
    uses for a branch — so an app added in a later version has no tab on any
    install that has ever opened the layout panel, which is every install that
@@ -381,27 +355,8 @@ function load() {
   dropUiScale(stored);
 }
 
-/* ── Interface scale, retired ─────────────────────────────────────────────────
-   It was `zoom` on the root element, and document zoom multiplies every length
-   in the page by a fraction — so at any value but 1 the app's whole-pixel type
-   (8, 9.5, 10, 11.5, 15, 54) became fractional and every glyph in the app was
-   resampled rather than drawn. That is what five reports of "the top of the
-   sticky title is blurred" were, and why four correct rendering fixes each
-   changed nothing: none of them was touching it. See the note in tokens.css.
-
-   **2.26.0 folded a stored scale into Spacing, and that was wrong.** `--dens`
-   multiplies every padding and gap in the app (`calc(18px * var(--dens))`), so
-   at 1.1 an 18px padding becomes 19.8px and every box below it starts on a
-   fractional offset — which puts the text inside it on a fractional baseline
-   and softens it. It is the *same defect the retirement was meant to remove*,
-   moved from one multiplier to another, and it was worse than the original
-   because there was no longer a dial to put back to 100%.
-
-   So the scale is now simply dropped, and an install that 2.26.0 folded is
-   repaired: Spacing goes back to its default once, recorded so it happens once
-   and never touches a later deliberate choice. Anyone who had genuinely set
-   Spacing before 2.26.0 loses that one setting a single time, which is the
-   right trade against leaving the app permanently soft. */
+/* Drop retired document scale. Repair the old scale-to-density migration by
+   resetting density once; the migration marker preserves later user choices. */
 function dropUiScale(stored) {
   delete prefs.uiScale;
   if (stored.uiScale === undefined && prefs.densRepair) return;
@@ -473,7 +428,7 @@ function resetAll() { prefs = defaultsOf(); persist(); apply(); notify('*'); }
 function subscribe(fn) { if (typeof fn === 'function') subs.push(fn); }
 function notify(k) { subs.forEach(fn => { try { fn(k); } catch (e) { console.error(e); } }); }
 
-/* ── Derived ──────────────────────────────────────────────────────────────── */
+/* Derived */
 const prefersDark = () => {
   try { return !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches; }
   catch { return true; }
@@ -495,7 +450,7 @@ function accentHex() {
   return a && a.hex ? a.hex : null;
 }
 
-/* ── Colour helpers ───────────────────────────────────────────────────────── */
+/* Colour helpers */
 function normHex(h) {
   if (typeof h !== 'string') return '#A78BFA';
   let s = h.trim().replace(/^#/, '');
@@ -517,7 +472,7 @@ function luminance(hex) {
 }
 const rgba = (hex, a) => { const [r,g,b] = rgbOf(hex); return `rgba(${r},${g},${b},${a})`; };
 
-/* ── Font loading ─────────────────────────────────────────────────────────────
+/* Font loading
    One <link> for every face the current look needs, rebuilt whenever the pairing
    changes. Families already requested are not re-requested: the href is compared
    before the element is touched, so switching between two themes that share a
@@ -552,7 +507,7 @@ function loadFonts() {
   if (fontLink.href !== href) fontLink.href = href;
 }
 
-/* ── Apply ────────────────────────────────────────────────────────────────────
+/* Apply
    The single place that writes to the DOM. Called on boot, on every set(), and
    when the OS colour scheme flips while `themeMode` is `system`. */
 function apply() {
@@ -665,7 +620,7 @@ function preview(id) {
 }
 const revert = apply;
 
-/* ── Haptics ──────────────────────────────────────────────────────────────────
+/* Haptics
    A no-op wherever the Vibration API is missing (every iOS browser), which is
    why it is off by default rather than advertised as working. */
 function tap(ms = 8) {
@@ -673,60 +628,11 @@ function tap(ms = 8) {
   try { navigator.vibrate && navigator.vibrate(ms); } catch {}
 }
 
-/* ── Sound ────────────────────────────────────────────────────────────────────
-   Three voices, none of them longer than a twentieth of a second: a control
-   under a finger, a slide arriving, and a toast. They are **synthesised**, not
-   played — a sine through a gain envelope, six lines of WebAudio — because a
-   file would be an asset to fetch, a cache to think about and a licence to
-   keep, and none of that is worth a click.
-
-   Two rules keep it out of the way:
-
-   · **Nothing exists until it is asked for.** No AudioContext is constructed
-     while the setting is off, so an install that never turns sound on never
-     builds an audio graph at all. The first one is built inside the gesture
-     that plays the first sound, which is the only moment a browser will allow
-     it — a context made at boot is born suspended and stays that way.
-
-   · **Nothing calls this from a module.** `Prefs.tap()` is the haptic and stays
-     the haptic; sound is wired in three places in shell.js — a press on a
-     control, a slide arriving, a toast — so a fourth app needs no line of it
-     and no app can end up with its own idea of what a button sounds like.
-
-   · **One sound per gesture.** A tab press is a pointerdown *and* a nav, and
-     hearing both is the difference between "smooth" and "cheap". A play inside
-     `GAP` of the last one is dropped rather than layered, which also covers a
-     fast scrubber and a key held down. */
-/* ── Voices, events, kits ─────────────────────────────────────────────────────
-   4.2 had three voices hardwired to three moments. 4.3 splits that into three
-   things that were tangled together, the way the 2.0 vision splits content,
-   appearance and behaviour:
-
-     · a **voice** is a timbre — what a sound *is*. Nine of them, none longer
-       than a fifteenth of a second, all built from one oscillator, one gain
-       envelope and (where it needs the edge taken off) one lowpass.
-     · an **event** is a moment — what just happened. Five: a control under a
-       finger, a slide arriving, a sheet or menu opening, an item being
-       completed, and a message.
-     · a **kit** is a mapping of the five events onto voices. Five of them,
-       and `classic` is exactly what 4.2 sounded like, so nothing that was
-       already liked has been taken away.
-
-   On top of the kit, each event has its own dial that can override it — that
-   is the "map the sounds" half: pick a kit for the character, then move the
-   one event that is wrong. `auto` on an event means "whatever the kit says",
-   and it is the default for all five, so picking a kit is one tap and the
-   overrides only exist for someone who wants them.
-
-   The rule that has not changed: **nothing calls this from a module.** Sound
-   is wired in shell.js and nowhere else, so a tenth app needs no line of it.
-   `done` and `menu` are decided there too, by what was pressed — not by an
-   app announcing it — for exactly that reason.
-
-   `lp` is a lowpass corner. A square or triangle wave is what makes a sound
-   *clicky*, and unfiltered it is also what makes it cheap; rolling the top off
-   leaves the transient and takes the buzz, which is the difference between a
-   tick and a beep. */
+/* Sound is synthesised on demand. Create AudioContext inside the first enabled
+   user gesture. Shell owns sound events; Prefs.tap remains haptic-only.
+   GAP suppresses overlapping events from the same gesture. */
+/* Voices define timbres; kits map events to voices. Per-event overrides win,
+   while auto follows the kit. Shell dispatches all events. lp is the lowpass cutoff. */
 const VOICES = {
   /* clicky — a transient and almost no tail */
   tick:  { type:'square',   hz: 2100, to: 1500, ms: 14, peak: 0.030, lp: 3200 },
@@ -822,7 +728,7 @@ function level() {
   return Number.isFinite(n) ? Math.min(1, Math.max(0.05, n)) : SCHEMA.soundLevel.def;
 }
 
-/* ── Formatting helpers, so the four modules format dates the same way ────── */
+/* Formatting helpers, so the four modules format dates the same way */
 function formatDate(iso, style) {
   const s = style || prefs.dateFormat;
   const d = new Date(iso + 'T00:00:00');
@@ -832,7 +738,7 @@ function formatDate(iso, style) {
   return d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 
-/* ── Boot ─────────────────────────────────────────────────────────────────── */
+/* Boot */
 load();
 apply();
 

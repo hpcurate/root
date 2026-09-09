@@ -1,28 +1,9 @@
-/* ── Design tokens ────────────────────────────────────────────────────────────
-   ROOT 2.0. Everything the four app stylesheets draw with resolves to a token
-   defined here, and every token is either set by a theme preset (themes.css) or
-   overridden inline by the appearance engine (js/prefs.js).
-
-   That is the whole point of the rewrite: before this, `.card` said
-   `border-radius:4px; border:1px solid var(--bd)`, so a theme could recolour the
-   app but never reshape it. The app sheets were normalised to tokens, and the
-   shape tokens below are all derived from a single anchor, so one dial moves the
-   whole system coherently.
-
-   Layers, lowest wins first:
-     1. :root here             — structural defaults + the VOID palette
-     2. themes.css             — [data-theme] presets: palette AND character
-     3. inline on <html>       — the user's dials, written by Prefs.apply()
-
-   Derived anchors
-     --r-base     card radius; every other radius is a ratio of it
-     --bw         border weight; hairline rules across the whole app
-     --dens       spacing multiplier baked into every padding/gap in the app CSS
-     --tex-mult   strength of the overlay texture
-*/
+/* Design tokens: :root defaults, theme overrides, then inline user dials.
+   Shared anchors: --r-base (radius), --bw (borders), --dens (spacing),
+   and --tex-mult (texture). App styles should derive from these tokens. */
 
 :root {
-  /* ── Palette — VOID (the default preset) ────────────────────────────────── */
+  /* Palette — VOID (the default preset) */
   --bg:#0e0e0e;            /* ground */
   --s1:#161616;            /* raised surface: cards, fields */
   --s2:#1e1e1e;            /* pressed / secondary surface */
@@ -31,18 +12,7 @@
   --bd-2:#333333;          /* emphasised hairline */
   --tx:#dedede;            /* foreground */
   --tx-2:#9a9a9a;          /* secondary foreground */
-  /* **Placeholder grey, and only that.** #4a4a4a on #0e0e0e is a contrast ratio
-     of about 2.1:1 — under half the minimum for body text. That is fine for the
-     thing it is named for: a hint inside an empty field, which is meant to
-     recede and which you are about to type over. It is *not* a label colour.
-
-     Small text at 2:1 does not read as faint, it reads as **out of focus** —
-     and the title band's date line was drawn in it at 10px, bold, uppercase,
-     with .16em of letter-spacing. That is what "the top of the sticky title is
-     blurred" was, through five reports and four wrong fixes: not a rendering
-     artefact at all, which is exactly why pixel-snapping, compositing paths and
-     the status bar each changed nothing. Anything that is a *label* takes
-     --tx-2 (about 7:1). See the note over `.view > .h-top` in shell.css. */
+  /* Muted placeholder colour. Use --tx-2 for readable header labels. */
   --mu:#4a4a4a;            /* muted / placeholder — never a label, see above */
 
   /* Accent. Only --y and --on-y are ever restated by a theme or the accent
@@ -56,14 +26,14 @@
 
   --gr:#5cdb7d; --re:#e06060; --or:#e0a060;
 
-  /* ── Type ─────────────────────────────────────────────────────────────────
+  /* Type
      Both are overwritten inline by Prefs from the chosen pairing. --mono stays a
      real monospace in every pairing: the .md previews are white-space:pre and
      come apart in a proportional face. */
   --mono:'JetBrains Mono','Courier New',monospace;
   --head:'Syne',sans-serif;
 
-  /* ── Shape ────────────────────────────────────────────────────────────────
+  /* Shape
      One anchor, four ratios. A preset picks the anchor; the Corners dial
      overrides it. Radii clamp at 0 so a negative-looking calc can never leak. */
   --r-base:4px;
@@ -74,13 +44,13 @@
   --r-pill:999px;
   --bw:1px;
 
-  /* ── Density & scale ──────────────────────────────────────────────────── */
+  /* Density & scale */
   --dens:1;
   --icon-stroke:2;
   --chrome-alpha:.82;
   --tex-mult:1;
 
-  /* ── Depth ────────────────────────────────────────────────────────────────
+  /* Depth
      Set per [data-depth] in themes.css. Flat is the default so a preset that
      says nothing looks like the original app. */
   --shadow:none;
@@ -88,16 +58,8 @@
   --shadow-chrome:0 10px 34px -12px rgba(0,0,0,.65);
   --glow:none;
 
-  /* ── Motion ──────────────────────────────────────────────────────────────
-     Every transition in the app multiplies by --mo, so "reduced" and "none" are
-     one variable rather than a hunt through five stylesheets.
-
-     --mo is two things multiplied: the Motion preset (full / reduced / none,
-     an attribute) and the Speed dial (a continuous inline property Prefs
-     writes). Split so the two compose — "reduced, and half again" is a real
-     thing to want — and so the dial keeps the preset's character rather than
-     replacing it. --mo-scale is the *inverse* of the speed: Prefs writes 1/x,
-     because a duration multiplier and a speed run opposite ways. */
+  /* Motion composes the preset multiplier with --mo-scale. Prefs writes
+     inverse speed (1/x) because these values multiply durations. */
   --mo-base:1;
   --mo-scale:1;
   --mo:calc(var(--mo-base) * var(--mo-scale));
@@ -111,28 +73,17 @@
      to be switchable: see [data-scrolling] below. */
   --press:var(--s2);
 
-  /* ── Chrome ──────────────────────────────────────────────────────────────
+  /* Chrome
      --chrome-rgb is the ground colour as bare channels, so the floating nav's
      translucency follows both the theme and the Chrome opacity dial. */
   --chrome-rgb:14,14,14;
   --chrome-bg:rgba(var(--chrome-rgb), var(--chrome-alpha));
   --chrome-blur:saturate(140%) blur(18px);
 
-  /* ── Shell metrics ───────────────────────────────────────────────────── */
-  /* ── The bottom pill, in three dials ─────────────────────────────────────
-     Settings → appearance → layout → Navigation. The bar was 58px tall with a
-     999px radius and 19px icons, and all three were literals: the one piece of
-     chrome that is on screen on every slide had less say over itself than a
-     card did.
-
-     `--nav-r` is a length rather than `--r-pill` because a pill *is* a radius
-     — half the height — so one dial covers the whole range from a square bar
-     to the pill it ships as. At the default 29px on a 58px bar it resolves to
-     exactly what 999px did, so an install that never touches it looks
-     identical.
-
-     `--nav-icon` reaches the two rules that used to override the icon size
-     outright (the wide breakpoint, and labels-off), as a ratio of itself. */
+  /* Shell metrics */
+  /* Navigation height, radius and icon size are independent dials.
+     --nav-r is a length; half the bar height yields a pill. Icon variants
+     scale from --nav-icon rather than replacing it with literals. */
   --nav-fh:58px;
   --nav-r:29px;
   --nav-icon:19px;
@@ -166,70 +117,21 @@
      Every header in the app measures itself from this instead now. */
   --sat:calc(env(safe-area-inset-top) + var(--band-drop));
 
-  /* ── The content offset ──────────────────────────────────────────────────
-     Settings → appearance → layout → "Content offset". A few pixels of air
-     between the status bar and the first thing the app draws, folded into
-     `--sat` so it reaches **every** header at once — the eight wordmark bands
-     and every sticky sub-screen header — rather than the one that was
-     complained about.
-
-     It exists because "the top bar still has a blur attached to it" survived
-     four rendering fixes (2.24.0's `--title-px`, 2.24.1's `--sat`, 2.25.0's
-     `-webkit-overflow-scrolling`, 2.25.1's status bar) and one colour fix
-     (2.26's `--mu`), and the fifth answer was not a sixth theory about
-     rasterisation: it was "just bring all the content down a few pixels".
-     That is a dial, and a dial is a thing that can be turned until it looks
-     right on the phone it is being looked at on, which is more than any of
-     the five could say for themselves.
-
-     Whole pixels only, for the reason the rest of this block exists. */
+  /* Content offset is a whole-pixel addition to --sat, shared by home bands
+     and sticky sub-screen headers. */
   --band-drop:6px;
 
-  /* ── The sticky sub-screen title ──
-     The header a sub-screen brings with it (`.hd` — DO's routine list, LOG's
-     forms, the settings panels). Its size was written into six stylesheets as
-     a literal 15px, so the Title size dial reached the eight home wordmarks and
-     nothing else; the header you actually sit under while working was the one
-     piece of type in the app with no say over it.
-
-     The box follows the type rather than being a fixed 14px: the padding is
-     derived from the size, so a larger title gets a proportionally taller
-     header instead of a big word crammed into a small bar. Both are snapped,
-     for the same reason the band is (see `--title-px`). */
+  /* Sub-screen title size and its proportional padding are snapped together
+     so the header grows with its text. */
   --hd-base:15px;
   --hd-scale:1;
   --hd-title-px:calc(var(--hd-base) * var(--hd-scale));
   --hd-pad:calc(var(--hd-title-px) * .93);
 
-  /* ── The title shadow ──
-     A second copy of the glyphs, offset right and sitting under them. Zero
-     blur: it is the letterform displaced, not depth, which is why a soft drop
-     shadow would be the wrong thing and why it works on a near-black ground
-     where a dark shadow is invisible.
-
-     It started on STORE's running total in 2.25.1 and is shared from here now,
-     because it is a *treatment* rather than one control's decoration: the
-     sticky sub-screen titles and the big dates on LOG and DAY all wear it, and
-     three copies of the same offset in three stylesheets is three chances for
-     them to drift. Measured in `em`, so it scales with whatever it is applied
-     to rather than needing a value per size. */
+  /* Shared hard title shadow, offset in em to follow the text size. */
   --title-sh-c:var(--y);
-  /* **The offset is a whole pixel, always.** `.055em` alone is 2.97px on the
-     54px wordmark — a proper offset copy — but 0.825px on a 15px sticky title,
-     and a glyph copied less than a pixel to the side is not a shadow, it is a
-     smear. It reads as exactly what it looks like: blurred text. That is what
-     2.26.0 did to every sticky title in the app.
-
-     Rounded, with a 1px floor, so the effect is an offset at every size it is
-     used at and never a sub-pixel double. The em stays in the value rather than
-     being resolved here, because a custom property is substituted at the point
-     of use — which is what makes it scale with whatever wears it.
-
-     The offset is its own token because a shadow needs *room*: anything that
-     clips (`.h-daynum` has to, so a number on its way out is cut off by the row
-     rather than making it taller) has to reserve exactly this much on its right
-     or it clips its own shadow off. One value, so the reservation cannot drift
-     from the thing it is reserving for. */
+  /* Round the shadow offset with a 1px floor to avoid a subpixel double.
+     Clipping elements reserve this same width so the shadow is not cut off. */
   /* Syne's cap height as a fraction of the em, measured in Chrome: a trimmed
      `STORE.` is 35.1px of box at a 54px font size. Used only to size boxes
      around text that `text-box` has trimmed to its caps — the wordmark's row and
@@ -247,22 +149,9 @@
   --band-row:40px;
 
   --title-sh-x:1px;
-  /* **There is deliberately no `--title-sh` composing these two.** There was
-     one, from 2.25.1 to 3.0, and every `--title-sh-c` override in the app was
-     silently doing nothing because of it.
-
-     A custom property's own `var()` references are substituted when *it* is
-     computed — on the element it is declared on. `--title-sh` was declared here,
-     so `var(--title-sh-c)` inside it resolved to the accent *here*, and what
-     inherited down the tree was a finished value with no property left in it to
-     override. Lengths are the opposite: they stay as tokens and resolve against
-     whoever uses them, which is why the offset was correctly 3px on the wordmark
-     and 1px on the currency mark while the colour was the accent on both. That
-     split is exactly what made it look like it worked.
-
-     So the shadow is composed at the point of use — `text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)` —
-     which is the only form where an element's own `--title-sh-c` is the one that
-     counts. Anything wearing this shadow writes those two variables out. */
+  /* Compose text-shadow at the point of use from --title-sh-x and --title-sh-c.
+     A combined token defined on :root would resolve its colour there, preventing
+     descendant colour overrides. */
 
   /* The shell's own motion: the tab cross-fade, the title morph, and the
      tile/panel FLIPs in PLAN. Doubled from what 2.9–2.11 shipped with — the
@@ -276,35 +165,15 @@
   --caps:uppercase;
 }
 
-/* ── There is no `zoom` here any more ─────────────────────────────────────────
-   `html{zoom:var(--ui-scale)}` is what "the top of the sticky title is blurred"
-   turned out to be, after five reports and four wrong fixes.
-
-   Document zoom multiplies every length in the page by a fraction. The app's
-   type is written in whole pixels — 8, 9, 9.5, 10, 11.5, 15, 54 — so at any
-   scale but 1 those become fractions, and a fraction of a CSS pixel is a
-   fraction of a device pixel at any DPR. The text is then resampled rather than
-   drawn. It hit the *smallest* type hardest, which is why it showed on the
-   band's 10px date line and not on the 54px wordmark beside it, and it hit
-   every theme, every screen and every build identically — which is exactly why
-   snapping the wordmark, snapping the safe-area inset, taking the scroller off
-   iOS's legacy compositing path and handing the status bar back to iOS each
-   changed nothing at all.
-
-   No arrangement of steps fixes it: for a 9.5px label to stay whole at a 3x
-   DPR the scale would have to be a multiple of 2/3, which is not a dial. So the
-   mechanism is gone rather than tuned, and what it was for is covered by three
-   dials that are already whole-pixel by construction — Spacing (`--dens`),
-   Title size and Sub-screen title size. A stored scale is folded into Spacing
-   on first load so an install that had one keeps roughly the size it chose
-   (see prefs.js). */
+/* Document zoom is retired. Use spacing and title-size settings instead.
+   Prefs drops legacy scale and repairs its old density migration once. */
 html{height:100%}
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
 .hidden{display:none!important}
 
-/* ── Global consequences of the dials ─────────────────────────────────────────
+/* Global consequences of the dials
    Each of these is the single rule that makes one control real. */
 
 /* Caps: every label in every sheet says `text-transform:var(--caps)` (113
@@ -339,18 +208,8 @@ html{height:100%}
 [data-icon-stroke="custom"] .ico,
 [data-icon-stroke="custom"] .cat-ico{stroke-width:var(--icon-stroke)}
 
-/* ── Nothing is "pressed" while a slide is scrolling ─────────────────────────
-   On a touch screen `:active` is applied the moment the finger lands and is not
-   cleared until it lifts — so a touch that becomes a scroll lights up whatever
-   row it started on and keeps it lit as the list moves under it. That is the
-   square that appeared under a finger on the way down DO's quick cards.
-
-   The shell sets data-scrolling on <html> while any slide is moving (and for a
-   beat after), and the press wash goes to nothing. One token, so it reaches
-   every `:active` in every app at once and any future one for free — which is
-   why the 22 `background:var(--s2)` press rules were rewritten to --press.
-   The press feedback itself is untouched: a tap that is a tap still lights up,
-   because a tap does not scroll. */
+/* Shell sets data-scrolling during movement; clear the shared press wash
+   so a scrolling finger does not highlight the row where the gesture started. */
 [data-scrolling="on"]{--press:transparent}
 
 /* Motion */
@@ -361,7 +220,7 @@ html{height:100%}
 [data-motion="none"] *::after{
   animation-duration:.01ms!important;animation-iteration-count:1!important;
   transition-duration:.01ms!important;scroll-behavior:auto!important}
-/* ── The bar keeps moving, when asked ────────────────────────────────────────
+/* The bar keeps moving, when asked
    The pill growing into place under the tab you picked is feedback, not
    decoration: with it gone the only confirmation that the tap landed is that
    the page has already changed, which is not the same thing. Motion: none is
@@ -435,7 +294,7 @@ html{height:100%}
 [data-glow="on"] .card-bar-fill,
 [data-glow="on"] #toast{box-shadow:var(--glow)}
 
-/* ── Texture ──────────────────────────────────────────────────────────────────
+/* Texture
    A single fixed overlay on top of the ground and under everything else. It is
    pointer-events:none and lives on body::before, so no app markup changes and
    nothing can ever intercept a tap. */
@@ -464,7 +323,7 @@ body::before{
    these already carries a position of its own, so only the stacking is set */
 #views,#nav,.nav-arrow,#toast,.undo-pill,.sheet,.pad,.sheet-back,.modal-overlay{z-index:1}
 
-/* ── Shared toast ─────────────────────────────────────────────────────────────
+/* Shared toast
    One element for all five views. Every module's toast() forwards here, so a
    message from STORE cannot be clobbered by a stale timer from LOG.
 
@@ -491,21 +350,9 @@ body::before{
   opacity:1;visibility:visible;
   transition:opacity var(--dur-1) ease,transform var(--dur-1) ease,visibility 0s}
 
-/* ── The shared undo pill ─────────────────────────────────────────────────────
-   Clearing something is the one destructive act you do on purpose and still
-   regret, so it does not toast — it offers the way back. `Shell.undo(label,
-   restore)` shows this, and it fades on the "Undo window" dial (behaviour;
-   0 pins it until it is tapped or another one replaces it).
-
-   It sits where the toast sits, because it *is* the toast for that action:
-   nothing calls both, so the two can never stack on the same spot.
-
-   Its type is the title's, which is what was asked for: the display face at
-   the wordmark's weight, with the same hard offset copy behind it — composed
-   at the point of use (`--title-sh-x` / `--title-sh-c`), never through a
-   token that bakes the colour in. §6 says why that matters. The arrow is an
-   SVG, so it takes the same offset as a drop-shadow rather than a text-shadow
-   — the one filter that is the same effect on a stroked path. */
+/* Shell.undo shares the toast position; do not show both for one action.
+   Undo window 0 pins the pill. Compose the title shadow locally; SVG arrows
+   use the matching drop-shadow. */
 .undo-pill{
   position:fixed;
   bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 22px);

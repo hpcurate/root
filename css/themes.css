@@ -1,23 +1,8 @@
-/* ── Themes ───────────────────────────────────────────────────────────────────
-   Loaded last, so its overrides beat the app stylesheets on equal specificity.
+/* Theme palettes and shared attribute-driven treatments. Load last for
+   equal-specificity overrides. Prefs supplies each theme's shape/type defaults;
+   inline user dials override them. --chrome-rgb stores bare colour channels. */
 
-   A preset here is only ever a palette. Everything else that makes it a *look* —
-   corner radius, border weight, depth, texture, and the display/mono pairing —
-   is declared as the theme's "character" in js/prefs.js and applied as
-   data-attributes and inline anchors. Which means every one of those stays
-   individually overridable by the user afterwards, and adding a preset is a
-   dozen colour values rather than a hundred-line stylesheet.
-
-   Ten dark, five light. --chrome-rgb is the ground as bare channels so the
-   floating nav's translucency follows both the theme and the opacity dial.
-   --yd / --yb / --y-fade are mixed from --y in tokens.css, so a preset states
-   only the accent and what reads on top of it.
-
-   Below the presets: the depth ramps, the card treatments, the nav variants and
-   the handful of light-mode corrections — all keyed off attributes, all shared
-   by every preset that opts into them. */
-
-/* ═══ DARK ════════════════════════════════════════════════════════════════ */
+/* DARK */
 
 [data-theme="void"]{
   --bg:#0e0e0e; --s1:#161616; --s2:#1e1e1e; --s3:#252525; --bd:#272727; --bd-2:#343434;
@@ -89,7 +74,7 @@
   --gr:#7ee08c; --re:#ff6b6b; --or:#ffb057;
   --chrome-rgb:18,18,18}
 
-/* ═══ LIGHT ═══════════════════════════════════════════════════════════════ */
+/* LIGHT */
 
 [data-theme="paper"]{
   --bg:#f2ede3; --s1:#fffdf7; --s2:#e9e2d4; --s3:#ded5c3; --bd:#ded4c2; --bd-2:#c8bba3;
@@ -127,7 +112,7 @@
   --chrome-rgb:255,255,255}
 
 
-/* ═══ DEPTH ═══════════════════════════════════════════════════════════════════
+/* DEPTH
    How surfaces separate from the ground. A preset names its default ramp; the
    Depth dial replaces it. `heavy` and `glow` are deliberately loud — they are
    there because the point of this rewrite is that the app can look like more
@@ -179,7 +164,7 @@
 [data-depth="flat"] .theme-card{box-shadow:none}
 
 
-/* ═══ CARD TREATMENT ══════════════════════════════════════════════════════════
+/* CARD TREATMENT
    Independent of depth: what a card is made of.
      outline  surface + hairline          (the original)
      fill     surface, no hairline        (quieter, relies on depth)
@@ -203,7 +188,7 @@
   border-radius:0;box-shadow:none}
 
 
-/* ═══ NAV VARIANTS ════════════════════════════════════════════════════════════
+/* NAV VARIANTS
    pill     floating capsule (the default)
    bar      full-width dock along the bottom edge
    minimal  no chrome at all — swipe, arrows and the hash are the navigation */
@@ -221,21 +206,8 @@
 [data-tab-labels="off"] .tb-l{display:none}
 [data-tab-labels="off"] .tab-b svg{width:calc(var(--nav-icon) * 1.1);height:calc(var(--nav-icon) * 1.1)}
 
-/* === THE TAB BAR'S ACTIVE MARK ==============================================
-   Three dials, and they are three because they answer three questions: which
-   colours the tabs wear, what shape the mark around the selected one is, and
-   how that mark arrives. Every rule here sets one of the variables declared on
-   `.tab-b` in shell.css — the mark itself is drawn once, there, and never
-   redrawn per option. Adding a palette is ten custom properties; adding a
-   shape is one rule.
-
-   -- Palettes ----------------------------------------------------------------
-   Colour-coded tabs: each app keeps its own hue on the active mark instead of
-   everything sharing the accent. Keyed on the app, not the position — the
-   order is the user's to change. `--tab-on-c` travels with each palette,
-   because what reads on top of a hue is part of choosing the hue: near-black
-   on the five bright sets, and the page's own ground on `mono`, whose tabs are
-   cut from the text colour and so flip with the theme. */
+/* Active-tab palettes and shapes set tokens consumed by shell.css.
+   Key palettes by app identity, not position. --tab-on-c controls readable ink. */
 :root{--tab-do:#A78BFA;--tab-log:#5cdb7d;--tab-plan:#5e8cff;--tab-store:#e8a33d;
       --tab-tend:#3fc9b0;--tab-track:#f0709a;--tab-learn:#5ad4e6;--tab-cal:#c98b3f;
       --tab-create:#e6c34a;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
@@ -341,7 +313,7 @@
 [data-nav-anim="none"] .tab-b::before{transition:none!important}
 
 
-/* ═══ LIGHT-MODE CORRECTIONS ══════════════════════════════════════════════════
+/* LIGHT-MODE CORRECTIONS
    Five presets are light now rather than one, so these are keyed off the mode
    instead of a theme id.
 

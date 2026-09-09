@@ -1,14 +1,4 @@
-/* ── Shell ────────────────────────────────────────────────────────────────────
-   The frame the four apps live in: a five-slide horizontal track, a floating tab
-   pill with a prev/next arrow either side, and the generic bottom sheet. The
-   settings view moved to css/settings.css in 2.0.
-
-   Loaded after the app stylesheets (and before settings.css and themes.css) so
-   its cross-cutting rules — content width cap, responsive grids, hover states —
-   win ties.
-
-   The nav's three shapes — floating pill, bottom bar, hidden — are chosen by
-   [data-nav] in themes.css; what is here is the pill, which is the default. */
+/* Shared frame, navigation, title bands and responsive layout. */
 
 /* text-size-adjust: without it iOS Safari "helpfully" inflates some text when
    the phone turns to landscape and keeps the inflated sizes on the way back —
@@ -18,7 +8,7 @@
    background it came out pure black under a near-black theme */
 html{height:100%;background:var(--bg);-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
-/* ── Portrait lock ────────────────────────────────────────────────────────────
+/* Portrait lock
    A web page cannot lock the orientation on iOS (screen.orientation.lock is
    Android-only, and only when installed), so the lock is a curtain: on a
    phone-sized touch screen in landscape, everything is covered until it is
@@ -44,7 +34,7 @@ body{
   font-family:var(--mono);font-size:14px;
   overscroll-behavior:none}
 
-/* ── Slide track ──────────────────────────────────────────────────────────────
+/* Slide track
    The slides are stacked, not side by side: a tab change cross-fades between
    them (Shell sets .cur on the one coming in, .leaving on the one going out)
    and the track itself never moves. Each slide is its own scroll container,
@@ -57,18 +47,10 @@ body{
 #track{
   position:relative;height:100%;width:100%;
   touch-action:pan-y}            /* vertical scrolling stays native, we read horizontal */
-/* pan-y on the track hands horizontal gestures to the swipe handler, which is
-   wrong inside a text field: there a sideways drag is caret placement and text
-   selection, and the browser needs it back to offer the paste callout.
-
-   The same trap catches anything inside the track that scrolls sideways. A
-   gesture is resolved by intersecting touch-action up the ancestor chain, so
-   overflow-x:auto on its own buys a scroller that works with a mouse and is dead
-   under a finger — every such element must state touch-action:pan-x pan-y for
-   itself. Four do: DO's home tab strip, the settings segmented control and LOG's
-   two .md preview panes. */
+/* Text fields and horizontal scrollers need explicit touch-action.
+   Shell yields its swipe handler for selection and sideways scrolling. */
 #track input,#track textarea,#track [contenteditable]{touch-action:auto}
-/* ── A slide is a column: the title band, then the scroll body ───────────────
+/* A slide is a column: the title band, then the scroll body
    Shell moves each home's .h-top (the date line, the logo, DO's tab strip)
    out of the scroller to be a fixed band at the top of the slide, below the
    status bar; everything else scrolls in .view-body under it, starting
@@ -111,7 +93,7 @@ body{
    descender space rather than its letters and sits high in its own bar. */
 .view .scr .hd-title{text-box:trim-both cap alphabetic}
 
-/* ── One band shape for every app ─────────────────────────────────────────────
+/* One band shape for every app
    The eight bands used to be eight different heights — their own padding,
    their own wordmark size (48 / 44 / 54), their own bottom margin — so the
    title jumped on every tab change and the morph read as a stumble. The
@@ -120,58 +102,11 @@ body{
    sized off the wordmark alone. DO's daily/media/other strip sits beside the
    wordmark inside the same row, and is capped (do.css) so it can never be
    what drives the height. */
-/* ── Why the band is measured in whole pixels ─────────────────────────────────
-   The wordmark's size is `--title-base * --title-scale`, and four of the five
-   title sizes are fractional (54 × .72 = 38.88, × .86 = 46.44, × 1.16 = 62.64,
-   × 1.34 = 72.36). That fraction used to reach two places at once: the band's
-   min-height, and — through `justify-content:flex-end` — the offset every row
-   inside it was pushed down by. A text run that lands on a half pixel is
-   resampled rather than drawn, which is why the *smallest* text in the band
-   went soft first: the date line at the top of DO. The wordmark itself is big
-   enough to carry it, so the bug read as "the top of the title is blurred"
-   rather than "the title is blurred".
-
-   **There are two fractional inputs here, and 2.24.0 only fixed one of them.**
-   `--title-px` snapped the wordmark, and the blur stayed, because the other
-   term is the status-bar inset: a notched iPhone reports
-   `env(safe-area-inset-top)` as 47.33px, and that number lands in the padding
-   *and* the min-height. `--sat` (tokens.css) is that value snapped, and every
-   header in the app is measured from it now.
-
-   Both are the same fix: whole-pixel band, whole-pixel rows, text drawn rather
-   than resampled. Both keep the unrounded value as the first declaration, so a
-   browser without `round()` renders as it did before rather than losing the
-   rule entirely.
-
-   ── And neither of them was the blur ──
-   Nor was `-webkit-overflow-scrolling` (2.25.0), nor the translucent status bar
-   (2.25.1). All four were real defects and all four are staying fixed, but the
-   band kept looking soft through every one of them because **the top row was
-   not being rendered badly, it was the wrong colour**: `--mu`, which is
-   placeholder grey at about 2.1:1, used as a label colour at 10px. Small text
-   at that contrast reads as out of focus rather than as faint. The label rows
-   take `--tx-2` now, and `--mu` carries a note in tokens.css saying what it is
-   and is not for.
-
-   The lesson worth keeping: four fixes that each changed nothing were four
-   pieces of evidence that the model was wrong, and the fifth report should have
-   been read as "stop fixing rendering" much sooner than it was. */
-/* ── The band is centred on its ink, not on its line boxes ──
-   A wordmark is all caps, and a caps-only line in a `line-height:1` box leaves
-   the descender space empty underneath: measured in Chrome, `STORE.` is 37px of
-   ink in a 54px box, so 8.5px of the band's height under the title is space no
-   glyph will ever occupy. The band had no slack to redistribute either — 14 top
-   + 82 content + 12 bottom is exactly its 108px floor — so `justify-content`
-   had nothing to do and every one of those 8.5px read as a gap between the
-   title and whatever the app draws first. On STORE, against the counter widget,
-   that is the gap you notice.
-
-   `text-box` (below, on the titles themselves) trims the half-leading so the box
-   *is* the caps, `center` distributes what is left evenly rather than piling it
-   at one end, and the floor tracks the trimmed title so it does not put the
-   space straight back. `--title-cap` is Syne's cap height as a fraction of the
-   em, measured rather than guessed; it is only ever used to size boxes around
-   trimmed text, so a different display face changes one number. */
+/* Round title and safe-area dimensions to whole pixels. Keep unrounded
+   declarations first as fallbacks for browsers without round().
+   Small header labels use --tx-2 rather than placeholder grey. */
+/* text-box trims unused leading around capitals; center the remaining space.
+   --title-cap sizes the band around the trimmed title and tracks the display font. */
 .view > .h-top{
   flex:0 0 auto;position:relative;z-index:20;background:var(--bg);
   display:flex;flex-direction:column;justify-content:center;gap:8px;
@@ -199,7 +134,7 @@ body{
   /* the box is the caps, so what is centred is what you can see */
   text-box:trim-both cap alphabetic;
   text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
-/* ── The dot is part of the word, not a comment on it ──
+/* The dot is part of the word, not a comment on it ──
    `DO<em>.</em>` — title text colour, accent shadow, exactly like the letters
    in front of it. There is no rule here for it any more, and that is the fix:
    it inherits both from `.h-logo` and there is nothing left to get inverted.
@@ -211,32 +146,8 @@ body{
    on it is gone with it. */
 .view > .h-top .h-acts{position:absolute;top:calc(var(--sat) + 14px);right:18px}
 
-/* ── The big day-number, at the other end of the wordmark's row ───────────────
-   LOG and DAY both carry one, and it is defined once here rather than twice in
-   two app sheets because the whole point of it is that the two are identical.
-   Same family, same weight and same size as the wordmark — it is the second
-   half of one line, not a caption stuck beside it — measured in `--title-px`
-   so it follows the Title size dial and lands on a whole pixel with it.
-
-   The box is one digit tall with overflow hidden, so a number on its way out is
-   clipped by the row rather than making it taller, and both digits are placed
-   against the same right edge, which is what makes the change read as one
-   number moving rather than two numbers passing. `tabular-nums` keeps 9 → 10
-   from shifting the ones column sideways.
-
-   ── The shuffle ──
-   A vertical roll says "the next one along", which is right for a counter and
-   wrong for this. Stepping through days is riffling a deck: the number that
-   leaves is flicked off to one side, tilted and blurred as it goes, while the
-   next drops in from the other side and settles. `--dn-dir` is set by
-   Shell.dayNum() from the direction you moved, so forward throws the old one
-   left and back throws it right — the animation and the gesture agree about
-   which way time went.
-
-   The blur is what makes it a shuffle rather than a slide: a card leaving the
-   hand is not in focus, and without it the tilt reads as a glitch. It is one
-   small element for a fifth of a second, which is the only reason a filter
-   animation is acceptable here at all. */
+/* Shared title-sized day number. Tabular digits align at the right edge.
+   Shell.dayNum sets --dn-dir for the outgoing/incoming shuffle. */
 /* Its height is the trimmed wordmark's, not `1em`: the two share a row under
    `align-items:center`, and a box that is still a full em tall next to one that
    is now cap height would centre 8.5px lower than the letters beside it. It
@@ -248,15 +159,8 @@ body{
   min-width:calc(1.1em + var(--title-sh-x));height:calc(var(--title-cap) * 1em);line-height:1;
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
-/* **It clips sideways only.** The box has to clip — that is what stops a number
-   on its way out making the row taller — so the digits are held one shadow-width
-   off the right edge and the box is that much wider. But `overflow:hidden` clips
-   both axes, and once 3.0.3 trimmed this box to the cap height its children were
-   still laying out in full 54px line boxes: 9.4px of digit above and 9.5px below
-   were being cut off. `clip-path:inset(-100% 0)` clips left and right at the box
-   edges and leaves top and bottom unbounded, which is the clip this actually
-   wanted — the sliding is horizontal, and nothing about it needs a vertical cut.
-   Anything else that trims a box it also clips owes the same. */
+/* Clip horizontally with inset(-100% 0): overflow:hidden would cut digits
+   vertically after cap-height trimming. Reserve the shadow width on the right. */
 /* pulled up by the half-leading the box no longer has, so the digits sit on the
    wordmark's baseline rather than a line box's */
 .view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);
@@ -276,27 +180,8 @@ body{
   to  {transform:translateX(calc(var(--dn-dir,1) * -.55em)) rotate(calc(var(--dn-dir,1) * -7deg));
        filter:blur(7px);opacity:0}}
 
-/* ── Why there is no -webkit-overflow-scrolling here ──────────────────────────
-   **This is what was blurring the top of the title band, and it took three
-   goes to find because it cannot be seen anywhere but on an iPhone.**
-
-   `-webkit-overflow-scrolling:touch` opts a scroller into iOS's legacy
-   accelerated-scrolling path. On that path the scroller and anything
-   composited over it are rasterised into layers and re-scaled rather than
-   redrawn, and text on a re-scaled layer is resampled — soft edges, worst on
-   the smallest type. `.h-top` sits directly over this scroller at z-index 20,
-   which is why the softness landed on the band and nowhere else on the page,
-   and why the date line — 10px, letter-spaced, muted — was the first thing to
-   show it.
-
-   Two releases were spent looking for a fractional pixel (`--title-px` in
-   2.24.0, `--sat` in 2.24.1). Both of those were real and both are worth
-   keeping, and neither was this: the offsets were never the problem, the
-   compositing path was.
-
-   The property has done nothing since iOS 13 — momentum scrolling is the
-   default behaviour now — and it is deprecated. Removing it puts these
-   scrollers back on the normal path, where text is drawn at its real size. */
+/* Keep the scroller on the normal scrolling path; no legacy
+   -webkit-overflow-scrolling opt-in. */
 .view-body{
   flex:1 1 auto;min-height:0;
   overflow-y:auto;overflow-x:hidden;
@@ -312,7 +197,7 @@ body{
 .view-body #s-home{padding-top:18px}
 .view-body #s-home > :first-child{margin-top:0}
 
-/* ── Floating chrome ──────────────────────────────────────────────────────────
+/* Floating chrome
    The bar no longer owns a strip of the screen; it hovers over the content and
    gets out of the way while you read. .chrome-off is set by the shell when a
    slide is scrolled downward and cleared on scroll up, on idle, and on any tab
@@ -339,30 +224,9 @@ body{
   padding:0;color:var(--mu);
   border-radius:max(0px, calc(var(--nav-r) - 5px));
   transition:color .18s ease;
-  /* ── The active indicator, in six variables ───────────────────────────────
-     What the mark around the selected tab is, what colour it is and how it
-     arrives are three separate dials now (appearance → layout → Navigation),
-     and every one of them is a value swapped here rather than a second copy of
-     the rules below. themes.css sets them; this file never has to know which
-     shape or which palette won.
-
-       --tab-c    the colour of the mark — the accent, or the app's own hue
-       --tab-ink  what reads *on* that colour, on the selected tab
-       --tab-r    its corner radius
-       --tab-t    a transform it always carries (a circle centres itself)
-       --tab-s0   the scale it starts from, before it is selected
-       --tab-y0   the offset it rises from
-       --tab-dur / --tab-ease   how long that takes, and on what curve
-
-     Colour-coding writes --tab-app-c rather than --tab-c, and --tab-c reads it
-     with the accent as its fallback. That is not indirection for its own sake:
-     it is what keeps an alerting tab orange. A palette has to be claimed by a
-     selector heavy enough to name one app in one bar, and anything that heavy
-     outweighs `.tab-b.has-alert` — so as long as both wrote the same property
-     the palette won, and a colour-coded tab alerted in its own hue. Two
-     properties, and the question stops being about specificity at all: the
-     palette answers "what colour is this app", the alert answers "what colour
-     is this mark", and the second is the one the mark is drawn from. */
+  /* Active-tab tokens control colour, ink, radius, transform and animation.
+     Palettes set --tab-app-c; the mark reads --tab-c with that fallback.
+     Keep them separate so an alert can override the mark colour independently. */
   --tab-c:var(--tab-app-c,var(--y));--tab-ink:var(--tab-app-ink,var(--on-y));
   --tab-r:var(--r-pill);--tab-t:translate(0,0);
   --tab-s0:.55;--tab-y0:0px;--tab-dur:.24s;--tab-ease:cubic-bezier(.34,1.4,.5,1)}
@@ -435,7 +299,7 @@ body{
 .nav-arrow.chrome-off{opacity:0;transform:translateY(22px);pointer-events:none}
 .nav-arrow:disabled.chrome-off{opacity:0}
 
-/* ── Generic bottom sheet (PLAN uses it; STORE has its own .pad) ──────────── */
+/* Generic bottom sheet (PLAN uses it; STORE has its own .pad) */
 .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
             opacity:0;pointer-events:none;transition:opacity .18s}
 .sheet-back.on{opacity:1;pointer-events:auto}
@@ -453,7 +317,7 @@ body{
 .sheet-close{background:none;border:none;color:var(--y);font:400 11px/1 var(--mono);
              letter-spacing:.06em;cursor:pointer;padding:4px 0}
 
-/* ── Ask: the app's own confirm and prompt ────────────────────────────────────
+/* Ask: the app's own confirm and prompt
    Shell chrome, so it is unscoped — the LOG modal it is modelled on is
    .ns-log's and stays that way. It keeps the .modal-overlay / .modal-cancel
    class names because the shell finds overlays and their cancel buttons by
@@ -483,7 +347,7 @@ body{
 .ask-yes{background:var(--y);border:var(--bw) solid var(--y);color:var(--on-y)}
 .ask-yes.danger{background:var(--re);border-color:var(--re);color:#fff}
 .ask-yes:active{opacity:.82}
-/* ── Three answers ──
+/* Three answers ──
    A question with two real outcomes plus cancel. The row stacks rather than
    splitting into thirds — three verbs across a phone leaves each of them two
    words — and the order is read downwards: the two things that happen, then
@@ -499,7 +363,7 @@ body{
 .ask-alt{background:var(--y-fade);border:var(--bw) solid var(--yb);color:var(--y)}
 .ask-alt:active{background:color-mix(in srgb,var(--y) 24%,transparent)}
 
-/* ── The numpad ───────────────────────────────────────────────────────────────
+/* The numpad
    One pad for every numeric field in every app (js/shell.js). STORE's own .pad
    is the cart counter's and keeps its add/subtract row; this one edits a field,
    so its only verbs are a digit, a backspace and done. */
@@ -546,7 +410,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   padding:calc(10px * var(--dens));cursor:pointer;transition:all .12s}
 .npad-clear:active{color:var(--re);border-color:var(--re)}
 
-/* ── Search ──
+/* Search ──
    The same sheet, with a field at the top and its results under it. Shell
    chrome rather than an app's, so it lives here: every app is reachable from
    it and none of them owns it. */
@@ -577,13 +441,13 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
 /* The settings view lives in css/settings.css — it grew past what belonged in
    the frame's stylesheet when the panel count went from five to nine. */
 
-/* ── Content width: cap the line length once the window has room ──────────── */
+/* Content width: cap the line length once the window has room */
 @media (min-width:560px){
   .view .scr,.view > .h-top{max-width:var(--readable);margin-left:auto;margin-right:auto}
   .view > .h-top{width:100%}
 }
 
-/* ── Fluid grids ──────────────────────────────────────────────────────────────
+/* Fluid grids
    The apps ship fixed two-column grids, which is right on a phone and wasteful
    the moment the window grows. auto-fill keeps the tile size honest and lets the
    column count follow the width, so nothing reflows into a stretched mess. */
@@ -598,7 +462,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .ns-plan .proj-grid  {grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 }
 
-/* ── Desktop: the pill becomes a rail ─────────────────────────────────────── */
+/* Desktop: the pill becomes a rail */
 @media (min-width:880px){
   :root{--scr-pad-b:calc(78px + env(safe-area-inset-bottom))}
   #views{left:var(--rail-w)}
@@ -633,7 +497,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .sheet,.npad,.ns-store .pad{left:var(--rail-w-wide)}
 }
 
-/* ── Pointer affordances ──────────────────────────────────────────────────────
+/* Pointer affordances
    The apps were built touch-first and only ever styled :active. On a machine
    with a real pointer that leaves everything feeling dead until it is clicked. */
 @media (hover:hover) and (pointer:fine){
@@ -673,7 +537,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .ns-log .h-arr:hover,.sheet-close:hover{color:var(--y)}
 }
 
-/* ── Focus: keyboard users get a visible ring, pointers do not ────────────── */
+/* Focus: keyboard users get a visible ring, pointers do not */
 :focus{outline:none}
 :focus-visible{outline:2px solid var(--y);outline-offset:2px;border-radius:var(--r1)}
 

@@ -1,14 +1,9 @@
-/* ── STORE ────────────────────────────────────────────────────────────────────
-   Grocery list, in-store € counter, meals, trip history, Todoist union sync.
-   Original rules from eat/index.html, scoped under .ns-store. The bottom sheets
-   (numpad, cart log, trip name, category picker) sit outside the slide track so
-   position:fixed still resolves against the viewport; they keep their .ns-store
-   wrapper, so every rule below still applies to them. */
+/* STORE grocery list, spending counter and trip history. */
 
 .ns-store .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-store .scr.on{display:block}
 
-/* ── Sticky sub-screen header ── */
+/* Sticky sub-screen header ── */
 .ns-store .hd{position:sticky;top:0;background:var(--bg);border-bottom:var(--bw) solid var(--bd);
     padding:calc(var(--hd-pad) + var(--sat)) 18px var(--hd-pad);
     display:flex;align-items:center;gap:calc(14px * var(--dens));z-index:10}
@@ -18,14 +13,14 @@
 .ns-store .hd-action:active{color:var(--y)}
 .ns-store .hd-action.danger:active{color:var(--re)}
 
-/* ── Home top ── */
+/* Home top ── */
 /* the band's box is shell.css's, shared by every app */
 .ns-store .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-store .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 .ns-store .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-store .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-store .h-logo em{font-style:normal}
 
-/* ── The item count, on the date line ─────────────────────────────────────────
+/* The item count, on the date line
    `SAT 5 SEP · 3/11 ITEMS`, the same shape DO uses for "9 TO DO". It shared the
    wordmark's row with the total until 2.25.1, and two big things at one end of
    a phone-wide band is how the total ended up running off the edge — the count
@@ -34,28 +29,8 @@
 .ns-store .h-count{color:var(--y);margin-left:10px}
 .ns-store .h-count:empty{display:none}
 
-/* ── The trip's total ─────────────────────────────────────────────────────────
-   Only on screen while the counter is pinned — pinning is the signal that you
-   are in a shop and this is the number you keep glancing at, and that is
-   exactly when it is worth the band's width.
-
-   **White, not the accent.** It is the loudest number in the app while it is
-   up, and it says the same thing the pinned widget says in accent; two accents
-   arguing at the top of the screen is worse than one plain one. The colour it
-   *does* carry is the change — see below.
-
-   **The shadow is a second copy of the glyphs, offset right and sitting under
-   them.** Not a soft drop shadow — a hard `text-shadow` with zero blur, so it
-   reads as the number's own shape displaced rather than as depth. On a
-   near-black ground a dark shadow is invisible, so it takes the accent, which
-   is also what makes a white number look like it belongs to this app rather
-   than to the operating system. When the number flashes green or red the
-   shadow goes with it, so the two never disagree about what is happening.
-
-   **It cannot leave the band.** The size is the wordmark's, scaled down and
-   capped against the viewport, so a four-figure total at the largest title size
-   still fits beside `STORE.`; `min-width:0` and the row's own `overflow:hidden`
-   are the backstop if it ever does not. */
+/* Show the trip total while pinned, in --tx with an accent shadow.
+   Clip horizontally at the available band width. Changes use a sign and nudge. */
 .ns-store .h-cost{
   /* Sideways only, for the day number's reason (shell.css): the box is trimmed
      to the caps but its cells still lay out in full line boxes, so a two-axis
@@ -90,7 +65,7 @@
 .ns-store .h-cost .cu{font-size:.4em;font-weight:700;color:var(--tx);margin-left:.12em;
   --title-sh-c:var(--y);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
   transition:color var(--dur-3) var(--ease), text-shadow var(--dur-3) var(--ease)}
-/* ── The cells ──
+/* The cells ──
    One per character of the number, the decimal point included. They declare no
    colour and no shadow of their own, and that is the point: an inherited value
    follows the parent's transition frame by frame, so the digits, the point and
@@ -115,24 +90,12 @@
   100%{transform:rotateX(0);     opacity:1}}
 .ns-store .h-cost.hidden{display:none}
 
-/* ── The change ──
-   A `+` or a `−` at the head of the number, and a nudge under it. **There is no
-   colour in this any more.** It was green on a rise and red on a fall until
-   3.0.2, which asked the eye to decode a hue into a direction — on a number
-   that already carries the accent in its shadow, and against a palette the theme
-   picker can move out from under it. A sign does not need decoding, does not
-   collide with the accent, and says the same thing in one glyph.
-
-   The nudge stays: a fraction of a millimetre up on a rise and down on a fall,
-   which is direction told twice rather than direction told in a colour.
-
-   `will-change` is not set: this runs for half a second when a price is
-   entered, not continuously, and a permanent layer for an occasional flash is
-   the trade the wrong way round. */
+/* Use a +/- sign and directional nudge for changes. Avoid permanent
+   will-change for this occasional animation. */
 .ns-store .h-cost.up  {animation:cost-up   calc(.5s * var(--mo)) var(--ease-out) both}
 .ns-store .h-cost.down{animation:cost-down calc(.5s * var(--mo)) var(--ease-out) both}
 
-/* ── The sign ──
+/* The sign ──
    `display:none` between changes, so it reserves nothing on a band that is
    already tight. When it appears the box grows *leftwards* — the row is
    `space-between` and the counter has the right end to itself — so the digits
@@ -165,7 +128,7 @@
                   cursor:pointer;letter-spacing:.06em;padding:calc(4px * var(--dens)) 0;transition:color .12s}
 .ns-store .h-settings-btn:active{color:var(--y)}
 
-/* ── Content ── */
+/* Content ── */
 /* The gap under the band is the shell's (§6): `.view-body #s-home` sets it, and
    an app must not add to it. On the home screen this box is the first thing
    under the band, so its own top padding was a second 18px — 36px between the
@@ -184,30 +147,11 @@
 .ns-store input[type=number]::-webkit-inner-spin-button,
 .ns-store input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
-/* ── Counter widget ──
-   Pinned, it sticks to the top of the page and the list scrolls under it — the
-   running total is the number you keep glancing at in a shop, and the list is
-   long enough to scroll it away. **sticky, not fixed**: position:fixed inside
-   #track takes a transformed ancestor as its containing block (§3, §6), and
-   the title morph animates one. Sticky has no such problem, but it does need
-   an opaque background and a shadow, since content now passes behind it.
-
-   The **whole** calculator pins, buttons and all. 2.22 folded the ± rows away
-   while pinned, on the theory that a pinned counter is a readout; it is not —
-   the buttons are the reason you wanted it in view, and half a calculator
-   stuck to the top is not a calculator. */
+/* Use sticky inside #track: fixed positioning would follow its transformed
+   ancestor. Keep an opaque background over scrolling content and retain the keys. */
 .ns-store .cw{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));margin-bottom:22px}
-/* ── Pinned ──
-   `top:0`, not `top:-1px`. Tucking the widget a border-width above the
-   scroller's edge hid its own top border at exactly the moment it locked, so
-   the box looked open at the top for as long as it was pinned — the one state
-   where it is the topmost thing on the page and its edge is doing the work of
-   separating it from the band above.
-
-   The price itself moves up into the band while it is pinned (`.h-cost`), so
-   the widget drops that row and keeps everything the band cannot carry: the
-   budget line, the bar, and the keys. A pinned counter that was only a readout
-   would not be worth pinning — the buttons are the reason you wanted it. */
+/* top:0 preserves the pinned top border. The total moves to the band;
+   the widget keeps its budget, progress and keys. */
 .ns-store .cw.pinned{position:sticky;top:0;z-index:6;
   background:var(--s1);box-shadow:var(--shadow-lift);
   padding-top:calc(11px * var(--dens))}
@@ -255,7 +199,7 @@
             padding:calc(10px * var(--dens));cursor:pointer;transition:all .12s}
 .ns-store .cw-pad-btn:active{border-color:var(--y);background:var(--yd)}
 
-/* ── Numpad sheet ── */
+/* Numpad sheet ── */
 .ns-store .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
             opacity:0;pointer-events:none;transition:opacity .18s}
 .ns-store .sheet-back.on{opacity:1;pointer-events:auto}
@@ -289,7 +233,7 @@
 .ns-store .pad-key.alt{color:var(--mu);font-size:15px}
 .ns-store .pad-key.alt:active{color:var(--re);border-color:var(--re);background:rgba(224,96,96,.1)}
 
-/* ── Cart entry log ── */
+/* Cart entry log ── */
 .ns-store .clog-sum{display:flex;justify-content:space-between;align-items:baseline;
           background:var(--bg);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           padding:calc(11px * var(--dens)) calc(13px * var(--dens));margin-bottom:10px}
@@ -328,7 +272,7 @@
 .ns-store .pad-op.sub{color:var(--re)}
 .ns-store .pad-op.sub:active{border-color:var(--re);background:rgba(224,96,96,.1)}
 
-/* ── Section header ── */
+/* Section header ── */
 .ns-store .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
      margin:22px 0 12px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd);
      display:flex;align-items:center;justify-content:space-between;gap:calc(8px * var(--dens))}
@@ -340,7 +284,7 @@
 .ns-store .sec-act:active{color:var(--y)}
 .ns-store .sec-act.danger:active{color:var(--re)}
 
-/* ── List items ── */
+/* List items ── */
 .ns-store .li-item{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
          padding:calc(12px * var(--dens)) calc(13px * var(--dens));margin-bottom:5px;cursor:pointer;text-align:left;
          display:flex;align-items:center;gap:calc(11px * var(--dens));transition:all .1s;user-select:none}
@@ -366,14 +310,14 @@
 .ns-store .li-empty{color:var(--mu);font:400 11px/1.6 var(--mono);text-align:center;padding:calc(26px * var(--dens)) 0;
           background:var(--s1);border:1px dashed var(--bd);border-radius:var(--r1)}
 
-/* ── Manual add row ── */
+/* Manual add row ── */
 .ns-store .add-row{display:grid;grid-template-columns:1fr auto;gap:calc(6px * var(--dens));margin-bottom:18px}
 .ns-store .add-btn{background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);
          font:700 11px/1 var(--mono);letter-spacing:.06em;padding:calc(12px * var(--dens)) calc(16px * var(--dens));
          cursor:pointer;white-space:nowrap;transition:opacity .15s}
 .ns-store .add-btn:active{opacity:.82}
 
-/* ── Quick action cards ── */
+/* Quick action cards ── */
 .ns-store .qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens));margin-bottom:8px}
 .ns-store .card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
       padding:calc(18px * var(--dens)) calc(15px * var(--dens)) calc(16px * var(--dens));cursor:pointer;position:relative;
@@ -387,7 +331,7 @@
 .ns-store .card.muted{border-color:transparent;padding:calc(12px * var(--dens)) calc(15px * var(--dens))}
 .ns-store .card.muted .card-t{font:400 11px/1 var(--mono);color:var(--mu);letter-spacing:.06em;text-transform:none}
 
-/* ── Category grid ── */
+/* Category grid ── */
 .ns-store .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(8px * var(--dens))}
 .ns-store .cat-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           padding:calc(18px * var(--dens)) calc(15px * var(--dens));cursor:pointer;transition:border-color .12s;
@@ -399,7 +343,7 @@
 .ns-store .cat-meta{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.05em;margin-top:auto}
 .ns-store .cat-meta em{color:var(--cat-color);font-style:normal}
 
-/* ── Item buttons (inside category) ── */
+/* Item buttons (inside category) ── */
 .ns-store .item-grid{display:grid;grid-template-columns:1fr 1fr;gap:calc(5px * var(--dens))}
 .ns-store .item-add{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
           color:var(--tx);font:400 12px/1 var(--mono);letter-spacing:.04em;
@@ -410,7 +354,7 @@
 .ns-store .item-add .qty-badge{font:700 11px/1 var(--mono);color:var(--cat-color);
                      background:var(--s2);border-radius:var(--r1);padding:calc(4px * var(--dens)) calc(7px * var(--dens));flex-shrink:0}
 
-/* ── Meal cards ── */
+/* Meal cards ── */
 .ns-store .meal-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
            margin-bottom:8px;overflow:hidden;transition:border-color .15s}
 .ns-store .meal-card.open{border-color:var(--y)}
@@ -433,7 +377,7 @@
           padding:calc(12px * var(--dens));cursor:pointer;margin-top:12px;transition:opacity .15s}
 .ns-store .meal-add:active{opacity:.82}
 
-/* ── History ── */
+/* History ── */
 .ns-store .hist-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(14px * var(--dens));margin-bottom:9px}
 .ns-store .hist-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:calc(10px * var(--dens))}
 .ns-store .hist-date{font:700 11px/1 var(--head);letter-spacing:.1em;color:var(--y);text-transform:var(--caps)}
@@ -453,7 +397,7 @@
 .ns-store .hist-act:active{border-color:var(--y);color:var(--y)}
 .ns-store .hist-act.del:active{border-color:var(--re);color:var(--re)}
 
-/* ── Settings ── */
+/* Settings ── */
 .ns-store .setting-row{display:flex;align-items:center;justify-content:space-between;
              background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
              padding:calc(13px * var(--dens)) calc(14px * var(--dens));margin-bottom:8px;gap:calc(10px * var(--dens))}
@@ -467,7 +411,7 @@
 .ns-store .data-warn{font:400 10px/1.6 var(--mono);color:var(--mu);padding:calc(12px * var(--dens)) calc(14px * var(--dens));margin-bottom:16px;
            background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
 
-/* ── Todoist sync ── */
+/* Todoist sync ── */
 .ns-store .sec-act.sync{color:var(--y)}
 .ns-store .sec-act.sync:active{opacity:.6}
 .ns-store .sec-act:disabled,.ns-store .setting-btn:disabled,.ns-store .btn:disabled{opacity:.45;cursor:default}
@@ -486,7 +430,7 @@
      padding:calc(15px * var(--dens));cursor:pointer;margin-top:6px;transition:opacity .15s}
 .ns-store .btn:active{opacity:.82}
 
-/* ── Done banner ── */
+/* Done banner ── */
 .ns-store .done-banner{background:rgba(92,219,125,.07);border:var(--bw) solid rgba(92,219,125,.2);
              border-radius:var(--r1);font:400 11px/1.6 var(--mono);color:var(--gr);
              letter-spacing:.06em;text-align:center;padding:calc(14px * var(--dens));margin-bottom:14px;display:none}

@@ -1,13 +1,5 @@
-/* ── TRACK ────────────────────────────────────────────────────────────────────
-   The CAP Électricien curriculum tracker: 54 topics ticked with a date, a pace
-   derived from those dates, and a trajectory drawn against the exam, the
-   internship and the revision buffer. One long screen; the date settings moved
-   to the settings tab and reach this sheet through .ns-track on that panel.
-
-   Ported from track/index.html for 2.2. The app shipped with radii from 12 to
-   16px on a 4px system — they are ratios of --r-base now, so a preset that says
-   "round" rounds TRACK too and "sharp" squares it. Its palette names (--acc,
-   --dim, --dimmer, --card…) were mapped onto ROOT's tokens. */
+/* TRACK curriculum and pace styles. Keep .ns-track on the settings panel
+   so its controls share these rules and the common theme tokens. */
 
 .ns-track .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-track .scr.on{display:block}
@@ -15,7 +7,7 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-track .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-track .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-track .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-track .h-logo em{font-style:normal}
 
 .ns-track .cnt{padding:0 calc(18px * var(--dens))}
 
@@ -23,7 +15,7 @@
   margin:26px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .ns-track .secLabel em{font-style:normal;color:var(--bd-2)}
 
-/* ── hero ── */
+/* hero ── */
 .ns-track .hero{text-align:center;margin:8px 0 20px}
 .ns-track .count{font:800 84px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
 .ns-track .count .of{color:var(--bd-2);font-size:30px;vertical-align:super}
@@ -45,7 +37,7 @@
 .ns-track .stat .k{font:400 9px/1.3 var(--mono);letter-spacing:1.5px;color:var(--tx-2);text-transform:var(--caps);margin-top:5px}
 .ns-track .stat .v.acc{color:var(--y)} .ns-track .stat .v.g{color:var(--gr)} .ns-track .stat .v.a{color:var(--or)} .ns-track .stat .v.r{color:var(--re)}
 
-/* ── squeeze ── */
+/* squeeze ── */
 .ns-track .squeeze{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
   padding:calc(16px * var(--dens)) calc(16px * var(--dens)) calc(14px * var(--dens));margin-top:10px}
 .ns-track .sqTitle{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--tx-2);text-transform:var(--caps);margin-bottom:12px}
@@ -59,7 +51,7 @@
 .ns-track .sqNote{font:400 10px/1.6 var(--mono);color:var(--tx-2);margin-top:12px;padding-top:12px;border-top:var(--bw) solid var(--bd)}
 .ns-track .sqNote b{color:var(--or);font-weight:400}
 
-/* ── chart ── */
+/* chart ── */
 .ns-track .chartWrap{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);
   padding:calc(16px * var(--dens)) calc(12px * var(--dens)) calc(10px * var(--dens));margin-top:10px}
 .ns-track .chartHead{display:flex;gap:calc(14px * var(--dens));font:400 9px/1 var(--mono);letter-spacing:1px;color:var(--tx-2);
@@ -69,7 +61,7 @@
 .ns-track svg#chart{width:100%;height:auto;display:block}
 .ns-track svg#chart text{font-family:var(--mono)}
 
-/* ── milestones ── */
+/* milestones ── */
 .ns-track .mile{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
   padding:calc(11px * var(--dens)) calc(14px * var(--dens));background:var(--s1);
   border:var(--bw) solid var(--bd);border-radius:var(--r3);margin-bottom:7px;font:400 12px/1.4 var(--mono)}
@@ -82,7 +74,7 @@
 .ns-track .mile .mr small{display:block;font:400 8.5px/1 var(--mono);color:var(--tx-2);letter-spacing:1px;margin-top:2px}
 .ns-track .mile.hot .mr{color:var(--or)}
 
-/* ── next up ── */
+/* next up ── */
 .ns-track .next{background:var(--s1);border:var(--bw) solid var(--y);border-radius:var(--r3);
   padding:calc(14px * var(--dens)) calc(14px * var(--dens)) calc(8px * var(--dens));margin-bottom:7px}
 .ns-track .nextRow{display:flex;align-items:center;gap:calc(11px * var(--dens));padding:calc(8px * var(--dens)) 0;border-top:var(--bw) solid var(--bd)}
@@ -91,7 +83,7 @@
 .ns-track .nextRow .nm{font-size:9px;color:var(--tx-2);letter-spacing:1px;text-transform:var(--caps);margin-top:3px}
 .ns-track .nextEmpty{padding:8px 0 14px;text-align:center;font:400 11px/1.4 var(--mono);color:var(--tx-2)}
 
-/* ── curriculum ── */
+/* curriculum ── */
 .ns-track .lvl{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r3);margin-bottom:8px;overflow:hidden}
 .ns-track .lvl.done{border-color:color-mix(in srgb,var(--gr) 35%,transparent)}
 .ns-track .lvlHead{display:flex;align-items:center;gap:calc(12px * var(--dens));padding:calc(13px * var(--dens)) calc(14px * var(--dens));cursor:pointer;user-select:none}
@@ -124,7 +116,7 @@
 .ns-track .extraNote{font-size:9px;color:var(--tx-2);letter-spacing:1px;margin-top:4px}
 .ns-track .revList{font:400 10.5px/1.7 var(--mono);color:var(--tx-2);padding-bottom:6px}
 
-/* ── legacy banner ── */
+/* legacy banner ── */
 .ns-track .legacy{background:var(--s1);border:var(--bw) solid var(--or);border-radius:var(--r3);
   padding:calc(12px * var(--dens)) calc(14px * var(--dens));font:400 10px/1.6 var(--mono);color:var(--tx-2);margin-bottom:18px;display:none}
 .ns-track .legacy b{color:var(--or);font-weight:400}
@@ -132,7 +124,7 @@
 .ns-track .legacy button{background:none;border:none;color:var(--mu);font:400 9px/1 var(--mono);
   letter-spacing:1.5px;text-transform:var(--caps);cursor:pointer;margin-top:8px;padding:0}
 
-/* ── settings panel ── */
+/* settings panel ── */
 .ns-track .setRow{display:flex;align-items:center;justify-content:space-between;gap:calc(12px * var(--dens));
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);
   padding:calc(11px * var(--dens)) calc(14px * var(--dens));margin-bottom:8px}

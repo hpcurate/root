@@ -1,11 +1,4 @@
-/* ── CAL ──────────────────────────────────────────────────────────────────────
-   The exported day, drawn as a calendar. One screen: a strip of the days that
-   have been planned, then the day itself as proportional blocks.
-
-   Every radius is a ratio of --r-base, every border is var(--bw), every gap is
-   scaled by --dens — a literal here would make one surface immune to the whole
-   theme system (see §4 of ROOT.md). The one deliberate literal is the block
-   height, which comes from --cal-hour: it is a dial, not a shape. */
+/* CAL day schedule, event rows and navigation. */
 
 /* the stepper floats above the nav, so the day has to clear both of them */
 .ns-cal .scr{display:none;min-height:100%;
@@ -15,11 +8,11 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-cal .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-cal .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-cal .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-cal .h-logo em{font-style:normal}
 
 .ns-cal .cnt{padding:0 calc(18px * var(--dens))}
 
-/* ── the date, beside the wordmark ───────────────────────────────────────────
+/* the date, beside the wordmark
    It shares the wordmark's row, so it declares a height rather than growing
    one out of its padding: a band that is taller than the other eight makes the
    title morph stumble, which is exactly what the shared band rule exists to
@@ -36,24 +29,8 @@
 .ns-cal .cbd-rel{font:400 8px/1 var(--mono);letter-spacing:1.4px;color:var(--y);
   text-transform:none;white-space:nowrap}
 
-/* ── the day stepper, above the bar ──────────────────────────────────────────
-   Fixed, and therefore a sibling of #views rather than part of the slide —
-   nothing position:fixed may live inside #track (§3). It rides just above the
-   nav, shares the nav's chrome treatment, and follows it out of the way when
-   the chrome hides.
-
-   **Square, and the size it always was.** 2.22 made it a bar the width of the
-   screen with two half-width arrows; that is a lot of chrome for two controls,
-   and an arrow you cannot see the edges of does not read as a button. It is
-   back to a compact centred stepper — but square rather than a pill, with
-   `--r2`, which is the radius every other box in the app uses. It is chrome,
-   so it looked like the nav's pill; it is a pair of controls, so it should look
-   like a pair of controls.
-
-   It still fades out once it has been idle (`calStepsHide`, cal.js) and comes
-   back on the first touch anywhere on DAY. An arrow with nowhere to go is
-   dimmed in place, never removed: a control that disappears at the edge moves
-   the one beside it. */
+/* Keep the fixed day stepper outside #track. It follows nav visibility and
+   returns on touch. Disable boundary arrows in place to preserve button positions. */
 .cal-steps{
   display:none;position:fixed;z-index:59;
   left:50%;transform:translateX(-50%);
@@ -80,7 +57,7 @@ body:has(#nav.chrome-off) .cal-steps,
 .cal-steps .cal-arrow.off:active{background:none;color:var(--bd-2)}
 .cal-steps .cal-steps-sep{width:var(--bw);align-self:center;height:16px;background:var(--bd);flex:0 0 auto}
 
-/* ── the day's head ─────────────────────────────────────────────────────────
+/* the day's head
    Two rows: what the day is, then what can be done to it. They were one row
    with the meta squeezed into whatever the buttons left, which on a phone was
    not enough for it — and the meta is the half you read.
@@ -106,30 +83,22 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .ch-act{color:var(--y)}
 .ns-cal .ch-act:active{color:var(--tx)}
 
-/* ── the day itself ───────────────────────────────────────────────────────────
+/* the day itself
    One row per event, its height the duration, so an hour looks like an hour.
    The rows butt onto each other the way the template does, so the day reads as
    one column rather than as a list of cards. */
 .ns-cal .cal-day{position:relative;display:flex;flex-direction:column;
   border:var(--bw) solid var(--bd);border-radius:var(--r2);overflow:hidden}
 
-/* ── now ──────────────────────────────────────────────────────────────────────
-   One hairline across the day at the height the clock has reached, drawn only
-   on today and only while today is still running (cal.js). It is `--y` because
-   it is the only thing on this drawing that is about *this moment* rather than
-   about the plan, and it sits above the rows without taking a tap: the row
-   underneath it is still the row you meant to tick.
-
-   Its offset is the sum of the row heights above it, computed from the same
-   durations the rows are drawn from — so it lands on the boundary it names
-   rather than near it, whatever --cal-hour is set to. */
+/* Today's clock line uses the same durations as row heights. Ignore pointer
+   events so the row beneath remains tickable. */
 .ns-cal .cal-now{position:absolute;left:0;right:0;top:var(--now-y,0);z-index:2;
   height:0;pointer-events:none;border-top:max(1px, var(--bw)) solid var(--y)}
 .ns-cal .cal-now span{position:absolute;left:0;top:0;transform:translateY(-50%);
   background:var(--y);color:var(--on-y);border-radius:0 var(--r1) var(--r1) 0;
   font:700 8px/1 var(--mono);letter-spacing:.06em;padding:3px 5px 3px 4px}
 
-/* ── A completion mark ──
+/* A completion mark ──
    The rows are the day as planned; this is the day as it happened. Small, and
    visible: a dot on the rail at the minute it was finished, the time beside it,
    and the name after that in the muted colour so the mark reads as an
@@ -171,30 +140,16 @@ body:has(#nav.chrome-off) .cal-steps,
   border-radius:0;-webkit-appearance:none;appearance:none}
 .ns-cal button.cal-ev:active{background:var(--press)}
 
-/* ── Nothing on the day answers a finger that is scrolling ────────────────────
-   The shell already takes the press *wash* off anything scrolled under a
-   finger (tokens.css) and already swallows the click that ends a drag
-   (shell.js). Both are about the tap that follows. The day is the one screen
-   where that is not enough: its rows are as tall as the hours they stand for,
-   so a scroll down a full day is a finger travelling across five or six
-   controls, and every one of them was live under it — hovering, holding a
-   focus ring, offering its delete. It read as a list arguing with the hand
-   moving it.
-
-   So for the length of the gesture the day is a picture: nothing in it takes
-   a pointer at all. The scroller is the ancestor and keeps its own
-   pointer-events, so the scroll itself is untouched — this only removes the
-   rows as *targets*. `data-scrolling` clears 160ms after the last scroll
-   event, which is long enough to outlast momentum and short enough that a
-   deliberate tap on a day that has stopped moving lands. */
+/* Disable row pointer targets during scrolling; the ancestor scroller stays
+   active. Shell clears data-scrolling after momentum settles. */
 [data-scrolling="on"] .ns-cal .cal-day,
 [data-scrolling="on"] .ns-cal .cal-head{pointer-events:none}
 
-/* ── a row that is done ───────────────────────────────────────────────────────
+/* a row that is done
    Struck through and stood down rather than removed: the day keeps its shape,
    and the shape is the point of drawing it this way. The tick is the same mark
    DO's tiles use, so the gesture reads the same in both apps. */
-/* ── The delete on a row ──────────────────────────────────────────────────────
+/* The delete on a row
    Quiet until it is wanted: the border colour at rest, the danger colour under
    a finger. It is deliberately not the same weight as the tick — ticking a row
    is the thing you do all day and deleting one is the thing you do twice a
@@ -256,17 +211,8 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cal-ev.idle .ev-box{border-left-style:dashed;border-left-color:var(--bd)}
 .ns-cal .cal-ev.idle .ev-name{font-weight:400;color:var(--bd-2);font-style:italic}
 
-/* ── Colourful events ─────────────────────────────────────────────────────────
-   Settings → apps → cal. The row's colour is already on screen as the rail
-   down its left edge; these lift it into the row itself. Two switches, because
-   the two kinds of row are two different claims — `lit-task` washes the blocks
-   you filed (the b1a / b2b slots), `lit-fixed` washes the template hours
-   around them. Both on is a rainbow, which is why it is two dials and not one.
-
-   A wash, not a fill: 12% of the colour over the surface the row already has,
-   so the *name* is still the highest-contrast thing in the row. A row filled
-   with its colour would be a row you read the colour of instead of the words.
-   An unclaimed slot is never lit — there is nothing there to have a colour. */
+/* lit-task and lit-fixed independently tint assigned slots and template rows.
+   Empty slots remain unlit. */
 .ns-cal .cal-day.lit-task .cal-ev.task{
   background:color-mix(in srgb,var(--ev-color,var(--bd)) 12%,var(--s1))}
 .ns-cal .cal-day.lit-task .cal-ev.task .ev-meta{color:var(--ev-color,var(--tx-2))}
@@ -277,7 +223,7 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cal-day.lit-task .cal-ev.task.done,
 .ns-cal .cal-day.lit-fixed .cal-ev.fixed.done{background:var(--s1)}
 
-/* ── schedule from do ─────────────────────────────────────────────────────────
+/* schedule from do
    A panel drawn into the day rather than a screen of its own — the same choice
    PLAN's export panel makes, and for the same reason: what you are allocating
    is on screen behind it, and losing sight of the day to fill the day in is the
@@ -324,7 +270,7 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cs-go:disabled{background:var(--s2);border-color:var(--bd);color:var(--bd-2);
   cursor:default}
 
-/* ── notes ── */
+/* notes ── */
 .ns-cal .cal-notes{margin-top:calc(12px * var(--dens));background:var(--s1);
   border:var(--bw) solid var(--bd);border-radius:var(--r2);
   padding:calc(12px * var(--dens)) calc(14px * var(--dens))}
@@ -333,7 +279,7 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cn-row{font:400 11.5px/1.5 var(--mono);color:var(--tx);
   padding:calc(3px * var(--dens)) 0}
 
-/* ── nothing planned ── */
+/* nothing planned ── */
 .ns-cal .cal-empty{background:var(--s1);border:var(--bw) solid var(--bd);
   border-radius:var(--r2);padding:calc(26px * var(--dens)) calc(18px * var(--dens));
   text-align:center;margin-top:calc(8px * var(--dens))}
@@ -362,7 +308,7 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .cal-empty .ce-go{display:flex;margin-left:auto;margin-right:auto;width:max-content;max-width:100%}
 .ns-cal .cal-empty .ce-alt{margin-top:calc(9px * var(--dens))}
 
-/* ── the settings panel (reached through .ns-cal on that panel) ── */
+/* the settings panel (reached through .ns-cal on that panel) ── */
 .ns-cal .settings-status{font:400 10px/1.4 var(--mono);letter-spacing:.6px;
   padding:calc(9px * var(--dens)) calc(12px * var(--dens));border-radius:var(--r1);
   border:var(--bw) solid var(--bd);color:var(--tx-2);margin-bottom:calc(10px * var(--dens))}

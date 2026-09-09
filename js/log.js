@@ -1,19 +1,15 @@
-/* ── LOG ──────────────────────────────────────────────────────────────────────
-   Daily life tracker: morning/evening data, journal entries, history, weekly
-   and monthly reports, JSON backup. Logic is unchanged from log/index.html.
-   Merge-only changes: one IIFE published as window.LOG, DOM lookups scoped to
-   .ns-log, the slide scrolls instead of the window, toast() goes to the shell.
-   Storage keys are untouched: log_<date> and log-scale-v2. */
+/* LOG: morning/evening records, notes and reports.
+   Preserve log_<date>, log-scale-v2 and the exported note field names. */
 window.LOG = (function () {
 'use strict';
 
 const SCOPE = '.ns-log ';
-const view  = document.querySelector('#view-log .view-body');   // the scroll container (Shell wraps it)
+const view  = document.querySelector('#view-log .view-body');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
-// ── Dates ─────────────────────────────────────────────────────────────────────
+// Dates
 function localISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -80,7 +76,7 @@ function weekMonday(iso) {
   return localISO(d);
 }
 
-// ── Storage ───────────────────────────────────────────────────────────────────
+// Storage
 const SK = () => 'log_' + TODAY;
 
 /* One `meds_<key>` per configured slot, all false. A function declaration and
@@ -151,7 +147,7 @@ function curOf(e = {}) {
 }
 function curTotal(e = {}) { const c = curOf(e); return c.mix + c.prod + c.cont; }
 
-// ── 1–3 → 1–5 rescale ─────────────────────────────────────────────────────────
+// 1–3 → 1–5 rescale
 /* Energy, mood and stress moved from a 1–3 scale to 1–5. Old values are spread
    across the new range (low/mid/high keep their meaning) so averages and trend
    arrows stay comparable across the change. 4 and 5 are left alone, which makes
@@ -224,7 +220,7 @@ function allLogKeys() {
   return Object.keys(localStorage).filter(k => k.startsWith('log_')).sort();
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+// Navigation
 let dirty = false;
 function markDirty() { dirty = true; }
 
@@ -246,7 +242,7 @@ function goBack() {
               yes: 'discard', danger: true, done: a => { if (a) discard(); } });
 }
 
-/* ── Discard has to undo, not merely decline to save ──────────────────────────
+/* Discard has to undo, not merely decline to save
    The forms do not hold their answers in the DOM and read them at the end. The
    scales, the meds, the meals, the counters, the cold-shower toggle and the
    blocks all write straight into `data` as they are tapped — `save()` only
@@ -267,14 +263,14 @@ function discard() {
   go('home');      // …and go() repaints whichever form is opened next from it
 }
 
-// ── Home ──────────────────────────────────────────────────────────────────────
+// Home
 /* "Has this half of the day been logged?" used to mean "has a wake time" and
    "has an evening km figure". 2.0 made both fields optional, and with either
    switched off the card could never turn green and the streak could never
    grow. Any recorded value in that half now counts. */
 const has = v => v !== '' && v !== null && v !== undefined && v !== false && v !== 0 &&
                  !(Array.isArray(v) && !v.length);
-/* ── "Written" means someone wrote it ─────────────────────────────────────────
+/* "Written" means someone wrote it
    This used to be "does this half hold any value at all", which was right
    while every value on it came from the form. It stopped being right when
    `setBlock` arrived: a block ticked on DO writes itself into the real today's
@@ -316,7 +312,7 @@ function readDay(iso) {
   try { return JSON.parse(localStorage.getItem('log_' + iso)); } catch { return null; }
 }
 
-/* ── The blocks that were finished, by day ────────────────────────────────────
+/* The blocks that were finished, by day
    DO ticks a block and `setBlock` files the name under that day here, so LOG is
    already the only place a *past* day's completed blocks exist — DO's own cache
    is one day deep by design and is emptied by the sweep. This is the read side
@@ -365,7 +361,7 @@ function refreshHome() {
   refreshAlert();
 }
 
-/* ── The month, and the fortnight ──────────────────────────────────────────────
+/* The month, and the fortnight
    LOG's home was six cards and a streak line, and the six cards are the least
    interesting thing on it: they are doors, and you already know where they go.
    What was missing was the answer to "how am I doing" — which needed opening
@@ -456,30 +452,8 @@ function renderMonth() {
   box.innerHTML = (trendBig ? '' : month) + trendHTML();
 }
 
-/* ── The fortnight, and the six questions it can answer ───────────────────────
-   Fourteen days as lines with a dot on every day that has a value. It started
-   as one chart — energy, mood and stress — because those three are what the
-   morning and the evening actually ask about, and reading them together is
-   most of what a fortnight is *for*: a good mood at high stress is a different
-   fortnight from a good mood at low stress.
-
-   4.1 makes it six. Tapping the key row underneath moves to the next one; the
-   plot itself still opens over the month, on every chart. Nothing new is
-   stored for any of them — every series here is a field the day record already
-   holds, read the same way the reports read it.
-
-   **One unit per chart, always.** A shared y-axis is a claim that two numbers
-   are comparable, so hours never share an axis with counts and counts never
-   share one with a 1–5 answer. That is the whole rule, and it is why there are
-   six charts rather than two crowded ones.
-
-   The dots matter as much as the lines. A bare line says which way it went; a
-   line of dots also says how often you actually answered, and a fortnight with
-   four readings draws the same line as one with fourteen.
-
-   A chart with nothing in it is dropped from the cycle rather than shown
-   empty: switch a field off, or never walk anywhere, and that chart is simply
-   not one of the ones you tap through. */
+/* Six fortnight charts derived from day records. Each y-axis uses one unit;
+   dots mark recorded values. Skip empty charts; tapping the legend cycles them. */
 const N_TREND = 14;
 let trendIx = 0;                     // which chart; not stored, like trendBig
 
@@ -646,7 +620,7 @@ function trendHTML() {
   const line = sd => sd.any
     ? `<g class="lc-s ${esc(sd.k)}" style="--s-c:${esc(sd.color)}"><path class="lc-l" d="${path(sd.vals)}"/>${dots(sd.vals)}</g>` : '';
 
-  /* ── Opened up ───────────────────────────────────────────────────────────
+  /* Opened up
      The axes only appear here, because they only fit here. Both are HTML
      rather than SVG text: the viewBox is stretched, so a <text> in it would be
      stretched too, and a label that is 1.4× as wide as it is tall is a label
@@ -702,7 +676,7 @@ function cycleTrend() {
   renderMonth();
 }
 
-/* ── The tab alert ─────────────────────────────────────────────────────────────
+/* The tab alert
    A log is only worth anything if it is written, and the two halves of the day
    have an hour by which they should be. Past that hour with the half still
    empty, LOG's tab icon becomes a "!" — the shell owns the nav, so this only
@@ -724,7 +698,7 @@ const alertCfg = () => Object.assign({}, Config.defaults('log.alerts'), Config.g
 const HHMM = /^(\d{1,2}):([0-5]\d)$/;
 let alertTest = null;
 
-/* ── The one flag that can be answered by looking ─────────────────────────────
+/* The one flag that can be answered by looking
    LOG's two rules clear themselves: writing the morning is what makes "morning
    not written" stop being true, so the flag going out *is* the work being done.
    PLAN's does not. "Nothing planned for tomorrow" is a prompt, and the honest
@@ -796,7 +770,7 @@ function alertReason() { return alertReasons()[0] || null; }
 
 const ALERT_SAYS = { morning: 'morning log not written', evening: 'evening log not written',
                      plan: 'nothing planned for tomorrow' };
-/* ── Which tab wears which flag ───────────────────────────────────────────────
+/* Which tab wears which flag
    An unwritten morning or evening is LOG's business and flags LOG. **An
    unplanned tomorrow is PLAN's**, and flags PLAN — it was on LOG only because
    LOG happens to own the rule, and a "!" on the log tab that means "go and use
@@ -818,7 +792,7 @@ function refreshAlert() {
   return alertReason();
 }
 
-/* ── Settings ── */
+/* Settings ── */
 function renderAlertSettings() {
   if (!$id('al-on')) return;
   const a = alertCfg();
@@ -864,7 +838,7 @@ function testAlert(which) {
   toast(alertTest ? `previewing · ${ALERT_SAYS[alertTest]}` : why ? 'preview off · ' + ALERT_SAYS[why] : 'preview off');
 }
 
-// ── Scale / toggles ───────────────────────────────────────────────────────────
+// Scale / toggles
 function sc(btn, id) {
   dirty = true;
   $id(id).querySelectorAll('.sc-b').forEach(b => b.classList.remove('on'));
@@ -879,7 +853,7 @@ function scSet(id, val) {
   row.querySelectorAll('.sc-b').forEach(b => b.classList.toggle('on', b.textContent.trim() === String(val)));
 }
 
-// ── Meds: selected = taken, unselected = not taken ────────────────────────────
+// Meds: selected = taken, unselected = not taken
 function toggleMed(which) {
   if (!medKeys().includes(which)) return;
   dirty = true;
@@ -896,7 +870,7 @@ function syncMedsUI() {
   });
 }
 
-// ── Meals: same yes/no behaviour, tracked per meal number ─────────────────────
+// Meals: same yes/no behaviour, tracked per meal number
 function toggleMeal(n) {
   dirty = true;
   const i = data.e.meals.indexOf(n);
@@ -941,7 +915,7 @@ function woSet(val) {
   $id('wo-fields').classList.toggle('hidden', val === 'rest');
 }
 
-// ── Counters ──────────────────────────────────────────────────────────────────
+// Counters
 function syncCafUI() {
   const c = data.e.caf_c, ed = data.e.caf_ed;
   $id('caf-c-n').textContent  = c;
@@ -988,7 +962,7 @@ const maxBlocks = () => Config.get('log.maxBlocks') || 6;
 const EXPORT_BLOCK_FLOOR = 6;
 const exportBlockCols = () => Math.max(EXPORT_BLOCK_FLOOR, maxBlocks());
 
-/* ── Which strip a ticked block was ticked in ──────────────────────────────────
+/* Which strip a ticked block was ticked in
    `e.blocks` is the record and the export: a flat list of names, one entry per
    block finished, and that shape is a contract the Obsidian side parses. It
    cannot say *where* the name was tapped, and until 4.1 nothing did — so a
@@ -1037,7 +1011,7 @@ function syncBlocks() {
     litFor(b.dataset.name ?? b.textContent.trim(), b.classList.contains('plan'))));
 }
 
-/* ── The standing blocks, folded ──────────────────────────────────────────────
+/* The standing blocks, folded
    Default closed: the evening is nearly always made of what was planned, and
    the nine standing blocks under it are a list to scroll past. It opens on a
    tap, and opens itself when one of them is already ticked — a tick you cannot
@@ -1060,7 +1034,7 @@ function resetBlockFold() {
   syncBlockFold();
 }
 
-/* ── Blocks planned in PLAN ───────────────────────────────────────────────────
+/* Blocks planned in PLAN
    What PLAN queued or sent today, offered under the block buttons as extra
    blocks in the project's colour. Ticking one records the task name like any
    other block, so it lands in the .md block table and in the reports' block
@@ -1120,7 +1094,7 @@ function setBlock(name, on) {
   if (id === 'home') refreshHome();
 }
 
-/* ── Media, from DO's media tab ───────────────────────────────────────────────
+/* Media, from DO's media tab
    A media task ticked on DO lands in the real today's record as a finished
    title — straight to storage, like a block — and comes out again on untick.
    Matched on title + label, since the Todoist id is not kept in the record. */
@@ -1140,7 +1114,7 @@ function setMedia(task, on) {
   // history, and DO's own tile is where it is ticked
 }
 
-/* ── Config-driven form furniture ─────────────────────────────────────────────
+/* Config-driven form furniture
    The evening and morning forms used to be nine hardcoded block buttons, two
    named medications, four meals and three curate counters written straight into
    index.html. They are built from Config here instead, keeping the exact ids and
@@ -1244,7 +1218,7 @@ function applyFieldVisibility() {
   if (f.workout !== false) $id('wo-fields')?.classList.toggle('hidden', woGet() === 'rest');
 }
 
-// ── Last weight ───────────────────────────────────────────────────────────────
+// Last weight
 function lastWeight() {
   for (let i=1; i<=30; i++) {
     try { const d = JSON.parse(localStorage.getItem('log_'+dateOffset(TODAY,-i))); if(d?.m?.wkg) return d.m.wkg; } catch {}
@@ -1252,7 +1226,7 @@ function lastWeight() {
   return null;
 }
 
-// ── Morning ───────────────────────────────────────────────────────────────────
+// Morning
 function popM() {
   const m = data.m;
   $id('m-wt').value  = m.wt  || '';
@@ -1294,7 +1268,7 @@ function saveMorning() {
   go('home');
 }
 
-// ── Evening ───────────────────────────────────────────────────────────────────
+// Evening
 function popE() {
   const e = data.e;
   $id('e-kme').value = e.kme || '';
@@ -1312,7 +1286,7 @@ function saveEvening() {
   save(); toast('Evening saved'); go('home');
 }
 
-// ── Entries ───────────────────────────────────────────────────────────────────
+// Entries
 function addEntry() {
   const ta = $id('et'), txt = ta.value.trim(); if(!txt) return;
   const now = new Date();
@@ -1334,7 +1308,7 @@ function renderEntries() {
     </div>`).reverse().join('');
 }
 
-// ── Build daily note ──────────────────────────────────────────────────────────
+// Build daily note
 function buildNote() {
   const m=data.m, e=data.e;
   const bl=e.blocks||[], b=Array.from({length:exportBlockCols()},(_,i)=>bl[i]||'');
@@ -1435,7 +1409,7 @@ ${Object.keys(meds).map(k => `| ${('meds_' + k).padEnd(13)} | ${meds[k]?'yes':'n
 | curate_total  | ${cur.mix + cur.prod + cur.cont} |${createRows}${studyRows}${mediaRows}`);
 }
 
-/* ── Media in the note ────────────────────────────────────────────────────────
+/* Media in the note
    Only on a day something was finished, so older notes are untouched and the
    parser (which looks rows up by key) reads it as additive. One row per label
    present — media_movie, media_music … — titles joined by "; ", the second
@@ -1469,13 +1443,13 @@ function parseMediaRows(content) {
   return out;
 }
 
-/* ── Study, from TRACK and LEARN ──────────────────────────────────────────────
+/* Study, from TRACK and LEARN
    The CAP topics ticked on that day and the Anki cards rated on it. Both apps
    expose a synchronous reader over their own storage; LOG stores nothing, it
    only reads at note time. Null when the day had neither, so the section only
    appears on a day that was actually a study day — the parser ignores rows it
    does not know, so an extra section is additive. */
-/* ── CREATE, read at note time ────────────────────────────────────────────────
+/* CREATE, read at note time
    The hours at the desk on that day, split by area, and what they went into.
    Same contract as studyOf(): CREATE exposes a synchronous reader over its own
    storage and LOG stores nothing of it. Null on a day with no sessions, so the
@@ -1499,7 +1473,7 @@ function studyOf(iso) {
   return { topics, progress, rated:st.rated, acquired:st.acquired, decks:st.decks };
 }
 
-// ── Output ────────────────────────────────────────────────────────────────────
+// Output
 function renderOutput() {
   const note = buildNote();
   $id('out-pre').textContent = note;
@@ -1538,7 +1512,7 @@ async function copyAll() {
   setTimeout(()=>{btn.textContent='copy all';btn.classList.remove('ok');},2200);
 }
 
-// ── Trend indicator helper ────────────────────────────────────────────────────
+// Trend indicator helper
 // higher_is_better: if true, up = positive; if false (stress), down = positive
 function trendBadge(curr, prev, higherIsBetter=true) {
   if (!curr || !prev) return `<div class="ti neu">—</div>`;
@@ -1549,7 +1523,7 @@ function trendBadge(curr, prev, higherIsBetter=true) {
   return `<div class="ti ${positive?'pos':'neg'}">${up?'▲':'▼'}</div>`;
 }
 
-// ── Weekly km chart ───────────────────────────────────────────────────────────
+// Weekly km chart
 /* The daily target was a constant; it is Settings → content now. Read live. */
 const kmTarget = () => Number(Config.get('log.kmTarget')) || 6;
 const DAY_LBL = ['M','T','W','T','F','S','S'];
@@ -1620,7 +1594,7 @@ function renderKmChart() {
   </div>`;
 }
 
-// ── History ───────────────────────────────────────────────────────────────────
+// History
 function renderHistory() {
   const container=$id('hist-list');
   const rows = [];
@@ -1678,11 +1652,11 @@ function renderHistory() {
   container.innerHTML = renderKmChart() + (rows.join('') || '<div class="hist-empty">no history yet</div>');
 }
 
-// ── Reports ───────────────────────────────────────────────────────────────────
+// Reports
 let _repContent = '', _repFilename = '';
 let _parsedData = null; // map of { 'YYYY-MM-DD': dayObj } from pasted notes
 
-// ── Parse merged notes from Obsidian ─────────────────────────────────────────
+// Parse merged notes from Obsidian
 function parseMergedNotes(text) {
   // Split on the LiCalendar date header — handles both with and without filenames
   const parts = text.split(/\*:LiCalendar:\s*(\d{4}-\d{2}-\d{2})\*/);
@@ -1817,7 +1791,7 @@ function parseDayContent(date, content) {
   return d;
 }
 
-// ── Reports UI flow ───────────────────────────────────────────────────────────
+// Reports UI flow
 function renderReports() {
   const mon = weekMonday(TODAY), sun = dateOffset(mon, 6);
   const wk = isoWeekNum(TODAY);
@@ -1908,7 +1882,7 @@ function backToPick() {
   showRepStep(_parsedData ? 'pick' : 'paste');
 }
 
-// ── Load report from parsed Obsidian data ─────────────────────────────────────
+// Load report from parsed Obsidian data
 function loadReportParsed(type, key) {
   const getDay = iso => _parsedData[iso] || {};
 
@@ -1936,7 +1910,7 @@ function loadReportParsed(type, key) {
   showRepStep('preview');
 }
 
-// ── Load report from localStorage (phone-only fallback) ───────────────────────
+// Load report from localStorage (phone-only fallback)
 function loadReportLocal(type) {
   const getDay = iso => { try { return JSON.parse(localStorage.getItem('log_'+iso)) || {}; } catch { return {}; } };
   const [y, m] = TODAY.split('-');
@@ -2039,7 +2013,7 @@ const studySection = s => `## study
 
 ${s.titles.map(t => '- ' + t).join('\n') || '—'}`;
 
-// ── Report builders (accept days array + getDay function) ─────────────────────
+// Report builders (accept days array + getDay function)
 function buildWeeklyReport(days, getDay) {
   const dd = days.map(getDay);
   const [y] = days[0].split('-');
@@ -2275,7 +2249,7 @@ async function copyReport() {
   setTimeout(()=>{btn.textContent='copy';btn.classList.remove('ok');},2200);
 }
 
-// ── Data screen ───────────────────────────────────────────────────────────────
+// Data screen
 function renderDataScreen() {
   const keys = allLogKeys();
   const totalEntries = keys.reduce((a,k)=>{
@@ -2288,7 +2262,7 @@ function renderDataScreen() {
   renderAlertSettings();
 }
 
-// ── Backup: export / import all days ──────────────────────────────────────────
+// Backup: export / import all days
 async function exportAllData() {
   const keys = allLogKeys();
   if (!keys.length) { toast('No data to export'); return; }
@@ -2372,7 +2346,7 @@ function confirmDeleteAll() {
   go('home');
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
+// Utils
 function clearDay() {
   Shell.confirm('Clear all data for selected day?', () => {
     /* A day is written once and read for months; clearing the wrong one is
@@ -2389,7 +2363,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+// Boot
 const _rescaled = migrateScales();
 renderForms();          // build the Config-driven controls before anything fills them
 initData();
@@ -2443,7 +2417,7 @@ if (calBox) calBox.addEventListener('keydown', e => {
 /* onMinute is the shell's own minute tick, the one that already watches for
    midnight: the alert wants re-deriving as 10:00 and 21:00 pass, and a second
    timer for it would be a second thing to keep in step. */
-/* ── The date arrows step aside ───────────────────────────────────────────────
+/* The date arrows step aside
    DAY's stepper fades once it has been idle and comes back on the first touch
    anywhere on the app; these are the same control doing the same job, so they
    behave the same way and read the same dial (`calStepsHide` — one "how long

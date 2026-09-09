@@ -107,7 +107,7 @@ w.CREATE.go('sessions');
 show('filter',      '.ns-create #cr-log-tabs');
 show('log',         '.ns-create #cr-sessions');
 
-/* ── 4.1 ─────────────────────────────────────────────────────────────────── */
+/* 4.1 */
 console.log('\n\n════ CREATE · the curate tab ' + '═'.repeat(35));
 w.Creds.save('a-token-for-peek');
 w.fetch = async (url) => {

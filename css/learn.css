@@ -1,12 +1,4 @@
-/* ── LEARN ────────────────────────────────────────────────────────────────────
-   Anki deck study on the go: import an .apkg, rate cards from "revision" to
-   "acquired", read the scoreboard. Four screens (home, deck, study, scoreboard);
-   its settings screen became a settings panel.
-
-   Ported from learn/index.html for 2.2. It was already written against ROOT's
-   token names (--s1, --bd, --y, --mu…), so the port is mostly the scope prefix,
-   the radius/border/padding normalisation, and the screen model: each .scr is
-   a block inside the slide rather than its own 100dvh scroller. */
+/* LEARN deck library and study sessions; shared theme tokens. */
 
 .ns-learn .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-learn .scr.on{display:block}
@@ -22,9 +14,9 @@
 /* the band's box is shell.css's, shared by every app */
 .ns-learn .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-learn .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-learn .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-learn .h-logo em{font-style:normal}
 
-/* ── import zone ── */
+/* import zone ── */
 .ns-learn .import-zone{display:block;margin:0 18px 14px;border:var(--bw) dashed var(--bd-2);border-radius:var(--r2);
   padding:calc(22px * var(--dens)) calc(16px * var(--dens));text-align:center;cursor:pointer;user-select:none;
   transition:border-color var(--dur-1),background var(--dur-1)}
@@ -34,7 +26,7 @@
 .ns-learn .iz-s{font:400 10px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em}
 .ns-learn .import-zone input{display:none}
 
-/* ── deck list ── */
+/* deck list ── */
 .ns-learn .deck-list{padding:0 18px}
 .ns-learn .list-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--mu);margin:8px 0 10px}
 .ns-learn .deck{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
@@ -53,7 +45,7 @@
   font:400 12px/1.7 var(--mono);letter-spacing:.04em}
 .ns-learn .empty-state em{color:var(--y);font-style:normal}
 
-/* ── sections + content ── */
+/* sections + content ── */
 .ns-learn .cnt{padding:calc(18px * var(--dens))}
 .ns-learn .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   margin:6px 0 14px;padding-bottom:calc(8px * var(--dens));border-bottom:var(--bw) solid var(--bd)}
@@ -78,7 +70,7 @@
 .ns-learn .btn-ghost:active{background:var(--press)}
 .ns-learn .btn-danger{background:var(--re);color:#fff;border:none}
 
-/* ── study ── */
+/* study ── */
 .ns-learn .study-wrap{padding:calc(18px * var(--dens));display:flex;flex-direction:column;
   min-height:calc(100vh - 56px - var(--scr-pad-b) - var(--sat))}
 .ns-learn .study-progress{display:flex;gap:calc(14px * var(--dens));font:400 10px/1 var(--mono);letter-spacing:.1em;color:var(--mu);margin-bottom:14px;flex-wrap:wrap}
@@ -118,7 +110,7 @@
 .ns-learn .ans.easy{border-color:color-mix(in srgb,var(--gr) 40%,transparent)}  .ns-learn .ans.easy .ans-l{color:var(--gr)}
 .ns-learn .ans:active{background:var(--press)}
 
-/* ── scoreboard ── */
+/* scoreboard ── */
 .ns-learn .done-banner{background:color-mix(in srgb,var(--gr) 12%,transparent);border:var(--bw) solid color-mix(in srgb,var(--gr) 30%,transparent);
   border-radius:var(--r2);padding:calc(22px * var(--dens)) calc(16px * var(--dens));text-align:center;margin-bottom:18px}
 .ns-learn .done-banner-t{font:700 12px/1 var(--head);letter-spacing:.1em;text-transform:var(--caps);color:var(--gr);margin-bottom:8px}
@@ -140,7 +132,7 @@
 .ns-learn .nw-tag.shk{color:var(--or);background:color-mix(in srgb,var(--or) 12%,transparent)}
 .ns-learn .nw-tag.alm{color:var(--y);background:var(--yd)}
 
-/* ── misc ── */
+/* misc ── */
 .ns-learn .spinner{display:inline-block;width:11px;height:11px;border:2px solid var(--bd);
   border-top-color:var(--y);border-radius:50%;animation:learn-sp .7s linear infinite;
   vertical-align:middle;margin-right:8px;margin-bottom:1px}

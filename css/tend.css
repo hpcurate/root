@@ -1,27 +1,15 @@
-/* ── TEND ─────────────────────────────────────────────────────────────────────
-   Plant care. Today's round grouped by room, a shelf of every plant, and two
-   bottom sheets (detail, editor) that live outside #track like every other
-   overlay. Settings moved to the settings tab; the rules below still reach that
-   panel because it carries .ns-tend.
-
-   Ported from tend/index.html for 2.2: every literal radius, hairline and
-   padding was rewritten to the token system (§4 of ROOT.md), the fixed "add
-   plant" bar became a sticky one inside the slide, and the app's own palette
-   names (--surface, --accent, --muted…) were mapped onto ROOT's tokens.
-
-   --tend-blue is the one colour the token set does not carry: water is blue.
-   It is defined here and corrected for light mode in themes.css. */
+/* TEND plant shelf, care rounds and sheets; shared theme tokens. */
 
 .ns-tend{--tend-blue:#7cc4f0}
 
 .ns-tend .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-tend .scr.on{display:block}
 
-/* ── Home header ── */
+/* Home header ── */
 /* the band's box is shell.css's, shared by every app */
 .ns-tend .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-tend .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-tend .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-tend .h-logo em{font-style:normal}
 
 .ns-tend .h-acts{display:flex;gap:14px}
 .ns-tend .h-act{background:none;border:none;color:var(--tx-2);font:400 11px/1 var(--mono);
@@ -38,7 +26,7 @@
 .ns-tend .season b{color:var(--tx);font-weight:400}
 .ns-tend .season .sdot{width:7px;height:7px;border-radius:50%;background:var(--y);flex:0 0 auto}
 
-/* ── round / shelf switch ── */
+/* round / shelf switch ── */
 .ns-tend .tabs{display:flex;gap:calc(6px * var(--dens));margin-bottom:18px}
 .ns-tend .tab{flex:1;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu);
   font:400 11px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);
@@ -47,7 +35,7 @@
 .ns-tend .sub{display:none}
 .ns-tend .sub.on{display:block}
 
-/* ── round ── */
+/* round ── */
 .ns-tend .hero{text-align:center;padding:calc(14px * var(--dens)) 0 calc(22px * var(--dens))}
 .ns-tend .hero .n{font:800 66px/.9 var(--head);letter-spacing:-2px;color:var(--tx)}
 .ns-tend .hero .n.zero{color:var(--gr)}
@@ -99,7 +87,7 @@
 .ns-tend .soon .sn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ns-tend .soon .sd{font-size:10px;color:var(--tx-2);letter-spacing:.06em;white-space:nowrap}
 
-/* ── shelf ── */
+/* shelf ── */
 .ns-tend .shelfBar{display:flex;gap:calc(6px * var(--dens));margin-bottom:16px}
 .ns-tend .sortBtn{flex:1;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--mu);
   font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
@@ -121,7 +109,7 @@
 .ns-tend .rday b{display:block;font:800 15px/1.2 var(--head);color:var(--tx)}
 .ns-tend .rday.due b{color:var(--re)} .ns-tend .rday.soon b{color:var(--or)}
 
-/* ── add plant — sticky, parked above the floating pill like PLAN's send ── */
+/* add plant — sticky, parked above the floating pill like PLAN's send ── */
 .ns-tend .add-wrap{position:sticky;padding:0 calc(18px * var(--dens));margin-top:18px;
   bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 16px)}
 .ns-tend .add-btn{width:100%;background:var(--s1);border:var(--bw) solid var(--bd);color:var(--tx);
@@ -129,7 +117,7 @@
   padding:calc(14px * var(--dens));border-radius:var(--r1);cursor:pointer;box-shadow:var(--shadow-lift)}
 .ns-tend .add-btn:active{border-color:var(--y);color:var(--y)}
 
-/* ── sheets (detail + editor) — the frame's .sheet, with TEND's furniture ── */
+/* sheets (detail + editor) — the frame's .sheet, with TEND's furniture ── */
 .ns-tend .sheet h3{font:800 18px/1 var(--head);letter-spacing:.04em;text-transform:lowercase;color:var(--tx);margin-bottom:16px}
 .ns-tend .grab{width:34px;height:3px;background:var(--bd-2);border-radius:var(--r-pill);margin:0 auto 16px}
 
@@ -197,7 +185,7 @@
 .ns-tend .hist .hx:active{color:var(--re)}
 .ns-tend .histEmpty{font:400 10.5px/1.4 var(--mono);color:var(--mu);padding:6px 0}
 
-/* ── undo pill — a sibling of #toast, same spot ── */
+/* undo pill — a sibling of #toast, same spot ── */
 .ns-tend .undo{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);
   bottom:calc(var(--nav-fh) + max(6px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + 22px);
   background:var(--s2);border:var(--bw) solid var(--y);border-radius:var(--r-pill);
@@ -214,7 +202,7 @@
   font:400 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);
   padding:calc(6px * var(--dens)) calc(12px * var(--dens));border-radius:var(--r-pill);cursor:pointer}
 
-/* ── settings panel: the season curve ── */
+/* settings panel: the season curve ── */
 .ns-tend .curve{display:flex;align-items:flex-end;gap:3px;height:52px;margin:10px 0 6px}
 .ns-tend .curve div{flex:1;background:var(--s2);border-radius:var(--r1) var(--r1) 0 0;position:relative}
 .ns-tend .curve div.now{background:var(--y)}

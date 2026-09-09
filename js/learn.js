@@ -1,28 +1,12 @@
-/* ── LEARN ────────────────────────────────────────────────────────────────────
-   Anki study on the go. An .apkg/.colpkg is unpacked in the browser — JSZip
-   for the archive, sql.js for the collection database, fzstd for the newer
-   zstd-compressed one — and its cards go into IndexedDB. Sessions are a flat
-   queue: rate each card, read the scoreboard, drill what needs work. One-way:
-   nothing syncs back to desktop Anki.
-
-   Ported from learn/index.html for 2.2:
-     · the three libraries are fetched only when an import starts, so ROOT stays
-       a no-dependency site until you actually bring a deck in
-     · the rating labels and the session shape (cap, card text size, back-first,
-       tags) moved to js/config.js; the shuffle flag stays in learn_settings
-       because the standalone app reads it
-     · the settings screen became Settings → learn; every confirm goes through
-       Shell.confirm; the toast is Shell.toast
-     · IndexedDB is treated as optional: where it is missing (a test harness, a
-       locked-down browser) the home screen says so instead of throwing
-   Storage is untouched: IndexedDB `learn_v1` (decks, cards, media) and the
-   `learn_settings` key. Decks are NOT in the ROOT backup file — it carries
-   localStorage only — so a new device needs the .apkg again. */
+/* LEARN imports Anki archives using lazily loaded JSZip, sql.js and fzstd.
+   Decks/cards/media live in IndexedDB learn_v1; preferences use learn_settings.
+   There is no desktop sync. ROOT's localStorage backup excludes decks, so
+   moving devices requires the original archive. Handle unavailable IndexedDB. */
 window.LEARN = (function () {
 'use strict';
 
 const SCOPE = '.ns-learn ';
-const view  = document.querySelector('#view-learn .view-body');   // the scroll container (Shell wraps it)
+const view  = document.querySelector('#view-learn .view-body');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
@@ -30,7 +14,7 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const stripHtml = s => String(s).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 const RATING_DEF = ['revision', 'shaky', 'almost', 'acquired'];
 let RATINGS, STUDY;
 function readConfig() {
@@ -42,7 +26,7 @@ function readConfig() {
 }
 readConfig();
 
-/* ── Libraries, on demand ──────────────────────────────────────────────────── */
+/* Libraries, on demand */
 const LIBS = [
   { global:'JSZip',     src:'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js' },
   { global:'initSqlJs', src:'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js' },
@@ -66,7 +50,7 @@ async function ensureSQL() {
   return SQL;
 }
 
-/* ── IndexedDB ─────────────────────────────────────────────────────────────── */
+/* IndexedDB */
 const DB_NAME = 'learn_v1', DB_VER = 2;
 const hasIDB = typeof indexedDB !== 'undefined' && indexedDB !== null;
 let _db;
@@ -112,7 +96,7 @@ function bulkPut(store, items) {
   }));
 }
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 let currentDeckId = null;
 const session = { queue:[], idx:0, total:0, current:null, shown:false, counts:{ 1:0, 2:0, 3:0, 4:0 }, needsWork:[] };
 const settings = { shuffle:true };
@@ -123,16 +107,16 @@ function loadSettings() {
 }
 function saveSettings() { try { localStorage.setItem('learn_settings', JSON.stringify(settings)); } catch {} }
 
-/* ── Routing ───────────────────────────────────────────────────────────────── */
+/* Routing */
 function go(id) {
   $all('.scr').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
   if (view) view.scrollTop = 0;
   if (id === 'home') renderHome();
 }
 
-/* ── Minimal protobuf reader — top-level string fields of a blob. Used to pull
+/* Minimal protobuf reader — top-level string fields of a blob. Used to pull
    q_format (field 1) / a_format (field 2) out of TemplateConfig in the new
-   Anki schema. ───────────────────────────────────────────────────────────── */
+   Anki schema. */
 function readVarint(bytes, pos) {
   let val = 0, shift = 0;
   while (pos < bytes.length && shift < 32) {
@@ -165,7 +149,7 @@ function readProtoStrings(bytes) {
   return out;
 }
 
-/* ── .apkg import ──────────────────────────────────────────────────────────── */
+/* .apkg import */
 async function handleFile(file) {
   const t = $id('iz-t'), s = $id('iz-s');
   const origT = t.innerHTML, origS = s.textContent;
@@ -282,7 +266,7 @@ async function handleFile(file) {
   }
 }
 
-/* ── Home ──────────────────────────────────────────────────────────────────── */
+/* Home */
 /* What search can see. The decks are in IndexedDB and every read of them is
    async, so the home screen — which runs at boot and on every visit — leaves
    the names behind for a synchronous reader. Empty until it has run once, and
@@ -318,7 +302,7 @@ async function renderHome() {
   list.innerHTML = html.join('');
 }
 
-/* ── Deck ──────────────────────────────────────────────────────────────────── */
+/* Deck */
 async function goDeck(id) {
   currentDeckId = id;
   let d;
@@ -379,7 +363,7 @@ async function deleteCurrentDeck() {
   go('home');
 }
 
-/* ── Media (blob URLs scoped to the active deck) ───────────────────────────── */
+/* Media (blob URLs scoped to the active deck) */
 function freeMediaCache() {
   Object.values(mediaCache).forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
   mediaCache = {};
@@ -403,7 +387,7 @@ function rewriteMedia(html) {
   return html;
 }
 
-/* ── Card templates (Mustache-ish, the Anki subset) ────────────────────────── */
+/* Card templates (Mustache-ish, the Anki subset) */
 function fieldVal(card, name) {
   name = name.trim();
   const idx = card.fieldNames.indexOf(name);
@@ -435,7 +419,7 @@ function renderCloze(s, reveal) {
     reveal ? `<span class="cloze-on">${ans}</span>` : `<span class="cloze-off">[${hint || '...'}]</span>`);
 }
 
-/* ── Study session — flat queue, rate-and-tally ────────────────────────────── */
+/* Study session — flat queue, rate-and-tally */
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function cardLabel(c) {
   const first = (c.fields && c.fields[0]) || '';
@@ -522,7 +506,7 @@ async function answer(rating) {
   nextCard();
 }
 
-/* ── Daily tally, for LOG's note ──────────────────────────────────────────────
+/* Daily tally, for LOG's note
    The cards are in IndexedDB and LOG builds its note synchronously, so each
    rating also bumps a small per-day record in localStorage: how many cards were
    rated, how many reached the top rating, and which decks. Sixty days are
@@ -583,7 +567,7 @@ function sessionDone() {
   go('done');
 }
 
-/* ── Bulk data actions (Settings → learn) ──────────────────────────────────── */
+/* Bulk data actions (Settings → learn) */
 async function resetAllProgress() {
   if (!await Shell.confirm('Clear all ratings for ALL decks?')) return;
   try {
@@ -624,7 +608,7 @@ async function deckStats() {
   } catch (e) { return { ok:false, error:e.message || 'IndexedDB unavailable', decks:0, cards:0, media:0, bytes:0, acquired:0 }; }
 }
 
-/* ── Settings panel ────────────────────────────────────────────────────────── */
+/* Settings panel */
 function renderSettings() {
   const sh = $id('set-shuffle');
   if (sh) { sh.classList.toggle('on', !!settings.shuffle); sh.setAttribute('aria-checked', String(!!settings.shuffle)); }
@@ -648,7 +632,7 @@ function toggleShuffle() {
   saveSettings(); renderSettings(); Prefs.tap();
 }
 
-/* ── Wiring ────────────────────────────────────────────────────────────────── */
+/* Wiring */
 const fileInput = $id('file-input');
 if (fileInput) fileInput.addEventListener('change', e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; });
 const iz = $id('import-zone');
@@ -665,7 +649,7 @@ document.addEventListener('input', e => {
   }
 });
 
-/* ── Boot ──────────────────────────────────────────────────────────────────── */
+/* Boot */
 loadSettings();
 renderAnswerRow();
 renderHome();

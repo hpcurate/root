@@ -1,18 +1,13 @@
-/* ── Settings ─────────────────────────────────────────────────────────────────
-   Split out of shell.css, which had grown to hold both the frame and the whole
-   settings view. Everything here is scoped to .ns-set except the small shared
-   controls the four app panels also borrow.
-
-   Loaded after shell.css and before themes.css. */
+/* Settings panels, preference controls and content editors. */
 
 .ns-set .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-set .scr.on{display:block}
 /* the band's box is shell.css's, shared by every app */
 .ns-set .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2)}
 .ns-set .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-set .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-set .h-logo em{font-style:normal}
 
-/* ── Home menu ────────────────────────────────────────────────────────────────
+/* Home menu
    The apps kept out of the bar, as tappable tiles with their tab icon, then
    the three categories as rows. A category is a sub-screen with the same
    sticky back header the apps use for theirs. */
@@ -50,7 +45,7 @@
 /* the live preview sticks below the category header rather than under it */
 .ns-set .preview{top:calc(52px + var(--sat))}
 
-/* ── Segmented control ────────────────────────────────────────────────────────
+/* Segmented control
    Seven app pills, so it scrolls sideways and the active chip is scrolled into
    view by SET.panel() rather than left off the edge.
 
@@ -69,7 +64,7 @@
 .set-panel{display:none;padding:0 18px}
 .set-panel.on{display:block}
 
-/* ── Shared furniture ─────────────────────────────────────────────────────── */
+/* Shared furniture */
 .ns-set .sec{font:700 10px/1 var(--head);letter-spacing:.15em;text-transform:var(--caps);color:var(--y);
   margin:24px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd);
   display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -83,19 +78,8 @@
   padding:12px 14px;margin-bottom:14px;
   background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1)}
 
-/* ── Hints, and switching them off ────────────────────────────────────────────
-   Settings → behaviour → "Explain the controls". Every panel here carries two
-   kinds of explanatory text: the paragraph that introduces a section
-   (.data-warn / .set-note) and the grey line under an individual control
-   (a <small> in a switch's label, an <em> in a slider's). They are what makes
-   the app legible on the first pass and what makes it long to scroll on the
-   hundredth, so they are a dial rather than a decision.
-
-   One attribute on <html>, like the press wash and the chrome blur, so it
-   reaches every hint at once — including any written after this. What is
-   never hidden: the control's own name, the section heading, and the home
-   menu's sub-labels, which say what is *inside* a category rather than
-   explaining it — losing those would be losing the map, not the commentary. */
+/* Explain the controls toggles section notes and control hints together.
+   Keep control names, headings and home category descriptions visible. */
 [data-tips="off"] .ns-set .data-warn,
 [data-tips="off"] .ns-set .set-note,
 [data-tips="off"] .ns-set .setting-lbl small,
@@ -144,7 +128,7 @@
   width:76px;flex:0 0 auto;text-align:center;padding:8px 6px;font-size:12px}
 .ns-set .setting-row select{width:auto;flex:0 0 auto}
 
-/* ── The app list (layout → navigation) ───────────────────────────────────── */
+/* The app list (layout → navigation) */
 .ns-set .app-row.off .setting-lbl{color:var(--mu)}
 .ns-set .app-acts{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .ns-set .app-acts .setting-btn{padding:7px 9px;font-size:11px}
@@ -173,7 +157,7 @@
 .ns-set .set-content{display:block;margin-top:calc(26px * var(--dens))}
 .ns-set .set-content:empty{margin-top:0}
 
-/* ── Theme gallery ────────────────────────────────────────────────────────── */
+/* Theme gallery */
 .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:6px}
 .theme-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
   padding:12px;cursor:pointer;text-align:left;transition:border-color var(--dur-1),transform var(--dur-1);
@@ -189,7 +173,7 @@
 .theme-card:not(.on) .tick{visibility:hidden}
 .theme-desc{font:400 9px/1.5 var(--mono);color:var(--mu);letter-spacing:.03em;margin-top:5px}
 
-/* ── Accent picker ────────────────────────────────────────────────────────── */
+/* Accent picker */
 .acc-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .acc-b{width:34px;height:34px;border-radius:var(--r-pill);border:2px solid transparent;
   cursor:pointer;padding:0;position:relative;background:var(--s2);
@@ -203,7 +187,7 @@
   border:var(--bw) solid var(--bd);border-radius:var(--r1);cursor:pointer;flex:0 0 auto}
 .acc-custom-row input[type=text]{flex:1}
 
-/* ── Option rows: a label, then a row of chips ────────────────────────────── */
+/* Option rows: a label, then a row of chips */
 .opt-set{margin-bottom:14px}
 .opt-set > .lbl{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .opt-set > .lbl em{font-style:normal;color:var(--tx-2);letter-spacing:.04em;text-transform:none}
@@ -213,7 +197,7 @@
   padding:9px 11px;cursor:pointer;transition:all var(--dur-1)}
 .chip.on{background:var(--yd);border-color:var(--y);color:var(--y)}
 
-/* ── Sliders ──────────────────────────────────────────────────────────────── */
+/* Sliders */
 .slider-row{margin-bottom:16px}
 .slider-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
 /* a slider's hint reads like a chip set's: under the name, not beside it, so a
@@ -237,7 +221,7 @@ input[type=range].sl::-webkit-slider-thumb{
 input[type=range].sl::-moz-range-thumb{
   width:16px;height:16px;border-radius:var(--r-pill);background:var(--y);border:none}
 
-/* ── Toggles ──────────────────────────────────────────────────────────────── */
+/* Toggles */
 .tog{position:relative;width:42px;height:24px;border-radius:var(--r-pill);flex:0 0 auto;
   background:var(--s2);border:var(--bw) solid var(--bd);cursor:pointer;padding:0;
   transition:background var(--dur-1),border-color var(--dur-1)}
@@ -247,7 +231,7 @@ input[type=range].sl::-moz-range-thumb{
 .tog.on{background:var(--yd);border-color:var(--y)}
 .tog.on::after{transform:translateY(-50%) translateX(18px);background:var(--y)}
 
-/* ── Live preview ─────────────────────────────────────────────────────────────
+/* Live preview
    A miniature of the app's real furniture, built out of the same tokens, so the
    dials can be judged without leaving the panel. It is sticky: on a phone the
    slider you are dragging is often below the fold otherwise. */
@@ -273,7 +257,7 @@ input[type=range].sl::-moz-range-thumb{
 .pv-btn.acc{background:var(--yd);color:var(--y);border:var(--bw) solid var(--yb)}
 [data-caps="off"] .pv-card-t,[data-caps="off"] .pv-btn,[data-caps="off"] .pv-tag{text-transform:none}
 
-/* ── Content editors ──────────────────────────────────────────────────────────
+/* Content editors
    One shape for every collection: a stack of cards, each with a header row of
    inputs and a body that is either more inputs or a one-per-line textarea. */
 .ed-card{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
@@ -318,7 +302,7 @@ input[type=range].sl::-moz-range-thumb{
 .ed-badge{font:400 9px/1 var(--mono);color:var(--mu);letter-spacing:.06em;
   border:var(--bw) solid var(--bd);border-radius:var(--r-pill);padding:4px 8px;flex:0 0 auto}
 
-/* ── Storage bars ─────────────────────────────────────────────────────────── */
+/* Storage bars */
 .st-meter{height:5px;border-radius:var(--r-pill);background:var(--s2);overflow:hidden;margin-top:9px}
 .st-meter i{display:block;height:100%;background:var(--y)}
 .st-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
@@ -339,7 +323,7 @@ input[type=range].sl::-moz-range-thumb{
   .ns-set .hd-back:hover{color:var(--y)}
 }
 
-/* ── Stage palettes ──────────────────────────────────────────────────────────
+/* Stage palettes
    A grid of ramps under an area's stages: the six colours as one strip, the
    name under it. The strip is the control — a palette is picked by looking at
    it, not by reading what it is called — so the swatches get the height and
@@ -352,7 +336,7 @@ input[type=range].sl::-moz-range-thumb{
 .ed-pal-sw i{flex:1 1 0}
 .ed-pal-n{font:400 9px/1 var(--mono);letter-spacing:.06em;text-transform:var(--caps);color:var(--tx-2)}
 
-/* ── The sound map ───────────────────────────────────────────────────────────
+/* The sound map
    Five rows of voice chips under the kit. Indented and hairlined off to the
    left so it reads as belonging to the kit above it rather than as five more
    top-level settings — it is the kit, opened up. */

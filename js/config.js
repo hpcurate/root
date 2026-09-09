@@ -1,39 +1,16 @@
-/* ── Config ───────────────────────────────────────────────────────────────────
-   The content layer. Everything the four apps used to hardcode — DO's routines
-   and packing categories, LOG's blocks / meds / meals / counters, PLAN's project
-   tree, STORE's aisles and meals — lives here as a DEFAULTS tree, and every
-   branch of it can be overridden by the user from Settings.
-
-   Why a separate file: those literals were personal data sitting inside program
-   logic. Changing "which blocks exist" meant editing a stylesheet, an HTML
-   button and a JS array in three places. Now there is one shape, one editor and
-   one storage key.
-
-   Contract for the app modules
-   ────────────────────────────
-     Config.get(path)          merged value — user override if present, else default
-     Config.set(path, value)   persist an override and notify subscribers
-     Config.reset(path)        drop the override, fall back to the default
-     Config.isCustom(path)     has this branch been overridden?
-     Config.defaults(path)     the shipped value, ignoring any override
-     Config.subscribe(fn)      fn(path) after any set/reset/import
-
-   Overrides are stored whole-branch, not deep-merged: if you edit the routines,
-   your list replaces the shipped one outright. Deep-merging user edits into a
-   shipped list makes deletions impossible to express, which is the one thing an
-   editor has to be able to do.
-
-   Storage key: root_config_v1 (a single JSON blob of overrides only, so an
-   untouched install stores nothing at all). */
+/* Config: editable defaults with whole-branch overrides in root_config_v1.
+   get(path) returns an override or default; set/reset persist and notify
+   subscribers. defaults ignores overrides; isCustom checks for one.
+   Do not deep-merge lists: replacing a branch must allow users to delete items. */
 window.Config = (function () {
 'use strict';
 
 const KEY = 'root_config_v1';
 
-/* ── Defaults ─────────────────────────────────────────────────────────────── */
+/* Defaults */
 const DEFAULTS = {
 
-  /* ── DO ─────────────────────────────────────────────────────────────────── */
+  /* DO */
   do: {
     /* Each routine is an ordered list of items. The glyph prefixes are part of
        the item text, so the editor treats them as plain characters — paste any
@@ -91,7 +68,7 @@ const DEFAULTS = {
     sections: ['blocks', 'routines', 'quick', 'today', 'history'],
   },
 
-  /* ── LOG ────────────────────────────────────────────────────────────────── */
+  /* LOG */
   /* Note on scope: the day record's field names (meds_lam, cur_mix, …) and the
      exported .md table are a contract with the Obsidian side of this workflow,
      so they are deliberately NOT user-renameable. What IS editable is everything
@@ -163,7 +140,7 @@ const DEFAULTS = {
     alerts: { on: true, morning: '10:00', evening: '21:00', plan: '21:00' },
   },
 
-  /* ── PLAN ───────────────────────────────────────────────────────────────── */
+  /* PLAN */
   plan: {
     /* Each type is a tile on the PLAN home; each sub is a row in its sheet.
        `section` is the Todoist section name the task is filed under. */
@@ -227,7 +204,7 @@ const DEFAULTS = {
        one, so an override written before the row existed still shows it. */
     formFields: { date: true, block: true, time: false, priority: true, subtasks: true },
 
-    /* ── Queue presets ──────────────────────────────────────────────────────
+    /* Queue presets
        A day that is the same five tasks every week, saved once and refilled
        with one tap. Each preset is a name and the tasks as they were queued,
        minus the day: a preset is a shape of day, not a dated one, so applying
@@ -236,7 +213,7 @@ const DEFAULTS = {
        personal — so the shipped value is an empty list. */
     presets: [],
 
-    /* ── The export ─────────────────────────────────────────────────────────
+    /* The export
        Which Google Calendar a project's events belong on. A *name*, never an
        id: ROOT has no Google auth and never resolves one — the name is passed
        through in the exported description and the scheduled agent looks it up.
@@ -313,7 +290,7 @@ const DEFAULTS = {
     },
   },
 
-  /* ── CAL ────────────────────────────────────────────────────────────────────
+  /* CAL
      The colours CAL paints a day in. A *task* row already carries its project's
      colour — resolved by PLAN at export time and stored with the day, so a
      project recoloured next month does not repaint the days already planned.
@@ -336,7 +313,7 @@ const DEFAULTS = {
     idleLabel: 'free',
   },
 
-  /* ── TOOLS ──────────────────────────────────────────────────────────────────
+  /* TOOLS
      The four instruments' vocabulary. What is *running* is in `tools_v1`;
      what is here is the shape of the working day you are asking them for.
 
@@ -373,7 +350,7 @@ const DEFAULTS = {
     },
   },
 
-  /* ── STORE ──────────────────────────────────────────────────────────────── */
+  /* STORE */
   store: {
     /* `icon` is a sprite id from index.html. Adding a category with an unknown
        icon falls back to #ico-other rather than rendering an empty box. */
@@ -424,7 +401,7 @@ const DEFAULTS = {
     quickAmounts: [10, 5, 1, 0.5, 0.1],
   },
 
-  /* ── TEND ───────────────────────────────────────────────────────────────── */
+  /* TEND */
   /* The plants themselves and their care log live in `tend.v3` (shared with the
      standalone app). What is here is the vocabulary TEND reasons with: the plant
      types and how seasonal each is, the three care tasks' names, the growth
@@ -478,7 +455,7 @@ const DEFAULTS = {
     ],
   },
 
-  /* ── TRACK ──────────────────────────────────────────────────────────────── */
+  /* TRACK */
   /* The CAP Électricien plan, transcribed from learn/plan_cap_elec.pdf: five
      levels, three phases, 54 topics (44 theory + 10 bench). Ticks and dates live
      in `capTracker.v2`, filed under the topic ids below — the id is the
@@ -493,7 +470,7 @@ const DEFAULTS = {
     },
     levelLabel: 'Niveau',
     curriculum: [
-      // ── LEVEL 1 ──
+      // LEVEL 1 ──
       [1,'real',"Bases de l'électricité","Les circuits électriques"],
       [1,'real',"Bases de l'électricité","Les moyens de productions électriques et son transport"],
       [1,'real',"Bases de l'électricité","Les grandeurs électriques de base et lois fondamentales"],
@@ -508,7 +485,7 @@ const DEFAULTS = {
       [1,'real',"Exercices — mise en pratique","Exercice double allumage",1],
       [1,'real',"Exercices — mise en pratique","Exercice va-et-vient",1],
       [1,'mes' ,"Mesures et contrôles électriques","Les équipements de protection : disjoncteurs différentiels"],
-      // ── LEVEL 2 ──
+      // LEVEL 2 ──
       [2,'real',"Bases de l'électricité","Le fonctionnement des systèmes électriques : des chaînes d'énergie aux chaînes d'information"],
       [2,'real',"Équipements, appareillages et réseaux","Le tableau électrique"],
       [2,'real',"Normes, cadre professionnel et environnement","Gestion des déchets et impact environnemental des installations électriques"],
@@ -519,7 +496,7 @@ const DEFAULTS = {
       [2,'mes' ,"Mesures et contrôles électriques","Les appareils de mesure"],
       [2,'mes' ,"Exercices — mise en pratique","Exercice interrupteur horaire",1],
       [2,'mes' ,"Exercices — mise en pratique","Exercice sonnerie modulaire et gâche de porte",1],
-      // ── LEVEL 3 ──
+      // LEVEL 3 ──
       [3,'real',"Confort thermique et gestion du bâtiment","L'éclairage et les systèmes de commande"],
       [3,'real',"Confort thermique et gestion du bâtiment","Chauffage et isolation thermique"],
       [3,'real',"Confort thermique et gestion du bâtiment","La climatisation"],
@@ -530,7 +507,7 @@ const DEFAULTS = {
       [3,'mes' ,"Exercices — mise en pratique","Exercice détecteur de mouvement",1],
       [3,'mes' ,"Exercices — mise en pratique","Exercice interrupteur crépusculaire",1],
       [3,'main',"Maintenance, dépannage et réparations","Diagnostic et correction des erreurs avant la validation finale"],
-      // ── LEVEL 4 ──
+      // LEVEL 4 ──
       [4,'real',"Lecture et compréhension des documents techniques","Le SLT"],
       [4,'real',"Performance énergétique et régulation","Régulation et optimisation de la consommation énergétique"],
       [4,'real',"Sécurité, risques et habilitations","Procédure de consignation et déconsignation des circuits avant intervention"],
@@ -540,7 +517,7 @@ const DEFAULTS = {
       [4,'main',"Maintenance, dépannage et réparations","Détection et réparation des défauts électriques"],
       [4,'main',"Maintenance, dépannage et réparations","Analyse des causes de dysfonctionnements"],
       [4,'main',"Maintenance, dépannage et réparations","Remplacement et réparation des composants défectueux"],
-      // ── LEVEL 5 ──
+      // LEVEL 5 ──
       [5,'real',"Lecture et compréhension des documents techniques","Les schémas électriques en industrie"],
       [5,'real',"Équipements, appareillages et réseaux","Les moteurs électriques"],
       [5,'real',"Normes, cadre professionnel et environnement","Communication professionnelle interne"],
@@ -566,7 +543,7 @@ const DEFAULTS = {
     pace: { window: 4, nextCount: 3 },
   },
 
-  /* ── LEARN ──────────────────────────────────────────────────────────────── */
+  /* LEARN */
   /* Decks and cards live in IndexedDB (`learn_v1`), the shuffle flag in
      `learn_settings` — both shared with the standalone app. Here: the four
      rating labels, lowest to highest (the fourth is "acquired", everything
@@ -576,32 +553,10 @@ const DEFAULTS = {
     study: { sessionCap: 0, cardScale: 1, flip: false, showTags: false },
   },
 
-  /* ── CREATE ─────────────────────────────────────────────────────────────────
-     The work itself, its ticks, its notes and the session log live in
-     `create_v1`. What is here is the vocabulary CREATE reasons with.
-
-     An **area** is a kind of work, and 4.0 is the version that made there be
-     more than one of them: `production` is the songs being made, `mixing` is
-     the DJ sets being built. They are the same machine — a thing sits on a
-     stage, the stage asks a checklist of it, and the hours go in the log — so
-     an area is only its own name, its own colour, its own path and its own
-     words for a session. A third area is a block in this list and nothing else.
-
-     A stage's `key` is an identity: a work's stage and every tick it has are
-     filed under it, so a stage can be relabelled and recoloured freely and is
-     never renumbered. Keys only have to be unique *within* an area — a tick is
-     filed under the area, the stage key and the item's own text — so both
-     areas are free to have a stage called `idea`.
-
-     `items` are plain strings, the way DO's routine items are: reordering a
-     checklist keeps every tick, rewording an item drops that one item's. The
-     alternative was a key column in the editor, which is worse to live with
-     than the thing it protects.
-
-     The last stage of an area is its terminal one and carries no checklist: a
-     finished work is not a work with more to do. It is the stage the shelf
-     files under "done" rather than "in progress", and it is found by
-     `terminal:true`, not by its key or its position. */
+  /* CREATE vocabulary; works, ticks and sessions live in create_v1.
+     Area and stage keys are stable identities. Ticks use area|stage|item text,
+     so reordering preserves them but rewording an item resets its tick.
+     Find finished stages by terminal:true, never by label or position. */
   create: {
     areas: [
       { key:'production', label:'production', noun:'song', plural:'songs', color:'#a78bfa',
@@ -656,33 +611,15 @@ const DEFAULTS = {
     /* How the shelf is drawn: the default sort, how many sessions a work's own
        screen lists, and how far back "this week" reaches. */
     home: { sort:'touched', sessionCount: 6, weekDays: 7 },
-    /* ── The one networked thing in CREATE ──
-       A tab beside the areas that reads a whole Todoist **project** and lists
-       it under the sections it is arranged into. It **reads and closes**, and
-       nothing else: a row can be ticked off or put back, but CREATE never
-       moves, reschedules, renames or creates a task — filing one is PLAN's job.
-       Nothing here can be lost by looking at it, and a tick is one tap from
-       being undone.
-
-       Why it is in CREATE at all, when the shelf has no network: that project
-       is the pile of records to find, subscriptions to renew and tutorials to
-       watch that a song or a set gets made out of. It is the same question the
-       shelf answers, kept somewhere else, and CREATE is where you are standing
-       when you want it.
-
-       `project` is matched the way every other project name in ROOT is —
-       folded, so "02 | curate" and "02curate" are the same project. Blank
-       switches the tab off. `maxAgeMin` is how stale the cached list may get
-       before a visit refetches it; the refresh button ignores it.
-
-       `labelColors` draws each task's labels in the colour Todoist gives them,
-       out of the label cache every app that draws a label shares. Off, they are
-       the plain grey text they were before 4.2. */
+    /* Curate reads a Todoist project and closes/reopens tasks. It does not create,
+       rename, move or reschedule them. Project names use folded matching; blank
+       disables the tab. maxAgeMin controls refresh age; manual refresh bypasses it.
+       labelColors uses the shared Todoist label cache. */
     curate: { project: '02 | curate', maxAgeMin: 60, labelColors: true },
   },
 };
 
-/* ── Store ────────────────────────────────────────────────────────────────── */
+/* Store */
 let overrides = {};
 const subs = [];
 

@@ -1,39 +1,7 @@
-/* ── TOOLS ────────────────────────────────────────────────────────────────────
-   The small instruments a working day needs and no other app in ROOT is the
-   right home for: a pomodoro, a stopwatch, a countdown and a decider.
-
-   ── Why it is one app and not four ──────────────────────────────────────────
-   None of these four is an app. Each is one control, one readout and one
-   number you keep for the day; a tab per instrument would be four tabs that
-   are each empty most of the time. They are one tab with a strip across the
-   top — CREATE's strip, for CREATE's reason: what you want is *an instrument*,
-   and choosing which is a tap rather than a place to navigate to.
-
-   ── The clock is a timestamp, never a counter ───────────────────────────────
-   **Nothing here counts intervals.** Every running thing stores the wall-clock
-   moment it ends (or, for the stopwatch, the moment it started plus what was
-   already banked) and every readout is `Date.now()` measured against that. A
-   `setInterval` that increments a number is wrong on this device for three
-   reasons — a background tab is throttled to once a second at best, a phone
-   that sleeps stops firing it entirely, and a reload loses it — and all three
-   are exactly the case a pomodoro is used in. Timestamps survive all of them:
-   come back after twenty minutes on another tab and the timer is where it
-   should be, not twenty minutes behind.
-
-   The interval that does exist only *paints*, and it runs whatever tab you are
-   on, because a timer that finishes while you are in LOG still has to say so.
-   It is a no-op while nothing is running.
-
-   ── What is Config's and what is this file's ────────────────────────────────
-     · the pomodoro's four lengths, the countdown's quick chips and the
-       decider's lists are Config (`tools.*`), editable in Settings → tools
-     · what is running, and the day's tally, are in `tools_v1`
-
-   Markup is in two places (the slide and the settings panel), so every button
-   carries `data-act` and one document-level listener filtered on
-   `.closest('.ns-tools')` dispatches — TEND's pattern, for TEND's reason: a
-   decider list is the user's own text and interpolating it into an inline
-   handler is one more thing to get wrong. */
+/* TOOLS: pomodoro, stopwatch, countdown and decider.
+   Config holds durations/lists; tools_v1 holds state and daily tallies.
+   Use wall-clock timestamps so sleep, throttling and reloads preserve elapsed
+   time. The interval checks completion across tabs and paints visible readouts. */
 window.TOOLS = (function () {
 'use strict';
 
@@ -46,7 +14,7 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 
 const KEY = 'tools_v1';
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 let POM, QUICK, DECKS;
 function readConfig() {
   POM = Object.assign({ focus:25, short:5, long:15, rounds:4, autoStart:false },
@@ -61,7 +29,7 @@ function readConfig() {
 }
 readConfig();
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 /* `endsAt` is a wall-clock ms stamp and is the only thing that says a phase is
    running. `left` is what is left in ms while it is paused, and the two are
    never both set — a paused thing has no end, and a running thing has nothing
@@ -113,7 +81,7 @@ function normalise(s) {
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch {} }
 load();
 
-/* ── Time ──────────────────────────────────────────────────────────────────── */
+/* Time */
 const MIN = 60000;
 /* mm:ss, and h:mm:ss once there is an hour to say. Rounded *up* so a timer
    started at 25:00 reads 25:00 rather than 24:59 for its first second. */
@@ -134,7 +102,7 @@ function clockCs(ms) {
   return (h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`) + '.' + cc;
 }
 
-/* ── The pomodoro ──────────────────────────────────────────────────────────── */
+/* The pomodoro */
 const PHASES = {
   focus: { label:'focus',       mins: () => POM.focus, cls:'focus' },
   short: { label:'short break', mins: () => POM.short, cls:'break' },
@@ -190,7 +158,7 @@ function pomAdvance(finished) {
 }
 function pomSkip() { pomAdvance(false); render(); toast(pomPhase().label); }
 
-/* ── The stopwatch ─────────────────────────────────────────────────────────── */
+/* The stopwatch */
 const swElapsed = () => DB.sw.banked + (DB.sw.startedAt ? Date.now() - DB.sw.startedAt : 0);
 const swRunning = () => !!DB.sw.startedAt;
 function swToggle() {
@@ -209,7 +177,7 @@ function swReset() {
   save(); render();
 }
 
-/* ── The countdown ─────────────────────────────────────────────────────────── */
+/* The countdown */
 const tmLeft    = () => DB.timer.endsAt ? Math.max(0, DB.timer.endsAt - Date.now()) : DB.timer.left;
 const tmRunning = () => !!DB.timer.endsAt;
 const tmArmed   = () => tmRunning() || DB.timer.left > 0;
@@ -236,7 +204,7 @@ function tmCustom() {
   });
 }
 
-/* ── The decider ───────────────────────────────────────────────────────────── */
+/* The decider */
 const deckNames = () => Object.keys(DECKS);
 function deckKey() {
   const k = DB.decide.deck;
@@ -245,18 +213,17 @@ function deckKey() {
 function decide() {
   const items = (DECKS[deckKey()] || []).filter(Boolean);
   if (!items.length) { toast('that list is empty'); return; }
-  /* Never the same answer twice running, unless the list is one item long —
-     a decider that repeats itself is a decider you stop believing. */
+  /* Avoid repeats when another distinct choice exists. */
   let pick = items[Math.floor(Math.random() * items.length)];
   if (items.length > 1 && pick === DB.decide.last) {
     const rest = items.filter(x => x !== DB.decide.last);
-    pick = rest[Math.floor(Math.random() * rest.length)];
+    if (rest.length) pick = rest[Math.floor(Math.random() * rest.length)];
   }
   DB.decide.last = pick;
   save(); render();
 }
 
-/* ── The tick ──────────────────────────────────────────────────────────────────
+/* The tick
    One interval for the whole app, running whatever tab is on screen, and doing
    nothing at all when nothing is running. It has two jobs and they are not the
    same job: **finishing** a phase, which must happen wherever you are, and
@@ -280,7 +247,7 @@ function tick() {
   }
   if (tmRunning() && tmLeft() <= 0) {
     const l = DB.timer.label;
-    tmClear();                              // clears, saves and re-renders
+    tmClear();
     toast(l ? l + ' · time' : 'timer done');
     fired = true;
   }
@@ -296,7 +263,7 @@ function tick() {
    inside a slide, and TOOLS has one of those. */
 const isOn = () => !!view && view.classList.contains('cur');
 
-/* ── Screens ───────────────────────────────────────────────────────────────── */
+/* Screens */
 const TOOLS = [
   { key:'pom',    label:'pomodoro' },
   { key:'sw',     label:'stopwatch' },
@@ -349,7 +316,7 @@ function paintBand() {
   if (box && window.Shell && Shell.rollNum) Shell.rollNum(box, String(n), n);
 }
 
-/* ── The big readout ────────────────────────────────────────────────────────
+/* The big readout
    One shape for all three clocks: a ring that empties, the time inside it, and
    a word under it. It is an SVG circle with a dash offset rather than a
    conic-gradient, so it animates on the property browsers can animate cheaply
@@ -472,7 +439,7 @@ function render() {
   syncTick();
 }
 
-/* ── The delegated listener ────────────────────────────────────────────────── */
+/* The delegated listener */
 document.addEventListener('click', ev => {
   if (!ev.target.closest || !ev.target.closest('.ns-tools')) return;
   const t = ev.target.closest('[data-act]');
@@ -495,7 +462,7 @@ document.addEventListener('click', ev => {
   if (act === 'reset')      { resetAll(); return; }
 });
 
-/* ── Settings ──────────────────────────────────────────────────────────────── */
+/* Settings */
 function renderSettings() {
   const st = document.querySelector('.ns-tools #tl-status');
   if (!st) return;

@@ -1,28 +1,6 @@
-/* ── CAL ──────────────────────────────────────────────────────────────────────
-   The day PLAN exported, drawn as a calendar.
-
-   **This is not a calendar client.** It has no Google auth, no calendar API and
-   no network of its own — the same line §8 of ROOT.md draws around PLAN is
-   drawn around CAL, and a harness check reads this file and fails if a URL
-   appears in it. What it shows is what PLAN resolved: the day template with its
-   one start time applied, the picked tasks in the slots they were given, each
-   row carrying the colour of the project it came from.
-
-   PLAN hands the day over in `write()` at the moment the export succeeds, and
-   nothing else writes here. CAL never reaches back into PLAN — a stored day is
-   self-contained (its own clock times, its own colours), so a project renamed
-   or recoloured next month does not rewrite the days already planned. That is
-   deliberate: this is a record of what the day *was* planned as.
-
-   The whole template is stored, not only what the export writes. `mode: blocks`
-   sends the assigned slots alone, but the day still has the shape the template
-   gives it, and CAL is a view of the day rather than a view of the export. The
-   rows the export left out are marked `fixed` (a template event) or `idle` (a
-   slot nobody claimed) and each can be switched off in settings.
-
-   Storage: cal_days_v1 — hyphen-free but versioned, and deliberately not
-   `plan_`-prefixed: the storage report files it under CAL, and PLAN's own
-   clears must not reach it. */
+/* CAL: stored day schedules and local edits; no network calls. PLAN resolves
+   templates before handing records to CAL. Stored times and colours are snapshots.
+   Keep cal_days_v1 separate from plan_* so clearing PLAN preserves these days. */
 window.CAL = (function () {
 'use strict';
 
@@ -34,7 +12,7 @@ const esc  = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 
 const KEY = 'cal_days_v1';
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 let EVENT_COLORS, IDLE_LABEL;
 function readConfig() {
   EVENT_COLORS = Config.get('cal.eventColors') || {};
@@ -48,7 +26,7 @@ readConfig();
    that looked like nothing. */
 const fixedColor = name => EVENT_COLORS[String(name || '')] || EVENT_COLORS['*'] || '#6b6b6b';
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 let DB = { days:{} };
 let sel = null;                       // the iso day on screen
 
@@ -84,7 +62,7 @@ function shift(iso, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/* ── What PLAN hands over ──────────────────────────────────────────────────────
+/* What PLAN hands over
    One day, replacing whatever was stored for it — re-exporting a day is how you
    correct it, so the last export wins rather than merging into the old one. */
 function write(day) {
@@ -116,30 +94,8 @@ function write(day) {
   return true;
 }
 
-/* ── Patching one block, not replacing the day ────────────────────────────────
-   `write()` is "the last export wins", which is right when the export *is* the
-   day: re-exporting is how a day gets corrected. It is wrong when the export
-   is one block of a day that is already planned — the other five slots go back
-   to idle and the start time is pulled back to whatever the template says,
-   which is precisely the complaint 4.3 is answering.
-
-   So there is a second door, and it is deliberately narrow:
-
-     · only the slots the export actually assigned are written
-     · **nothing else about the day is touched** — not the start, not the
-       template, not the notes, not the fixed rows, and not the other slots,
-       whether they hold a task or are idle
-     · a slot the stored day does not have is skipped rather than appended: a
-       row with no hours behind it is a row DAY cannot draw
-
-   It refuses on a day that has no record. That refusal is the whole reason
-   PLAN can offer the mode as a chip that is *there but unavailable* — there is
-   nothing to patch into, and inventing the rest of the day from a template
-   would be `write()` wearing a different name.
-
-   The day is marked `localEdit`, like every other change made after the
-   export: the head says "edited" and that is honest — what Google holds and
-   what this record holds were last agreed at different moments. */
+/* Patch only assigned slots that exist in the stored day. Preserve its start,
+   template, notes, fixed rows and other slots. Refuse missing days; mark edits localEdit. */
 function patch(day) {
   if (!day || !isoRe.test(String(day.day || ''))) return false;
   load();
@@ -175,7 +131,7 @@ function patch(day) {
   return n;
 }
 
-/* ── The days on offer ─────────────────────────────────────────────────────────
+/* The days on offer
    Today (planned or not) and every planned day within the window ahead, plus
    any planned day still inside the keep window behind. Today is always a chip
    even with nothing on it, or "no calendar yet" would be the only thing an
@@ -203,7 +159,7 @@ function pick(iso) {
   render();
 }
 
-/* ── Rendering ─────────────────────────────────────────────────────────────── */
+/* Rendering */
 /* CAL is lower case throughout — the one app that is. `Prefs.formatDate()` is
    shared and capitalises, so it is folded here rather than changed there. */
 const lower = s => String(s == null ? '' : s).toLowerCase();
@@ -226,7 +182,7 @@ function visibleEvents(rec) {
     e.kind === 'task' || (e.kind === 'fixed' && showFixed) || (e.kind === 'idle' && showIdle));
 }
 
-/* ── Ticking a row off ─────────────────────────────────────────────────────────
+/* Ticking a row off
    A day you can only read is a day you re-read: the question at four in the
    afternoon is not "what was planned" but "what is left", and answering it
    meant holding the first half of the day in your head. A tick answers it on
@@ -254,7 +210,7 @@ function toggleEvent(i) {
   if (sel !== Shell.today()) render();
 }
 
-/* ── What was actually finished, and when ─────────────────────────────────────
+/* What was actually finished, and when
    Everything else on this screen is the day as it was *planned*. A mark is the
    day as it *happened*: a task completed at 14:32 puts a dot on the calendar at
    14:32, whoever ticked it — DAY's own rows, DO's blocks, DO's today list.
@@ -290,7 +246,7 @@ function markDone(name, on) {
   if (sel === iso) render();
 }
 
-/* ── Clock arithmetic ─────────────────────────────────────────────────────────
+/* Clock arithmetic
    The stored day is a list of rows, each carrying its own `from`, `to` and
    duration in minutes; the drawing stacks them and reads the times off the
    rows. So moving part of a day is arithmetic on those strings, and this is
@@ -311,7 +267,7 @@ function shiftEvent(e, mins) {
   e.over = (a + mins) + (+e.dur || 0) >= 1440;
 }
 
-/* ── Removing a row ───────────────────────────────────────────────────────────
+/* Removing a row
    A day arrives from PLAN whole. Until now the only way to correct one was to
    re-export it, which is a great deal of ceremony for "that meeting is off".
 
@@ -365,7 +321,7 @@ function deleteEvent(i) {
   });
 }
 
-/* ── The day starts when you woke up ──────────────────────────────────────────
+/* The day starts when you woke up
    PLAN resolves a day against one start time, chosen the night before. The
    morning then happens, and by the time LOG's morning form is filled in the
    real answer is known — and it is rarely the one PLAN guessed. Every row on
@@ -402,7 +358,7 @@ function setWake(iso, time) {
   return true;
 }
 
-/* ── Left and right, one day at a time ────────────────────────────────────────
+/* Left and right, one day at a time
    Stepping walks the days that exist — the planned ones plus today — rather
    than the calendar, so "next" never lands on a run of empty days you have to
    click through. An arrow with nowhere to go is darkened and disabled rather
@@ -449,7 +405,7 @@ function paintSteps() {
   wakeSteps();
 }
 
-/* ── The stepper steps aside ───────────────────────────────────────────────────
+/* The stepper steps aside
    It is a bar the width of the screen now rather than a small pill: two targets
    you can hit with either thumb without looking, sitting above the tab bar. The
    price of that width is that it covers the bottom of the day, so it fades out
@@ -466,7 +422,7 @@ function wakeSteps() {
   stepsTimer = setTimeout(() => el.classList.add('idle'), secs * 1000);
 }
 
-/* ── Where "now" falls on the drawing ─────────────────────────────────────────
+/* Where "now" falls on the drawing
    The rows are stacked in order and each one's height is its duration, so the
    day already *is* a time axis — it just had nothing marking the present on it,
    which is the one piece of information a day-shaped drawing is uniquely good
@@ -615,7 +571,7 @@ function dayHTML() {
   }${markHTML(evs, per, used)}</div>` + notesHTML(rec);
 }
 
-/* ── A completion, on the row it belongs to ───────────────────────────────
+/* A completion, on the row it belongs to
    A mark is drawn at the minute it happened. For a task ticked off the day
    itself that minute is almost always *inside its own row* — so the dot, the
    time and the name printed straight across the name already sitting there,
@@ -732,28 +688,9 @@ function dayHead(rec) {
   </div>`;
 }
 
-/* ── The day's blocks, filled from DO ──────────────────────────────────────────
-   PLAN builds a day and sends it; that is the way a day gets here and it is not
-   changing. But the day PLAN sent is the day as it looked the night before, and
-   by the morning the blocks on DO are the ones that are actually happening —
-   they came from Todoist, they are what got labelled @b1 in the end, and
-   re-exporting the whole day through PLAN to move two of them is a great deal
-   of ceremony for a small correction.
-
-   So: the slots this day already has, filled from the block tasks DO is holding
-   right now. Only the slots — a `fixed` template row is the shape of the day and
-   is not up for negotiation here — and only on a day that exists, because the
-   slots come from the record rather than from `plan.dayTemplates`. CAL does not
-   resolve a template; it never has, and a day drawn from one that was never sent
-   anywhere would be a day this app is not allowed to claim.
-
-   The slot rules are PLAN's, deliberately (§8): a slot one task holds is refused
-   to another, by name, rather than taken away in silence, and tapping the slot a
-   task already holds gives it back. What is different is the ending — this
-   overwrites, so it asks first, and it marks the day as edited here afterwards.
-
-   `sched` is a gesture, not state: module-level, never persisted, dropped on any
-   day change. Same rule as PLAN's `openKey` and DO's move selections. */
+/* Fill an existing day's slots from DO's cached blocks. Preserve fixed rows,
+   reject occupied slots and confirm before overwriting. sched is transient
+   selection state, cleared when the day changes. */
 let sched = null;                    // { picks: { slot: task } } while the panel is open
 
 function slotsOf(rec) {
@@ -764,7 +701,7 @@ function slotsOf(rec) {
 function doBlocks() {
   return (window.DO && DO.blockTasks) ? DO.blockTasks().filter(t => t && t.content) : [];
 }
-/* ── Starting a day that PLAN never sent ──────────────────────────────────────
+/* Starting a day that PLAN never sent
    The empty day's second action. PLAN resolves its template into a day of idle
    slots and template hours (`PLAN.blankDay`) — CAL does not resolve a template
    and still does not — and that record goes in through `write()` like any
@@ -892,7 +829,7 @@ function render() {
   paintSteps();
 }
 
-/* ── Settings ──────────────────────────────────────────────────────────────── */
+/* Settings */
 function renderSettings() {
   const el = $id('cal-status');
   if (!el) return;
@@ -934,7 +871,7 @@ function clearDay() {
   });
 }
 
-/* ── Wiring ────────────────────────────────────────────────────────────────────
+/* Wiring
    One document-level listener filtered on the namespace, TEND's pattern: CAL's
    markup is in two places (the slide and the settings panel) and this is the one
    listener that reaches both. No inline handlers, so no attr() escaping to get

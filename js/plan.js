@@ -1,26 +1,18 @@
-/* ── PLAN ─────────────────────────────────────────────────────────────────────
-   Build a queue of tasks against a project/section map, then push the batch to
-   Todoist through the worker proxy.
-
-   Reworked in the merge:
-     · the six projects were stacked accordions; they are a tile grid now, and
-       choosing a section happens in a sheet, so the queue never leaves the screen
-     · the Todoist key comes from Creds — one key for DO, PLAN and STORE
-     · settings live in the settings tab; this module just renders into that panel
-   Storage keys are untouched: plan_queue, plan_mappings, plan_projects,
-   plan_sections, plan_token (still mirrored for the standalone plan/ app). */
+/* PLAN queues tasks against a project/section map and sends them via the
+   Todoist proxy. Credentials come from Creds. Preserve plan_queue,
+   plan_mappings, plan_projects, plan_sections and the mirrored plan_token. */
 window.PLAN = (function () {
 'use strict';
 
 const SCOPE = '.ns-plan ';
-const view  = document.querySelector('#view-plan .view-body');   // the scroll container (Shell wraps it)
+const view  = document.querySelector('#view-plan .view-body');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
 const PROXY = 'https://todoist-proxy.hp-qrate.workers.dev/api/v1';
 
-/* ── Task types ────────────────────────────────────────────────────────────────
+/* Task types
    The project tree used to be a literal here. It lives in js/config.js now and
    is edited from Settings → content. `key` is the identity plan_mappings is
    filed under, so the editor preserves it across a rename. */
@@ -31,7 +23,7 @@ function resolveColor(typeKey) {
 }
 function typeOf(key) { return TASK_TYPES.find(t => t.key === key); }
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// State
 let queue = [];
 let formState = { typeKey:null, subType:null, block:null, time:null, date:null, priority:2, subtasks:[], hasSub:false };
 let todoistProjects = [];
@@ -49,7 +41,7 @@ function saveQueue() { localStorage.setItem('plan_queue', JSON.stringify(queue))
 function saveMappingsStore() { localStorage.setItem('plan_mappings', JSON.stringify(mappings)); }
 function saveProjects() { localStorage.setItem('plan_projects', JSON.stringify(todoistProjects)); }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+// Navigation
 function go(id) {
   $all('.scr').forEach(s=>s.classList.remove('on'));
   $id('s-'+id).classList.add('on');
@@ -58,7 +50,7 @@ function go(id) {
   if (id==='sending') startSending();
 }
 
-// ── Home ──────────────────────────────────────────────────────────────────────
+// Home
 function renderHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('home-date').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
@@ -75,7 +67,7 @@ function renderHome() {
    the colour set in Settings. */
 const labelHue = (...names) => names.map(n => window.Todoist && Todoist.labelColor(n)).find(Boolean) || null;
 
-/* ── A project opens in place, and then so does its form ──────────────────────
+/* A project opens in place, and then so does its form
    Two steps, both inside the tile grid and both a FLIP, so nothing ever leaves
    the home screen:
 
@@ -161,7 +153,7 @@ function renderProjects() {
       }).join('')
     : formPanel(open, open.subs[openSub], openSub, color);
 
-  /* ── The other projects stay reachable ──
+  /* The other projects stay reachable ──
      Opening a project used to take every other one off the screen, so moving
      from `curate` to `alive` was close, find, open — three taps and the grid
      rebuilt twice — for what is one thought. They are a strip of chips under
@@ -252,28 +244,8 @@ function fitTitle(el) {
   while (size > 13 && el.scrollWidth > avail) { size -= 1; el.style.fontSize = size + 'px'; }
 }
 
-/* ── The transition ───────────────────────────────────────────────────────────
-   Note where every flip-keyed element is, re-render, then move each one from
-   where it was. Three cases, and between them they cover opening a project,
-   opening a section's form, and folding either back up:
-
-     it was there and is the same shape   translate only — the queue sliding
-       up or down to follow the grid's new height.
-     it was there and changed shape       translate and scale the box, and
-       hold its contents back until the box is nearly settled. Text is never
-       shown mid-scale, which is the only way a box that goes from a third of
-       the width to full width can look like anything but rubber.
-     it is new                            fade up into place, staggered down
-       the list.
-
-   What it deliberately no longer does is pretend one element becomes another.
-   The section rows used to borrow the flip keys of the tiles they replaced,
-   so row 2 flew in from the middle of the grid while being squashed to a
-   fifth of its width — the further the tile, the stranger the path, which is
-   why the second and third rows looked worst. Rows own their keys now, and
-   the only thing that moves is the one thing that genuinely persists: the
-   project's own tile, growing. A no-op without layout (jsdom) or Web
-   Animations. */
+/* Capture keyed element bounds before rendering for the transition below.
+   Requires layout and Web Animations; otherwise transitions are skipped. */
 const FLIP_EASE = 'cubic-bezier(.2,.8,.2,1)';
 /* The border and background are recorded with the box, so a box that is held
    back through the move can be painted in afterwards from what it actually
@@ -288,34 +260,9 @@ function snap() {
   return m;
 }
 
-/* ── One thing moves, and it is the thing you tapped ──────────────────────────
-   Three releases were spent making this smoother by animating *more* of it —
-   faster border fades, staggered rows, ghosts of the tiles that left. Every one
-   of them was the same mistake in a different place: a screen where eight
-   things move at once has no subject, and a gesture with no subject reads as a
-   stutter however well each part is timed.
-
-   So nothing else moves. The grid clears to **the project's name and its colour
-   dot** — the two things you actually tapped — those travel and grow from where
-   they were to where they are going, and only then does the new content appear
-   under them. Everything the eye can follow is one object going one place.
-
-   Three groups, and every element on screen is in exactly one:
-
-     the movers    `.proj-name` and `.proj-dot` — the elements carrying
-                   `data-flip-text`. Translated and scaled by their **full**
-                   delta, because their box no longer slides underneath them
-                   (which is what that attribute used to subtract).
-     the carrier   the box the movers live in. It cannot be faded — opacity on
-                   a parent takes its children with it — so its *paint* is held
-                   transparent instead, and its other children are faded like
-                   anything else.
-     everything else   held at opacity 0 for the whole move by `fill:backwards`
-                   on a delayed reveal, then brought in as a short wave.
-
-   What leaves is simply gone on the first frame. That is not an oversight this
-   time: everything that stays is invisible on that frame too, so the screen
-   clears in one go rather than half-cutting and half-fading. */
+/* Animate the project name and colour dot using their full position/scale delta.
+   Hold the carrier's paint transparent, not its opacity, to keep these children
+   visible. Reveal other content after the move; departing elements are removed. */
 function flip(before) {
   const ms = flipMs();
   if (!before.size || !ms) return;
@@ -460,7 +407,7 @@ function pickSub(key, i) {
   openForm(key, s.display, s.section, i);
 }
 
-// ── Queue ─────────────────────────────────────────────────────────────────────
+// Queue
 function renderQueue() {
   const list = $id('queue-list');
   const n = queue.length;
@@ -507,7 +454,7 @@ function syncSend() {
   if (b && n) b.textContent = `send ${n} task${n !== 1 ? 's' : ''} to todoist`;
 }
 
-/* ── Queue presets ────────────────────────────────────────────────────────────
+/* Queue presets
    A week that is the same five tasks every Monday was five trips through the
    form every Monday. Saving the queue keeps its tasks — minus the day — under
    a name in Config (plan.presets), and one tap puts them back.
@@ -574,7 +521,7 @@ function deletePreset(key) {
   });
 }
 
-/* ── What is planned for a day ────────────────────────────────────────────────
+/* What is planned for a day
    LOG's tab alert asks this at 21:00 about tomorrow. The queue counts: it is
    what is about to be sent. `blocks` is what the alert reads — a day is
    planned when its blocks are, not merely when something has a date. */
@@ -599,7 +546,7 @@ function clearQueue() {
   });
 }
 
-// ── Form ──────────────────────────────────────────────────────────────────────
+// Form
 /* The form is a panel inside the tile grid now, not a screen of its own: this
    only resets the state and asks the grid to redraw, and renderProjects()
    emits the markup and paints it. */
@@ -645,7 +592,7 @@ function paintForm() {
 
 function nameInput(el) { formState.name = el.value; }
 
-/* ── The day a task is due ────────────────────────────────────────────────────
+/* The day a task is due
    One line — ← tomorrow → — rather than a date field: the same three parts
    LOG's date header has, and for the same reason. A day is nearly always
    today or the next one or two, and a native date picker is four taps and a
@@ -744,7 +691,7 @@ function resetOpts(id, activeVal) {
   if (activeVal === null) { const noneBtn = row.querySelector('.none-opt'); if (noneBtn) noneBtn.classList.add('on'); }
 }
 
-/* ── Form chips ───────────────────────────────────────────────────────────────
+/* Form chips
    The block, time and priority rows were three hardcoded lists in index.html.
    They are drawn from Config here, keeping the same classes and the same
    onclick contract, so resetOpts() and optPick() are untouched. */
@@ -863,7 +810,7 @@ function queueTask(raw, tt) {
   flip(before);
 }
 
-// ── Sending ───────────────────────────────────────────────────────────────────
+// Sending
 async function startSending() {
   const token = Creds.token();
   if (!token) { toast('No Todoist key'); Shell.settings('data'); return; }
@@ -931,7 +878,7 @@ async function startSending() {
   queue = remaining; saveQueue();
 }
 
-// ── What was planned today, for LOG ───────────────────────────────────────────
+// What was planned today, for LOG
 /* A task that went through *and is due today* is a plan for today — LOG offers
    it as an extra block on the evening form. Since 2.18 a task can be sent for
    any day, so the due date is what decides: one queued for tomorrow has
@@ -966,7 +913,7 @@ function recordSent(tasks) {
   renderSent();
 }
 
-/* ── The sent history ─────────────────────────────────────────────────────────
+/* The sent history
    Every task PLAN has ever pushed, newest first. Kept in its own key rather
    than in plan_sent_v1: that one is today's only, is reset each morning and
    is read by LOG, so it cannot be allowed to grow a past. The binding is
@@ -984,7 +931,7 @@ function saveHistory() {
   try { localStorage.setItem(HIST_KEY, JSON.stringify(sentLog)); } catch {}
 }
 
-/* ── Picking the rows to build a day out of ───────────────────────────────────
+/* Picking the rows to build a day out of
    Tapping a row selects it; "export" then opens the panel where each picked
    task is given a slot by hand. A day has as many slots as its longest
    template offers, so that many picked tasks is the ceiling — one more is
@@ -1054,7 +1001,7 @@ function syncExport() {
   const label = $id('sent-export-n'); if (label) label.textContent = n ? String(n) : '';
 }
 
-/* ══ THE EXPORT ═══════════════════════════════════════════════════════════════
+/* THE EXPORT
    The picked rows become one Todoist task labelled `import` whose description
    is the spec for one day. That is the whole of ROOT's half:
 
@@ -1087,7 +1034,7 @@ function saveExportPrefs() {
   try { localStorage.setItem(EXP_KEY, JSON.stringify({ start: expForm.start })); } catch {}
 }
 
-/* ── Templates ──────────────────────────────────────────────────────────────
+/* Templates
    `normal` and `rest` are identities, not labels — the description carries the
    name and a downstream agent parses it. The slot chips are read off the
    templates rather than hardcoded, so editing them in settings changes what a
@@ -1124,7 +1071,7 @@ function resolved(name, s0) {
   });
 }
 
-/* ── Which calendar a task belongs on ───────────────────────────────────────
+/* Which calendar a task belongs on
    The key is the project, or `project > section` where the project splits
    across several calendars (only curate does today). ROOT emits the key it
    resolved, never an id. */
@@ -1229,7 +1176,7 @@ function setTemplate(name) {
   renderProjects();
 }
 
-/* ── What the day already holds ───────────────────────────────────────────
+/* What the day already holds
    PLAN cannot see Google and never will (ROOT.md §8), but it can see the record
    CAL keeps of what it last exported — the same day, written down at the moment
    the task was sent. That is enough to answer the two questions the export
@@ -1313,7 +1260,7 @@ function expField(el) {
   renderPreview();
 }
 
-/* ── The description ──────────────────────────────────────────────────────────
+/* The description
    **A contract**, the way LOG's `.md` is one: the field names and the shape
    are frozen and the scheduled agent parses them. Newline separated:
 
@@ -1362,7 +1309,7 @@ function exportDescription() {
   return out.join('\n\n');
 }
 
-/* ── The preview ────────────────────────────────────────────────────────────
+/* The preview
    Every event the export will produce, at the clock time it actually resolves
    to. In `blocks` only the assigned slots; in `full` the whole template, with
    an unclaimed slot shown as the idle hours it will be rather than left out. */
@@ -1380,7 +1327,7 @@ function previewRows() {
   return out;
 }
 
-/* ── The same day, written down for CAL ─────────────────────────────────────
+/* The same day, written down for CAL
    The rows the preview draws, kept locally so the day can be looked at without
    opening a calendar. **The whole template goes down, not only what the export
    writes**: `mode: blocks` sends the assigned slots alone, but the day still
@@ -1415,28 +1362,9 @@ function calendarDay() {
            mode:expForm.mode, notes:noteLines(), events };
 }
 
-/* ── A day with nothing in it yet ─────────────────────────────────────────────
-   DAY could only ever show a day PLAN had exported, so a morning with nothing
-   planned offered one thing: leave for PLAN, queue tasks, send them. That is
-   the right route when there is something to send. It is the wrong one when
-   the blocks are already sitting on DO, labelled @b1 / @b2 in Todoist, and all
-   that is missing is the shape of a day to drop them into.
-
-   This is that shape and nothing else: the chosen template resolved against a
-   start time, every slot row `idle`, every template row `fixed`. No tasks — DAY
-   fills those from DO itself, with the panel it already has.
-
-   **It lives here and not in CAL on purpose.** §9's rule is that CAL never
-   resolves `plan.dayTemplates` — a day drawn from a template is a day PLAN
-   resolved, and the moment CAL learned to do it itself there would be two
-   answers to "what is a normal day" that could drift apart. So PLAN resolves
-   it, exactly as it does for an export, and hands the finished record over.
-   `CAL.write()` is still the only way into that store.
-
-   What is different from an export is that nothing was sent — no Todoist task,
-   no 22:00 agent, no Google. CAL marks the day it gets from here `localOnly`
-   and says so on the head, because §9's other rule is that DAY never claims a
-   day that was not actually scheduled. */
+/* Resolve an empty template here so CAL shares PLAN's template logic.
+   Slots start idle and template rows fixed. Nothing is sent; CAL marks the
+   resulting record localOnly until an export replaces it. */
 function blankDay(iso, name, start) {
   const t = templates();
   const tName = (name && t[name]) ? name
@@ -1453,7 +1381,7 @@ function blankDay(iso, name, start) {
   return { day:iso, start:clock(s0).hm, template:tName, mode:'blocks', notes:[], events };
 }
 
-/* ── The panel ──────────────────────────────────────────────────────────────
+/* The panel
    Drawn into the tile grid by renderProjects(), like the task form: no `.scr`
    of its own. Everything typed lives in expForm, and paintExport() puts the
    three text fields back on every draw. */
@@ -1626,7 +1554,7 @@ function logLine(container, text, cls) {
 
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
-// ── Settings (rendered into the settings tab) ─────────────────────────────────
+// Settings (rendered into the settings tab)
 function renderSettings() {
   updateConnStatus();
   if (todoistProjects.length) renderMappingRows();
@@ -1699,7 +1627,7 @@ function saveMappings() {
   saveMappingsStore(); toast('Mapping saved'); renderProjects();
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
+// Utils
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 /* For a Config value inside onclick="…('…')": JS-string escaped, then attribute
    escaped, so a chip value with a quote in it does not break its handler. */
@@ -1708,7 +1636,7 @@ function attr(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+// Boot
 loadState();
 renderFormChips();
 renderHome();

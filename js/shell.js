@@ -1,21 +1,8 @@
-/* ── Shell ────────────────────────────────────────────────────────────────────
-   The frame the four apps live in: a five-slide horizontal track, the floating
-   tab chrome, the shared toast, and the shared Todoist credential. It knows
-   nothing about what the apps do — each module registers itself with
-   Shell.register() and is otherwise left alone.
+/* Shell owns navigation, shared overlays and credentials. Modules register
+   through Shell.register(). Load after Prefs and before app modules.
+   Read behaviour preferences live so settings apply without a reload. */
 
-   Load order matters. js/prefs.js runs from <head> and has already stamped the
-   look onto <html> by the time this file executes; this file then defines
-   Creds.token() and Shell.toast(), which every app module needs while booting.
-   js/settings.js loads last and owns the settings view.
-
-   What the appearance engine changed here: every behaviour that used to be a
-   constant — the toast duration, whether swiping is on and how far it has to go,
-   whether the chrome auto-hides, which tab opens — now reads from Prefs on the
-   spot rather than being captured at boot, so changing a setting takes effect
-   without a reload. */
-
-/* ── Shared Todoist credential ────────────────────────────────────────────────
+/* Shared Todoist credential
    DO, PLAN and STORE each used to keep their own copy of the same key. There is
    one now, and every module reads it live through Creds.token() rather than
    caching it, so saving in settings takes effect everywhere without a reload.
@@ -69,7 +56,7 @@ window.Creds = (function () {
 })();
 
 
-/* ── Shared Todoist client ────────────────────────────────────────────────────
+/* Shared Todoist client
    The unified v1 API, direct. DO keeps its own copy because it also offers the
    worker proxy as an endpoint; TEND (and anything added later) uses this one.
    getAll follows the {results,next_cursor} pagination v1 uses on some
@@ -131,7 +118,7 @@ window.Todoist = (function () {
     blue:'#4073ff', grape:'#884dff', violet:'#af38eb', lavender:'#eb96eb', magenta:'#e05194', salmon:'#ff8d85',
     charcoal:'#808080', grey:'#b8b8b8', taupe:'#ccac93' };
 
-  /* ── Label colours, shared ──
+  /* Label colours, shared ──
      Every app that draws a Todoist label in its colour reads this one cache
      (root_labels_v1: { fetched, colors:{ <folded name>: hex } }). DO fills it
      as a side effect of its own /labels calls; PLAN asks labels() on show,
@@ -188,7 +175,7 @@ window.Shell = (function () {
   const viewOf = n => document.getElementById('view-' + n);
   const btnOf  = n => navEl.querySelector('.tab-b[data-app="' + n + '"]');
 
-  /* ── The title band ─────────────────────────────────────────────────────────
+  /* The title band
      Each slide is a column: the home's .h-top as a fixed band at the top
      (its own status-bar padding), then .view-body — the scroll container —
      holding every screen. The band is not sticky inside the scroller, it is
@@ -246,7 +233,7 @@ window.Shell = (function () {
     return APPS.filter(a => !want.includes(a));
   }
 
-  // ── Dates ───────────────────────────────────────────────────────────────────
+  // Dates
   /* The local calendar day as YYYY-MM-DD, and the one definition of it. Every
      module used to derive "today" its own way — DO and STORE through
      toISOString(), which is UTC and so a day behind until 01:00 or 02:00 in
@@ -283,7 +270,7 @@ window.Shell = (function () {
   window.addEventListener('focus', minute);
   setInterval(minute, 60 * 1000);
 
-  /* ── Asking, inside the app ─────────────────────────────────────────────────
+  /* Asking, inside the app
      `window.confirm` and `window.prompt` are the *system's* dialogs, not this
      app's. They arrive in the platform's typeface at the top of the screen,
      they ignore every dial in Settings, and on a phone they read as the
@@ -404,7 +391,7 @@ window.Shell = (function () {
           done: a => { if (a !== null && typeof onOk === 'function') onOk(a); } });
   }
 
-  // ── Toast ───────────────────────────────────────────────────────────────────
+  // Toast
   /* One element for all five views. Every module's toast() forwards here, so a
      message from STORE cannot be clobbered by a stale timer from LOG. */
   let toastTimer = null;
@@ -417,7 +404,7 @@ window.Shell = (function () {
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), pref('toastMs', 1800));
   }
 
-  // ── Undo ────────────────────────────────────────────────────────────────────
+  // Undo
   /* One pill for the whole app, the way there is one toast. A module that is
      about to clear something takes a copy of what it is clearing, clears it,
      and hands the way back to `Shell.undo(label, restore)`:
@@ -457,7 +444,7 @@ window.Shell = (function () {
     toast('undone');
   });
 
-  // ── Floating chrome ─────────────────────────────────────────────────────────
+  // Floating chrome
   /* The pill and arrows hover over the content, so they step aside while you
      read and come back the moment you scroll up, stop, or change tab. Turning
      "get out of the way" off in settings pins them permanently. */
@@ -471,7 +458,7 @@ window.Shell = (function () {
     navEl.classList.add('chrome-off');
     arrows.forEach(a => a.classList.add('chrome-off'));
   }
-  /* ── Scrolling suppresses the press wash ───────────────────────────────────
+  /* Scrolling suppresses the press wash
      On a touch screen `:active` is applied the moment the finger lands and is
      not cleared until it lifts, so a touch that turns into a scroll lights up
      whatever row it started on and keeps it lit as the list moves under it.
@@ -504,7 +491,7 @@ window.Shell = (function () {
      as a press. */
   document.addEventListener('touchmove', markScrolling, { passive: true });
 
-  // ── Tabs ────────────────────────────────────────────────────────────────────
+  // Tabs
   /* The slides are stacked, not side by side, and a tab change is a cross-fade
      rather than a page slide: the slide for `index` takes .cur (opaque, and the
      only one that takes a tap), the one it replaces keeps .leaving while it
@@ -572,7 +559,7 @@ window.Shell = (function () {
     updateBack();
   }
 
-  /* ── Back, on the left arrow ──────────────────────────────────────────────
+  /* Back, on the left arrow
      Inside an app's sub-screen — a checklist, the evening form, a settings
      category — the "← back" button sits top-left, the far corner of a phone.
      Whenever the current slide is showing a sub-screen that has one, the left
@@ -728,7 +715,7 @@ window.Shell = (function () {
   if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1));
   document.querySelectorAll('.view-body').forEach(watchScroll);
 
-  // ── Swipe ───────────────────────────────────────────────────────────────────
+  // Swipe
   /* A horizontal drag picks the next or previous tab once it is far or fast
      enough; the slide itself does not follow the finger, since a tab change
      is a cross-fade. Vertical is left to the browser via touch-action:pan-y.
@@ -819,7 +806,7 @@ window.Shell = (function () {
     if (name === 'settings' && sub && window.SET) SET.panel(sub);
   });
 
-  /* ── Keyboard ─────────────────────────────────────────────────────────────
+  /* Keyboard
      ROOT is a phone app that also runs on a laptop, where five slides and no
      keyboard route is a real gap. Every binding is ignored while a field has
      focus, so typing never navigates, and while a sheet is up, because a sheet
@@ -857,7 +844,7 @@ window.Shell = (function () {
     else { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} }
   });
 
-  /* ── Decimal fields ────────────────────────────────────────────────────────
+  /* Decimal fields
      A French keyboard's decimal keypad offers "," and iOS refuses a comma in a
      type=number field outright, so weight, sleep and km could not be typed on
      the phone at all. Those fields are type=text + inputmode=decimal now, and
@@ -872,46 +859,11 @@ window.Shell = (function () {
     try { if (pos !== null) el.setSelectionRange(pos, pos); } catch {}
   }, true);
 
-  /* ── The numpad ────────────────────────────────────────────────────────────
-     A field that only ever takes a number has no business raising the system
-     keyboard: two thirds of it are letters, it covers half the screen, and it
-     is the platform's chrome landing in the middle of the app. Every numeric
-     field in ROOT is answered by one pad instead — a field that takes *text*
-     still gets the system keyboard, which is the whole distinction.
-
-     Which fields, and what a digit means in them:
-
-       int        a count. `type=number`, or `inputmode=numeric`.
-       decimal    a measurement. `inputmode=decimal`, or a fractional `step`.
-       duration   hours and minutes typed as digits: 720 is 7h20m, and 7.33 is
-                  what lands in the field, because that is what the .md wants.
-       clock      a wall-clock time: 930 is 09:30.
-       off        `data-pad="off"` — hands the field back to the keyboard.
-
-     `data-pad` on the element wins over all of that; the two shapes that
-     cannot be inferred (duration, clock) are declared in the markup.
-
-     **The field never takes focus while the pad owns it**, and that is the
-     whole trick. 2.22 focused it and suppressed the keyboard with
-     `inputmode="none"` — a hint, which iOS honours for *drawing* the keyboard
-     and not for the rest of what it does about a focused field: it still
-     scrolls the field into view and still shrinks the visual viewport for a
-     keyboard that never arrives. A `position:fixed` pad drawn against a
-     viewport that has moved under it is a pad whose keys are not where they
-     look, which is exactly how it behaved — you tapped a key and got the one
-     above it.
-
-     So the tap that opens the pad is `preventDefault`ed: no focus, no
-     keyboard, no scroll, nothing moves. `inputmode="none"` is still set as a
-     second line of defence for a field reached some other way (Tab), and the
-     field's own inputmode is remembered in `data-pad-im` so switching the pad
-     off in settings gives every field its keyboard back without a reload.
-
-     The keys themselves fire on **pointerdown**, not click. A click on touch is
-     synthesised, can be suppressed by anything that prevents a default earlier
-     in the sequence, and arrives late; pointerdown is the event that actually
-     names what was under the finger. The click handler is kept for a keyboard
-     user pressing Enter on a focused key, and de-duplicated against it. */
+  /* Shared numpad modes: int, decimal, duration (720 -> 7.33 hours), and
+     clock (930 -> 09:30). data-pad overrides inference; off uses the keyboard.
+     Prevent focus while the pad owns a field to avoid iOS viewport shifts.
+     Preserve its original inputmode in data-pad-im. Keys handle pointerdown;
+     retain keyboard clicks and suppress duplicate clicks from the same gesture. */
   const npadEl    = document.getElementById('npad');
   const npadBack  = document.getElementById('npad-back');
   const npadLabel = document.getElementById('npad-label');
@@ -922,7 +874,7 @@ window.Shell = (function () {
   let padTarget = null, padKind = 'int', padBuf = '', padFresh = true;
   let padUnit = '';
 
-  /* ── The unit the number is in ──────────────────────────────────────────────
+  /* The unit the number is in
      A pad-owned field is never focused, so the only thing on screen while you
      answer it is the pad: the label it is asking under, and a number. "45" is
      not an answer, "45 s" is, and the difference matters most on exactly the
@@ -1120,32 +1072,9 @@ window.Shell = (function () {
   }
   if (npadBack) npadBack.addEventListener('click', padClose);
 
-  /* ── An overlay owns the page until it closes ───────────────────────────────
-     Three bugs that read as three bugs and are one rule.
-
-     The pad is `position:fixed` over a backdrop, and the tap that dismissed it
-     also pressed whatever was under it: the backdrop stopped taking pointer
-     events the instant the class came off, so the rest of the same gesture
-     landed on the form. One tap did two things, and the second one was never
-     asked for. A tap that closes an overlay now does *only* that — the
-     pointerdown is prevented and stopped, and the click it would have
-     synthesised is swallowed on its way in.
-
-     The system keyboard is the same problem wearing the platform's clothes.
-     The pad was drawn without dismissing it, so on a form where a text field
-     had been answered first the pad arrived over a keyboard, against a visual
-     viewport iOS had already shrunk — and a fixed element measured against a
-     viewport that has moved under it has its keys somewhere other than where
-     they look. That is the "the calculator makes the whole page bug out and
-     the taps are misaligned" report, and the fix is that opening the pad blurs
-     whatever is focused first, so nothing is moving by the time it is drawn.
-
-     And a tap outside a focused field now blurs it, everywhere, which is what
-     takes the platform's own selection callout (paste / select / select all /
-     autofill) off the screen. It had no dismissal of its own: it stayed up,
-     anchored where the field had been rather than where the field now is, over
-     whatever had scrolled into that space. Blurring is the only thing that
-     closes it, and nothing was blurring. */
+  /* Overlay dismissal consumes pointerdown and its synthetic click to prevent
+     taps reaching underlying controls. Blur the active field before showing
+     the pad to dismiss the keyboard; outside taps also dismiss text callouts. */
   const FOCUSABLE_TEXT = 'input,textarea,select,[contenteditable=""],[contenteditable="true"]';
   function blurField(el) { try { el.blur(); } catch {} }
   /* The tap that dismissed something is spent. `preventDefault` stops the
@@ -1193,7 +1122,7 @@ window.Shell = (function () {
     padOpen(el, kind);
   }, true);
 
-  /* ── A gesture that moved is never a press ──────────────────────────────────
+  /* A gesture that moved is never a press
      2.22.3 took the press *wash* off anything scrolled under a finger; this is
      the other half — the press itself. A finger that lands on a row and then
      drags is scrolling, and the click the browser synthesises when it lifts is
@@ -1258,7 +1187,7 @@ window.Shell = (function () {
     document.querySelectorAll('input[data-pad-im]').forEach(padArm);
   });
 
-  // ── Boot: hash wins, then the start-tab preference, then the last tab ──────
+  // Boot: hash wins, then the start-tab preference, then the last tab
   (function boot() {
     rebuild();
     let start = TABS[0];
@@ -1305,25 +1234,9 @@ window.Shell = (function () {
     return out;
   }
 
-  /* ── The big day-number in a title band ─────────────────────────────────────
-     LOG and DAY both carry one, at the right end of the wordmark's row, cut
-     from the same type at the same size. It lives here rather than twice in
-     two modules because the whole point of it is that the two are identical —
-     two copies would be two things to keep in step, and they would not stay in
-     step (§3).
-
-     The change is a shuffle, not a roll. A vertical roll says "the next one
-     along", which is right for a counter and wrong for this: stepping through
-     days is riffling a deck, so the number that leaves is flicked off to one
-     side, tilted and blurred as it goes, while the next one drops in from the
-     other side and settles. Which side is which follows the direction you
-     moved: forward throws the old one left, back throws it right, so the
-     gesture and the animation agree about which way time went.
-
-     `--dn-dir` carries that direction into the keyframes. The state is kept
-     per element rather than read back off the DOM, because a re-render
-     mid-shuffle would otherwise compare against the digits on their way out
-     and play the whole thing a second time. */
+  /* Shared day-number shuffle. --dn-dir follows navigation direction.
+     Keep state per element so a render during animation cannot replay it
+     based on the outgoing digits still in the DOM. */
   const dnState = new WeakMap();
   /* The general form: any number in a `.h-daynum` box, shuffled. `sort` is what
      decides which way it goes — a date string for LOG and DAY, the number
@@ -1376,7 +1289,7 @@ window.Shell = (function () {
   const dayNum = (box, iso) =>
     rollNum(box, String(Number(String(iso).slice(8, 10)) || ''), String(iso));
 
-  /* ── The click under every control ────────────────────────────────────────
+  /* The click under every control
      One listener, on the way down, for the whole page. `pointerdown` rather
      than `click` because the sound is feedback for the press and not for what
      it did — a click fires after the finger lifts, which is late enough to
@@ -1397,7 +1310,7 @@ window.Shell = (function () {
   const SOUNDS_ON = 'button,a[href],select,summary,input[type=checkbox],input[type=radio],' +
                     'input[type=range],[role=button],[role=switch],[role=checkbox],[data-act],[data-npad]';
 
-  /* ── Which of the five moments a press is ─────────────────────────────────
+  /* Which of the five moments a press is
      4.3 gave sound five events instead of three, and the two new ones —
      completing something, and opening a menu — are decided **here**, off the
      element under the finger, rather than by an app calling `Prefs.sound()`

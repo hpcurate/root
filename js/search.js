@@ -1,23 +1,6 @@
-/* ── Search ───────────────────────────────────────────────────────────────────
-   One field over the whole of ROOT: the apps, every settings dial by name,
-   everything Config holds — routines and their items, packing lists, aisles and
-   groceries, meals, PLAN's projects and sections, TEND's plant types, TRACK's
-   54 topics — and whatever each app answers for its own storage (DO's travel
-   checklists, TEND's plants, LEARN's decks) through the `search` hook it
-   registers with the shell.
-
-   Why it exists: eleven settings panels and ~40 dials means "where do I change
-   X" was the longest walk in the app, and the content editors made the same
-   true of "where is that item". Nothing here is a new source of truth — every
-   entry is derived from Config, from Prefs' own rendered controls (see
-   SET.searchIndex) or from a module, so a routine renamed this morning is
-   findable this afternoon without a line being added here.
-
-   The overlay is a `.sheet-back` sibling of #views, not a child of #track:
-   anything position:fixed inside the track is captured by the first ancestor
-   that animates a transform. Being a sheet also buys Escape and the shell's
-   keyboard suppression for free, which is what lets you type "b" in here
-   without landing on another tab. */
+/* Search derives results from Config, SET.searchIndex and module search hooks.
+   Keep the sheet outside #track so ancestor transforms do not capture its
+   fixed positioning. Shell supplies Escape and keyboard-shortcut suppression. */
 window.SEARCH = (function () {
 'use strict';
 
@@ -34,7 +17,7 @@ const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
                     create:'CREATE', tools:'TOOLS' };
 
-/* ── What Config holds, flattened ─────────────────────────────────────────────
+/* What Config holds, flattened
    One entry per line: which path it lives under, what a match is called, and
    where tapping it goes — always the panel whose editor owns that path, since
    that is the one place the thing can actually be changed. A path missing from

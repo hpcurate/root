@@ -77,7 +77,7 @@ const offset = (n) => { const x = new w.Date(); x.setDate(x.getDate() + n); retu
 const tick = (ms = 20) => new Promise(r => setTimeout(r, ms));
 const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
 
-/* ── Answering the app's own confirm ──────────────────────────────────────────
+/* Answering the app's own confirm
    Shell.confirm opens #ask and waits for a tap, so an action that asks does not
    finish on the call any more. settle() answers whatever question is up the way
    confirmAnswer says and counts it; with no question up it does nothing at all,
@@ -93,7 +93,7 @@ function settle(answer = confirmAnswer) {
 const settled = async fn => { const p = fn(); settle(); return p; };
 const key = (k, target = d) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
 
-// ── 1. boot ──────────────────────────────────────────────────────────────────
+// 1. boot
 check('modules defined', ['Prefs','Config','Creds','Shell','DO','LOG','PLAN','STORE','SET'].every(k => w[k]));
 check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3).join(' | '));
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
@@ -102,7 +102,7 @@ w.Prefs.set('theme', 'void');
 for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','create','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
-// ── 2. settings routing ─────────────────────────────────────────────────────
+// 2. settings routing
 w.Shell.go('plan');
 w.PLAN.connectTodoist();                     // no token → routes to the key panel
 await tick();
@@ -110,7 +110,7 @@ check("PLAN 'no key' routes to the data panel", $('.ns-set .set-panel.on')?.data
   'landed on ' + $('.ns-set .set-panel.on')?.dataset.panel);
 check('conn-status text no longer says General', !/General/.test($('.ns-plan #conn-status').textContent));
 
-// ── 3. keyboard while an overlay is open + Escape ───────────────────────────
+// 3. keyboard while an overlay is open + Escape
 w.Shell.go('store');
 w.STORE.openPad();
 key('3');
@@ -122,7 +122,7 @@ w.STORE.openCartLog();
 key('Escape');
 check('Escape closes the cart log', !$('.ns-store #clog').classList.contains('on'));
 
-// ── 4. confirmDestructive honoured app-wide ─────────────────────────────────
+// 4. confirmDestructive honoured app-wide
 $('.ns-store #manual-input').value = 'milk'; w.STORE.addManual();
 w.Prefs.set('confirmDestructive', false);
 confirmCalls = 0;
@@ -151,7 +151,7 @@ w.DO.resetDay(); settle();
 w.DO.openRoutine(firstRoutine);
 check('… while confirming clears the day', ticks() === 0, ticks() + ' ticked');
 
-// ── 5. STORE classifier follows aisle edits ─────────────────────────────────
+// 5. STORE classifier follows aisle edits
 const cats = w.Config.get('store.categories');
 cats.vegetables.items.push('zzzfoo');
 w.Config.set('store.categories', cats);
@@ -161,7 +161,7 @@ check('new aisle vocabulary is used immediately', st.list.find(i => i.name === '
   'filed under ' + st.list.find(i => i.name === 'zzzfoo')?.cat);
 w.Config.reset('store.categories');
 
-// ── 6. PLAN partial send keeps only the failed tasks ────────────────────────
+// 6. PLAN partial send keeps only the failed tasks
 w.Creds.save('tok');
 let n = 0;
 fetchScript = async (url, opts) => {
@@ -181,7 +181,7 @@ await tick(600);
 const q = JSON.parse(w.localStorage.getItem('plan_queue') || '[]');
 check('only the failed task stays queued after a partial send', q.length === 1 && q[0].name === 'b', 'queue now ' + q.map(t => t.name).join(','));
 
-// ── 7. LOG streak ────────────────────────────────────────────────────────────
+// 7. LOG streak
 const day = (m, e) => JSON.stringify({ date: 'x', scale: 5, m: Object.assign({ wt:'', sl:'', nrg:'', mood:'', cs_on:null, cs:'', wkg:'', km:'', wo:'', tkg:'', tmin:'' }, m),
   e: Object.assign({ kme:'', nrg:'', mood:'', stress:'', meds_lam:false, meds_rit:false, meals:[], caf_c:0, caf_ed:0, cur_mix:0, cur_prod:0, cur_cont:0, blocks:[] }, e), entries: [] });
 w.localStorage.removeItem('log_' + today);
@@ -201,7 +201,7 @@ w.LOG.go('morning'); $('.ns-log #m-sl').value = '8'; w.LOG.saveMorning();
 check('morning card is done without a wake time when that field is off', $('.ns-log #card-m').classList.contains('done'));
 w.Config.reset('log.fields');
 
-// ── 8. LOG km target + week start ───────────────────────────────────────────
+// 8. LOG km target + week start
 w.Config.set('log.kmTarget', 8);
 w.LOG.go('history');
 check('km chart reads the configured target', /8 km\/day/.test($('.ns-log .kmc-goal')?.textContent || ''),
@@ -212,7 +212,7 @@ check('week start pref moves the km chart to Sunday', $('.ns-log .kmc-day')?.tex
 w.Prefs.set('weekStart', 'mon');
 w.Config.reset('log.kmTarget');
 
-// ── 9. onclick values with quotes ───────────────────────────────────────────
+// 9. onclick values with quotes
 errors.length = 0;
 w.Config.set('log.blocks', [{ name: "it's \"odd\" \\ block", color: '#ffffff' }]);
 w.LOG.go('evening');
@@ -227,7 +227,7 @@ click($('.ns-do .item-btn'));
 check('a routine item with quotes still ticks', $('.ns-do .item-btn').classList.contains('checked') && errors.length === 0, errors[0]);
 w.Config.reset('do.routines'); w.Config.reset('do.tabs');
 
-// ── 10. day rollover ────────────────────────────────────────────────────────
+// 10. day rollover
 w.DO.go('home');
 w.DO.openRoutine('routinep1'); click($('.ns-do .item-btn')); w.DO.go('home');   // a tick today → do_<today> exists
 check('a tick writes today\'s record', w.localStorage.getItem('do_' + today) !== null);
@@ -251,7 +251,7 @@ check('LOG followed to the new day on its home screen', $('.ns-log #btn-today').
 w.Date = RealDate;
 w.Shell.checkDay();                          // and back to the real today for everything that follows
 
-// ── 11. Prefs fixes ─────────────────────────────────────────────────────────
+// 11. Prefs fixes
 w.Prefs.preview('paper');
 check('preview of a light theme also flips data-mode', d.documentElement.dataset.mode === 'light');
 w.Prefs.revert();
@@ -265,7 +265,7 @@ check('PLAN and STORE home dates follow the date format', $('.ns-plan #home-date
   $('.ns-store #date-label').textContent === today, $('.ns-plan #home-date').textContent);
 w.Prefs.set('dateFormat', 'long');
 
-// ── 12. meals beyond 4 survive the note parser ──────────────────────────────
+// 12. meals beyond 4 survive the note parser
 const note = `*:LiCalendar: ${offset(-1)}*\n| meals         | 1,2,5,6 |\n| meals_count   | 4 |\n| scale         | 1-5 |\n`;
 w.LOG.go('reports');
 $('.ns-log #rep-paste').value = note;
@@ -274,21 +274,21 @@ click($('.ns-log #rep-week-btns .rep-btn'));
 check('parsed meals above 4 are kept', /\| meals \| 4 total/.test($('.ns-log #rep-pre').textContent),
   ($('.ns-log #rep-pre').textContent.match(/\| meals \|[^\n]*/) || [])[0]);
 
-// ── 13. hash deep link into a settings panel ────────────────────────────────
+// 13. hash deep link into a settings panel
 w.location.hash = '#settings/data';
 w.dispatchEvent(new w.Event('hashchange'));
 await tick();
 check('#settings/<panel> opens that panel', $('.tab-b.on').getAttribute('aria-label') === 'Settings' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'data');
 
-// ── 14. content editor: select with data-cfg commits on change ──────────────
+// 14. content editor: select with data-cfg commits on change
 w.SET.panel('log');                     // LOG's content editors sit at the end of its own panel
 const sel = $('.ns-set select[data-cfg="log.streakRequires"]');
 if (sel) { sel.value = 'evening'; sel.dispatchEvent(new w.Event('change', { bubbles: true })); }
 check('streak rule select commits to Config', w.Config.get('log.streakRequires') === 'evening', sel ? 'got ' + w.Config.get('log.streakRequires') : 'no select rendered');
 w.Config.reset('log.streakRequires');
 
-// ── 15. 2.2 — three more apps in the track ─────────────────────────────────
+// 15. 2.2 — three more apps in the track
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
 check('eleven tabs, settings last', w.Shell.TABS.length === 11 && w.Shell.TABS[10] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
@@ -312,7 +312,7 @@ w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
 
-// ── 16. TEND ────────────────────────────────────────────────────────────────
+// 16. TEND
 w.Shell.go('tend');
 w.TEND.openEditor();
 check('editor sheet opens', $('.ns-tend #sheet-edit').classList.contains('on'));
@@ -346,7 +346,7 @@ check('editing one curate label keeps the other slots', cur && w.Config.get('log
   !!w.Config.get('log.curate').prod && !!w.Config.get('log.curate').cont, JSON.stringify(w.Config.get('log.curate')));
 w.Config.reset('log.curate');
 
-// ── 17. TRACK ───────────────────────────────────────────────────────────────
+// 17. TRACK
 w.Shell.go('track');
 w.localStorage.removeItem('capTracker.v2');
 click($('.ns-track #levels .row[data-id]'));
@@ -360,7 +360,7 @@ $('.ns-track #setRev').value = '6'; $('.ns-track #setRev').dispatchEvent(new w.E
 check('a date setting in the panel saves', JSON.parse(w.localStorage.getItem('capTracker.v2')).revisionWeeks === 6);
 w.localStorage.removeItem('capTracker.v2');
 
-// ── 18. LEARN ───────────────────────────────────────────────────────────────
+// 18. LEARN
 await tick();
 check('LEARN says so instead of throwing where IndexedDB is missing', /cannot be stored/i.test($('.ns-learn #deck-list').textContent),
   $('.ns-learn #deck-list').textContent.slice(0, 60));
@@ -371,7 +371,7 @@ check('rating names follow Config', $('.ns-learn #answer-row .ans.easy .ans-l').
 w.Config.reset('learn.ratings');
 check('no library script was loaded without an import', !d.querySelector('script[src*="jszip"]'));
 
-// ── 19. 2.3 — decimal fields, touch preview, the Todoist block, PLAN→LOG, study ─
+// 19. 2.3 — decimal fields, touch preview, the Todoist block, PLAN→LOG, study ─
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('morning');
 const slIn = $('.ns-log #m-sl');
 slIn.value = '7,5'; slIn.dispatchEvent(new w.Event('input', { bubbles: true }));
@@ -480,7 +480,7 @@ check('the output screen tags the study day', /2 topics/.test($('.ns-log #out-ta
 w.TRACK.toggle('t02'); w.TRACK.toggle('t01'); w.localStorage.removeItem('learn_daily_v1');
 check('a day with no study has no study section', !/#### study/.test(w.LOG.buildNote()));
 
-// ── 20. 2.4 — TEND ↔ Todoist, the DO badge, study in the reports ────────────
+// 20. 2.4 — TEND ↔ Todoist, the DO badge, study in the reports
 const ttOpen = new Map(); let ttNext = 1;
 fetchScript = async (url, opts) => {
   const method = (opts && opts.method) || 'GET';
@@ -540,7 +540,7 @@ w.LOG.parseNotes(); click($('.ns-log #rep-week-btns .rep-btn'));
 check('parsed notes feed the study rows', /\| study \| 3 topics · 12 cards \|/.test($('.ns-log #rep-pre').textContent) && /- B/.test($('.ns-log #rep-pre').textContent));
 w.TRACK.toggle('t03'); w.localStorage.removeItem('learn_daily_v1');
 
-// ── 21. 2.5 — block tasks from Todoist, label chips gone, portrait lock ─────
+// 21. 2.5 — block tasks from Todoist, label chips gone, portrait lock
 check('the portrait lock stamps its attribute', d.documentElement.dataset.portrait === 'lock');
 w.Prefs.set('lockPortrait', false);
 check('… and lifts it', d.documentElement.dataset.portrait === 'free');
@@ -629,7 +629,7 @@ const bkChip2 = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b 
 check('unticking reopens it and deselects the block', bkOpen.get('k1').open === true &&
   !JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track') && !!bkChip2 && !bkChip2.classList.contains('on'));
 
-// ── 22. 2.8 — the media tab, the settings menu, apps out of the bar ─────────
+// 22. 2.8 — the media tab, the settings menu, apps out of the bar
 const mdOpen = new Map([
   ['m1', { id: 'm1', content: 'Dune',      labels: ['movie'],          open: true }],
   ['m2', { id: 'm2', content: 'Blonde',    labels: ['music', 'album'], open: true }],
@@ -670,7 +670,7 @@ check('the title is the row, not a tile: it gets the full width', !!blonde && bl
   !mdBox.querySelector('.bk-grid'));
 check('the today list and the block tiles stay off the media tab', $('.ns-do #td-today').classList.contains('hidden') && $('.ns-do #td-blocks').classList.contains('hidden'));
 
-/* ── 2.24: the media tab reworked ── */
+/* 2.24: the media tab reworked ── */
 const mdChips = () => [...mdBox.querySelectorAll('.md-chip')].map(c => c.textContent);
 check('a chip per label that has something on it, plus "all", each with its open count',
   mdChips()[0] === 'all3' && mdChips().slice(1).join(',') === '@movie1,@show1,@music1', mdChips().join(','));
@@ -768,7 +768,7 @@ check('look sits under appearance', $('.ns-set #set-cat-title').textContent === 
 click($('.ns-set .hd-back'));
 check('back returns to the home menu', $('.ns-set #s-home').classList.contains('on') && !$('.ns-set #s-cat').classList.contains('on'));
 
-// ── 23. 2.9 — the left arrow as back, tap-the-tab-for-home, the settings icon, → tomorrow ─
+// 23. 2.9 — the left arrow as back, tap-the-tab-for-home, the settings icon, → tomorrow ─
 const prev = $('#nav-prev');
 w.Shell.go('do'); await tick();
 check('on an app home the left arrow is the previous-tab arrow', !prev.classList.contains('is-back') && prev.disabled);
@@ -828,7 +828,7 @@ await settled(() => w.DO.deferToday());
 check('"→ tomorrow" reschedules every open task to tomorrow in Todoist', tmMoved.d1 === 'tomorrow' && tmMoved.d2 === 'tomorrow', JSON.stringify(tmMoved));
 check('… and they drop off the list', openRows().length === 0 && tdState().today.tasks.length === 0, openRows().length + ' rows');
 
-// ── 24. 2.10 — the title band, blocks → tomorrow, PLAN in label colours ────
+// 24. 2.10 — the title band, blocks → tomorrow, PLAN in label colours
 check('each slide is a band plus a scroll body', ['do','log','plan','store','tend','track','learn','cal','create','settings'].every(a => {
   const v = $('#view-' + a); return v.children.length === 2 && v.children[0].classList.contains('h-top') && v.children[1].classList.contains('view-body');
 }), [...d.querySelectorAll('#track .view')].map(v => v.id + ':' + [...v.children].map(c => c.className).join('+')).join(' '));
@@ -877,7 +877,7 @@ w.Shell.go('plan'); await tick(50);
 const curateTile = [...d.querySelectorAll('.ns-plan .proj-tile')].find(t => /curate/.test(t.textContent));
 check("PLAN's project tiles take their label's Todoist colour", !!curateTile && curateTile.style.getPropertyValue('--proj-color') === '#884dff', curateTile && curateTile.getAttribute('style'));
 
-// ── 25. 2.11 — the cross-fade, the title morph, PLAN expanding in place ────
+// 25. 2.11 — the cross-fade, the title morph, PLAN expanding in place
 check('no glider: the active tab is its own filled pill again', !$('#nav .nav-glider') && $('.tab-b.on')?.dataset.app === 'plan');
 // the morph only reads as one title becoming another if every band is the same
 // shape — so no app sheet may set the band's box or its own wordmark size
@@ -929,7 +929,7 @@ check('the rows are the project\'s sections, in its colour',
   secs[0].style.getPropertyValue('--proj-color') === '#884dff' && !!secs[0].querySelector('.ps-rail'),
   secs.map(s => s.textContent.replace(/\s+/g, ' ').trim()).join(','));
 
-/* ── 2.24: the section rows, and getting out of an open project ── */
+/* 2.24: the section rows, and getting out of an open project ── */
 check('the colour is a rail down the row, not a wash over it — three rows stopped reading as three slabs',
   /\.ns-plan \.ps-rail\{flex:0 0 3px/.test(planCss) &&
   /\.ns-plan \.proj-sec\{[^}]*background:var\(--s1\)/.test(planCss));
@@ -1030,7 +1030,7 @@ w.PLAN.optPick($('.ns-plan #opts-block .opt-b.on'), 'block', 'b1');
 check('… and tapping it again clears the row, since there is no none chip', !$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.closeForm(); w.PLAN.clearQueue(); settle();
 
-/* ── PLAN's transition, driven by a scripted layout ──
+/* PLAN's transition, driven by a scripted layout ──
    jsdom has neither layout nor Web Animations, so flip() is otherwise a
    complete no-op and none of its three branches is ever reached. Stand both
    in for the length of one open, and read back what it asked for. */
@@ -1111,7 +1111,7 @@ w.PLAN.closeForm(); w.PLAN.clearQueue(); settle();
   w.PLAN.closeProj();
 }
 
-// ── 26. the sent history and its calendar lines ────────────────────────────
+// 26. the sent history and its calendar lines
 // section 6 already pushed two tasks through; clear both the key and the
 // module's copy of it, and note what today's own record already holds
 confirmAnswer = true;
@@ -1179,7 +1179,7 @@ w.PLAN.toggleSent(rowFor('read chapter 3'));
 check('tapping a picked row lets it go again',
   $('.ns-plan #sent-export-n').textContent === '5' && !sentRows()[rowFor('read chapter 3')].classList.contains('on'));
 
-// ── 27. the export panel ───────────────────────────────────────────────────
+// 27. the export panel
 /* The two branches the export is built out of, as shipped. */
 const shippedCals = w.Config.defaults('plan.calendars');
 check('plan.calendars ships the eight projects, curate split three ways',
@@ -1328,7 +1328,7 @@ w.PLAN.setMode('blocks');
 check('the export button is there once every picked task has a slot, and names the count',
   !!$('.ns-plan #exp-go') && $('.ns-plan #exp-go').textContent === 'export 5 tasks');
 
-/* ── The description is a contract: byte for byte ── */
+/* The description is a contract: byte for byte ── */
 const dayISO = offset(1);
 const wanted = [
   `day: ${dayISO}`, 'start: 07:00', 'template: normal', 'mode: blocks', '',
@@ -1445,7 +1445,7 @@ check('… reading "1h30" as ninety minutes, so a duration can be written either
 w.Config.reset('plan.dayTemplates');
 w.Shell.go('plan');
 
-// ── 28. the day a task is due, picked on the form ──────────────────────────
+// 28. the day a task is due, picked on the form
 /* Everything PLAN sent used to be due "today", full stop. The day is picked
    on the task form now — ← tomorrow → — carried on the queued task, and sent
    as an explicit date. */
@@ -1592,9 +1592,9 @@ check('… and re-marks it when a tab hides the sections above it',
   fv.marked.length === 1 && fv.marked[0] === fv.shown, (fv.marked[0] || {}).id + ' vs ' + (fv.shown || {}).id);
 w.DO.setTab('daily');
 
-// ── 29. 2.19 — search, DO's quick cards and its history, PLAN presets, LOG's alert ─
+// 29. 2.19 — search, DO's quick cards and its history, PLAN presets, LOG's alert ─
 
-/* ── search ── */
+/* search ── */
 w.Shell.go('do');
 key('/');
 check('"/" opens search rather than settings',
@@ -1646,7 +1646,7 @@ check('Escape closes it', !$('#search').classList.contains('on'));
 check('the search sheet is a sibling of #views, never inside #track',
   $('#search').parentElement === d.body && $('#search-back').parentElement === d.body);
 
-/* ── DO · @quick ── */
+/* DO · @quick ── */
 const qkOpen = new Map([
   ['q1', { id:'q1', content:'change the filter', labels:['quick'], project_id:'P1', parent_id:null, open:true }],
   ['q2', { id:'q2', content:'desk reset',        labels:['quick'], project_id:'P1', parent_id:null, open:true }],
@@ -1725,7 +1725,7 @@ check('switching the section off empties it as well as hiding it',
 w.DO.toggleQuick();
 w.Config.reset('do.mediaLabels');
 
-/* ── DO · the history the sweep used to throw away ── */
+/* DO · the history the sweep used to throw away ── */
 w.DO.go('home');
 w.DO.openRoutine('routinep1');
 const rItems = [...d.querySelectorAll('.ns-do .item-btn')];
@@ -1758,7 +1758,7 @@ check('the weekly report grows a routines row out of it',
   /\| routines \| \d+% ticked · \d+ day/.test($('.ns-log #rep-pre').textContent),
   ($('.ns-log #rep-pre').textContent.match(/\| routines \|.*/) || ['no row'])[0]);
 
-/* ── PLAN · queue presets ── */
+/* PLAN · queue presets ── */
 w.Shell.go('plan');
 confirmAnswer = true;
 w.PLAN.clearQueue(); settle();
@@ -1795,7 +1795,7 @@ check('deleting one takes its chip with it',
   (w.Config.get('plan.presets') || []).length === 0 && $('.ns-plan #queue-presets').classList.contains('hidden'));
 w.PLAN.clearQueue(); settle();
 
-/* ── LOG · the tab alert ── */
+/* LOG · the tab alert ── */
 const logIcon = () => $('.tab-b[data-app="log"] use').getAttribute('href');
 const logBtn = () => $('.tab-b[data-app="log"]');
 w.localStorage.removeItem('log_' + today);
@@ -1886,7 +1886,7 @@ check('switched off it never flags, whatever the hour',
 w.Config.reset('log.alerts');
 w.PLAN.clearQueue(); settle();
 
-// ── 30. 2.20 — the exported day, drawn as a calendar ───────────────────────
+// 30. 2.20 — the exported day, drawn as a calendar
 w.Prefs.reset('apps');
 w.Shell.go('cal');
 
@@ -1983,7 +1983,7 @@ check('recolouring a project repaints its tile but not the days already planned'
   `stored ${rec().events.find(e => e.project === 'home').color} / tile now ${tileColor('home')}`);
 w.Config.reset('plan.types');
 
-// ── the drawing ──
+// the drawing ──
 w.Shell.go('cal');
 const evRows = () => [...d.querySelectorAll('.ns-cal .cal-ev')];
 const styleOf = (el, prop) => (String(el.getAttribute('style') || '').match(new RegExp(prop + ':\\s*([^;"]+)')) || [])[1]?.trim();
@@ -2044,7 +2044,7 @@ check('a disabled arrow does nothing at all', w.CAL.selected() === today);
 click(fwdBtn());
 check('… and forward brings the planned day back', w.CAL.selected() === calDay && !!$('.ns-cal .cal-day'));
 
-// ── the dials ──
+// the dials ──
 w.Prefs.set('calShowFixed', false);
 check('switching the template off leaves only the blocks',
   evRows().length === 6 && !evRows().some(r => r.classList.contains('fixed')), evRows().length + ' rows');
@@ -2126,7 +2126,7 @@ w.SET.panel('data');
 check('cal_days_v1 is filed under DAY in the storage report',
   /DAY/.test($('.ns-set #panel-data').textContent), 'no DAY row');
 
-// ── 31. 2.20.1 — a task over several hours, the day stepped, DAY, the row tile ─
+// 31. 2.20.1 — a task over several hours, the day stepped, DAY, the row tile ─
 /* A two-hour job used to have to be sent twice and picked twice. */
 w.Shell.go('plan');
 w.PLAN.toggleSent(rowFor('clear the desk'));
@@ -2243,7 +2243,7 @@ check('only the picked task is moved, and it leaves the list',
     .filter(t => !t.done).length === openIds.length - 1,
   deferPosts.join(',') + ' | left ' + JSON.parse(w.localStorage.getItem('do_todoist_v1')).today.tasks.filter(t => !t.done).length);
 
-// ── 32. 2.21 — the twelve fixes ───────────────────────────────────────────
+// 32. 2.21 — the twelve fixes
 const calCss2  = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
 const setCss   = fs.readFileSync(path.join(ROOT, 'css/settings.css'), 'utf8');
 const doCss    = fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8');
@@ -2305,7 +2305,7 @@ check('… in the order the slots are configured, so the table reads the same ev
   (medNote.match(/\| (meds_\w+)/g) || []).join(',') === '| meds_lam,| meds_rit,| meds_m3',
   (medNote.match(/\| (meds_\w+)/g) || []).join(','));
 
-/* ── 2.23: discard has to undo ─────────────────────────────────────────────────
+/* 2.23: discard has to undo
    The forms write straight into the live record as they are tapped — the
    scales, the meds, the counters, the blocks — and `save()` only flushes it.
    So "go back without saving" left the edits in memory and the *next* write
@@ -2433,7 +2433,7 @@ check('… drawn from the sprite like the nav\'s own arrows, never typed as char
   [...d.querySelectorAll('#cal-steps .cal-arrow svg use')].map(u => u.getAttribute('href')).join(','));
 
 
-// ── 33. 2.22 — the app asks its own questions, and answers its own numbers ───
+// 33. 2.22 — the app asks its own questions, and answers its own numbers
 const shellCss3 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
 const shellJs3  = fs.readFileSync(path.join(ROOT, 'js/shell.js'), 'utf8');
 const logCss2  = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
@@ -2530,7 +2530,7 @@ w.Shell.numpad.close();
 check('the pad is a sheet, so it steps the shell\'s shortcuts aside like every other one',
   /\.npad\{[\s\S]*?position:fixed/.test(shellCss3) && !!$('#npad-back.sheet-back'));
 
-/* ── 2.23: the unit the number is in ─────────────────────────────────────────
+/* 2.23: the unit the number is in
    A pad-owned field is never focused, so while you answer it the only things on
    screen are the pad's own label and a number — and the label the pad covers is
    often the only place the unit was written down. */
@@ -2559,7 +2559,7 @@ check('nothing is inferred — a unit guessed from a label is a unit that is wro
   /padUnitOf = el => String\(\(el && el\.dataset && el\.dataset\.unit\)/.test(shellJs3),
   'padUnitOf');
 
-/* ── An overlay owns the page until it closes ────────────────────────────────
+/* An overlay owns the page until it closes
    The three reports that turned out to be one rule: the pad's closing tap also
    pressed what was under it, the pad was drawn over a live system keyboard
    against a viewport iOS had already shrunk, and the platform's own selection
@@ -2647,7 +2647,7 @@ check('… and steps aside once it has been idle, on a dial rather than a litera
 check('the empty day\'s one action is upper case — the exception DAY makes for it',
   /\.ns-cal \.ce-go\{[\s\S]*?text-transform:uppercase/.test(calCss3));
 
-/* ── 2.23 — DAY during the day ───────────────────────────────────────────────
+/* 2.23 — DAY during the day
    A now line, rows that can be ticked off, and the day's slots fillable from
    the blocks DO is holding. All three are about using DAY at four in the
    afternoon rather than reading it at eight in the morning. */
@@ -2775,7 +2775,7 @@ click($('.ns-cal .ch-clear')); settle();
 check('… while confirming clears that day and no other',
   !w.CAL.day(today) && !!$('.ns-cal .cal-empty'), w.CAL.days().join(','));
 
-/* ══ 2.24 — the day's head, deleting a row, colour, and the wake-up shift ═════ */
+/* 2.24 — the day's head, deleting a row, colour, and the wake-up shift */
 const calCss = fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8');
 
 /* The head. Each fact is its own element with the separator drawn by CSS, so a
@@ -2883,7 +2883,7 @@ check('and the whole thing is a dial: off, the day stays exactly as it was expor
 w.Prefs.set('calWakeShift', true);
 w.CAL.clearDay(); settle();
 
-/* ── 2.24.1: starting a day PLAN never sent ──
+/* 2.24.1: starting a day PLAN never sent ──
    DAY could only ever draw a day PLAN had exported, so a morning with nothing
    planned offered one route: leave for PLAN. But the blocks are usually already
    on DO, and the only thing missing is a shape to drop them into. */
@@ -2966,7 +2966,7 @@ check('… and unpins again', !$('.ns-store #cw').classList.contains('pinned') &
   JSON.parse(w.localStorage.getItem('store_state_v1')).cwPin === false);
 
 
-// ── 34. 2.22.1 — what the first look on a real screen turned up ─────────────
+// 34. 2.22.1 — what the first look on a real screen turned up
 /* The pinned calculator keeps its buttons. 2.22 folded the ± rows away while
    pinned, on the theory that a pinned counter is a readout — it is not, the
    buttons are the reason you pinned it. */
@@ -3132,7 +3132,7 @@ check('the key names all three, each with the dot the chart draws',
   /stress/.test($('.ns-log .lc-key').textContent), $('.ns-log .lc-key')?.textContent.trim());
 
 
-// ── 35. 2.22.3 — the press wash, a fold, a chart that opens, two dials ──────
+// 35. 2.22.3 — the press wash, a fold, a chart that opens, two dials
 const tokensCss2 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
 const doCss3  = fs.readFileSync(path.join(ROOT, 'css/do.css'), 'utf8');
 const logCss3 = fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8');
@@ -3258,7 +3258,7 @@ check('… and the appearance reset knows about them',
   /'motion','motionSpeed','navMotion','contrast'/.test(
     fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 
-/* ── 3.1.0 · the mark around the selected tab ────────────────────────────────
+/* 3.1.0 · the mark around the selected tab
    Three dials, because they are three questions: what shape it is, how it
    arrives, and — with colour-coding on — which hues the tabs wear. All three
    are values swapped into the variables `.tab-b` declares, so the sheets never
@@ -3334,9 +3334,9 @@ check('… and the appearance reset knows about them too',
   /'navShape','navAnim','tabPalette'/.test(
     fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 
-/* ══ 2.24 — the band, the hints, and DO's cards ═══════════════════════════════ */
+/* 2.24 — the band, the hints, and DO's cards */
 
-/* ── The blurred title ──
+/* The blurred title ──
    Four of the five title sizes multiply out to a fraction (54 × .86 = 46.44),
    and the band is bottom-aligned, so that fraction became the offset every row
    inside it sat at — text on a half pixel is resampled rather than drawn, and
@@ -3382,7 +3382,7 @@ check('the morph class comes off once it has played, so the title is not left on
   ![...d.querySelectorAll('#track .view')].some(v => v.classList.contains('morph')),
   [...d.querySelectorAll('#track .view.morph')].map(v => v.id).join(','));
 
-/* ── The hints switch ── */
+/* The hints switch ── */
 check('the hints are on by default and claim the root', w.Prefs.get('tips') === true &&
   d.documentElement.dataset.tips === 'on');
 w.Prefs.set('tips', false);
@@ -3399,7 +3399,7 @@ check('it is a control on the behaviour panel, findable like every other dial',
   w.SET.searchIndex().some(r => /explain the controls/i.test(r.title)));
 w.Prefs.set('tips', true);
 
-/* ── A static panel's switches now follow the value ──
+/* A static panel's switches now follow the value ──
    The app panels are markup in index.html: their data-pref switches were
    written with the shipped default on them and nothing ever painted them
    again, so CAL's three had been showing the default since they shipped. */
@@ -3416,7 +3416,7 @@ check('the two colour switches and the wake-up one are on that panel too',
   !!$('.ns-set [data-pref="calColorBlocks"]') && !!$('.ns-set [data-pref="calColorOther"]') &&
   !!$('.ns-set [data-pref="calWakeShift"]'));
 
-/* ── DO's routine cards ── */
+/* DO's routine cards ── */
 w.Shell.go('do'); w.DO.setTab('daily');
 const cards = () => [...d.querySelectorAll('.ns-do #home-grid .card')];
 const cardNames = () => cards().map(c => c.querySelector('.card-t').textContent);
@@ -3468,7 +3468,7 @@ check('a tab with nothing left says so rather than leaving a hole where the grid
 dailyKeys.forEach(k => setDone(k, false));   // put the day back for whatever runs after
 w.Prefs.set('doHideDone', false);
 
-/* ── The big day-number ──
+/* The big day-number ──
    2.24.0 put it on DO (wrong: it crowded the tab strip, and the number only
    changed at midnight). 2.24.1 moved it to LOG. 2.25 gives DAY the same one and
    defines it once in the shell, because the point is that they are identical. */
@@ -3544,7 +3544,7 @@ check('… it travels with the title on a tab change, and holds still when the t
 check('… and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-daynum\{animation:none\}/.test(shellCss4));
 
-/* == 2.25 ==================================================================== */
+/* 2.25 */
 
 /* -- The blur, third attempt --
    Not a fractional pixel after all. `-webkit-overflow-scrolling:touch` opts a
@@ -3737,7 +3737,7 @@ check('both size dials are on the layout panel, findable by name',
 check('... and the appearance reset knows about the new one',
   /'titleSize','hdTitleSize'/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 
-/* ── 2.25.1: the status bar goes back to iOS ──
+/* 2.25.1: the status bar goes back to iOS ──
    `black-translucent` hands the page the whole screen, status bar included, and
    lets iOS draw its own material over that strip — so everything the band put
    up there sat under something the page does not control. Three CSS-side causes
@@ -3757,7 +3757,7 @@ check('… the three earlier fixes are all kept — each was a real defect',
   /--title-px:round\(/.test(tokensCss4) && /--sat:calc\(round\(up,/.test(tokensCss4) &&
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))));
 
-/* ── 2.25.2: the blur was the contrast, not the rendering ──
+/* 2.25.2: the blur was the contrast, not the rendering ──
    --mu is #4a4a4a on #0e0e0e — about 2.1:1, under half the minimum for body
    text. It is the placeholder colour and the band's date line was using it as a
    label colour at 10px, bold, uppercase, letter-spaced. Small text at 2:1 reads
@@ -3790,7 +3790,7 @@ check('… and none of the four earlier fixes was reverted to get here',
   ALL_SHEETS.every(f => !/-webkit-overflow-scrolling\s*:\s*touch/.test(sheetRules(f))) &&
   /content="black"/.test(headHtml));
 
-/* == 2.26 ==================================================================== */
+/* 2.26 */
 
 /* -- The blur, finally: it was `zoom` --
    Document zoom multiplies every length by a fraction, so at any scale but 1
@@ -3798,7 +3798,6 @@ check('… and none of the four earlier fixes was reverted to get here',
    every glyph was resampled rather than drawn. Smallest type worst - which is
    why it showed on the band's 10px date line and not the 54px wordmark beside
    it, and why four correct rendering fixes each changed nothing. */
-const tokensRaw = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
 check('the root is no longer zoomed, at any scale',
   !/zoom\s*:/.test(sheetRules('tokens')) && !/--ui-scale/.test(sheetRules('tokens')),
   (sheetRules('tokens').match(/zoom[^;]*/g) || []).join(' '));
@@ -3807,8 +3806,6 @@ check('... the dial is gone rather than tuned - no arrangement of steps is sharp
   !/'uiScale'/.test(fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8')));
 check('... and what it was for is covered by dials that are whole-pixel by construction',
   ['density','titleSize','hdTitleSize'].every(k => k in w.Prefs.SCHEMA));
-check('... tokens.css says why, so nobody re-adds it',
-  /There is no `zoom` here any more/.test(tokensRaw));
 
 /* -- The shadow, shared -- */
 /* .055em is 2.97px on the 54px wordmark but 0.825px on a 15px sticky title, and
@@ -3893,7 +3890,7 @@ check('... and no section head carries a text-shadow — the shadow is the band\
   !/\.ns-do \.tt-head\{[^}]*text-shadow/.test(sheetRules('do')) &&
   !/\.ns-do \.tt-fold\{[^}]*text-shadow/.test(sheetRules('do')));
 
-/* ── 3.0 · CREATE — the tenth app ────────────────────────────────────────────
+/* 3.0 · CREATE — the tenth app
    Songs on stages, each stage's own checklist, and the hours at the desk. What
    is asserted here is the part that is easy to get wrong later: that the whole
    app is built from Config rather than from lists in the module, that a tick is
@@ -3907,7 +3904,7 @@ check('CREATE is the tenth app, wired everywhere an app has to be wired',
   w.Prefs.APPS.includes('create'),
   w.Shell.TABS.join(','));
 
-/* ── 4.0 · two areas, one shelf ──────────────────────────────────────────────
+/* 4.0 · two areas, one shelf
    production is the songs, mixing is the DJ sets, and they are the same machine
    with different words. Everything below is asserted through `areas` rather
    than against two hard-coded blocks: a third area must need no code. */
@@ -4115,7 +4112,7 @@ check('... and its sessions go with it, so nothing is left pointing at nothing',
   w.CREATE.works().length + ' works / ' + w.CREATE.sessions().length + ' sessions');
 check('CREATE keeps its own storage key', !!w.localStorage.getItem('create_v1'));
 
-/* ── 4.0 · what a v1 shelf becomes ───────────────────────────────────────────
+/* 4.0 · what a v1 shelf becomes
    A record written before there were areas is a list of `songs` whose ticks are
    filed under `stage|item`, because there was only one area to file them under.
    The reader lifts both — there is no repair flag, because a migration that
@@ -4239,7 +4236,7 @@ check('… and writes one thing only: it closes a task it is showing, or puts it
   !/['"]DELETE['"]|['"]PUT['"]|['"]PATCH['"]/.test(crCode),
   (crCode.match(/\/close|\/reopen|method\s*:\s*'[A-Z]+'/g) || []).join(' '));
 
-/* ── 3.0.3 · the bands centre on their ink ───────────────────────────────────
+/* 3.0.3 · the bands centre on their ink
    A wordmark is all caps, and caps in a line-height:1 box leave the descender
    space empty underneath — 8.5px of a 54px box, measured in Chrome. The band had
    no slack to redistribute (14 + 82 + 12 was exactly its 108px floor), so all of
@@ -4285,7 +4282,7 @@ check('the pinned total slides with the titles, both ways',
 check('... and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-cost,\.view\.leaving > \.h-top \.h-cost\{animation:none\}/.test(shellCss5));
 
-/* ── 3.0.4 · trimmed boxes must not be clipped on both axes ──────────────────
+/* 3.0.4 · trimmed boxes must not be clipped on both axes
    3.0.3 trimmed these boxes to their cap height for layout, but their children
    still lay out in full line boxes — so `overflow:hidden`, which clips both
    axes, cut 9.4px off the top of the day number and 10px off the bottom of the
@@ -4302,7 +4299,7 @@ check('... and so does the counter, which still cannot run into the wordmark',
   /flex:0 1 auto;min-width:0;overflow:visible/.test(storeCss6) &&
   !/flex:0 1 auto;min-width:0;overflow:hidden/.test(storeCss6));
 
-/* ── 3.0.4 · what was finished, and when ────────────────────────────────────
+/* 3.0.4 · what was finished, and when
    Every other thing on DAY is the day as planned. A mark is the day as it
    happened: a completion puts a dot on the calendar at the minute it was
    ticked, whoever ticked it. */
@@ -4366,7 +4363,7 @@ check('only today can take a mark — a completion has a clock time because it i
   /sel !== Shell\.today\(\)/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
 
 
-/* ══ 4.1 ══════════════════════════════════════════════════════════════════════
+/* 4.1
    The shared undo pill, the areas as a real tab strip, CREATE reaching Todoist
    and LOG, the fortnight's six charts, and LOG's blocks reordered and unlinked. */
 const tokensCss41 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
@@ -4376,7 +4373,7 @@ const createCss41 = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
 const createJs41  = fs.readFileSync(path.join(ROOT, 'js/create.js'), 'utf8');
 const logJs41     = fs.readFileSync(path.join(ROOT, 'js/log.js'), 'utf8');
 
-/* ── The undo pill ───────────────────────────────────────────────────────────
+/* The undo pill
    Clearing is the destructive act you do on purpose and still regret. Every
    clear in the app now offers the way back instead of toasting. */
 const undoPill = () => $('#undo-pill');
@@ -4422,7 +4419,7 @@ const clearsWired = ['js/store.js', 'js/plan.js', 'js/do.js', 'js/log.js', 'js/c
 check('… and every app that can clear something offers it',
   clearsWired.length === 7, clearsWired.join(', '));
 
-/* ── The navigation arrows wear the title ────────────────────────────────── */
+/* The navigation arrows wear the title */
 check('LOG’s date arrows read as the title: the display face, its weight, its shadow',
   /\.ns-log \.h-arr\{[^}]*font:800 13px\/1 var\(--head\)/.test(logCss41) &&
   /\.ns-log \.h-arr\{[^}]*text-shadow:var\(--title-sh-x\) 0 0 var\(--title-sh-c\)/.test(logCss41) &&
@@ -4436,7 +4433,7 @@ check('… composed at the point of use, never through a token that bakes the co
   !/--title-sh:/.test(logCss41) && !/--title-sh:/.test(planCss41) &&
   !/--title-sh:/.test(tokensCss41));
 
-/* ── PLAN’s descenders, as an invariant ──────────────────────────────────────
+/* PLAN’s descenders, as an invariant
    3.1.0 gave every box on PLAN that hides its overflow a real line-height, so
    the clip lands below the baseline rather than on it. Written down as a rule
    rather than five fixes, so a sixth box cannot bring the bug back. */
@@ -4452,7 +4449,7 @@ check('… and the five boxes 3.1.0 fixed still carry theirs',
   /\.ns-plan \.dstep-w\{[^}]*font:400 13px\/1\.35/.test(planCss41) &&
   /\.ns-plan \.dstep-d\{[^}]*font:400 8px\/1\.4/.test(planCss41));
 
-/* ── LOG: the blocks, reordered, folded and unlinked ─────────────────────── */
+/* LOG: the blocks, reordered, folded and unlinked */
 w.Shell.go('log');
 w.LOG.resetDate();
 w.LOG.go('evening');
@@ -4499,7 +4496,7 @@ check('… ticking the standing one moves the light rather than counting it twic
 click(standChip41());
 w.LOG.go('home');
 
-/* ── LOG: the fortnight cycles ───────────────────────────────────────────── */
+/* LOG: the fortnight cycles */
 const chartKey = () => $('.ns-log .lc-trend')?.dataset.chart;
 const keyRow   = () => $('.ns-log .lc-key');
 check('the key row is the cycle, and it is a real button of its own',
@@ -4521,14 +4518,11 @@ click($('.ns-log .lc-plot'));
 while (chartKey() !== firstChart) click(keyRow());
 check('… the cycle comes back round to where it started',
   chartKey() === firstChart, chartKey());
-/* Every chart is one unit. A shared y-axis is a claim that two numbers are
-   comparable, and hours are not counts. */
-check('every chart declares one unit and reads only fields the day record holds',
-  /One unit per chart, always/.test(logJs41) &&
+check('chart series use shared colour rules rather than per-series selectors',
   !/lc-l\.(nrg|mood|stress)\{/.test(logCss41),
   'series colours are --s-c, one rule per shape');
 
-/* ── One name, one function ──────────────────────────────────────────────────
+/* One name, one function
    4.1 declared a `hourOf` in log.js next to one that was already there, and
    the two answered the same-looking question in different units — hours of the
    day against minutes since midnight. Two `function` declarations of one name
@@ -4567,7 +4561,7 @@ check('the sleep chart reads a wake-up time as an hour of the day, not as minute
   $('.ns-log .lc-trend')?.dataset.chart + ' — woke at ' + wakeStat());
 while ($('.ns-log .lc-trend')?.dataset.chart !== 'day' && guard41++ < 20) click($('.ns-log .lc-key'));
 
-/* ── CREATE: the strip, the fields, the curate tab ───────────────────────── */
+/* CREATE: the strip, the fields, the curate tab */
 /* A shelf with something on it in both areas and hours behind them. The 4.0
    section above ends by deleting everything it made, and half of what follows
    — the session log's own strip, the hours LOG reads — is only there to look
@@ -4723,7 +4717,7 @@ w.CREATE.area('all');
 w.CREATE.go('home');
 fetchScript = async () => ({ ok:false, status:599, json: async () => ({}), text: async () => '' });
 
-/* ── The shelf’s own boxes carry the classes their rules are written for ────
+/* The shelf’s own boxes carry the classes their rules are written for
    `#cr-hero` and `#cr-sorts` were styled by class and marked up by id alone,
    so the hero was never centred and the sort chips were never a row. That is
    what "the spacing is off" was. The hero itself is gone at 4.1.1 — the count
@@ -4746,7 +4740,7 @@ const crLiteral = crSpace.filter(x =>
 check('… and every gap in the sheet is a ratio of --dens, so Spacing reaches all of it',
   crLiteral.length === 0, crLiteral.join(' | '));
 
-/* ── CREATE reaches LOG ──────────────────────────────────────────────────── */
+/* CREATE reaches LOG */
 const crWorks41 = w.CREATE.works();
 check('CREATE answers LOG with one day’s hours, split by area',
   typeof w.CREATE.dayStats === 'function' && typeof w.CREATE.rangeStats === 'function' &&
@@ -4772,7 +4766,7 @@ check('the two reports carry the hours as well, from CREATE or from a parsed not
   (logJs41.match(/at the desk/g) || []).length >= 2);
 
 
-/* ══ 4.1.1 ════════════════════════════════════════════════════════════════════
+/* 4.1.1
    The glider actually slides, the chips are even and centred, and the count
    moved into the band with the shuffle the other apps' numbers have. */
 const createCss411 = fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8');
@@ -4946,7 +4940,7 @@ w.CREATE.go('home');
 
 check('no errors during the run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
-/* ── a ninth app has to arrive on an install that already has an app list ────
+/* a ninth app has to arrive on an install that already has an app list
    `apps` is stored whole, so without the appsSeen migration CAL would have no
    tab on any install that has ever opened the layout panel — which is every
    install that has been used. Proved by booting a second window with prefs
@@ -4997,7 +4991,7 @@ check('an app switched off on purpose is not resurrected by the same migration',
   !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
   w3.Prefs.get('apps').join(','));
 
-/* ── A Config branch that changed shape, on an install that had overridden it ──
+/* A Config branch that changed shape, on an install that had overridden it ──
    `create.curate` was `{ label, maxAgeMin }` for the one version 4.1.0 was
    current, and an override is stored **whole-branch** (§3) — so an install that
    had touched that field kept the old object and `project` read as undefined.
@@ -5020,7 +5014,7 @@ check('… and the key the old shape carried is not kept — a label is not a pr
   wC1.CREATE.curateSettings().label === undefined,
   JSON.stringify(wC1.CREATE.curateSettings()));
 
-/* ── A cached row shape from the version before ───────────────────────────────
+/* A cached row shape from the version before
    `create_v1`'s curate cache is the one part of that record the app did not
    author, and the only one whose *row shape* has changed: 4.1 cached rows from
    a label query with no `subs`, 4.1.1 caches project rows that have them. The
@@ -5120,7 +5114,7 @@ check('... with no control for the repair flag — it is a record, not a setting
   !w5.document.querySelector('.ns-set [data-pref="densRepair"]'));
 
 
-/* ══ 4.2 ══════════════════════════════════════════════════════════════════════
+/* 4.2
    Six requests: three shapes in CREATE, a tick that reaches Todoist, labels in
    their own colours, and a sound under the whole app. */
 
@@ -5130,7 +5124,7 @@ const rule42 = sel => {
   return i < 0 ? '' : css42.slice(i, css42.indexOf('}', i));
 };
 
-/* ── the session hours are a column ────────────────────────────────────────
+/* the session hours are a column
    They were the middle of three boxes in a space-between row, so the number
    ended wherever the sentence beside it stopped and the × sat outboard of it.
    jsdom lays nothing out, so what is asserted is the rule. */
@@ -5146,7 +5140,7 @@ check('… and the text beside them takes the slack, rather than the number floa
   /flex:1 1 auto/.test(rule42('.ns-create .cr-ses .l{')),
   rule42('.ns-create .cr-ses .l{').replace(/\s+/g, ' '));
 
-/* ── a sub-screen breathes under its own sticky header ───────────────────── */
+/* a sub-screen breathes under its own sticky header */
 check('content under a sticky header starts below it, not against it',
   /\.ns-create \.hd \+ \.cnt\{padding-top:calc\(\d+px \* var\(--dens\)\)\}/.test(css42),
   (css42.match(/\.ns-create \.hd \+ \.cnt\{[^}]*\}/) || ['absent'])[0]);
@@ -5154,7 +5148,7 @@ check('… and the shelf is untouched by it — it has a wordmark there, not a h
   !d.querySelector('.ns-create #s-home > .hd'),
   'the shelf has no .hd, so the rule cannot reach it');
 
-/* ── the controls are rounded squares, not pills ─────────────────────────── */
+/* the controls are rounded squares, not pills */
 const pillSels42 = ['.ns-create .cr-sort{', '.ns-create .cr-mchip{',
                     '.ns-create .cr-step{', '.ns-create .cr-kind{'];
 const pillish42 = pillSels42.filter(sel => /border-radius:var\(--r-pill\)/.test(rule42(sel)));
@@ -5173,7 +5167,7 @@ check('… and the progress rail follows its own segments to --r1',
   /\.cr-bar\.long\{[^}]*border-radius:var\(--r1\)/.test(css42) &&
   !/\.cr-bar\.long\{[^}]*border-radius:var\(--r-pill\)/.test(css42));
 
-/* ── ticking a curate row off ──────────────────────────────────────────────
+/* ticking a curate row off
    The list is put back the way the 4.1 block left it, and every write the tick
    makes is recorded, so the assertion is on what actually reached Todoist. */
 const posted42 = [];
@@ -5280,7 +5274,7 @@ check('… and with no Todoist key saved nothing is ticked and nothing is sent',
   (posted42.length - before42) + ' calls');
 w.Creds.save('tok-for-curate');
 
-/* ── labels in their own colours ───────────────────────────────────────────
+/* labels in their own colours
    Out of the cache every app that draws a label shares, so a label is the same
    colour in CREATE, DO and PLAN. A colour that is not cached is not invented. */
 w.localStorage.setItem('root_labels_v1', JSON.stringify({
@@ -5322,7 +5316,7 @@ check('… and search finds it, because it is a settings row like any other',
   w.SEARCH.results('colourful').some(r => /Colourful labels/i.test(r.title)),
   w.SEARCH.results('colourful').map(r => r.title).join(' | ') || 'nothing');
 
-/* ── the interface makes a sound ─────────────────────────────────
+/* the interface makes a sound
    Synthesised, so there is no asset to fetch and nothing to cache. jsdom has no
    WebAudio, so a stub stands in and what is asserted is what would be built. */
 let made42 = 0, played42 = 0;
@@ -5390,9 +5384,9 @@ check('… and switching it back off silences it again, without unbuilding anyth
   played42 + ' notes');
 
 
-/* ══ 4.3 ══════════════════════════════════════════════════════════════════════
+/* 4.3
    A TOOLS tab, sound becomes a kit you can map, and PLAN can patch one block
-   of a day. ════════════════════════════════════════════════════════════════ */
+   of a day. */
 
 const prefsJs43   = fs.readFileSync(path.join(ROOT, 'js/prefs.js'), 'utf8');
 const tokensCss43 = fs.readFileSync(path.join(ROOT, 'css/tokens.css'), 'utf8');
@@ -5401,7 +5395,7 @@ const themesCss43 = fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8');
 const calJs43     = fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8');
 const toolsJs43   = fs.readFileSync(path.join(ROOT, 'js/tools.js'), 'utf8');
 
-/* ── a session that belongs to nothing ────────────────────────────────────
+/* a session that belongs to nothing
    "sometimes i am just tinkering." An hour at the desk that made no song is
    still an hour at the desk. */
 w.Shell.go('create');
@@ -5438,7 +5432,7 @@ check('… a session with no hours is refused, the way the work screen refuses o
            click($('.ns-create [data-act="loose-log"]'));
            return w.CREATE.sessions().length === n; })());
 
-/* ── stage palettes ───────────────────────────────────────────────────────── */
+/* stage palettes */
 w.SET.panel('create');
 const palBtns43 = () => [...d.querySelectorAll('.ns-set [data-group="create.areas"] [data-ed]')];
 check('every area offers a palette for its stages, and the strip is the control',
@@ -5461,7 +5455,7 @@ check('… mixing was not touched — a palette is applied to one area, not the 
   w.CREATE.stages('mixing')[0].color !== '#5f3a2e');
 w.Config.reset('create.areas');
 
-/* ── sound: a kit, and a map over it ──────────────────────────────────────── */
+/* sound: a kit, and a map over it */
 check('sound has more than three voices now, and a kit that maps them onto moments',
   w.Prefs.VOICE_IDS.length >= 9 && w.Prefs.SOUND_KIT_IDS.length >= 4 &&
   w.Prefs.SOUND_EVENT_KEYS.join(',') === 'tap,nav,menu,done,msg',
@@ -5503,7 +5497,7 @@ check('… a tick about to go on sounds like completing; one coming back off doe
   /return on \? 'tap' : 'done';/.test(shellJs43));
 w.Prefs.reset('soundKit'); w.Prefs.reset('sndDone');
 
-/* ── the content offset, and the pill's three dials ───────────────────────── */
+/* the content offset, and the pill's three dials */
 check('the band drops a few pixels, on a dial, folded into the inset every header reads',
   w.Prefs.SCHEMA.bandDrop.def === 6 && w.Prefs.SCHEMA.bandDrop.cssVar === '--band-drop' &&
   /--sat:calc\(env\(safe-area-inset-top\) \+ var\(--band-drop\)\)/.test(tokensCss43) &&
@@ -5535,7 +5529,7 @@ check('… and moving one writes a whole pixel onto the root, never a fraction',
   d.documentElement.getAttribute('style'));
 ['navHeight','navRadius','navIcon','bandDrop'].forEach(k => w.Prefs.reset(k));
 
-/* ── PLAN: patching one block of a day that is already planned ────────────── */
+/* PLAN: patching one block of a day that is already planned */
 w.Shell.go('plan');
 const planDay43 = offset(2);
 w.CAL.write({ day: planDay43, start: '07:00', template: 'normal', mode: 'blocks', notes: [],
@@ -5570,7 +5564,7 @@ check('… the description gains a third mode, and the four header fields stay a
   /const on = expForm\.mode === 'patch' \? dayOnFile\(expForm\.day\) : null;/
     .test(fs.readFileSync(path.join(ROOT, 'js/plan.js'), 'utf8')));
 
-/* ── TOOLS ────────────────────────────────────────────────────────────────── */
+/* TOOLS */
 check('TOOLS is a tenth app, with a tab, a slide, a panel and a place in the list',
   !!w.TOOLS && w.Prefs.APPS.includes('tools') && w.Shell.TABS.includes('tools') &&
   !!$('#view-tools') && !!$('.tab-b[data-app="tools"]') && !!$('.ns-set .set-panel[data-panel="tools"]'),
@@ -5608,7 +5602,7 @@ check('skipping a focus does not count it — only finishing one does',
   tlStore43().pom.phase === 'short' && !tlStore43().pom.days[today],
   JSON.stringify(tlStore43().pom));
 
-/* ── the whole point of the timestamp ────────────────────────────────────────
+/* the whole point of the timestamp
    A phase ends because its moment arrived, not because ticks were counted. So
    a phase whose end is already in the past finishes on the very next tick —
    which is what "come back after twenty minutes on another tab" is, and what a
@@ -5677,6 +5671,18 @@ check('… and it never answers the same thing twice running',
              click($('.ns-tools [data-act="decide"]'));
              if (tlStore43().decide.last === was) return false;
            } return true; })());
+const savedDeciderDecks = w.Config.get('tools.decks');
+w.Config.set('tools.decks', { duplicates: ['same', 'same'] });
+click($('.ns-tools [data-act="decide"]'));
+click($('.ns-tools [data-act="decide"]'));
+check('duplicate-only decider lists keep a valid answer on repeated picks',
+  tlStore43().decide.last === 'same' && $('.ns-tools .tl-pick').textContent === 'same');
+w.Config.set('tools.decks', { duplicates: ['same', 'same', 'different'] });
+click($('.ns-tools [data-act="decide"]'));
+check('duplicate decider entries still avoid repeats when an alternative exists',
+  tlStore43().decide.last === 'different');
+w.Config.set('tools.decks', savedDeciderDecks);
+
 /* Findable: the app by name, and its lists through search.js's CONTENT table
    — one line per Config path, which is all a new app owes search. */
 check('TOOLS is findable by name, and so is what its lists hold',

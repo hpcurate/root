@@ -4,31 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- ── Why this is `black` and not `black-translucent` ────────────────────────
-       `black-translucent` asks iOS to hand the page the whole screen, status bar
-       included, and to draw its own material over that strip. Everything the app
-       puts up there is therefore *underneath* something the app does not
-       control and cannot opt out of — which is exactly what the title band's
-       top row was sitting in, and why it read as blurred while the identical
-       type twenty pixels lower did not.
-
-       Three releases were spent looking for the cause in CSS: a fractional
-       wordmark (2.24.0), a fractional status-bar inset (2.24.1), and a legacy
-       iOS compositing opt-in (2.25.0). All three were real defects, all three
-       are fixed and staying fixed, and none of them was this. Four reports of
-       an unchanged screen is enough evidence that the thing drawing over the
-       band was never ours to fix from inside the page.
-
-       `black` gives the status bar back to iOS. It reserves the strip, paints
-       it black, and `env(safe-area-inset-top)` becomes 0 — so the app starts
-       below the bar and nothing of ours is under the system's material. The
-       cost is that ROOT no longer runs edge-to-edge at the top; on the dark
-       presets, whose ground is #0e0e0e, that is close to invisible, and on a
-       light one it is a black bar above a pale app.
-
-       **Reverting is this one word.** Everything else — the band, the sticky
-       headers, `--sat` — is written against `env()` and follows either value
-       without a change. -->
+  <!-- Use black so iOS reserves its status-bar strip. Headers follow the safe-area
+       inset; light themes retain a black system bar above the page. -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ROOT">
   <meta name="theme-color" content="#0e0e0e">
@@ -65,7 +42,7 @@
 </head>
 <body>
 
-<!-- ═══ ICON SPRITE ══════════════════════════════════════════════════════════
+<!-- ICON SPRITE
      One sprite for the whole document. LOG and STORE each shipped their own
      and both defined ico-clock; the duplicate is resolved here, since <use>
      resolves an id document-wide and cannot be scoped like everything else. -->
@@ -287,12 +264,10 @@
 <div id="views">
 <div id="track">
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     DO
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- DO -->
 <section class="view ns-do" id="view-do" aria-label="DO">
 
-  <!-- ── HOME ── -->
+  <!-- HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label"><span id="date-label">—</span><span class="h-count" id="today-count"></span></div>
@@ -321,7 +296,7 @@
     <div class="tt hidden" id="td-media"></div>
   </div>
 
-  <!-- ── CHECKLIST ── -->
+  <!-- CHECKLIST ── -->
   <div id="s-checklist" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="DO.go('home')">← back</button>
@@ -338,7 +313,7 @@
     </div>
   </div>
 
-  <!-- ── TRAVEL — list of checklists ── -->
+  <!-- TRAVEL — list of checklists ── -->
   <div id="s-travel" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="DO.go('home')">← back</button>
@@ -350,7 +325,7 @@
     </div>
   </div>
 
-  <!-- ── TRAVEL — new checklist setup ── -->
+  <!-- TRAVEL — new checklist setup ── -->
   <div id="s-travel-new" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="DO.go('travel')">← back</button>
@@ -364,7 +339,7 @@
     </div>
   </div>
 
-  <!-- ── TRAVEL — single checklist ── -->
+  <!-- TRAVEL — single checklist ── -->
   <div id="s-travel-cl" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="DO.go('travel')">← back</button>
@@ -381,7 +356,7 @@
     </div>
   </div>
 
-  <!-- ── TRAVEL EDIT ── -->
+  <!-- TRAVEL EDIT ── -->
   <div id="s-travel-edit" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="DO.go('travel-cl')">← back</button>
@@ -399,12 +374,10 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     LOG
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- LOG -->
 <section class="view ns-log" id="view-log" aria-label="LOG">
 
-  <!-- ── HOME ── -->
+  <!-- HOME ── -->
   <div id="s-home" class="scr on">
     <!-- .h-top is the sticky title block every app shares (shell.css) -->
     <div class="h-top">
@@ -466,7 +439,7 @@
     </div>
   </div>
 
-  <!-- ── MORNING ── -->
+  <!-- MORNING ── -->
   <div id="s-morning" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Morning</span></div>
     <!-- Every field carries data-field. LOG.applyFieldVisibility() hides the ones
@@ -525,7 +498,7 @@
     </div>
   </div>
 
-  <!-- ── EVENING ── -->
+  <!-- EVENING ── -->
   <div id="s-evening" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Evening</span></div>
     <div class="cnt">
@@ -598,7 +571,7 @@
     </div>
   </div>
 
-  <!-- ── ENTRIES ── -->
+  <!-- ENTRIES ── -->
   <div id="s-entries" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.goBack()">← back</button><span class="hd-title">Entries</span></div>
     <div class="cnt">
@@ -608,7 +581,7 @@
     </div>
   </div>
 
-  <!-- ── OUTPUT ── -->
+  <!-- OUTPUT ── -->
   <div id="s-output" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Output</span></div>
     <div class="cnt">
@@ -619,13 +592,13 @@
     </div>
   </div>
 
-  <!-- ── HISTORY ── -->
+  <!-- HISTORY ── -->
   <div id="s-history" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">History</span></div>
     <div class="cnt" id="hist-list"></div>
   </div>
 
-  <!-- ── REPORTS ── -->
+  <!-- REPORTS ── -->
   <div id="s-reports" class="scr">
     <div class="hd"><button class="hd-back" onclick="LOG.go('home')">← back</button><span class="hd-title">Reports</span></div>
     <div class="cnt">
@@ -671,12 +644,10 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     PLAN
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- PLAN -->
 <section class="view ns-plan" id="view-plan" aria-label="PLAN">
 
-  <!-- ── HOME ── -->
+  <!-- HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label" id="home-date">—</div>
@@ -729,7 +700,7 @@
        grid above, morphing out of the section row you tapped. Its rows are
        Config (plan.formFields) and its ids are unchanged. -->
 
-  <!-- ── SENDING ── -->
+  <!-- SENDING ── -->
   <div id="s-sending" class="scr">
     <div class="hd">
       <button class="hd-back" id="send-back" onclick="PLAN.go('home')">← back</button>
@@ -743,12 +714,10 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     STORE
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- STORE -->
 <section class="view ns-store" id="view-store" aria-label="STORE">
 
-  <!-- ── HOME ── -->
+  <!-- HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
       <!-- How much of the list is ticked now reads on the date line, the way DO
@@ -834,7 +803,7 @@
     </div>
   </div>
 
-  <!-- ── CATEGORIES ── -->
+  <!-- CATEGORIES ── -->
   <div id="s-items" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="STORE.go('home')">← back</button>
@@ -845,7 +814,7 @@
     </div>
   </div>
 
-  <!-- ── CATEGORY ITEMS ── -->
+  <!-- CATEGORY ITEMS ── -->
   <div id="s-cat" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="STORE.go('items')">← back</button>
@@ -857,7 +826,7 @@
     </div>
   </div>
 
-  <!-- ── MEALS ── -->
+  <!-- MEALS ── -->
   <div id="s-meals" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="STORE.go('home')">← back</button>
@@ -868,7 +837,7 @@
     </div>
   </div>
 
-  <!-- ── HISTORY ── -->
+  <!-- HISTORY ── -->
   <div id="s-history" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="STORE.go('home')">← back</button>
@@ -880,10 +849,8 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     TEND — today's round and the shelf. Both sections are drawn by TEND.render();
-     the detail and editor sheets are overlays, further down.
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- TEND — today's round and the shelf. Both sections are drawn by TEND.render();
+     the detail and editor sheets are overlays, further down. -->
 <section class="view ns-tend" id="view-tend" aria-label="TEND">
   <div id="s-home" class="scr on">
     <div class="h-top">
@@ -907,9 +874,7 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     TRACK — one long screen; the dates live in Settings → track
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- TRACK — one long screen; the dates live in Settings → track -->
 <section class="view ns-track" id="view-track" aria-label="TRACK">
   <div id="s-home" class="scr on">
     <div class="h-top">
@@ -980,12 +945,10 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     LEARN — decks, one deck, the study screen, the scoreboard
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- LEARN — decks, one deck, the study screen, the scoreboard -->
 <section class="view ns-learn" id="view-learn" aria-label="LEARN">
 
-  <!-- ── HOME ── -->
+  <!-- HOME ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
       <div class="h-label">study on the go</div>
@@ -999,7 +962,7 @@
     <div class="deck-list" id="deck-list"></div>
   </div>
 
-  <!-- ── DECK ── -->
+  <!-- DECK ── -->
   <div id="s-deck" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="LEARN.go('home')">← back</button>
@@ -1020,7 +983,7 @@
     </div>
   </div>
 
-  <!-- ── STUDY ── -->
+  <!-- STUDY ── -->
   <div id="s-study" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="LEARN.exitStudy()">✕</button>
@@ -1040,7 +1003,7 @@
     </div>
   </div>
 
-  <!-- ── SCOREBOARD ── -->
+  <!-- SCOREBOARD ── -->
   <div id="s-done" class="scr">
     <div class="hd">
       <button class="hd-back" onclick="LEARN.go('home')">← home</button>
@@ -1071,13 +1034,11 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     CAL — the exported day, drawn as a calendar
+<!-- CAL — the exported day, drawn as a calendar
 
      One screen and no sub-screens: the strip of planned days, then the day.
      The body is filled by CAL.render(); nothing here is written by hand
-     except the band, whose box belongs to shell.css and is shared by all nine.
-     ═════════════════════════════════════════════════════════════════════════ -->
+     except the band, whose box belongs to shell.css and is shared by all nine. -->
 <section class="view ns-cal" id="view-cal" aria-label="DAY">
   <div id="s-home" class="scr on">
     <div class="h-top">
@@ -1104,17 +1065,15 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     CREATE — the songs being made, one of them, and the session log
+<!-- CREATE — the songs being made, one of them, and the session log
 
      Three screens. Everything inside them is drawn by CREATE.render(); what is
      written by hand is the band (whose box belongs to shell.css and is shared
      by all ten) and the two sub-screen headers, because the shell's left arrow
-     becomes "back" by finding a .hd-back inside the open .scr.
-     ═════════════════════════════════════════════════════════════════════════ -->
+     becomes "back" by finding a .hd-back inside the open .scr. -->
 <section class="view ns-create" id="view-create" aria-label="CREATE">
 
-  <!-- ── HOME — the shelf: one shelf for every area, the areas as its filter.
+  <!-- HOME — the shelf: one shelf for every area, the areas as its filter.
        Everything under .cnt is written by CREATE.renderHome(); the only thing
        fixed here is the order the parts come in. ── -->
   <div id="s-home" class="scr on">
@@ -1153,7 +1112,7 @@
     </div>
   </div>
 
-  <!-- ── ONE PIECE OF WORK — a song or a mix; which one it is comes off its
+  <!-- ONE PIECE OF WORK — a song or a mix; which one it is comes off its
        area, and every word on the screen with it ── -->
   <div id="s-work" class="scr">
     <div class="hd">
@@ -1163,7 +1122,7 @@
     <div class="cnt" id="cr-work"></div>
   </div>
 
-  <!-- ── THE SESSION LOG ── -->
+  <!-- THE SESSION LOG ── -->
   <div id="s-sessions" class="scr">
     <div class="hd">
       <button class="hd-back" data-act="home">← shelf</button>
@@ -1179,9 +1138,7 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     TOOLS — four small instruments behind one strip
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- TOOLS — four small instruments behind one strip -->
 <section class="view ns-tools" id="view-tools" aria-label="TOOLS">
 
   <!-- One screen. The strip picks the instrument; everything under it is
@@ -1206,12 +1163,10 @@
 </section>
 
 
-<!-- ══════════════════════════════════════════════════════════════════════════
-     SETTINGS — every app's settings, one panel each
-     ═════════════════════════════════════════════════════════════════════════ -->
+<!-- SETTINGS — every app's settings, one panel each -->
 <section class="view ns-set" id="view-settings" aria-label="Settings">
 
-  <!-- ── HOME — the menu: the apps kept out of the bar, then three categories.
+  <!-- HOME — the menu: the apps kept out of the bar, then three categories.
        Filled by SET.renderHome(). ── -->
   <div id="s-home" class="scr on">
     <div class="h-top">
@@ -1221,7 +1176,7 @@
     <div class="set-home" id="set-home"></div>
   </div>
 
-  <!-- ── A CATEGORY — apps / appearance / data: a back row, the pill bar of its
+  <!-- A CATEGORY — apps / appearance / data: a back row, the pill bar of its
        panels (built by SET.cat()), then the panels themselves. ── -->
   <div id="s-cat" class="scr">
     <div class="hd">
@@ -1238,7 +1193,7 @@
     <div class="set-panel"    data-panel="layout"  id="panel-layout"></div>
     <div class="set-panel"    data-panel="behave"  id="panel-behave"></div>
 
-    <!-- ── DATA ── -->
+    <!-- DATA ── -->
     <div class="set-panel" data-panel="data" id="panel-data">
       <div class="sec"><span>Todoist key</span></div>
       <div class="data-warn">
@@ -1306,7 +1261,7 @@
       </div>
     </div>
 
-    <!-- ── DO ── -->
+    <!-- DO ── -->
     <div class="set-panel ns-do" data-panel="do">
       <div class="sec">Home layout</div>
       <div class="data-warn">The order of the sections on DO's first tab. The today list and the block tasks show on that tab only.</div>
@@ -1468,7 +1423,7 @@
       <div class="set-content" data-content-for="do"></div>
     </div>
 
-    <!-- ── LOG ── -->
+    <!-- LOG ── -->
     <div class="set-panel ns-log" data-panel="log">
       <div class="sec">Stored data</div>
       <div class="data-stat"><span class="data-stat-k">Days stored</span><span class="data-stat-v" id="ds-days">—</span></div>
@@ -1530,7 +1485,7 @@
       <div class="set-content" data-content-for="log"></div>
     </div>
 
-    <!-- ── PLAN ── -->
+    <!-- PLAN ── -->
     <div class="set-panel ns-plan" data-panel="plan">
       <div class="sec">Todoist projects</div>
       <div id="conn-status" class="settings-status idle">no Todoist key yet — add one under data</div>
@@ -1546,7 +1501,7 @@
       <div class="set-content" data-content-for="plan"></div>
     </div>
 
-    <!-- ── STORE ── -->
+    <!-- STORE ── -->
     <div class="set-panel ns-store" data-panel="store">
       <div class="sec"><span>Budget</span></div>
       <div class="f">
@@ -1592,7 +1547,7 @@
       <div class="set-content" data-content-for="store"></div>
     </div>
 
-    <!-- ── TEND ── -->
+    <!-- TEND ── -->
     <div class="set-panel ns-tend" data-panel="tend">
       <div class="sec"><span>Season</span></div>
       <div class="data-warn">
@@ -1717,7 +1672,7 @@
       <div class="set-content" data-content-for="tend"></div>
     </div>
 
-    <!-- ── TRACK ── -->
+    <!-- TRACK ── -->
     <div class="set-panel ns-track" data-panel="track">
       <div class="sec"><span>Dates</span></div>
       <div class="setRow">
@@ -1783,7 +1738,7 @@
       <div class="set-content" data-content-for="track"></div>
     </div>
 
-    <!-- ── LEARN ── -->
+    <!-- LEARN ── -->
     <div class="set-panel ns-learn" data-panel="learn">
       <div class="sec"><span>Study</span></div>
       <div class="setting-row">
@@ -1831,7 +1786,7 @@
       <div class="set-content" data-content-for="learn"></div>
     </div>
 
-    <!-- ── CAL ── -->
+    <!-- CAL ── -->
     <div class="set-panel ns-cal" data-panel="cal">
       <div class="sec"><span>The day</span></div>
       <div class="slider-row" data-slider="calHour">
@@ -1905,7 +1860,7 @@
       <div class="set-content" data-content-for="cal"></div>
     </div>
 
-    <!-- ── CREATE ── -->
+    <!-- CREATE ── -->
     <div class="set-panel ns-create" data-panel="create">
       <div class="sec"><span>The shelf</span></div>
       <div class="setRow">
@@ -1975,7 +1930,7 @@
       <div class="set-content" data-content-for="create"></div>
     </div>
 
-    <!-- ── TOOLS ── -->
+    <!-- TOOLS ── -->
     <div class="set-panel ns-tools" data-panel="tools">
       <div class="sec"><span>Status</span></div>
       <div class="settings-status idle" id="tl-status">nothing running</div>
@@ -2016,7 +1971,7 @@
 </div><!-- /#views -->
 
 
-<!-- ═══ FLOATING CHROME ══════════════════════════════════════════════════════ -->
+<!-- FLOATING CHROME -->
 <!-- DAY's day stepper. It sits here, a sibling of #views, and NOT inside the
      slide, because it is position:fixed and nothing fixed may live inside
      #track — a transformed ancestor becomes its containing block, and the
@@ -2075,7 +2030,7 @@
 </nav>
 
 
-<!-- ═══ OVERLAYS ═════════════════════════════════════════════════════════════
+<!-- OVERLAYS
      Kept out of #track: it carries a transform, which would make it the
      containing block for anything position:fixed inside it. Each keeps its
      app's namespace class, so the scoped CSS and $id lookups still find it. -->

@@ -1,27 +1,7 @@
-/* ── Settings ─────────────────────────────────────────────────────────────────
-   Split out of shell.js, which used to be the frame AND the settings screen.
-
-   A home menu, then three categories, each a segmented control of panels:
-
-     home        the apps kept out of the bar (tap to open one), the categories
-     apps        do/log/plan/store/tend/track/learn — each app's own settings,
-                 rendered by the app module into markup that carries its
-                 namespace, followed by that app's content editors
-     appearance  look (theme gallery, accent, fonts, live preview)
-                 layout (shape, density, depth, texture, nav + the app list)
-                 behave (start tab, gestures, haptics, confirmations, formats)
-     data        Todoist key, backup, storage, resets
-
-   Two conventions hold the whole file together:
-
-     · Every appearance/behaviour control is bound by a `data-pref` attribute and
-       handled by ONE delegated listener. Adding a control is markup, not wiring.
-     · Every content editor lives inside a `[data-group="<config path>"]` and is
-       read back out of the DOM wholesale by that group's read(). Nothing tracks
-       per-field state, so an editor cannot drift out of step with what is saved.
-
-   The four app panels keep their original markup and ids so each module's scoped
-   $id() still finds its own controls wherever they sit. */
+/* Settings: app panels, appearance/behaviour and data.
+   data-pref controls use delegated handlers. Each data-group editor reads its
+   entire Config branch from the DOM. Keep app namespaces on settings markup
+   so each module's scoped lookups also find its controls here. */
 window.SET = (function () {
 'use strict';
 
@@ -94,7 +74,7 @@ const lines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean
    units; this list is only what the area editor draws a checkbox for. */
 const CREATE_FIELDS = [{ k:'bpm', label:'tempo' }, { k:'key', label:'key' }, { k:'tags', label:'tags' }];
 
-/* ── Stage palettes ───────────────────────────────────────────────────────────
+/* Stage palettes
    Six ramps, one tap each, offered on every area in the CREATE editor.
 
    Picking a stage colour is really picking six or seven colours that have to
@@ -127,15 +107,14 @@ function paletteRamp(id, n) {
     p.colors[Math.round(i * (p.colors.length - 1) / (n - 1))]);
 }
 
-/* ── PLAN's day templates, as text ────────────────────────────────────────────
+/* PLAN's day templates, as text
    A row is an offset from the day's start and a duration, both in minutes, and
    then either one field (a block slot) or two (an event and the calendar it
    goes on). Only the first three pipes divide a line, because a calendar name
    — "01A1 | routine" — carries one of its own.
 
        0:00 | 30 | routine p1 | 01A1 | routine
-       4:00 | 90 | b1a
-*/
+       4:00 | 90 | b1a */
 const tplHM = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 const tplLine = r => `${tplHM(+r.at || 0)} | ${+r.dur || 0} | ` +
   (r.slot ? r.slot : `${r.event || ''} | ${r.cal || ''}`);
@@ -170,7 +149,7 @@ const fmtSpan = rows => {
 };
 
 
-/* ══ Control builders ══════════════════════════════════════════════════════════
+/* Control builders
    All three read their current value straight from Prefs, so a re-render after
    any change needs no bookkeeping. */
 
@@ -221,7 +200,7 @@ const sectionHead = (title, resetPath) =>
                           data-cfg-reset="${resetPath}">reset to default</button>` : ''}</div>`;
 
 
-/* ══ LOOK ═════════════════════════════════════════════════════════════════════ */
+/* LOOK */
 
 function previewHTML() {
   return `<div class="preview">
@@ -333,7 +312,7 @@ function lookHTML() {
 
 
 
-/* ══ LAYOUT ═══════════════════════════════════════════════════════════════════ */
+/* LAYOUT */
 
 function layoutHTML() {
   const pct = v => Math.round(v * 100) + '%';
@@ -454,7 +433,7 @@ function appsList() {
 }
 
 
-/* ── Sound: the kit, then the map ─────────────────────────────────────────────
+/* Sound: the kit, then the map
    Two controls under the volume slider, and the order matters. The **kit** is
    the one most people will ever touch: five voices picked to go together, one
    tap. The **map** underneath is the escape hatch — one row per moment, each
@@ -495,7 +474,7 @@ function soundMapHTML() {
   }).join('')}</div>`;
 }
 
-/* ══ BEHAVE ═══════════════════════════════════════════════════════════════════ */
+/* BEHAVE */
 
 function behaveHTML() {
   return `
@@ -555,7 +534,7 @@ function behaveHTML() {
 }
 
 
-/* ══ CONTENT ══════════════════════════════════════════════════════════════════
+/* CONTENT
    Editors for everything Config holds. Each group declares how it renders and
    how it reads itself back; the delegated listener does the rest. */
 
@@ -564,7 +543,7 @@ const textareaOf = (rows, ph) =>
 
 const EDITORS = {
 
-  /* ── DO · routines ─────────────────────────────────────────────────────── */
+  /* DO · routines */
   'do.routines': {
     title: 'Daily routines',
     note: 'One checklist per card, one item per line. The glyphs are ordinary characters — paste whatever you like.',
@@ -615,7 +594,7 @@ const EDITORS = {
     },
   },
 
-  /* ── DO · media labels ─────────────────────────────────────────────────── */
+  /* DO · media labels */
   'do.mediaLabels': {
     title: 'Media labels',
     note: 'The Todoist labels the media tab fetches, in the order its groups are drawn. Each group takes the label\'s own Todoist colour; any second label on a task shows on its tile.',
@@ -628,7 +607,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── DO · packing categories ───────────────────────────────────────────── */
+  /* DO · packing categories */
   'do.travelCategories': {
     title: 'Packing categories',
     note: 'The master lists a new travel checklist is built from. Every item starts as a counter at 1.',
@@ -671,7 +650,7 @@ const EDITORS = {
     },
   },
 
-  /* ── LOG · blocks ──────────────────────────────────────────────────────── */
+  /* LOG · blocks */
   'log.blocks': {
     title: 'Focus blocks',
     note: 'The buttons on the evening form. Their names are what the exported .md records, so renaming one starts a new series in your history.',
@@ -705,7 +684,7 @@ const EDITORS = {
     del(idx)   { Config.set('log.blocks', Config.get('log.blocks').filter((_, i) => i !== +idx)); },
   },
 
-  /* ── LOG · labels ──────────────────────────────────────────────────────── */
+  /* LOG · labels */
   'log.labels': {
     title: 'Names and counts',
     paths: ['log.meds','log.medsOn','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
@@ -778,7 +757,7 @@ const EDITORS = {
     read() { /* per-field, handled by the data-cfg listener */ },
   },
 
-  /* ── LOG · fields ──────────────────────────────────────────────────────── */
+  /* LOG · fields */
   'log.fields': {
     title: 'Which fields appear',
     note: 'Turning a field off hides it from the form. Anything already recorded is kept and still exports — nothing is deleted.',
@@ -799,7 +778,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── PLAN · projects ───────────────────────────────────────────────────── */
+  /* PLAN · projects */
   'plan.types': {
     title: 'Projects and sections',
     note: 'One tile per project. Each line in the box is a section: what you see, then a pipe, then the Todoist section name it files under.',
@@ -846,7 +825,7 @@ const EDITORS = {
     del(idx) { Config.set('plan.types', Config.get('plan.types').filter((_, i) => i !== +idx)); },
   },
 
-  /* ── PLAN · chips ──────────────────────────────────────────────────────── */
+  /* PLAN · chips */
   'plan.chips': {
     title: 'Task form chips',
     paths: ['plan.blocks','plan.times'],
@@ -867,7 +846,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── PLAN · task form ──────────────────────────────────────────────────── */
+  /* PLAN · task form */
   'plan.formFields': {
     title: 'Task form',
     note: 'Which rows the task form shows when you pick a section. The task name is always there. Switching a row off leaves its chips alone — turning it back on costs nothing.',
@@ -885,7 +864,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── PLAN · queue presets ──────────────────────────────────────────────── */
+  /* PLAN · queue presets */
   'plan.presets': {
     title: 'Queue presets',
     note: 'A queue saved under a name on PLAN, refilled with one tap. Rename or remove one here; they are made over there, from a queue that is already built.',
@@ -916,7 +895,7 @@ const EDITORS = {
     del(idx) { Config.set('plan.presets', (Config.get('plan.presets') || []).filter((_, i) => i !== +idx)); },
   },
 
-  /* ── PLAN · calendars ──────────────────────────────────────────────────── */
+  /* PLAN · calendars */
   'plan.calendars': {
     title: 'Calendars',
     note: 'Which Google Calendar each project\'s events belong on. ROOT never touches a calendar — it passes the name on in the export and the scheduled agent looks it up. One per line: the project, or "project > section" where a project splits, then a pipe, then the calendar name.',
@@ -932,7 +911,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── PLAN · day templates ──────────────────────────────────────────────── */
+  /* PLAN · day templates */
   'plan.dayTemplates': {
     title: 'Day templates',
     note: 'The shape of a day, as minutes from whatever start time the export is given — nothing here is a clock time, so one number moves the whole day. Three fields is a block slot the picked tasks are assigned to; four or more is a fixed event. "normal" and "rest" are names the export writes down, so keep them.',
@@ -960,7 +939,7 @@ const EDITORS = {
     },
   },
 
-  /* ── STORE · categories ────────────────────────────────────────────────── */
+  /* STORE · categories */
   'store.categories': {
     title: 'Aisles',
     note: 'Each aisle is a tile in "add items", a colour on the list, and the vocabulary the auto-categoriser matches against. The "other" aisle cannot be removed — uncategorised items land there.',
@@ -1015,7 +994,7 @@ const EDITORS = {
     },
   },
 
-  /* ── STORE · meals ─────────────────────────────────────────────────────── */
+  /* STORE · meals */
   'store.meals': {
     title: 'Premade meals',
     note: 'Tapping a meal adds its ingredients to the list. One per line: the item, a pipe, then which aisle it belongs to.',
@@ -1059,7 +1038,7 @@ const EDITORS = {
     del(key) { const m = Config.get('store.meals'); delete m[key]; Config.set('store.meals', m); },
   },
 
-  /* ── STORE · counter ───────────────────────────────────────────────────── */
+  /* STORE · counter */
   'store.quickAmounts': {
     title: 'Counter steps',
     note: 'The +/− buttons over the in-store total, largest first.',
@@ -1073,7 +1052,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── TEND · plant types ────────────────────────────────────────────────── */
+  /* TEND · plant types */
   'tend.groups': {
     title: 'Plant types',
     note: 'How seasonal each type is: 1 stretches its watering fully with the growth curve, 0 not at all, above 1 harder still. The note shows under the type in the editor. A type in use by a plant can be renamed freely; deleting it sends the plant to the default type for its maths.',
@@ -1116,7 +1095,7 @@ const EDITORS = {
     },
   },
 
-  /* ── TEND · vocabulary + curve ─────────────────────────────────────────── */
+  /* TEND · vocabulary + curve */
   'tend.labels': {
     title: 'Care vocabulary and season',
     paths: ['tend.tasks','tend.seasons','tend.growth','tend.feedFloor'],
@@ -1148,7 +1127,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── TRACK · labels ────────────────────────────────────────────────────── */
+  /* TRACK · labels */
   'track.labels': {
     title: 'Curriculum labels',
     paths: ['track.phases','track.levelLabel','track.pse','track.revision'],
@@ -1171,7 +1150,7 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── LEARN · ratings ───────────────────────────────────────────────────── */
+  /* LEARN · ratings */
   'learn.ratings': {
     title: 'Rating names',
     note: 'The four buttons under a revealed card, lowest first. The fourth is the one that counts as learned; the other three are "needs work".',
@@ -1184,11 +1163,11 @@ const EDITORS = {
     read() {},
   },
 
-  /* ── CAL · the colours around the blocks ───────────────────────────────────
+  /* CAL · the colours around the blocks
      A task row is already the colour of its project — PLAN resolves that at
      export time and it travels with the day. What is editable here is the
      template around it, which is grouped by calendar rather than by project. */
-  /* ── CREATE · the areas, their stages and their checklists ─────────────────
+  /* CREATE · the areas, their stages and their checklists
      One editor for the whole tree, because the tree is one thing: an area is
      its name, its colour, the noun for one of its things, the words its
      sessions are called and the path its work walks. Splitting it into an
@@ -1349,7 +1328,7 @@ const EDITORS = {
     },
   },
 
-  /* ── TOOLS ──────────────────────────────────────────────────────────────
+  /* TOOLS
      Two lists and nothing clever. The quick chips are minutes, comma
      separated; the decider's lists are the same shape STORE's aisles and DO's
      routines are — a heading and one item per line — so there is one way to
@@ -1471,7 +1450,7 @@ const RESET_BUNDLE = {
 };
 
 
-/* ══ DATA ═════════════════════════════════════════════════════════════════════ */
+/* DATA */
 
 function tdStatus(msg, kind) {
   const el = $id('set-td-status');
@@ -1652,7 +1631,7 @@ function applyLook(text) {
 }
 
 
-/* ══ The search index ═════════════════════════════════════════════════════════
+/* The search index
    Every control search can jump to, read off the controls themselves rather
    than off a second list written by hand: the three generated panels are
    rendered into a detached node and walked, and the app panels are walked
@@ -1744,7 +1723,7 @@ function searchIndex() {
 function dropIndex() { indexCache = null; }
 
 
-/* ══ Panels ═══════════════════════════════════════════════════════════════════ */
+/* Panels */
 
 const RENDERERS = {
   look: renderLook, layout: renderLayout, behave: renderBehave, data: renderData,
@@ -1769,7 +1748,7 @@ function showScreen(id) {
   Shell.showChrome();
 }
 
-/* ── Home: the apps out of the bar, then the three categories ── */
+/* Home: the apps out of the bar, then the three categories ── */
 function renderHome() {
   const box = $id('set-home'); if (!box) return;
   const off = window.Shell && Shell.hidden ? Shell.hidden() : [];
@@ -1800,7 +1779,7 @@ function home() {
   try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings'); } catch {}
 }
 
-/* ── A category: its pill bar, then one of its panels ── */
+/* A category: its pill bar, then one of its panels ── */
 function cat(name) {
   const c = CATS[name]; if (!c) return;
   panel(c.panels.includes(lastPanel[name]) ? lastPanel[name] : c.panels[0]);
@@ -1830,7 +1809,7 @@ function panel(name) {
   syncStatic(document.querySelector('.set-panel[data-panel="' + name + '"]'), name);
 }
 
-/* ── Static controls bound to a pref ──────────────────────────────────────────
+/* Static controls bound to a pref
    The three generated panels rebuild their markup from Prefs on every render,
    so their switches are correct by construction. The app panels are static
    markup in index.html: their `data-pref` switches were written with the
@@ -1881,7 +1860,7 @@ function render() {
 }
 
 
-/* ══ One delegated listener for every generated control ═══════════════════════
+/* One delegated listener for every generated control
    Change events for text/colour/number/range inputs, clicks for chips, toggles
    and editor buttons. Nothing here knows what any individual control means — it
    reads the intent off the element and hands it to Prefs or Config. */

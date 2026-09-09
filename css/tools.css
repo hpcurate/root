@@ -1,12 +1,4 @@
-/* ── TOOLS ────────────────────────────────────────────────────────────────────
-   Four instruments behind one strip. Nothing here is a fixed pixel value a
-   preset should own: every radius is a ratio of --r-base, every hairline is
-   --bw, every gap is scaled by --dens, and every label says
-   text-transform:var(--caps) rather than uppercase.
-
-   One colour this sheet does not know: --tl-c, the hue of whichever instrument
-   is on screen, set by the `.t-*` class the module writes onto the body. There
-   is one rule per shape, never one per instrument. */
+/* TOOLS instruments; shared theme tokens. Keep tab-strip styling aligned with CREATE. */
 
 .ns-tools .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
 .ns-tools .scr.on{display:block}
@@ -15,7 +7,7 @@
 .ns-tools .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ns-tools .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
-.ns-tools .h-logo em{font-style:normal}   /* the dot is the word: it inherits both */
+.ns-tools .h-logo em{font-style:normal}
 .ns-tools .h-logo-row{display:flex;align-items:center;justify-content:space-between;gap:calc(14px * var(--dens))}
 
 .ns-tools .cnt{padding:0 calc(18px * var(--dens))}
@@ -26,7 +18,7 @@
 .ns-tools .tl-sec em{font-style:normal;color:var(--bd-2)}
 .ns-tools .tl-empty{font:400 11px/1.7 var(--mono);color:var(--tx-2);padding:calc(28px * var(--dens)) 0;text-align:center}
 
-/* ── the strip ────────────────────────────────────────────────────────────────
+/* the strip
    CREATE's tab strip, and it is a deliberate copy — ROOT.md §6 names the set,
    because three copies of one shape are three things that can drift. Bordered
    rail, flat chips, a glider that slides under the live one, even shares of the
@@ -47,7 +39,7 @@
   border-radius:var(--r2);transition:color .25s}
 .ns-tools .tl-tab.active{color:var(--on-y)}
 
-/* ── the readout ──────────────────────────────────────────────────────────────
+/* the readout
    One ring for all three clocks: an SVG circle whose dash offset is the
    fraction left. A dash offset rather than a conic-gradient because it is the
    property a browser can animate without repainting a gradient every frame,
@@ -81,7 +73,7 @@
 .ns-tools .tl-hint{font:400 9px/1.6 var(--mono);letter-spacing:.04em;color:var(--mu);
   text-align:center;margin-top:calc(12px * var(--dens))}
 
-/* ── the controls ── */
+/* the controls ── */
 .ns-tools .tl-acts{display:flex;gap:calc(8px * var(--dens));margin-top:calc(18px * var(--dens))}
 .ns-tools .tl-go{flex:2 1 0;min-width:0;background:var(--tl-c);border:var(--bw) solid var(--tl-c);
   border-radius:var(--r2);color:var(--on-y);cursor:pointer;
@@ -103,7 +95,7 @@
 .ns-tools .tl-chip.on{border-color:var(--tl-c);color:var(--tl-c)}
 .ns-tools .tl-chip.alt{border-style:dashed}
 
-/* ── the laps ── */
+/* the laps ── */
 .ns-tools .tl-lap{display:flex;align-items:baseline;gap:calc(12px * var(--dens));
   padding:calc(9px * var(--dens)) 0;border-top:var(--bw) solid var(--bd);
   font:400 11px/1 var(--mono);letter-spacing:.04em;font-variant-numeric:tabular-nums}
@@ -112,7 +104,7 @@
 .ns-tools .tl-lap .s{flex:1 1 auto;color:var(--tl-c)}
 .ns-tools .tl-lap .t{flex:0 0 auto;color:var(--tx-2)}
 
-/* ── the decider ──────────────────────────────────────────────────────────────
+/* the decider
    The answer is the biggest thing on the screen, because the whole point of
    asking is to stop weighing the list. The list is still under it — an answer
    you cannot see the alternatives to is one you argue with. */

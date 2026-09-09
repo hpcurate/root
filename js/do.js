@@ -1,25 +1,16 @@
-/* ── DO ───────────────────────────────────────────────────────────────────────
-   Daily checklists + Travel packing lists + Todoist close-on-finish sync.
-   Logic is unchanged from complete/index.html. What changed for the merge:
-     · everything lives in one IIFE and is published as window.DO, so inline
-       handlers read DO.go(...) instead of go(...)
-     · DOM lookups go through $id/$one/$all, which are scoped to .ns-do, so the
-       ids this app has always used cannot collide with the other three views
-     · the screen scroller is the slide, not the window
-     · toast() forwards to the shell's single toast
-   Storage keys are untouched: do_<date>, travel_state_v2 (and the v1 migration),
-   do_todoist_v1. */
+/* DO: routines, packing lists and Todoist tasks.
+   Preserve do_<date>, travel_state_v2 (with v1 migration) and do_todoist_v1. */
 window.DO = (function () {
 'use strict';
 
 const SCOPE = '.ns-do ';
-const view  = document.querySelector('#view-do .view-body');   // the scroll container (Shell wraps it)
+const view  = document.querySelector('#view-do .view-body');
 const $id   = id  => document.querySelector(SCOPE + '#' + id);
 const $one  = sel => document.querySelector(SCOPE + sel);
 const $all  = sel => document.querySelectorAll(SCOPE + sel);
 const toast = msg => Shell.toast(msg);
 
-/* ── Content ──────────────────────────────────────────────────────────────────
+/* Content
    The routines, the packing categories and the tab layout used to be three
    literals in this file. They live in js/config.js now and are editable from
    Settings → content; these four are refreshed from it on boot and again
@@ -52,7 +43,7 @@ function readConfig() {
 }
 readConfig();
 
-/* ── Home sections ────────────────────────────────────────────────────────────
+/* Home sections
    Three siblings under the header; the preferred order is applied by moving
    the real elements, so nothing else has to know about it. The today list and
    the block tasks show only on the first tab — "other" is for the odd
@@ -135,7 +126,7 @@ function loadState() {
   loadTravel();
 }
 
-/* ── The history the sweep used to throw away ──────────────────────────────────
+/* The history the sweep used to throw away
    Every `do_<date>` record was deleted on the first load of a new day, so DO
    knew nothing about yesterday. Each one is folded into a rolling tally first —
    per routine, done and total — which is what the strip on the home screen and
@@ -527,7 +518,7 @@ function resetDay() {
   });
 }
 
-// ── Travel ────────────────────────────────────────────────────────────────────
+// Travel
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 /* For a value that ends up inside onclick="…('…')": escaped as a JS string
    literal first, then as an HTML attribute, so an apostrophe, a backslash or a
@@ -780,7 +771,7 @@ function exportTravelMd() {
   toast('exported ' + filename);
 }
 
-// ─── Todoist sync ─────────────────────────────────────────────────────────────
+// Todoist sync
 // Each daily list is one "every day" task in 04 | life › daily routine. Todoist
 // keeps a recurring task active and only moves its due date on, so a due date
 // past today is the signal it has already been completed for today — that is both
@@ -955,7 +946,7 @@ async function syncTodoist() {
     const byRoutine = await tdRoutineTasks();
     let pulled = 0, pushed = 0, failed = 0;
 
-    // ── Todoist → DO: a task already due past today was completed over there
+    // Todoist → DO: a task already due past today was completed over there
     byRoutine.forEach((task, key) => {
       if (!tdRolled(task, today) || routineDone(key)) return;
       markRoutineDone(key);
@@ -964,7 +955,7 @@ async function syncTodoist() {
     });
     if (pulled) { saveState(); renderChecklist(); renderHome(); }
 
-    // ── DO → Todoist: close what is finished here and still due today or earlier
+    // DO → Todoist: close what is finished here and still due today or earlier
     for (const [key, task] of byRoutine) {
       if (!routineDone(key)) continue;
       if (tdRolled(task, today)) continue;        // already done over there
@@ -1116,7 +1107,7 @@ function renderTodoistSettings() {
   ttStatus();
 }
 
-// ── Today's tasks from Todoist ────────────────────────────────────────────────
+// Today's tasks from Todoist
 /* A block under the routine cards listing what is due today in the projects
    and sections chosen in settings. Ticking one closes it in Todoist; unticking
    reopens it. The API never returns a completed task, so the day's list is
@@ -1153,7 +1144,7 @@ function ttStatus(msg) {
     : 'not fetched yet';
 }
 
-/* ── Block tasks ──────────────────────────────────────────────────────────────
+/* Block tasks
    Every open task due today that carries one of PLAN's block labels (@b1 @b2
    @b3 — Config plan.blocks), drawn as tiles in the label's own Todoist colour.
    Ticking closes the task and hands the name to LOG as a completed block for
@@ -1196,7 +1187,7 @@ async function fetchBlocks(today) {
   td.blocks = { date:today, tasks:next, fetched:Date.now(), colors };
 }
 
-/* ── Blocks → tomorrow ────────────────────────────────────────────────────────
+/* Blocks → tomorrow
    "→ tomorrow" on the blocks head switches the tiles from tick to select: a
    row of the block labels (b1 b2 b3, each in its Todoist colour) appears under
    the head, you tap the tiles to move, then the slot they go into. Each one
@@ -1286,7 +1277,7 @@ async function toggleBlockTask(id) {
 function blockTasks() { return td.blocksOn ? tdBlocks().tasks.slice() : []; }
 function toggleBlocksHideDone() { td.blocksHideDone = !td.blocksHideDone; tdPersist(); renderBlocks(); }
 
-/* ── How far back "show done" reaches ──────────────────────────────────────────
+/* How far back "show done" reaches
    "Show done" used to mean today's finished blocks and nothing else, because
    today is all DO holds: `td.blocks` is keyed by date and starts empty every
    morning. But the names do survive — DO's tick calls `LOG.setBlock`, which
@@ -1318,7 +1309,7 @@ function earlierBlocks() {
   return (window.LOG && LOG.blocksBefore) ? LOG.blocksBefore(days) : [];
 }
 
-/* ── Media ────────────────────────────────────────────────────────────────────
+/* Media
    The media tab: every open task carrying one of do.mediaLabels (@movie @show
    @podcast @music), whatever its date — a watchlist, not a day's list — drawn
    as tiles three across, grouped under the label in the label's own Todoist
@@ -1358,35 +1349,8 @@ async function fetchMedia() {
   next.sort((a, b) => order(a.kind) - order(b.kind) || a.content.localeCompare(b.content));
   td.media = { date:tdLocalDate(), tasks:next, fetched:Date.now() };
 }
-/* ── Drawing the list ─────────────────────────────────────────────────────────
-   2.8 drew media as the block tiles: three across, a title inside a 64px box.
-   That shape is right for a block — a block is a word ("mixing") standing for
-   an hour of work — and wrong for this, because the thing on a media tile is a
-   *title*, and a title is long. "The Lord of the Rings: The Fellowship of the
-   Ring" in a third of a phone width is four lines of 11px type or an ellipsis,
-   and either way the list stopped being readable at exactly the length a
-   backlog reaches.
-
-   So: one row per title, full width, the label's colour as a rail down its
-   left edge, the kind and the second label as a meta line under the name, and
-   the tick on the right where every other tickable row in ROOT keeps it. The
-   name gets two lines before it gives up, which covers all but the silliest.
-
-   The three controls above it are what a backlog actually needs, and all three
-   are drawn from data that was already being fetched and thrown away:
-
-     kind chips   the list narrowed to @movie, with the open count on each —
-                  "what films have I got" was previously a scroll.
-     find         a substring match on the title. Only once the list is long
-                  enough to need it; on eight items it is furniture.
-     sort         by kind (the shipped order, grouped), by name, or by
-                  priority — which was fetched from Todoist since 2.8 and had
-                  never been shown anywhere.
-
-   And `surprise me`, which is the honest answer to what a watchlist is for:
-   the problem with a backlog of forty films is never finding one, it is
-   choosing one. It picks from what is filtered and open, so "pick me a
-   podcast" is two taps. */
+/* Media rows show full-width titles, label colours and completion controls.
+   Kind, title and priority filters also constrain the surprise-me selection. */
 let mediaQ = '';                        // the find box — in memory, never persisted
 /* A stored filter can outlive the label it names — the media labels are Config,
    editable under settings → do. A narrowing to a label that is gone would hide
@@ -1552,25 +1516,9 @@ function toggleMedia() {
   if (td.mediaOn && !tdMedia().fetched) refreshToday(true);
 }
 
-/* ── Quick tasks ──────────────────────────────────────────────────────────────
-   Every open task carrying `do.quickLabel` (@quick), drawn as cards under the
-   routine cards and read the same way: a name, how much of it is done, a bar.
-   Two shapes, because a quick task is one of two things:
-
-     no subtasks    one card, and the whole card is the tick. 0 / 1.
-     subtasks       the parent names the card and its subtasks are the rows
-                    inside it, each its own tick. The parent is closed for you
-                    when the last row is ticked (Todoist does not do it), and
-                    reopened if one is unticked again — which is what makes the
-                    card behave like a routine rather than like a list that has
-                    to be finished twice.
-
-   Subtasks do not carry the label themselves, and Todoist has no "children of"
-   filter worth relying on, so they are found by fetching each distinct project
-   the quick tasks live in — one call, nearly always, since they live together.
-
-   Cache-per-day rule, like the media tiles: a task closed here stays on the
-   list, ticked, until midnight, and that is the only way unticking can exist. */
+/* Quick tasks are selected by do.quickLabel. Fetch their projects to find
+   unlabelled subtasks. Completing the last child closes its parent; undo reopens it.
+   Keep completed tasks in today's cache so they can be unticked until midnight. */
 function tdQuick() {
   const today = tdLocalDate();
   if (!td.quick || !Array.isArray(td.quick.tasks)) td.quick = { date:today, tasks:[], fetched:0 };
@@ -1692,7 +1640,7 @@ function toggleQuickFold() {
   tdPersist(); renderQuick(); Prefs.tap();
 }
 
-/* ── Clearing what is finished ─────────────────────────────────────────────────
+/* Clearing what is finished
    A quick task closed here stays on the list, ticked, until midnight — that is
    the only way unticking it can exist (the API never returns a closed task
    again). Which is right for the minute after you tick it and wrong for the
@@ -1961,7 +1909,7 @@ async function toggleTodayTask(id) {
     toast('todoist: ' + e.message);
   }
 }
-/* ── Tomorrow ─────────────────────────────────────────────────────────────────
+/* Tomorrow
    The today list's "→ tomorrow" turns the rows from tick to select, the way
    the blocks section's does; the picked tasks are rescheduled in Todoist (v1:
    POST /tasks/{id} with a due string) and drop off the list. Plants are not
@@ -2021,7 +1969,7 @@ function saveTodaySettings() {
   if (td.todayOn) refreshToday(true);
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+// Boot
 loadState();
 loadTodoist();
 renderTabs();

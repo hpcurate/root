@@ -1,20 +1,6 @@
-/* ── TEND ─────────────────────────────────────────────────────────────────────
-   Plant care. Plants hold summer-baseline intervals; a separate append-only
-   EVENT LOG holds what actually happened, and every "when is this due" answer
-   is derived from the log — which is what makes undo, history and the
-   observed-interval nudge possible.
-
-   Ported from tend/index.html for 2.2:
-     · the vocabulary (plant types, task names, growth curve, seasons, round
-       thresholds, new-plant defaults, starter list) moved to js/config.js and is
-       edited from Settings → content / Settings → tend
-     · the detail and editor sheets are the frame's .sheet-back/.sheet pair and
-       live outside #track; the fixed "add plant" bar is a sticky one inside the
-       slide; the toast is Shell.toast; the undo pill is a sibling of #toast
-     · "today" is Shell.today(), and the round re-renders on the day rollover
-     · every confirm goes through Shell.confirm
-   Storage is untouched: tend.v3, with tend.plants.v2 migrated once on read, so
-   the standalone app keeps working off the same data. */
+/* TEND derives due dates from baseline plant intervals and an append-only care
+   log. Config supplies vocabulary and seasons. Storage: tend.v3, with one-time
+   tend.plants.v2 migration. Shell supplies day rollover, dialogs and undo. */
 window.TEND = (function () {
 'use strict';
 
@@ -29,7 +15,7 @@ const esc   = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
 const STORE_KEY = 'tend.v3', LEGACY = 'tend.plants.v2';
 const TASK_KEYS = ['water', 'feed', 'repot'];        // the log is filed under these
 
-/* ── Content ───────────────────────────────────────────────────────────────── */
+/* Content */
 let GROUPS, TASKS, GROWTH, SEASONS, FEED_FLOOR, ROUND, NEWP;
 function readConfig() {
   GROUPS = Config.get('tend.groups') || [];
@@ -52,7 +38,7 @@ const groupOf  = key => GROUPS.find(g => g.key === key) || GROUPS.find(g => g.ke
 const groupKey = key => GROUPS.some(g => g.key === key) ? key : groupOf(key).key;
 const taskOf   = key => TASKS.find(t => t.key === key);
 
-/* ── Dates — local, through the shell ─────────────────────────────────────── */
+/* Dates — local, through the shell */
 const pad = n => String(n).padStart(2, '0');
 const isoOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const todayISO = () => Shell.today();
@@ -61,7 +47,7 @@ const isISO = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const daysBetween = (a, b) => Math.round((D(b) - D(a)) / 864e5);
 const fmtDay = s => D(s).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
-/* ── State ─────────────────────────────────────────────────────────────────── */
+/* State */
 const blank = () => ({ v:3, plants:[], events:[], settings:{ seasonSensitivity:1, sort:'room' } });
 let DB = blank();
 let uid = 0;
@@ -129,7 +115,7 @@ function load() {
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch {} }
 
-/* ── Season ────────────────────────────────────────────────────────────────── */
+/* Season */
 const growthOf = d => growthAt((d || new Date()).getMonth());
 function waterStretch(group, date) {
   // 1.0 in summer, up to ~1.8 in deep winter, weighted by how seasonal the type is
@@ -149,7 +135,7 @@ function effEvery(p, type, date) {
   return base * 30;                                          // repot: months → days
 }
 
-/* ── Derived ───────────────────────────────────────────────────────────────── */
+/* Derived */
 const eventsFor = (pid, type) => DB.events.filter(e => e.plant === pid && e.type === type)
                                           .sort((a, b) => a.date < b.date ? 1 : -1);
 const lastOf = (pid, type) => { const e = eventsFor(pid, type)[0]; return e ? e.date : null; };
@@ -191,7 +177,7 @@ function observedEvery(pid, type) {
 const roomsList = () => [...new Set(DB.plants.map(p => p.room).filter(Boolean))].sort();
 const roomName  = r => r || 'unsorted';
 
-/* ── Actions ───────────────────────────────────────────────────────────────── */
+/* Actions */
 let lastBatch = null, undoT = null;
 function logCare(pid, type, date, note) {
   const ev = { id:newId('e'), plant:pid, type, date:date || todayISO(), note:note || '' };
@@ -225,7 +211,7 @@ function undoLast() {
   toast('undone');
 }
 
-/* ── Render ────────────────────────────────────────────────────────────────── */
+/* Render */
 let sub = 'round';
 
 function render() {
@@ -346,7 +332,7 @@ function renderShelf() {
     .forEach(el => { el.style.width = el.dataset.fill + '%'; }));
 }
 
-/* ── Sheets ────────────────────────────────────────────────────────────────── */
+/* Sheets */
 function openSheet(name) {
   const back = $id(name + '-back'), sheet = $id('sheet-' + name);
   if (back) back.classList.add('on');
@@ -360,7 +346,7 @@ function closeSheet(name) {
   if (name === 'detail') detailId = null;
 }
 
-/* ── Detail ────────────────────────────────────────────────────────────────── */
+/* Detail */
 let detailId = null;
 function openDetail(id) {
   detailId = id; renderDetail(); openSheet('detail');
@@ -425,7 +411,7 @@ function renderDetail() {
   $id('detail-body').innerHTML = h;
 }
 
-/* ── Editor ────────────────────────────────────────────────────────────────── */
+/* Editor */
 let editingId = null;
 function openEditor(id) {
   editingId = id || null;
@@ -499,7 +485,7 @@ function deletePlant() {
   });
 }
 
-/* ── Settings panel ─────────────────────────────────────────────────────────
+/* Settings panel
    Rendered into Settings → tend. The season dial and the default sort are kept
    in tend.v3 (the standalone app reads them too); the round thresholds and the
    new-plant defaults are Config fields the settings view commits itself. */
@@ -554,7 +540,7 @@ async function copy() {
   catch { toast('could not copy'); }
 }
 
-/* ── Todoist ────────────────────────────────────────────────────────────────
+/* Todoist
    Each plant due today is one task — "water basil" — in a project and section
    of your choosing, with a label, a priority and today's due date. The pushed
    task ids live in tend_todoist_v1 (NOT inside tend.v3: both apps' normalise()
@@ -660,7 +646,7 @@ async function syncTodoist(quiet) {
     const openIds = new Set(open.map(t => String(t.id)));
     let pulled = 0, pushed = 0, closed = 0;
 
-    // ── Todoist → TEND: pushed today, no longer open, not closed by us
+    // Todoist → TEND: pushed today, no longer open, not closed by us
     for (const key of Object.keys(tt.pushed)) {
       const rec = tt.pushed[key];
       if (rec.closed || openIds.has(String(rec.id))) continue;
@@ -672,7 +658,7 @@ async function syncTodoist(quiet) {
     }
     if (pulled) { save(); render(); if (detailId) renderDetail(); }
 
-    // ── TEND → Todoist: add what is due and not there yet, close what is done here
+    // TEND → Todoist: add what is due and not there yet, close what is done here
     if (tt.push) {
       for (const it of todayList()) {
         const key = ttKey(it.pid, it.type), rec = tt.pushed[key];
@@ -747,7 +733,7 @@ function renderTtSettings() {
     : 'never synced';
 }
 
-/* ── One delegated listener ─────────────────────────────────────────────────
+/* One delegated listener
    Every button carries data-act; nothing user-supplied is ever interpolated
    into an attribute the browser will execute. The listener is on the document
    because TEND's markup is in three places — the slide, the overlays and the
@@ -852,7 +838,7 @@ document.addEventListener('input', ev => {
   }
 });
 
-/* ── Boot ──────────────────────────────────────────────────────────────────── */
+/* Boot */
 load();
 ttLoad();
 render();
