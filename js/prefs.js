@@ -134,6 +134,13 @@ const THEME_CHARACTER = {
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
 const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools'];
+/* Every tab in the bar, which is the apps plus settings — settings has no data
+   of its own but it has a tab, and a tab has a colour. Its custom property is
+   --tab-set, not --tab-settings: the button's data-app is the long name and the
+   token is the short one, so the two are mapped here rather than remembered at
+   each call site. */
+const TAB_IDS = APPS.concat('settings');
+const tabVar  = a => '--tab-' + (a === 'settings' ? 'set' : a);
 
 /* Schema
    Every setting in one table: its default, its kind, and its bounds. The
@@ -169,8 +176,18 @@ const SCHEMA = {
   navShape:     { kind:'enum',   def:'pill',   values:['pill','round','square','circle','ring','under'],
                                                                                 attr:'data-nav-shape' },
   navAnim:      { kind:'enum',   def:'grow',   values:['grow','pop','fade','rise','none'], attr:'data-nav-anim' },
-  tabPalette:   { kind:'enum',   def:'app',    values:['app','warm','cool','candy','neon','mono'],
+  tabPalette:   { kind:'enum',   def:'app',    values:['app','warm','cool','candy','neon','mono','custom'],
                                                                                 attr:'data-tab-palette' },
+  /* The custom palette: one hex per tab, and only the tabs that have actually
+     been picked. `custom` matches no palette block in themes.css on purpose —
+     a tab this record does not name keeps the shipped hue, so a new app arrives
+     coloured rather than blank and picking one tab does not mean picking ten. */
+  tabColors:    { kind:'colors', def:{} },
+  /* The tab's colour, worn by the whole app rather than only by its button.
+     Independent of `colorfulTabs`, which is about the *bar*: with the bar left
+     alone this is still what gives DO a purple accent and STORE an amber one,
+     and the active pill follows because it falls back to --y. */
+  tabAccent:    { kind:'bool',   def:true,  attr:'data-tab-accent' },
   cardStyle:    { kind:'enum',   def:'outline',values:['outline','fill','ghost','line'],attr:'data-cards' },
   accentUse:    { kind:'enum',   def:'normal', values:['subtle','normal','loud'],      attr:'data-accent-use' },
   titleSize:    { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-title' },
@@ -302,11 +319,19 @@ const SCHEMA = {
 /* State */
 let prefs = {};
 const subs = [];
+/* Which tab is on screen. Not a setting — the shell sets it on every move and
+   it is never stored — but the accent reads it, so it lives beside the prefs
+   the accent is otherwise made of. */
+let curApp = null;
 
 function defaultsOf() {
   const o = {};
-  // arrays are copied so a list pref never aliases the schema's own default
-  Object.keys(SCHEMA).forEach(k => { const d = SCHEMA[k].def; o[k] = Array.isArray(d) ? d.slice() : d; });
+  // arrays and records are copied so a list or colour pref never aliases the
+  // schema's own default
+  Object.keys(SCHEMA).forEach(k => {
+    const d = SCHEMA[k].def;
+    o[k] = Array.isArray(d) ? d.slice() : (d && typeof d === 'object' ? { ...d } : d);
+  });
   return o;
 }
 
@@ -414,6 +439,15 @@ function coerce(k, v) {
     const out = v.filter((x, i, a) => APPS.includes(x) && a.indexOf(x) === i);
     return out.length ? out : s.def.slice();
   }
+  /* the custom tab palette: known tabs only, one well-formed hex each — a
+     pasted look naming an app this build does not have loses that entry, the
+     same rule the app list follows */
+  if (s.kind === 'colors') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+    const out = {};
+    TAB_IDS.forEach(a => { if (v[a]) out[a] = normHex(v[a]); });
+    return out;
+  }
   // a pasted "look" can carry anything; keep text and colour well-formed
   if (s.kind === 'text')  return String(v ?? '').slice(0, 8) || s.def;
   if (s.kind === 'color') return normHex(v);
@@ -424,6 +458,14 @@ function reset(k) {
   if (k in SCHEMA) { prefs[k] = defaultsOf()[k]; persist(); apply(); notify(k); }
 }
 function resetAll() { prefs = defaultsOf(); persist(); apply(); notify('*'); }
+
+/* The shell, on every tab change. Only re-applies when the tab actually
+   changed: go() lands on the tab already shown often enough. */
+function setApp(name) {
+  if (name === curApp) return;
+  curApp = name;
+  if (prefs.tabAccent) apply();
+}
 
 function subscribe(fn) { if (typeof fn === 'function') subs.push(fn); }
 function notify(k) { subs.forEach(fn => { try { fn(k); } catch (e) { console.error(e); } }); }
@@ -442,6 +484,23 @@ function activeTheme() {
 }
 function themeInfo(id) { return THEMES.find(t => t.id === (id || activeTheme())) || THEMES[0]; }
 function character(id) { return THEME_CHARACTER[id || activeTheme()] || THEME_CHARACTER.void; }
+
+/* The accent when it is the tab's colour rather than the theme's.
+   `--tab-<app>` is resolved by the stylesheet — six palettes' worth of hues,
+   one of them a color-mix off the text colour — so it is read back off the
+   element instead of being worked out a second time here. A hex gets its ink
+   from its own luminance; anything else borrows the palette's own --tab-on-c.
+   Null means "nothing to read": at boot, before the shell has said which tab
+   is up, and on a build whose stylesheet has not loaded. */
+function tabAccent() {
+  if (!prefs.tabAccent || !curApp) return null;
+  const cs = getComputedStyle(root);
+  const c  = cs.getPropertyValue(tabVar(curApp)).trim();
+  if (!c) return null;
+  const hex = /^#[0-9a-f]{3,8}$/i.test(c);
+  return { c, ink: hex ? (luminance(c) > 0.45 ? '#0b0b0b' : '#ffffff')
+                       : (cs.getPropertyValue('--tab-on-c').trim() || '#ffffff') };
+}
 
 function accentHex() {
   if (prefs.accent === 'preset') return null;               // let the theme's own accent stand
@@ -536,6 +595,7 @@ function apply() {
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
   root.setAttribute('data-color-tabs', prefs.colorfulTabs  ? 'on' : 'off');
+  root.setAttribute('data-tab-accent', prefs.tabAccent     ? 'on' : 'off');
   root.setAttribute('data-chrome-blur', prefs.chromeBlur   ? 'on' : 'off');
   root.setAttribute('data-tips',        prefs.tips         ? 'on' : 'off');
   root.setAttribute('data-nav-motion',  prefs.navMotion    ? 'on' : 'off');
@@ -569,13 +629,31 @@ function apply() {
   st.setProperty('--nav-r',       Math.round(+prefs.navRadius || 0) + 'px');
   st.setProperty('--nav-icon',    Math.round(+prefs.navIcon   || 19) + 'px');
 
-  // accent
-  const acc = accentHex();
+  /* The custom tab palette, written inline rather than as a stylesheet block:
+     it is one hex per tab and the tabs it does not name are meant to fall
+     through to the shipped hues, which is exactly what removing the property
+     does. Each colour brings its own ink — a custom palette can hold a light
+     tab and a dark one, and one --tab-on-c for the lot would be unreadable on
+     one of them. This runs before the accent below reads a tab back. */
+  TAB_IDS.forEach(a => {
+    const v = prefs.tabPalette === 'custom' ? prefs.tabColors[a] : null;
+    if (v) {
+      st.setProperty(tabVar(a), v);
+      st.setProperty(tabVar(a) + '-ink', luminance(v) > 0.45 ? '#0b0b0b' : '#ffffff');
+    } else {
+      st.removeProperty(tabVar(a));
+      st.removeProperty(tabVar(a) + '-ink');
+    }
+  });
+
+  // accent — the tab's own colour where that is switched on, else the theme's
+  const tab = tabAccent();
+  const acc = tab ? tab.c : accentHex();
   /* Only the accent itself and the colour drawn on top of it: tokens.css mixes
      the three washes out of --y, so they follow automatically. */
   if (acc) {
     st.setProperty('--y', acc);
-    st.setProperty('--on-y', luminance(acc) > 0.45 ? '#0b0b0b' : '#ffffff');
+    st.setProperty('--on-y', tab ? tab.ink : (luminance(acc) > 0.45 ? '#0b0b0b' : '#ffffff'));
   } else {
     st.removeProperty('--y');
     st.removeProperty('--on-y');
@@ -749,9 +827,9 @@ try {
   mq.addEventListener ? mq.addEventListener('change', onFlip) : mq.addListener(onFlip);
 } catch {}
 
-return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER, APPS,
+return { THEMES, ACCENTS, DISPLAY_FONTS, MONO_FONTS, SCHEMA, THEME_CHARACTER, APPS, TAB_IDS, tabVar,
          SOUND_KITS, SOUND_KIT_IDS, SOUND_EVENTS, SOUND_EVENT_KEYS, VOICE_IDS,
-         get, set, setMany, all, reset, resetAll, subscribe,
+         get, set, setMany, all, reset, resetAll, subscribe, setApp,
          apply, preview, revert, activeTheme, themeInfo, character,
          resolvedDisplay, resolvedMono, accentHex, normHex, luminance,
          tap, sound, formatDate, KEY };

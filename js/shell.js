@@ -508,6 +508,11 @@ window.Shell = (function () {
   function show(animate, dir) {
     const next = viewOf(TABS[index]);
     if (!next) return;
+    /* Which app is up, for the accent that follows the tab. Here rather than in
+       go(): park() lands on a slide without going anywhere — at boot, and every
+       time TABS changes shape under the current one — and the accent has to
+       follow that too. */
+    if (window.Prefs && Prefs.setApp) Prefs.setApp(TABS[index]);
     if (!animate) track.classList.add('still');
     document.querySelectorAll('#track .view.leaving').forEach(v => v.classList.remove('leaving'));
     const changed = next !== curView;

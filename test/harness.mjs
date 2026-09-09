@@ -312,6 +312,32 @@ w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
 
+// the tab colours: one per tab, overridable, and lent to the app you are on
+const rootTabs = (fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8')
+  .match(/:root{--tab-do:[^}]*}/) || [''])[0];
+check('every tab in the bar ships with a hue',
+  w.Prefs.TAB_IDS.every(a => rootTabs.includes(w.Prefs.tabVar(a) + ':')),
+  w.Prefs.TAB_IDS.filter(a => !rootTabs.includes(w.Prefs.tabVar(a) + ':')).join(',') || 'all present');
+w.Prefs.set('tabPalette', 'custom');
+w.Prefs.set('tabColors', { do: '#123456', nosuchapp: '#ffffff' });
+check('a picked tab colour is written over the palette, and an unknown tab is dropped',
+  d.documentElement.style.getPropertyValue('--tab-do') === '#123456' &&
+  Object.keys(w.Prefs.get('tabColors')).join() === 'do',
+  d.documentElement.style.getPropertyValue('--tab-do') + ' | ' + Object.keys(w.Prefs.get('tabColors')).join());
+w.Shell.go('do');
+check('the tab you are on lends its colour to the accent',
+  d.documentElement.style.getPropertyValue('--y') === '#123456',
+  d.documentElement.style.getPropertyValue('--y') || 'unset');
+w.Prefs.set('tabAccent', false);
+check('… and switching that off gives the theme its accent back',
+  d.documentElement.style.getPropertyValue('--y') === '',
+  d.documentElement.style.getPropertyValue('--y') || 'unset');
+w.Prefs.set('tabPalette', 'app');
+check('leaving the custom palette hands the tab back to the stylesheet',
+  d.documentElement.style.getPropertyValue('--tab-do') === '',
+  d.documentElement.style.getPropertyValue('--tab-do') || 'unset');
+w.Prefs.reset('tabColors'); w.Prefs.reset('tabAccent');
+
 // 16. TEND
 w.Shell.go('tend');
 w.TEND.openEditor();
@@ -3305,22 +3331,29 @@ check('how it arrives is the same variables, read from the other end',
 check('… and `none` can still win at Motion: none with the bar kept moving',
   /\[data-nav-anim="none"\] \.tab-b::before\{transition:none!important\}/.test(themesCssN));
 w.Prefs.set('navAnim', 'grow');
-const TAB_KEYS = ['do','log','plan','store','tend','track','learn','cal','create','set'];
-check('a palette is ten custom properties, and every one of them defines all ten',
-  w.Prefs.SCHEMA.tabPalette.values.join(',') === 'app,warm,cool,candy,neon,mono' &&
+/* Read off the bar rather than written out here: an app added to APPS with no
+   hue beside it is the bug this catches, and TOOLS shipped exactly that way.
+   `custom` is the palette with no block at all — that is what leaves a tab
+   nobody has picked wearing the app hue. */
+const TAB_KEYS = w.Prefs.TAB_IDS.map(a => w.Prefs.tabVar(a).slice('--tab-'.length));
+check('a palette names every tab in the bar, and custom is the one with no block',
+  w.Prefs.SCHEMA.tabPalette.values.join(',') === 'app,warm,cool,candy,neon,mono,custom' &&
   TAB_KEYS.every(k => new RegExp('--tab-' + k + ':').test(themesCssN)) &&
-  w.Prefs.SCHEMA.tabPalette.values.filter(v => v !== 'app').every(v => {
+  !themesCssN.includes('[data-tab-palette="custom"]') &&
+  w.Prefs.SCHEMA.tabPalette.values.filter(v => v !== 'app' && v !== 'custom').every(v => {
     const m = themesCssN.match(new RegExp('\\[data-tab-palette="' + v + '"\\]\\{([^}]*)\\}'));
-    return m && ['do','log','plan','store','tend','track','learn','cal','create','on-c']
+    // every tab but settings, which the four hued palettes leave on --mu
+    return m && TAB_KEYS.filter(k => k !== 'set').concat('on-c')
       .every(k => new RegExp('--tab-' + k + ':').test(m[1]));
   }));
 w.Prefs.set('tabPalette', 'mono');
 check('… and the palette only reaches the tabs through colour-coding, which is still the gate',
   d.documentElement.dataset.tabPalette === 'mono' &&
-  /\[data-color-tabs="on"\] #nav \.tab-b\[data-app="do"\]\{--tab-app-c:var\(--tab-do\)\}/.test(themesCssN) &&
+  themesCssN.includes('[data-color-tabs="on"] #nav .tab-b[data-app="do"]' +
+    '{--tab-app-c:var(--tab-do);--tab-app-ink:var(--tab-do-ink,var(--tab-on-c))}') &&
   w.Prefs.SCHEMA.colorfulTabs.kind === 'bool');
 /* mono is cut from the text colour rather than from a hue, which is the only
-   way a nine-step ramp can be as legible on paper as it is at night. */
+   way an eleven-step ramp can be as legible on paper as it is at night. */
 check('… mono has no hues in it at all',
   !/\[data-tab-palette="mono"\]\{[^}]*#[0-9a-f]{3,6}/i.test(themesCssN) &&
   /\[data-tab-palette="mono"\]\{[^}]*--tab-on-c:var\(--bg\)/.test(themesCssN));

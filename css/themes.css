@@ -207,55 +207,66 @@
 [data-tab-labels="off"] .tab-b svg{width:calc(var(--nav-icon) * 1.1);height:calc(var(--nav-icon) * 1.1)}
 
 /* Active-tab palettes and shapes set tokens consumed by shell.css.
-   Key palettes by app identity, not position. --tab-on-c controls readable ink. */
+   Key palettes by app identity, not position. --tab-on-c controls readable ink.
+   Every tab in the bar needs a hue here: one missing falls back to the accent
+   and reads as the tab that forgot to be coloured, which is how TOOLS shipped.
+   There is no block for the `custom` palette on purpose — it matches none of
+   these, so a tab the custom record does not name keeps the hue below, and
+   Prefs writes the ones it does name inline over the top. */
 :root{--tab-do:#A78BFA;--tab-log:#5cdb7d;--tab-plan:#5e8cff;--tab-store:#e8a33d;
       --tab-tend:#3fc9b0;--tab-track:#f0709a;--tab-learn:#5ad4e6;--tab-cal:#c98b3f;
-      --tab-create:#e6c34a;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
+      --tab-create:#e6c34a;--tab-tools:#ef7261;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
 /* warm — one sunset, so the bar reads as a run across itself rather than nine
    unrelated hues */
 [data-tab-palette="warm"]{--tab-do:#ff9e57;--tab-log:#ffc861;--tab-plan:#ff7a5c;
       --tab-store:#e8a33d;--tab-tend:#d9b26a;--tab-track:#ff6b81;--tab-learn:#ffb38a;
-      --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-on-c:#1a0d05}
+      --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-tools:#e0614a;--tab-on-c:#1a0d05}
 /* cool — the same idea at the other end, and the quietest of the five */
 [data-tab-palette="cool"]{--tab-do:#8ea8ff;--tab-log:#5fd0c4;--tab-plan:#5e8cff;
       --tab-store:#7fb3e8;--tab-tend:#3fc9b0;--tab-track:#a78bfa;--tab-learn:#5ad4e6;
-      --tab-cal:#6fa0d8;--tab-create:#9ad8e8;--tab-on-c:#05121c}
+      --tab-cal:#6fa0d8;--tab-create:#9ad8e8;--tab-tools:#7fd0b0;--tab-on-c:#05121c}
 /* candy — the app palette washed out: coloured, but not loud */
 [data-tab-palette="candy"]{--tab-do:#cbb6ff;--tab-log:#a8e6b8;--tab-plan:#a9c6ff;
       --tab-store:#ffd9a3;--tab-tend:#a6e5da;--tab-track:#ffb3c9;--tab-learn:#b3e9f2;
-      --tab-cal:#eccba3;--tab-create:#f6e6a8;--tab-on-c:#171514}
+      --tab-cal:#eccba3;--tab-create:#f6e6a8;--tab-tools:#ffc0b3;--tab-on-c:#171514}
 /* neon — full saturation. Too much on a light theme on purpose; it is here
    because a phone at night is the screen this app is mostly read on. */
 [data-tab-palette="neon"]{--tab-do:#b026ff;--tab-log:#39ff14;--tab-plan:#2979ff;
       --tab-store:#ff9100;--tab-tend:#00e5c0;--tab-track:#ff2d95;--tab-learn:#00e5ff;
-      --tab-cal:#ff6d00;--tab-create:#ffe600;--tab-on-c:#05050a}
+      --tab-cal:#ff6d00;--tab-create:#ffe600;--tab-tools:#ff1744;--tab-on-c:#05050a}
 /* mono — no hues at all, a ramp cut from the text colour. Colour-coding
    without colour: the tabs still differ, by weight rather than by hue, and it
    is the one palette that is as legible in a light theme as in a dark one. */
 [data-tab-palette="mono"]{
       --tab-do:color-mix(in srgb,var(--tx) 96%,transparent);
-      --tab-log:color-mix(in srgb,var(--tx) 88%,transparent);
-      --tab-plan:color-mix(in srgb,var(--tx) 80%,transparent);
-      --tab-store:color-mix(in srgb,var(--tx) 72%,transparent);
-      --tab-tend:color-mix(in srgb,var(--tx) 64%,transparent);
-      --tab-track:color-mix(in srgb,var(--tx) 56%,transparent);
-      --tab-learn:color-mix(in srgb,var(--tx) 48%,transparent);
-      --tab-cal:color-mix(in srgb,var(--tx) 40%,transparent);
-      --tab-create:color-mix(in srgb,var(--tx) 33%,transparent);
-      --tab-set:color-mix(in srgb,var(--tx) 26%,transparent);
+      --tab-log:color-mix(in srgb,var(--tx) 89%,transparent);
+      --tab-plan:color-mix(in srgb,var(--tx) 82%,transparent);
+      --tab-store:color-mix(in srgb,var(--tx) 74%,transparent);
+      --tab-tend:color-mix(in srgb,var(--tx) 67%,transparent);
+      --tab-track:color-mix(in srgb,var(--tx) 60%,transparent);
+      --tab-learn:color-mix(in srgb,var(--tx) 53%,transparent);
+      --tab-cal:color-mix(in srgb,var(--tx) 46%,transparent);
+      --tab-create:color-mix(in srgb,var(--tx) 38%,transparent);
+      --tab-tools:color-mix(in srgb,var(--tx) 31%,transparent);
+      --tab-set:color-mix(in srgb,var(--tx) 24%,transparent);
       --tab-on-c:var(--bg)}
 
-[data-color-tabs="on"] #nav .tab-b[data-app="do"]{--tab-app-c:var(--tab-do)}
-[data-color-tabs="on"] #nav .tab-b[data-app="log"]{--tab-app-c:var(--tab-log)}
-[data-color-tabs="on"] #nav .tab-b[data-app="plan"]{--tab-app-c:var(--tab-plan)}
-[data-color-tabs="on"] #nav .tab-b[data-app="store"]{--tab-app-c:var(--tab-store)}
-[data-color-tabs="on"] #nav .tab-b[data-app="tend"]{--tab-app-c:var(--tab-tend)}
-[data-color-tabs="on"] #nav .tab-b[data-app="track"]{--tab-app-c:var(--tab-track)}
-[data-color-tabs="on"] #nav .tab-b[data-app="learn"]{--tab-app-c:var(--tab-learn)}
-[data-color-tabs="on"] #nav .tab-b[data-app="cal"]{--tab-app-c:var(--tab-cal)}
-[data-color-tabs="on"] #nav .tab-b[data-app="create"]{--tab-app-c:var(--tab-create)}
-[data-color-tabs="on"] #nav .tab-b[data-app="settings"]{--tab-app-c:var(--tab-set)}
-[data-color-tabs="on"] #nav .tab-b{--tab-app-ink:var(--tab-on-c)}
+/* Each tab takes its hue and the ink that reads on it. The ink is per tab
+   rather than one --tab-on-c for the bar because a custom palette can hold a
+   light tab and a dark one; --tab-<app>-ink is written by Prefs only for a
+   colour it was given, so every preset palette still falls through to its own
+   --tab-on-c. */
+[data-color-tabs="on"] #nav .tab-b[data-app="do"]{--tab-app-c:var(--tab-do);--tab-app-ink:var(--tab-do-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="log"]{--tab-app-c:var(--tab-log);--tab-app-ink:var(--tab-log-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="plan"]{--tab-app-c:var(--tab-plan);--tab-app-ink:var(--tab-plan-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="store"]{--tab-app-c:var(--tab-store);--tab-app-ink:var(--tab-store-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="tend"]{--tab-app-c:var(--tab-tend);--tab-app-ink:var(--tab-tend-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="track"]{--tab-app-c:var(--tab-track);--tab-app-ink:var(--tab-track-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="learn"]{--tab-app-c:var(--tab-learn);--tab-app-ink:var(--tab-learn-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="cal"]{--tab-app-c:var(--tab-cal);--tab-app-ink:var(--tab-cal-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="create"]{--tab-app-c:var(--tab-create);--tab-app-ink:var(--tab-create-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="tools"]{--tab-app-c:var(--tab-tools);--tab-app-ink:var(--tab-tools-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="settings"]{--tab-app-c:var(--tab-set);--tab-app-ink:var(--tab-set-ink,var(--tab-on-c))}
 
 /* -- Shapes -------------------------------------------------------------------
    `pill` is the default and is the bar as it has always been: the mark fills

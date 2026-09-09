@@ -378,11 +378,21 @@ function layoutHTML() {
       { v:'grow', l:'grow' }, { v:'pop', l:'pop' }, { v:'fade', l:'fade' },
       { v:'rise', l:'rise' }, { v:'none', l:'none' },
     ], 'How it arrives', 'how that mark moves into place when you change tab')}
-    ${toggle('colorfulTabs', 'Colour-code the tabs', 'each app keeps its own hue instead of the accent')}
+    ${toggle('tabAccent', 'The tab colours the app', 'the tab you are on lends its hue to the whole page — every button, chart and highlight inside it')}
+    ${toggle('colorfulTabs', 'Colour-code the tabs', 'each app keeps its own hue instead of the accent — already true of the tab you are on while the app is coloured')}
     ${chips('tabPalette', [
       { v:'app', l:'app' }, { v:'warm', l:'warm' }, { v:'cool', l:'cool' },
       { v:'candy', l:'candy' }, { v:'neon', l:'neon' }, { v:'mono', l:'mono' },
-    ], 'Tab palette', 'which set of hues those are — only does anything with colour-coding on')}
+      { v:'custom', l:'custom' },
+    ], 'Tab palette', 'which set of hues those are')}
+    ${Prefs.get('tabPalette') === 'custom' ? `
+      <div class="set-note">One colour per tab, yours to pick. A tab you leave
+        alone keeps the hue it ships with, so a new app arrives coloured.</div>
+      ${tabColorRows()}
+      <div class="setting-row">
+        <span class="setting-lbl">Start again<small>every tab back to its shipped hue</small></span>
+        <button class="setting-btn" data-act="reset-tab-colors">reset</button>
+      </div>` : ''}
     ${slider('navHeight', 'Bar height', v => Math.round(v) + 'px')}
     ${slider('navRadius', 'Bar corners', v => (v >= 34 ? 'pill' : Math.round(v) + 'px'),
       'a radius, so the pill is just its tallest setting — 0 is a square bar')}
@@ -432,6 +442,25 @@ function appsList() {
   }).join('');
 }
 
+
+/* The custom tab palette: one swatch per tab, settings included.
+   The value shown for a tab nobody has picked is read back off the document
+   rather than kept in a second table here — `custom` matches no palette block,
+   so what the element resolves is exactly the shipped hue, and the swatch opens
+   on the colour the tab is actually wearing. */
+function tabColorRows() {
+  const cs  = getComputedStyle(document.documentElement);
+  const set = Prefs.get('tabColors') || {};
+  return Prefs.TAB_IDS.map(a => {
+    const cur = Prefs.normHex(set[a] || cs.getPropertyValue(Prefs.tabVar(a)).trim());
+    const nm  = APP_NAMES[a] || 'SETTINGS';
+    return `<div class="setting-row">
+      <span class="setting-lbl">${esc(nm)}${set[a] ? '' : '<small>as it ships</small>'}</span>
+      <input type="color" class="ed-swatch" data-tab-color="${a}" value="${esc(cur)}"
+             aria-label="${esc(nm)} tab colour">
+    </div>`;
+  }).join('');
+}
 
 /* Sound: the kit, then the map
    Two controls under the volume slider, and the order matters. The **kit** is
@@ -1976,6 +2005,16 @@ view.addEventListener('change', e => {
     const c = $id('acc-color'); if (c) c.value = v;
     return;
   }
+  /* a tab's own colour. The record holds only the tabs that have been picked,
+     so this merges rather than replaces — see the note on tabColors. */
+  if (el.dataset.tabColor) {
+    Prefs.set('tabColors', { ...(Prefs.get('tabColors') || {}), [el.dataset.tabColor]: el.value });
+    // that tab is no longer shipped-hue. Said in place rather than by
+    // re-rendering: the panel would be rebuilt under an open colour picker.
+    const tag = el.closest('.setting-row').querySelector('.setting-lbl small');
+    if (tag) tag.remove();
+    return;
+  }
   if (el.id === 'cur-sym') Prefs.set('currency', el.value.slice(0, 3) || '€');
 });
 
@@ -2085,7 +2124,7 @@ view.addEventListener('click', e => {
     confirmed('Reset every appearance setting?', () => {
       ['theme','themeMode','themeDark','themeLight','accent','accentCustom','displayFont','monoFont',
        'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle',
-       'navShape','navAnim','tabPalette','cardStyle',
+       'navShape','navAnim','tabPalette','tabColors','tabAccent','cardStyle',
        'accentUse','radius','border',
        'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
        'bandDrop','navHeight','navRadius','navIcon',
@@ -2107,6 +2146,9 @@ view.addEventListener('click', e => {
                 body: 'Everything goes back to what ROOT ships with. Your logged days, lists and history are untouched.',
                 yes: 'discard', danger: true,
                 done: a => { if (!a) return; Config.resetAll(); renderData(); Shell.toast('content reset'); } });
+  }
+  if (t.dataset.act === 'reset-tab-colors') {
+    keepScroll(() => { Prefs.reset('tabColors'); Prefs.tap(); renderLayout(); }); return;
   }
   if (t.dataset.act === 'search') { Prefs.tap(); if (window.SEARCH) SEARCH.open(); }
   if (t.dataset.act === 'export-look') exportLook();

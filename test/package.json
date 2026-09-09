@@ -3,6 +3,10 @@
   "private": true,
   "description": "jsdom harness for ROOT — not part of the site. cd test && npm install && node harness.mjs",
   "type": "module",
-  "scripts": { "test": "node harness.mjs" },
+  "scripts": {
+    "test": "node harness.mjs",
+    "update": "node update.mjs",
+    "test:update": "node --test update.test.mjs"
+  },
   "devDependencies": { "jsdom": "^24.1.0" }
 }

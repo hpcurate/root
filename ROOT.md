@@ -1,8 +1,8 @@
 # ROOT — manifest
 
-> **Read this before editing anything in `root/`, and update the Changelog at the
-> bottom in the same commit as every change. No exceptions, including one-line
-> fixes.** This file is the map; if it goes stale it is worse than nothing.
+> **Start with AGENTS.md and UPDATE.md before editing.** Read only the relevant
+> sections of this reference. Update the Changelog for every completed change;
+> keep its entries brief and keep the current architecture sections accurate.
 
 ---
 
@@ -75,11 +75,15 @@ Two rules that fall out of the vision, and that every future change must respect
 
 ```
 root/
-├── ROOT.md            this file — read first, update last
+├── AGENTS.md          short instructions for agents updating this project
+├── UPDATE.md          backup, targeted reading, validation and completion protocol
+├── ROOT.md            architecture reference and changelog
 ├── index.html         all markup for all nine views + the icon sprite
 ├── favicon.png
 ├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
 ├── test/
+│   ├── update.mjs     verified backups and change-aware validation; see UPDATE.md
+│   ├── update.test.mjs  checks for the update runner
 │   ├── harness.mjs    jsdom boot + behaviour checks — see §7
 │   ├── peek.mjs       prints a screen as words: what is on it and in what
 │   │                  order. jsdom has no layout, so it cannot say whether
@@ -434,6 +438,16 @@ Other anchors, and the single rule that makes each dial real:
 Colour: a preset states only `--y` (accent) and `--on-y` (what reads on top of
 it). `--yd` / `--yb` / `--y-fade` are `color-mix`ed from `--y`, so a custom accent
 stays consistent without three hand-written `rgba()` values.
+
+Since 4.4 that accent can be the **tab's** colour rather than the theme's. The
+shell tells Prefs which tab is up (`Prefs.setApp`); Prefs reads `--tab-<app>`
+back off `<html>` — the stylesheet owns the palettes, and one of them is a
+`color-mix`, so there is nothing to work out twice — and writes it into the same
+single `--y`. Every wash follows from that one write. A hex gets its `--on-y`
+from its own luminance; anything else borrows the palette's `--tab-on-c`. The
+`custom` palette is the same property again, written inline per tab, and it has
+no block in `themes.css` on purpose: a tab nobody has picked falls through to
+the shipped hue.
 
 ---
 
@@ -1328,39 +1342,25 @@ reads) and it is found from then on. For data an app keeps in its own key,
 register a `search(q)` hook with `Shell.register` returning `{ title, sub, go }`
 rows. Settings controls need nothing at all.
 
-**Test without a browser** — `test/harness.mjs` boots the real `index.html` in
-jsdom (scripts loaded from disk, stylesheets and fonts skipped) and drives it
-through DOM events: 896 checks covering boot, every theme and panel, the
-behaviour fixed in 2.1, the three apps added in 2.2, the links and fixes of
-2.3, the Todoist round-trips of 2.4, and the block and media tiles, the
-settings menu, the back arrow, the title band, the cross-fade and PLAN's
-in-place projects, form, sent history, day export and due dates of 2.5–2.18,
-and search, DO's quick cards and folded history, PLAN's presets and LOG's tab
-alert in 2.19, CAL and the new-app migration in 2.20, the multi-slot
-export, the stepped day and the new transition in 2.20.1, and the app's own
-dialog, the numpad's four readings, LOG's month and fortnight, DAY's stepper and
-STORE's pin in 2.22, and CREATE's stages, ticks, sessions and editors in 3.0, and in 4.1 the shared
-undo pill, CREATE's tab strip, its per-area fields, its curate tab against a
-stubbed Todoist, LOG's folded and unlinked blocks, the fortnight's six charts,
-and the two invariants those left behind — nothing on PLAN clips its own text
-against a line-height of 1, and no module declares one function name twice,
-and in 4.3 the loose session, CREATE's tally
-and its two progress bars, the stage palettes, the sound kit and its per-event
-map, the four new layout dials, PLAN's patch mode against a stored day, and
-TOOLS' four instruments — including a pomodoro phase whose end is already in
-the past, which is the whole argument for a timestamp over a counter. jsdom has no
-layout and no Web Animations, so anything measured or animated is invisible to
-it unless the harness stands in for both, as it does for PLAN's transition. A
-throw part-way through prints every result that ran before it rather than
-losing the lot. Run it before trusting any change:
+**Validate an update** — follow UPDATE.md. From the project root:
 
 ```
-cd root/test && npm install && node harness.mjs
+node test/update.mjs start <area>
+node test/update.mjs check --quick
+node test/update.mjs check
 ```
 
-jsdom does not lay out or paint, so it proves the DOM is built and the logic
-runs, and proves nothing about how anything looks. Add a check for every
-behaviour you fix; a bug that has a check does not come back.
+Start before editing to create a verified backup and session baseline. Quick
+checks support iteration; the default selects validation from changed files.
+Code, markup and test changes run the complete behavior harness. Console output
+is brief; full logs are saved under ignored `.update/`.
+
+The underlying `test/harness.mjs` loads the real page in jsdom and exercises
+app behavior against stubbed network calls. It remains directly runnable with
+`npm test --prefix test`. Its sections share state, so do not skip setup by
+filtering test names. Add regression coverage for behavior fixes. jsdom does
+not paint or lay out the page; verify visual changes in a browser.
+
 
 ---
 
@@ -1677,6 +1677,46 @@ point of the thing.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.4 — 2026-09-09 — the tab you are on colours the app, and the palette can be your own
+
+- **The tab's hue is the accent.** `tabAccent`, on by default, under Navigation.
+  DO is purple all the way down, STORE amber, TOOLS coral — every button, chart
+  and highlight in the app, not only the pill under it. It is one write to
+  `--y` in `Prefs.apply()`, so the three washes mixed out of it follow; §4 has
+  the mechanism. `colorfulTabs` is untouched and still gates the *bar*.
+- **A custom palette.** `tabPalette: custom` and a swatch per tab, settings
+  included. Only the tabs actually picked are stored (`tabColors`), so a tab
+  left alone keeps its shipped hue and a new app arrives coloured rather than
+  blank — `custom` deliberately matches no block in `themes.css`. Each picked
+  colour brings its own ink, because a custom palette can hold a light tab and
+  a dark one and a single `--tab-on-c` would be unreadable on one of them.
+- **TOOLS had no hue.** It shipped in 4.3 without one in any of the six
+  palettes, so its tab fell back to the accent. Added to all six; mono's ramp
+  re-cut over eleven steps. The palette test now reads the tabs off the bar
+  instead of a hand-written list, which is what would have caught it.
+- Pre-edit backup: `../root-backup-2026-09-09T12-17-31-822Z/` (1,981 files, verified).
+- Validated through the runner: 19 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1001 behavior checks and 6 runner tests passed** (five added).
+  Not seen in a real browser — the extension was not connected — so the hues
+  themselves have been reasoned about, not looked at.
+
+### 4.3.2 — 2026-09-09 — update protocol and validation runner
+
+- Added AGENTS.md as a compact entry point and UPDATE.md as the update protocol.
+  Read the relevant architecture sections instead of the complete release history.
+- `node test/update.mjs start <area>` creates and verifies a full sibling backup.
+  `check` compares against that snapshot and selects documentation, smoke or full
+  validation. Shared CSS and executable changes require the full path; `--quick`
+  supports iteration and `--full` forces comprehensive checks. Logs and the
+  session pointer stay under ignored `.update/`.
+- Kept the existing behavior harness intact. Added tests for backup completeness,
+  changed-file detection, validation selection, concise output and CLI sessions.
+  No new dependencies or application behavior changes.
+- Pre-edit backup: `../root-backup-20260909-123633/` (1,971 files, SHA-256 verified).
+- Verified through the runner: 19 JavaScript syntax checks; smoke checks for
+  10 apps, 15 themes and 14 panels; **996 behavior checks and 6 runner tests passed**.
+  No application layout or live network behavior changed.
 
 ### 4.3.1 — 2026-09-09 — comment cleanup and decider fix
 
