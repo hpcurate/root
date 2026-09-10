@@ -6840,8 +6840,19 @@ check('no errors through CREATE 4.12', errors.length === 0, errors.slice(0, 3).j
   w.Prefs.set('bandMark', 'icon');
   check('… and the choice is one attribute on the root, so switching costs no redraw',
     d.documentElement.dataset.bandMark === 'icon' &&
-    /\[data-band-mark="icon"\] \.view > \.h-top \.h-logo\{font-size:0/.test(shellCss412),
+    /\[data-band-mark="icon"\] \.view > \.h-top \.h-logo\{[\s\S]{0,120}?font-size:0/.test(shellCss412),
     d.documentElement.dataset.bandMark);
+  /* 4.12.1 — the mark was off centre with the letters gone. `text-box:trim-both
+     cap alphabetic` trims the box to a cap height and `vertical-align:baseline`
+     sits the mark on a baseline; both are right while there is type and both
+     are nonsense at font-size:0, and together they were the offset. With no
+     letters left the wordmark stops being laid out as type at all. */
+  check('with the name gone the mark stops being laid out as type, so it centres',
+    /\[data-band-mark="icon"\] \.view > \.h-top \.h-logo\{[\s\S]{0,200}?text-box:normal/.test(shellCss412) &&
+    /\[data-band-mark="icon"\] \.view > \.h-top \.h-logo\{[\s\S]{0,200}?align-items:center/.test(shellCss412),
+    'the icon-only rule still lays the mark out as type');
+  check('… and the mark is a block in that mode, not an inline sitting on a baseline',
+    /\[data-band-mark="icon"\][^{]*\.h-logo-ic\{[\s\S]{0,160}?display:block/.test(shellCss412));
   /* It is a title, so it wears what a title wears — the same hard offset, in
      the drawing's own way. */
   check('the icon carries the title shadow, as a drop-shadow rather than a text one',
@@ -6851,6 +6862,123 @@ check('no errors through CREATE 4.12', errors.length === 0, errors.slice(0, 3).j
   w.Prefs.reset('bandMark');
   w.Shell.go('do');
 }
+
+
+/* 4.12.1 — DATA reads the whole app, not one tab's own stores.
+   The question is "what do I actually do", and answering it out of TOOLS'
+   three instruments was answering a much smaller one. Every series goes through
+   the owning app's own read-only day reader, so what is checked here is that
+   the readers exist, that DATA finds them, and that an app with nothing to say
+   costs nothing rather than drawing a line of zeroes. */
+{
+  const iso4121 = w.Shell.today();
+
+  /* Each app's reader, on its own terms first. */
+  check('LOG hands out a day without handing out the record',
+    typeof w.LOG.dayData === 'function' && typeof w.LOG.loggedDays === 'function' &&
+    w.LOG.dayData('1999-01-01') === null,
+    typeof w.LOG.dayData);
+  w.localStorage.setItem('log_' + iso4121, JSON.stringify({
+    date: iso4121, scale: 5,
+    m: { wt:'72', sl:'7.5', nrg:'4', mood:'4', cs_on:true, cs:'2', wkg:'', km:'6', wo:'legs', tkg:'', tmin:'' },
+    e: { kme:'', nrg:'3', mood:'5', stress:'2', meals:['a','b'], caf_c:2, caf_ed:0,
+         cur_mix:0, cur_prod:0, cur_cont:0, blocks:['b1','b2','b3'], blocksPlan:[], media:[{name:'x'}] },
+    entries: [{ t:'a' }, { t:'b' }],
+  }));
+  const dd = w.LOG.dayData(iso4121);
+  check('… and what it hands out is the day, as numbers',
+    dd.sleep === 7.5 && dd.walked === 6 && dd.blocks === 3 && dd.caffeine === 2 &&
+    dd.meals === 2 && dd.entries === 2 && dd.media === 1 && dd.written === 2 &&
+    dd.workout === true && dd.cold === true,
+    JSON.stringify(dd));
+  /* Morning and evening ask the same three, and both are kept — the day's shape
+     is the pair, and folding them here would throw that away. */
+  check('… both halves of the day survive, rather than being averaged away',
+    dd.energyAm === 4 && dd.energyPm === 3 && dd.moodAm === 4 && dd.moodPm === 5,
+    JSON.stringify([dd.energyAm, dd.energyPm, dd.moodAm, dd.moodPm]));
+  check('… and the day is findable without walking storage from outside',
+    w.LOG.loggedDays().includes(iso4121));
+  check('TEND and STORE hand out their day too',
+    typeof w.TEND.careOn === 'function' && typeof w.STORE.tripsOn === 'function' &&
+    typeof w.TEND.careOn(iso4121) === 'number' &&
+    typeof w.STORE.tripsOn(iso4121).trips === 'number',
+    typeof w.TEND.careOn);
+
+  /* And DATA reading them back. */
+  w.Prefs.set('toolsShown', ['dat']);
+  w.Shell.go('tools');
+  w.TOOLS.render();
+  const fams = () => [...d.querySelectorAll('.ns-tools [data-act="dat-focus"]')].map(b => b.dataset.v);
+  check('DATA offers families, not the three instruments it used to be',
+    fams().includes('body') && fams().includes('done') && fams().includes('life') &&
+    fams().includes('tools') && fams()[0] === 'all',
+    fams().join(','));
+  const tiles = () => [...d.querySelectorAll('.ns-tools .tl-tile span')].map(s => s.textContent);
+  check('… and it draws the day LOG just wrote, out of LOG',
+    tiles().some(t => /sleep/.test(t)) && tiles().some(t => /blocks/.test(t)),
+    tiles().join(' | '));
+
+  /* A rating is averaged and a count is totalled: "27 mood" would be nonsense,
+     and so would "0.4 blocks a day" as the headline. Earlier sections have
+     written days of their own, so what is asserted is the *shape* of the answer
+     rather than a number only this section knows. */
+  click($('.ns-tools [data-act="dat-focus"][data-v="body"]'));
+  const tileFor = word => [...d.querySelectorAll('.ns-tools .tl-tile')]
+    .find(t => new RegExp(word).test(t.querySelector('span').textContent));
+  const sleepTile = tileFor('sleep');
+  check('a rating is averaged and says so, rather than being added up',
+    !!sleepTile && /^average of \d+$/.test(sleepTile.querySelector('em').textContent) &&
+    parseFloat(sleepTile.querySelector('b').textContent) <= 24,
+    sleepTile ? sleepTile.querySelector('b').textContent + ' / ' + sleepTile.querySelector('em').textContent : 'no tile');
+  click($('.ns-tools [data-act="dat-focus"][data-v="done"]'));
+  const blockTile = [...d.querySelectorAll('.ns-tools .tl-tile')]
+    .find(t => /blocks/.test(t.querySelector('span').textContent));
+  check('… while a count is totalled', !!blockTile && blockTile.querySelector('b').textContent === '3',
+    blockTile ? blockTile.querySelector('b').textContent : 'no tile');
+
+  /* An empty day is not a day of zero. A night nobody wrote down must not pull
+     the average towards nothing — measured as a before and an after, because a
+     record with no sleep in it is the whole of what is being added. */
+  const blankDay = offset(-6);
+  w.localStorage.removeItem('log_' + blankDay);
+  click($('.ns-tools [data-act="dat-focus"][data-v="body"]'));
+  const before = tileFor('sleep');
+  const wasAvg = before && before.querySelector('b').textContent;
+  const wasN   = before && before.querySelector('em').textContent;
+  w.localStorage.setItem('log_' + blankDay, JSON.stringify({
+    date: blankDay, scale: 5, m: {}, e: {}, entries: [] }));
+  click($('.ns-tools [data-act="dat-focus"][data-v="body"]'));
+  const after = tileFor('sleep');
+  check('a day nobody wrote is not a day of zero — it is left out of the average',
+    !!after && after.querySelector('b').textContent === wasAvg &&
+    after.querySelector('em').textContent === wasN,
+    wasAvg + '/' + wasN + ' -> ' +
+      (after ? after.querySelector('b').textContent + '/' + after.querySelector('em').textContent : 'no tile'));
+  w.localStorage.removeItem('log_' + blankDay);
+
+  /* A focus naming something this build cannot draw shows everything rather
+     than an empty screen that reads as a bug. */
+  w.TOOLS.reload();
+  const st4121 = JSON.parse(w.localStorage.getItem('tools_v1') || '{}');
+  st4121.dat = { range: 'week', focus: 'gone' };
+  w.localStorage.setItem('tools_v1', JSON.stringify(st4121));
+  w.TOOLS.reload();
+  check('a focus this build has never heard of falls back to everything',
+    d.querySelectorAll('.ns-tools .tl-tile').length > 1,
+    String(d.querySelectorAll('.ns-tools .tl-tile').length) + ' tiles');
+
+  /* And the band counts the days the whole app has, not the three stores. */
+  check('the band counts every day anything in the app recorded',
+    $('.ns-tools #tl-daynum').textContent.trim() !== '0',
+    $('.ns-tools #tl-daynum').textContent);
+
+  w.localStorage.removeItem('log_' + iso4121);
+  w.Prefs.reset('toolsShown');
+  w.TOOLS.resetAll(); settle();
+  w.Shell.go('do');
+}
+
+check('no errors through 4.12.1', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -2446,6 +2446,49 @@ Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
                         onMinute: refreshAlert, home: goBack });
 refreshAlert();
 
+/* What one day holds, for anything outside LOG that wants to read it back.
+   Read-only and derived: the record itself is the contract (§6) and is not
+   handed out, so a caller cannot write through this and nothing here has to be
+   kept in step with the form. Every field is a number or a count, because the
+   only caller is a chart. `written` is how much of the day exists at all —
+   morning, evening, both — which is the one number LOG's own home already draws
+   the month grid from. */
+function dayData(iso) {
+  const r = readDay(iso);
+  if (!r) return null;
+  const m = r.m || {}, e = r.e || {};
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  const filled = o => Object.keys(o).some(k => o[k] !== '' && o[k] !== null &&
+                                               !(Array.isArray(o[k]) && !o[k].length) && o[k] !== 0);
+  return {
+    date: iso,
+    written: (filled(m) ? 1 : 0) + (filled(e) ? 1 : 0),
+    weight: num(m.wt), sleep: num(m.sl), walked: num(m.km) ?? num(e.kme),
+    /* Morning and evening ask the same three, so both are kept: the day's
+       shape is the pair, and averaging them here would throw that away. */
+    energyAm: num(m.nrg), moodAm: num(m.mood),
+    energyPm: num(e.nrg), moodPm: num(e.mood), stress: num(e.stress),
+    meals: Array.isArray(e.meals) ? e.meals.filter(Boolean).length : 0,
+    caffeine: (+e.caf_c || 0) + (+e.caf_ed || 0),
+    blocks: Array.isArray(e.blocks) ? e.blocks.length : 0,
+    media: mediaOf(e).length,
+    entries: Array.isArray(r.entries) ? r.entries.length : 0,
+    workout: !!(m.wo && String(m.wo).trim()),
+    cold: m.cs_on === true || m.cs_on === 'yes',
+  };
+}
+/* Every day LOG has anything for, oldest first. */
+function loggedDays() {
+  const out = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (/^log_\d{4}-\d{2}-\d{2}$/.test(k)) out.push(k.slice(4));
+    }
+  } catch {}
+  return out.sort();
+}
+
 return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
          toggleTrend, cycleTrend, sc, setColdShower, setWo,
          toggleMed, toggleMeal, incCaf, resetCaf, incCur, resetCur, toggleBlock, toggleBlockFold,
@@ -2454,5 +2497,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
          setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
-         alertShown, dismissAlert, wakeArrows };
+         alertShown, dismissAlert, wakeArrows, dayData, loggedDays };
 })();

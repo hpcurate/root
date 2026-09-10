@@ -234,9 +234,15 @@ function normalise(s) {
     } : null,
     screen: ['list','run','hist'].includes(o.screen) ? o.screen : 'list',
   };
+  /* `focus` is `all`, a family, or a single series — and the set of those is
+     built from what is actually present, which changes with the apps that are
+     switched on. So it is kept as a plain word and checked when it is *read*
+     rather than when it is stored: a focus naming a series this install cannot
+     draw falls back to `all` in datSeries(), which is where the answer is
+     known. */
   d.dat = {
     range: ['week','month','year'].includes(a.range) ? a.range : 'month',
-    focus: ['all','pom','whf','opt'].includes(a.focus) ? a.focus : 'all',
+    focus: typeof a.focus === 'string' && /^[a-z]{1,16}$/.test(a.focus) ? a.focus : 'all',
   };
   /* A run whose screen said `run` but whose run is gone lands back on the
      shelf rather than on a stopwatch with nothing in it. */
@@ -700,9 +706,11 @@ function paintBand() {
   else if (t === 'opt') { n = (DB.opt.days[today()] || []).length; word = n === 1 ? 'run today' : 'runs today'; }
   else {
     /* DATA has nothing of its own to count, so it counts what it is reading:
-       the days any instrument put something on. */
-    n = Object.keys(DB.pom.log).concat(Object.keys(DB.whf.days), Object.keys(DB.opt.days))
-          .filter((x, i, a) => a.indexOf(x) === i).length;
+       every day anything in the app put something on. LOG holds the most of
+       them by far, which is why it is asked rather than inferred. */
+    const mine = Object.keys(DB.pom.log).concat(Object.keys(DB.whf.days), Object.keys(DB.opt.days));
+    const logged = has('LOG', 'loggedDays') ? ask(() => LOG.loggedDays(), []) : [];
+    n = mine.concat(logged).filter((x, i, a) => a.indexOf(x) === i).length;
     word = n === 1 ? 'day on record' : 'days on record';
   }
   if (lab) lab.textContent = word;
@@ -1126,9 +1134,19 @@ function optHistHTML() {
 }
 
 /* DATA
-   LOG's month grid taught this app that a chart is worth more than a table, and
-   this is that idea pointed at the instruments: what a week of focus actually
-   looked like, where the breathing went, which list is getting faster.
+   LOG's month grid taught this app that a chart is worth more than a table.
+   4.12 pointed that at the three instruments beside it; 4.12.1 points it at
+   **the whole app**, which is what it should always have been — the question is
+   "what do I actually do", and answering it out of one tab's own store was
+   answering a much smaller question.
+
+   Every series is read through the owning app's own read-only day reader —
+   `LOG.dayData`, `TRACK.doneOn`, `LEARN.dailyStats`, `CREATE.dayStats`,
+   `CAL.marks`, `TEND.careOn`, `STORE.tripsOn` — never out of its storage key.
+   That is the rule ROOT.md §6 already states for LOG's note, and it is what
+   keeps this from becoming a second definition of every record in the app: an
+   app that is switched off, or a reader that is not there, simply contributes
+   nothing and the chart carries on.
 
    Everything here is inline SVG against the same tokens the rest of the app
    uses. No library, no canvas — the charts are small, the data is at most a
@@ -1137,27 +1155,131 @@ const DAT_RANGE = { week:7, month:30, year:365 };
 const datDays  = () => DAT_RANGE[DB.dat.range] || 30;
 const datFocus = () => DB.dat.focus;
 
-/* One number per day for a given series, over the current range. */
-function series(kind, days) {
-  return days.map(k => {
-    if (kind === 'pom') return (DB.pom.log[k] || []).reduce((a, r) => a + (+r.mins || 0), 0);
-    if (kind === 'whf') return (DB.whf.days[k] || []).length;
-    if (kind === 'opt') return (DB.opt.days[k] || []).length;
-    return 0;
-  });
+/* Asking another app, safely.
+   Every one of these lives behind a try: an app can be switched off, a store
+   can be half-written, and a chart is the last thing that should take a tab
+   down. The curate cache in CREATE (§6) is the precedent — one undefined array
+   out of a store nobody validated took out a whole tab. */
+function ask(fn, dflt) {
+  try { const v = fn(); return v == null ? dflt : v; } catch { return dflt; }
 }
-const SERIES = [
-  { key:'pom', word:'focus',     unit:'min', c:'var(--y)' },
-  { key:'whf', word:'breathing', unit:'',    c:'#5ad4e6' },
-  { key:'opt', word:'runs',      unit:'',    c:'#e8a33d' },
+const has = (app, method) => !!(window[app] && typeof window[app][method] === 'function');
+
+/* Every series this build can draw, in families.
+   `at(iso)` answers one day. A series whose app is not present is dropped from
+   the strip entirely rather than drawn flat at zero — a line of zeroes reads as
+   "you did none of this", which is a different and wrong claim. */
+const FAMILIES = [
+  { key:'body', word:'body', c:'#5cdb7d', series: [
+    { key:'sleep',  word:'sleep',    unit:'h',  avg:true,
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).sleep },
+    { key:'energy', word:'energy',   unit:'',   avg:true,
+      on: () => has('LOG','dayData'),
+      at: iso => { const d = ask(() => LOG.dayData(iso), null) || {};
+                   const v = [d.energyAm, d.energyPm].filter(x => x != null);
+                   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; } },
+    { key:'mood',   word:'mood',     unit:'',   avg:true,
+      on: () => has('LOG','dayData'),
+      at: iso => { const d = ask(() => LOG.dayData(iso), null) || {};
+                   const v = [d.moodAm, d.moodPm].filter(x => x != null);
+                   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; } },
+    { key:'stress', word:'stress',   unit:'',   avg:true,
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).stress },
+    { key:'walked', word:'walked',   unit:'km',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).walked },
+  ] },
+  { key:'done', word:'done', c:'var(--y)', series: [
+    { key:'blocks', word:'blocks',   unit:'',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).blocks },
+    /* A mark is a completion with a clock time on it — DAY's own record of what
+       was actually ticked, wherever it was ticked. */
+    { key:'ticked', word:'ticked',   unit:'',
+      on: () => has('CAL','marks'), at: iso => ask(() => CAL.marks(iso).length, 0) },
+    { key:'topics', word:'topics',   unit:'',
+      on: () => has('TRACK','doneOn'), at: iso => ask(() => TRACK.doneOn(iso).length, 0) },
+    { key:'cards',  word:'cards',    unit:'',
+      on: () => has('LEARN','dailyStats'), at: iso => ask(() => LEARN.dailyStats(iso).rated, 0) },
+    { key:'plants', word:'plants',   unit:'',
+      on: () => has('TEND','careOn'), at: iso => ask(() => TEND.careOn(iso), 0) },
+  ] },
+  { key:'made', word:'made', c:'#b98ce8', series: [
+    { key:'desk',   word:'at the desk', unit:'h',
+      on: () => has('CREATE','dayStats'),
+      at: iso => (ask(() => CREATE.dayStats(iso), null) || {}).hours },
+    { key:'media',  word:'watched',  unit:'',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).media },
+  ] },
+  { key:'tools', word:'tools', c:'#5ad4e6', series: [
+    { key:'pom',    word:'focus',    unit:'min',
+      on: () => true, at: iso => (DB.pom.log[iso] || []).reduce((a, r) => a + (+r.mins || 0), 0) },
+    { key:'whf',    word:'breathing',unit:'',
+      on: () => true, at: iso => (DB.whf.days[iso] || []).length },
+    { key:'opt',    word:'runs',     unit:'',
+      on: () => true, at: iso => (DB.opt.days[iso] || []).length },
+  ] },
+  { key:'life', word:'life', c:'#e8a33d', series: [
+    { key:'written', word:'day written', unit:'/2',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).written },
+    { key:'notes',  word:'notes',    unit:'',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).entries },
+    { key:'caffeine', word:'caffeine', unit:'',
+      on: () => has('LOG','dayData'), at: iso => (ask(() => LOG.dayData(iso), null) || {}).caffeine },
+    { key:'shops',  word:'shops',    unit:'',
+      on: () => has('STORE','tripsOn'), at: iso => ask(() => STORE.tripsOn(iso).trips, 0) },
+    { key:'spent',  word:'spent',    unit:'',
+      on: () => has('STORE','tripsOn'), at: iso => ask(() => STORE.tripsOn(iso).spent, 0) },
+  ] },
 ];
-const datSeries = () => SERIES.filter(s => datFocus() === 'all' || datFocus() === s.key);
+/* Flattened, with the family's colour carried onto each series so a chart never
+   has to know which family it is drawing. Recomputed rather than cached: an app
+   switched off in settings changes the answer with no reload. */
+function allSeries() {
+  const out = [];
+  FAMILIES.forEach(f => f.series.forEach(s => {
+    if (s.on()) out.push(Object.assign({}, s, { family: f.key, c: f.c }));
+  }));
+  return out;
+}
+const familiesOn = () => FAMILIES.filter(f => f.series.some(s => s.on()));
+
+/* One number per day for a series, over the range. `null` is "nothing recorded"
+   and is kept as null rather than folded to 0: a day with no mood is not a day
+   with a mood of zero, and averaging the two together is how a chart lies. */
+function series(key, days) {
+  const s = allSeries().find(x => x.key === key);
+  if (!s) return days.map(() => 0);
+  return days.map(k => { const v = s.at(k); return v == null ? null : (+v || 0); });
+}
+const datSeries = () => {
+  const f = datFocus();
+  const all = allSeries();
+  if (f === 'all') return all;
+  if (FAMILIES.some(x => x.key === f)) {
+    const fam = all.filter(s => s.family === f);
+    if (fam.length) return fam;
+  }
+  const one = all.filter(s => s.key === f);
+  /* A stored focus naming something this install cannot draw — an app switched
+     off since, or a series a later build renamed — shows everything rather than
+     an empty screen that looks like a bug. */
+  return one.length ? one : all;
+};
+
+/* A series' numbers, with the empty days dropped — every summary below wants
+   this and none of them wants a zero standing in for a blank. */
+const filled = vals => vals.filter(v => v != null);
+const sum = vals => filled(vals).reduce((a, b) => a + b, 0);
+const mean = vals => { const v = filled(vals); return v.length ? sum(v) / v.length : 0; };
+/* An average is the right summary for a rating and a total is the right one for
+   a count. Saying "27 mood" would be nonsense; so would "0.4 blocks a day" as
+   the headline number. Each series says which it is. */
+const summarise = (s, vals) => s.avg ? mean(vals) : sum(vals);
+const show = n => (n % 1 ? (n < 10 ? n.toFixed(1) : Math.round(n)) : n);
 
 function datHTML() {
   const days = lastDays(datDays());
   const sets = datSeries();
-  const totals = sets.map(s => ({ s, v: series(s.key, days).reduce((a, b) => a + b, 0) }));
-  const any = totals.some(t => t.v > 0);
+  const live = sets.filter(s => filled(series(s.key, days)).length);
 
   const chip = (act, val, word, on) =>
     `<button class="tl-chip${on ? ' on' : ''}" data-act="${act}" data-v="${esc(val)}">${esc(word)}</button>`;
@@ -1169,70 +1291,85 @@ function datHTML() {
     </div>
     <div class="tl-chips soft">
       ${chip('dat-focus', 'all', 'everything', datFocus() === 'all')}
-      ${SERIES.map(s => chip('dat-focus', s.key, s.word, datFocus() === s.key)).join('')}
-    </div>`;
+      ${familiesOn().map(f => chip('dat-focus', f.key, f.word, datFocus() === f.key)).join('')}
+    </div>
+    ${datFocus() !== 'all' ? `<div class="tl-chips soft">${
+      datSeries().length > 1 || FAMILIES.some(f => f.key === datFocus())
+        ? allSeries().filter(s => s.family === datFocus())
+            .map(s => chip('dat-focus', s.key, s.word, false)).join('')
+        : ''}</div>` : ''}`;
 
-  if (!any) return head + `<div class="tl-empty"><p>Nothing recorded yet.</p>
-    <p class="sm">Finish a focus round, a breathing session or a run and this fills in.</p></div>`;
+  if (!live.length) return head + `<div class="tl-empty"><p>Nothing recorded yet.</p>
+    <p class="sm">Write a day in LOG, tick a topic, finish a round — anything you
+      do in this app lands here.</p></div>`;
 
   return head +
-    datTilesHTML(totals, days) +
-    datBarsHTML(days, sets) +
-    datPieHTML(totals) +
-    datRoseHTML(days, sets) +
-    datStreakHTML(days, sets);
+    datTilesHTML(live, days) +
+    datBarsHTML(days, live) +
+    datPieHTML(live, days) +
+    datRoseHTML(days, live) +
+    datStreakHTML(days, live);
 }
 
-/* The tiles: the one number per series that answers "how much". */
-function datTilesHTML(totals, days) {
-  return `<div class="tl-tiles">${totals.map(t => {
-    const per = t.v / Math.max(1, days.length);
-    return `<div class="tl-tile" style="--lc:${t.s.c}">
-      <b>${esc(t.v % 1 ? t.v.toFixed(1) : t.v)}</b>
-      <span>${esc(t.s.word)}${t.s.unit ? ' · ' + esc(t.s.unit) : ''}</span>
-      <em>${esc(per < 10 ? per.toFixed(1) : Math.round(per))} a day</em>
+/* The tiles: the one number per series that answers "how much". A rating is
+   averaged and a count is totalled, and the caption says which. */
+function datTilesHTML(sets, days) {
+  return `<div class="tl-tiles">${sets.map(s => {
+    const vals = series(s.key, days);
+    const n = summarise(s, vals);
+    const seen = filled(vals).length;
+    return `<div class="tl-tile" style="--lc:${s.c}">
+      <b>${esc(show(Math.round(n * 10) / 10))}</b>
+      <span>${esc(s.word)}${s.unit ? ' · ' + esc(s.unit) : ''}</span>
+      <em>${s.avg ? 'average of ' + seen : seen + ' day' + (seen === 1 ? '' : 's')}</em>
     </div>`;
   }).join('')}</div>`;
 }
 
 /* The bars: the range, day by day. Columns rather than a line, because a day
-   with nothing in it should read as a gap and a line would draw through it. */
+   with nothing in it should read as a gap and a line would draw through it.
+   Each series is scaled against its own peak, so a walk in kilometres and a
+   mood out of five can sit in the same picture without one flattening the
+   other. */
 function datBarsHTML(days, sets) {
   const W = 320, H = 96;
   const cols = days.length;
   const gap = cols > 60 ? 0.5 : cols > 20 ? 1.4 : 3;
   const w = Math.max(1, (W - gap * (cols - 1)) / cols);
-  let max = 1;
-  sets.forEach(s => series(s.key, days).forEach(v => { max = Math.max(max, v); }));
   const body = sets.map(s => {
     const vals = series(s.key, days);
-    return `<g fill="${s.c}" opacity="${sets.length > 1 ? 0.72 : 1}">` + vals.map((v, i) => {
-      if (!v) return '';
-      const h = Math.max(1.5, (v / max) * (H - 8));
+    const peak = Math.max(1, ...filled(vals));
+    return `<g fill="${s.c}" opacity="${sets.length > 1 ? 0.66 : 1}">` + vals.map((v, i) => {
+      if (v == null || !v) return '';
+      const h = Math.max(1.5, (v / peak) * (H - 8));
       return `<rect x="${(i * (w + gap)).toFixed(2)}" y="${(H - h).toFixed(2)}"
                     width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="${Math.min(1.5, w / 2).toFixed(2)}"/>`;
     }).join('') + '</g>';
   }).join('');
-  return `<div class="tl-sec"><span>Day by day</span><em>peak ${esc(max % 1 ? max.toFixed(1) : max)}</em></div>
+  return `<div class="tl-sec"><span>Day by day</span><em>${
+    sets.length > 1 ? 'each against its own peak' : 'peak ' + esc(show(Math.max(0, ...filled(series(sets[0].key, days)))))
+  }</em></div>
     <div class="tl-chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
         role="img" aria-label="each day in the range">${body}</svg>
       <div class="tl-axis"><span>${esc(dayWord(days[0]))}</span><span>${esc(dayWord(days[days.length - 1]))}</span></div>
     </div>`;
 }
 
-/* The pie: the share each instrument took of the range. Only drawn when there
-   is more than one slice — a pie with one slice is a circle. */
-function datPieHTML(totals) {
-  const live = totals.filter(t => t.v > 0);
+/* The pie: the share each series took of the range. Only drawn when there is
+   more than one slice — a pie with one slice is a circle — and only over
+   countable series, because a share of an average is not a thing. */
+function datPieHTML(sets, days) {
+  const live = sets.filter(s => !s.avg)
+    .map(s => ({ s, v: sum(series(s.key, days)) })).filter(t => t.v > 0);
   if (live.length < 2) return '';
-  /* Minutes and counts are not the same unit, so each series is normalised to
-     its own share of *itself* across the range before they are compared. This
-     is a picture of balance, not of time, and the caption says so. */
-  const sum = live.reduce((a, t) => a + t.v, 0);
+  /* Different units, so each is normalised to its own share of itself across
+     the range before they are compared. This is a picture of balance, not of
+     time, and the caption says so. */
+  const total = live.reduce((a, t) => a + t.v, 0);
   let at = -Math.PI / 2;
   const R2 = 46, CX = 56, CY = 56;
   const slices = live.map(t => {
-    const frac = t.v / sum;
+    const frac = t.v / total;
     const end = at + frac * Math.PI * 2;
     const big = frac > 0.5 ? 1 : 0;
     const p = `M${CX} ${CY} L${(CX + R2 * Math.cos(at)).toFixed(2)} ${(CY + R2 * Math.sin(at)).toFixed(2)}
@@ -1242,26 +1379,26 @@ function datPieHTML(totals) {
   }).join('');
   return `<div class="tl-sec"><span>The split</span><em>share of the range</em></div>
     <div class="tl-pie">
-      <svg viewBox="0 0 112 112" role="img" aria-label="share of the range by instrument">
+      <svg viewBox="0 0 112 112" role="img" aria-label="share of the range">
         ${slices}<circle cx="${CX}" cy="${CY}" r="22" fill="var(--s1)"/>
       </svg>
-      <div class="tl-key">${live.map(t => `<span style="--lc:${t.s.c}">
-        <i></i>${esc(t.s.word)}<b>${Math.round((t.v / sum) * 100)}%</b></span>`).join('')}</div>
+      <div class="tl-key">${live.slice(0, 8).map(t => `<span style="--lc:${t.s.c}">
+        <i></i>${esc(t.s.word)}<b>${Math.round((t.v / total) * 100)}%</b></span>`).join('')}</div>
     </div>`;
 }
 
 /* The nightingale: the week as a wheel, each weekday a wedge whose *radius* is
-   how much that day usually holds. A bar chart answers "when"; this one
-   answers "which day am I", which is the only question a weekday shape is
-   good for. */
+   how much that day usually holds. A bar chart answers "when"; this one answers
+   "which day am I", which is the only question a weekday shape is good for. */
 function datRoseHTML(days, sets) {
   const buckets = [0, 0, 0, 0, 0, 0, 0];
   sets.forEach(s => {
     const vals = series(s.key, days);
-    /* Each series normalised to its own peak before they are added, so minutes
-       do not drown out a count of three. */
-    const peak = Math.max(1, ...vals);
+    /* Each series normalised to its own peak before they are added, so
+       kilometres do not drown out a count of three. */
+    const peak = Math.max(1, ...filled(vals));
     days.forEach((k, i) => {
+      if (vals[i] == null) return;
       const d = new Date(k + 'T12:00:00').getDay();
       buckets[(d + 6) % 7] += vals[i] / peak;
     });
@@ -1288,10 +1425,10 @@ function datRoseHTML(days, sets) {
       ${wedges}${labels}</svg></div>`;
 }
 
-/* The streak: how many of the last days had anything at all on them. One
-   number and a strip, which is the whole of what a streak is. */
+/* The streak: how many of the last days had anything at all on them. One number
+   and a strip, which is the whole of what a streak is. */
 function datStreakHTML(days, sets) {
-  const hit = days.map(k => sets.some(s => series(s.key, [k])[0] > 0));
+  const hit = days.map(k => sets.some(s => { const v = s.at(k); return v != null && +v > 0; }));
   const done = hit.filter(Boolean).length;
   let run = 0;
   for (let i = hit.length - 1; i >= 0 && hit[i]; i--) run++;

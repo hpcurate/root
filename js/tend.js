@@ -869,7 +869,13 @@ Shell.register('tend', {
                  go: () => { Shell.TABS.includes('tend') ? Shell.go('tend') : Shell.open('tend'); openDetail(p.id); } })),
 });
 
+/* Care given on one day, for anything outside TEND reading the day back —
+   DATA is the only caller. The events are the record; this counts them. */
+function careOn(iso) {
+  return (DB.events || []).filter(e => e && e.date === iso).length;
+}
+
 return { render, renderSettings, openDetail, openEditor, closeSheet, undoLast,
          exportText, applyImport, status,
-         todayList, setDone, pushedIds, showOnDo, syncTodoist, testTodoist };
+         todayList, setDone, pushedIds, showOnDo, syncTodoist, testTodoist, careOn };
 })();

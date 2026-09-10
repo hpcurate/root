@@ -1206,7 +1206,19 @@ Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === '*') 
 
 Shell.register('store', { home: () => go('home') });   // the STORE tab tapped while on STORE
 
-return { go, addCart, resetCart, togglePin, openPad, closePad, padKey, padBack, padClear,
+/* A shopping day, for anything outside STORE reading the day back — DATA is
+   the only caller. A trip is what was actually finished, so it is the thing
+   worth counting, and its spend is the number beside it. */
+function tripsOn(iso) {
+  const rows = (state.history || []).filter(t => t && t.date === iso);
+  return { trips: rows.length,
+           /* `cart` is what the in-store counter reached, which is what the trip
+              actually cost — the budget beside it is what it was allowed to. */
+           spent: rows.reduce((a, t) => a + (+t.cart || 0), 0),
+           items: rows.reduce((a, t) => a + (Array.isArray(t.items) ? t.items.length : 0), 0) };
+}
+
+return { tripsOn, go, addCart, resetCart, togglePin, openPad, closePad, padKey, padBack, padClear,
          padCount, padApply, openCartLog, closeCartLog,
          addManual, toggleChecked, setQty, deleteItem, confirmClearList,
          saveTrip, openTripName, closeTripName, confirmTripName,

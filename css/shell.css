@@ -725,6 +725,21 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
    The icon's own size is absolute, not an em, so it survives the collapse; and
    with no word beside it, it is drawn at the full title size to hold the weight
    the word was holding. */
-[data-band-mark="icon"] .view > .h-top .h-logo{font-size:0;text-shadow:none}
+/* Icon alone is not type any more, so it stops being laid out as type.
+   `text-box:trim-both cap alphabetic` trims the box to the **cap height** of the
+   letters, and `vertical-align:baseline` sits the mark on their baseline — both
+   of which are exactly right while there are letters and both of which are
+   nonsense once `font-size:0` has taken them away. Together they were pushing
+   the mark off centre by the difference between a cap height and a full box,
+   which is what "not aligned to the center vertically" was.
+
+   With nothing left to trim to and no baseline left to sit on, the wordmark
+   becomes what it now is: a box holding one thing, centred. */
+[data-band-mark="icon"] .view > .h-top .h-logo{
+  font-size:0;text-shadow:none;
+  text-box:normal;
+  display:flex;align-items:center;
+  min-height:var(--title-px)}
 [data-band-mark="icon"] .view > .h-top .h-logo .h-logo-ic{
+  display:block;vertical-align:middle;
   width:var(--title-px);height:var(--title-px);margin-right:0}
