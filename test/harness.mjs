@@ -2895,6 +2895,20 @@ check('the day takes no pointer at all while a slide is scrolling',
    with three buttons rather than choosing one of them for you. */
 const evNamesAt = () => [...d.querySelectorAll('.ns-cal .cal-ev .ev-name')].map(n => n.textContent);
 const evTimesAt = () => [...d.querySelectorAll('.ns-cal .cal-ev .ev-at')].map(n => n.textContent.slice(0, 5));
+/* 4.12 put every reshaping control behind an edit-mode switch: reading a
+   schedule and editing one are different jobs, and a row carrying four
+   controls is a row you tick by accident. Nothing is restyled — what changes
+   is what a row *carries*. */
+check('a day being read carries no reshaping control at all',
+  !d.querySelector('.ns-cal .ev-del, .ns-cal .ev-mv, .ns-cal .ev-szb') &&
+  !d.querySelector('.ns-cal .cal-day.editing'),
+  [...d.querySelectorAll('.ns-cal .cal-ev [data-act]')].map(b => b.dataset.act).join(',') || 'none');
+click($('.ns-cal [data-act="edit"]'));
+check('… and the switch brings them back, with the day itself saying so',
+  !!d.querySelector('.ns-cal .cal-day.editing') && !!d.querySelector('.ns-cal .ev-del') &&
+  !!d.querySelector('.ns-cal .ev-szb') && $('.ns-cal .ch-edit').textContent === 'done',
+  $('.ns-cal .ch-edit') ? $('.ns-cal .ch-edit').textContent : 'no switch');
+
 check('an unclaimed slot has no delete — there is nothing in it to remove',
   [...d.querySelectorAll('.ns-cal .cal-ev')].filter(e => e.querySelector('.ev-del')).length === 3 &&
   !d.querySelectorAll('.ns-cal .cal-ev')[2].querySelector('.ev-del'));
@@ -3582,10 +3596,15 @@ check('… defined once in the shell, not once per app that carries one',
   !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8')) &&
   !/h-daynum/.test(fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8')) &&
   !/\.ns-do \.h-daynum/.test(doCss2));
+/* 4.12 put a third thing on the row: the app's own tab glyph in front of its
+   name, injected by the shell rather than typed into eleven headers. It is
+   hidden by default, so what this still asserts is that DO's row carries no
+   *number* — the strip has the width the date used to take. */
 check('… and it is off DO, which has its tab strip\'s width back',
   !d.querySelector('.ns-do #do-daynum') &&
-  d.querySelector('.ns-do .h-logo-row').children.length === 2,
-  [...d.querySelector('.ns-do .h-logo-row').children].map(c => c.className).join(','));
+  [...d.querySelector('.ns-do .h-logo-row').children]
+    .filter(c => !c.classList.contains('h-logo-ic')).length === 2,
+  [...d.querySelector('.ns-do .h-logo-row').children].map(c => c.getAttribute('class')).join(','));
 check('… and it is hidden from the reading order — the date line above it already says the date',
   dayNum().getAttribute('aria-hidden') === 'true');
 
@@ -5676,9 +5695,14 @@ w.Shell.go('tools');
 await tick();
 /* 4.8 cut it to two. The stopwatch and the countdown were the phone's own two
    clocks with a worse readout, and the decider answered a question by not
-   answering it. The round is dots now rather than "round 1/4" in the sub. */
-check('… two instruments behind one strip, and no sub-screen to lose one in',
-  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',') === 'pom,whf' &&
+   answering it. The round is dots now rather than "round 1/4" in the sub.
+
+   4.12 put two back — optimise and data — and neither is a clock the phone
+   already has. The slide is still one screen: OPTIMISE's shelf, run and
+   history are drawn into the same body, so there is still nowhere to navigate
+   to and forget you left something running. */
+check('… four instruments behind one strip, and no sub-screen to lose one in',
+  [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',') === 'pom,whf,opt,dat' &&
   d.querySelectorAll('.ns-tools .scr').length === 1,
   [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(','));
 check('the pomodoro opens on its focus length, read off Config rather than a constant',
@@ -5834,7 +5858,7 @@ check('… and the first write puts the old shape out of the store for good',
    — one line per Config path, which is all a new app owes search. */
 check('TOOLS is findable by name, and so is what it is asked to call a session',
   w.SEARCH.results('tools').some(r => r.kind === 'app' && r.title === 'TOOLS') &&
-  w.SEARCH.results('wim hof').some(r => r.kind === 'content'),
+  w.SEARCH.results('breathing').some(r => r.kind === 'content'),
   w.SEARCH.results('tools').map(r => r.kind + ':' + r.title).join(', ').slice(0, 90));
 check('… and its own store is filed under its own name in the storage report',
   w.localStorage.getItem('tools_v1') !== null &&
@@ -6140,6 +6164,11 @@ check('the rebindable keys are findable by name, like every other dial',
       { from:'09:30', to:'10:30', dur:60, kind:'task', name:'second', slot:'b', done:false },
     ] });
   w.Shell.go('cal');
+  /* Every control this section presses lives behind 4.12's edit switch. Asked
+     for explicitly rather than assumed on from an earlier section, so this
+     block does not depend on the order the harness happens to run in. */
+  const editOn = () => { if (!d.querySelector('.ns-cal .cal-day.editing')) click($('.ns-cal [data-act="edit"]')); };
+  editOn();
   const evs48 = () => (w.CAL.day(iso48) || {}).events || [];
   check('a day can be written for the move to work on',
     evs48().length === 2 && evs48()[0].name === 'first', JSON.stringify(evs48().map(e => e.name)));
@@ -6166,6 +6195,7 @@ check('the rebindable keys are findable by name, like every other dial',
       { from:'09:00', to:'09:30', dur:30, kind:'task',  name:'first', slot:'a' },
       { from:'09:30', to:'10:30', dur:60, kind:'fixed', name:'train', cal:'work' },
     ] });
+  editOn();
   check('a fixed row is never given arrows to move it with',
     d.querySelectorAll('.ns-cal [data-act="mv"]').length === 0,
     [...d.querySelectorAll('.ns-cal [data-act="mv"]')].map(b => b.dataset.i + '>' + b.dataset.j).join(','));
@@ -6186,6 +6216,61 @@ check('the rebindable keys are findable by name, like every other dial',
     evs48().length === 3 && evs48()[2].kind === 'idle' && evs48()[2].dur === 45 &&
     evs48()[2].from === '10:30' && evs48()[2].to === '11:15',
     JSON.stringify(evs48()[2]));
+
+  /* 4.12 — a row's *length*. The row changes and everything after it moves by
+     the same amount, which is the ordinary thing a calendar does; a fixed row
+     is an anchor and stops the shift, which is the whole of why it is one. */
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [
+      { from:'09:00', to:'10:00', dur:60, kind:'task', name:'first',  slot:'a' },
+      { from:'10:00', to:'10:30', dur:30, kind:'task', name:'second', slot:'b' },
+    ] });
+  editOn();
+  const grow = () => [...d.querySelectorAll('.ns-cal [data-act="size"]')].find(b => b.dataset.i === '0' && b.dataset.d === '1');
+  const shrink = () => [...d.querySelectorAll('.ns-cal [data-act="size"]')].find(b => b.dataset.i === '0' && b.dataset.d === '-1');
+  const shape48 = () => evs48().map(e => e.name + ' ' + e.from + '-' + e.to).join('|');
+  check('every movable row carries a longer and a shorter', !!grow() && !!shrink(),
+    [...d.querySelectorAll('.ns-cal [data-act="size"]')].map(b => b.dataset.i + ':' + b.dataset.d).join(','));
+  click(grow());
+  check('longer adds the step and pushes what is after it by the same amount',
+    evs48()[0].dur === 75 && shape48() === 'first 09:00-10:15|second 10:15-10:45', shape48());
+  click(shrink()); click(shrink());
+  check('… and shorter is the same move backwards, step for step',
+    evs48()[0].dur === 45 && shape48() === 'first 09:00-09:45|second 09:45-10:15', shape48());
+  w.Prefs.set('calStep', 30);
+  click(grow());
+  check('… and the step is a setting, not a number in the code',
+    evs48()[0].dur === 75, String(evs48()[0].dur));
+  w.Prefs.reset('calStep');
+
+  /* The anchor. A fixed row does not move, so a row growing into one is
+     refused rather than quietly overrunning it — the same rule the arrows
+     already follow. */
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [
+      { from:'09:00', to:'09:45', dur:45, kind:'task',  name:'first', slot:'a' },
+      { from:'09:45', to:'10:45', dur:60, kind:'fixed', name:'train', cal:'work' },
+    ] });
+  editOn();
+  click(grow());
+  check('a row cannot grow into a fixed one — the anchor keeps its clock',
+    evs48()[0].dur === 45 && evs48()[1].from === '09:45', shape48());
+  check('… and a fixed row is given no length buttons of its own',
+    ![...d.querySelectorAll('.ns-cal [data-act="size"]')].some(b => b.dataset.i === '1'),
+    [...d.querySelectorAll('.ns-cal [data-act="size"]')].map(b => b.dataset.i).join(','));
+
+  /* And the floor: a row of nothing is a row that is not there. */
+  w.CAL.write({ day: iso48, start: '09:00', template: 'test', mode: 'full', notes: [],
+    events: [{ from:'09:00', to:'09:15', dur:15, kind:'task', name:'first', slot:'a' }] });
+  editOn();
+  click(shrink());
+  check('a row cannot be shrunk out of existence — deleting is what that is for',
+    evs48()[0].dur === 15, String(evs48()[0].dur));
+
+  click($('.ns-cal [data-act="edit"]'));
+  check('leaving edit mode takes every reshaping control away again',
+    !d.querySelector('.ns-cal .ev-del, .ns-cal .ev-mv, .ns-cal .ev-szb'),
+    [...d.querySelectorAll('.ns-cal .cal-ev [data-act]')].map(b => b.dataset.act).join(',') || 'none');
   w.Shell.go('tools');
 }
 
@@ -6386,7 +6471,7 @@ check('the rebindable keys are findable by name, like every other dial',
 {
   const toolsJs410 = fs.readFileSync(path.join(ROOT, 'js/tools.js'), 'utf8');
   check('TOOLS listens to Prefs, which is what made its own dial do nothing',
-    /Prefs\.subscribe\(k => \{ if \(k === '\*' \|\| k === 'toolsLayout'\) render\(\); \}\)/.test(toolsJs410),
+    /Prefs\.subscribe\(/.test(toolsJs410) && /'toolsLayout'/.test(toolsJs410),
     'tools.js still only subscribes to Config');
 
   w.Shell.go('tools');
@@ -6481,6 +6566,291 @@ check('the rebindable keys are findable by name, like every other dial',
 
 check('no errors through the whole of 4.5', errors.length === 0, errors.slice(0, 3).join(' | '));
 
+
+
+/* 4.12 — TOOLS grew two instruments, on-tool dials, and a strip you can edit.
+   What is checked here is the part that can go wrong quietly: a dial the
+   instrument does not actually read, a record book keyed on a name rather than
+   an id, and a strip that can be emptied. */
+{
+  w.localStorage.removeItem('tools_v1');
+  w.TOOLS.reload();
+  w.Shell.go('tools');
+  const tlS = () => JSON.parse(w.localStorage.getItem('tools_v1') || '{}');
+  const tabs = () => [...d.querySelectorAll('.ns-tools .tl-tab')].map(b => b.dataset.t).join(',');
+
+  /* The strip is a Prefs list, and it is the visibility *and* the order. */
+  w.Prefs.set('toolsShown', ['whf', 'pom']);
+  check('the strip carries what Prefs says, in the order Prefs says',
+    tabs() === 'whf,pom', tabs());
+  /* The bug this guards: a tool switched off while it was the open one left
+     the body drawing an instrument with no tab to get back to. */
+  w.Prefs.set('toolsShown', ['opt']);
+  check('… and switching off the open instrument falls back to one that is on',
+    tabs() === 'opt' && !!d.querySelector('.ns-tools .tl-lists, .ns-tools .tl-empty'), tabs());
+  w.Prefs.set('toolsShown', []);
+  check('… and it can never be emptied — a strip with nothing on it is a dead screen',
+    w.Prefs.get('toolsShown').length > 0, JSON.stringify(w.Prefs.get('toolsShown')));
+  w.Prefs.reset('toolsShown');
+
+  /* The on-tool dials. Their whole point is that the instrument reads them
+     live: a slider that only writes to storage is the 4.10 bug again. */
+  const pips = () => d.querySelectorAll('.ns-tools .tl-pips i').length;
+  click($('.ns-tools .tl-dials-tog'));
+  const rounds = $('.ns-tools [data-dial="pom-rounds"]');
+  check('the pomodoro carries its three dials behind one word',
+    d.querySelectorAll('.ns-tools .tl-dial').length === 3 && !!rounds,
+    String(d.querySelectorAll('.ns-tools .tl-dial').length));
+  rounds.value = '2';
+  rounds.dispatchEvent(new w.Event('input', { bubbles: true }));
+  check('… a dial writes itself down', tlS().pom.dial.rounds === 2, JSON.stringify(tlS().pom.dial));
+  check('… and the instrument reads it rather than the settings default', pips() === 2, String(pips()));
+  click($('.ns-tools [data-act="dials-reset"]'));
+  check('… and it goes back to the default rather than to a number of its own',
+    tlS().pom.dial === null && pips() === w.Config.get('tools.pomodoro').rounds, String(pips()));
+
+  /* Every instrument writes its finished thing down now, not only the breathing
+     round. A focus round that ends has to reach LOG's day. */
+  const logKey = 'log_' + today;
+  w.localStorage.removeItem(logKey);
+  w.Config.set('tools.pomodoro', { focus: 25, short: 5, long: 15, rounds: 4,
+                                   autoStart: false, label: 'deep work' });
+  click($('.ns-tools [data-act="pom-toggle"]'));
+  const ended = tlS(); ended.pom.endsAt = w.Date.now() - 1;
+  w.localStorage.setItem('tools_v1', JSON.stringify(ended));
+  w.TOOLS.reload();
+  await tick(500);                       // the 200ms tick is what finishes a phase
+  check('a finished focus round is written into the day, the way a session is',
+    ((JSON.parse(w.localStorage.getItem(logKey) || '{"e":{}}').e.blocks) || []).includes('deep work'),
+    w.localStorage.getItem(logKey) || 'no day written');
+  check('… and it leaves a row in the history beside the count it already kept',
+    (tlS().pom.log[today] || []).length === 1 && tlS().pom.days[today] === 1,
+    JSON.stringify(tlS().pom.log));
+  w.TOOLS.resetAll(); settle();
+
+  /* OPTIMISE. The record book *is* the instrument: a run that beats a split has
+     to be told from one that did not, and both have to survive a rename of the
+     list they were posted on — which is why they are filed under an id. */
+  w.Config.set('tools.optimise', [{ id:'morning', name:'morning', color:'#e8a33d',
+    colorMode:'preset', icon:'sun', steps:['walk','gym'] }]);
+  w.Prefs.set('toolsShown', ['opt']);
+  const listSub = () => { const el = $('.ns-tools .tl-list-nm em'); return el ? el.textContent : 'no row'; };
+  check('a list is a row with its steps and a start on it',
+    d.querySelectorAll('.ns-tools .tl-list').length === 1 && /2 steps/.test(listSub()), listSub());
+
+  /* A run is driven by writing the clock rather than waiting on it: what is
+     under test is the arithmetic on the splits, not setInterval. */
+  const setRun = run => {
+    const s = tlS(); s.opt.run = run;
+    w.localStorage.setItem('tools_v1', JSON.stringify(s));
+    w.TOOLS.reload();
+  };
+  const runOnce = (a, b) => {
+    click($('.ns-tools [data-act="opt-start"]'));
+    setRun(Object.assign(tlS().opt.run, { elapsed: a, running: false, startedAt: 0 }));
+    click($('.ns-tools [data-act="opt-step"]'));            // first split lands at a
+    setRun(Object.assign(tlS().opt.run, { elapsed: a + b, running: false, startedAt: 0 }));
+    click($('.ns-tools [data-act="opt-step"]'));            // the last step finishes the run
+  };
+  runOnce(20000, 30000);
+  check('the last step finishes the run and files it under today',
+    (tlS().opt.days[today] || []).length === 1 && tlS().opt.run === null,
+    JSON.stringify(tlS().opt.days));
+  check('… and the record book takes the total and every split',
+    tlS().opt.best.total.morning === 50000 &&
+    tlS().opt.best.split['morning 0'] === 20000 &&
+    tlS().opt.best.split['morning 1'] === 30000, JSON.stringify(tlS().opt.best));
+
+  /* The comparison is the instrument: a slower run must not overwrite a record,
+     and a faster split must take one even where the total did not. */
+  runOnce(15000, 45000);
+  check('a slower total leaves the record alone',
+    tlS().opt.best.total.morning === 50000, String(tlS().opt.best.total.morning));
+  check('… while a faster split still takes its own record',
+    tlS().opt.best.split['morning 0'] === 15000 &&
+    tlS().opt.best.split['morning 1'] === 30000, JSON.stringify(tlS().opt.best.split));
+
+  /* The one that would be silent: a rename is an edit to the name, and the
+     times are filed under the id, so they have to still be there. */
+  w.Config.set('tools.optimise', [{ id:'morning', name:'the morning', color:'#e8a33d',
+    colorMode:'preset', icon:'sun', steps:['walk','gym'] }]);
+  check('renaming a list keeps its record — the times are filed under its id',
+    tlS().opt.best.total.morning === 50000 && /best 0:50/.test(listSub()), listSub());
+
+  click($('.ns-tools [data-act="opt-hist"]'));
+  const rows = () => d.querySelectorAll('.ns-tools .tl-hrow').length;
+  check('the history lists both runs', rows() === 2, String(rows()));
+  click($('.ns-tools [data-act="opt-sort"][data-v="fast"]'));
+  check('… and sorting by fastest puts the record at the top',
+    /0:50/.test(d.querySelector('.ns-tools .tl-hrow .hr-t').textContent),
+    d.querySelector('.ns-tools .tl-hrow .hr-t').textContent);
+  click($('.ns-tools [data-act="opt-records"]'));
+  check('… and records only shows the one that is one', rows() === 1, String(rows()));
+
+  /* DATA reads the other three rather than keeping anything of its own. */
+  w.Prefs.set('toolsShown', ['dat']);
+  check('DATA draws what the other instruments wrote down',
+    d.querySelectorAll('.ns-tools .tl-tile').length >= 1 && !!d.querySelector('.ns-tools .tl-chart svg'),
+    String(d.querySelectorAll('.ns-tools .tl-tile').length) + ' tiles');
+  click($('.ns-tools [data-act="dat-range"][data-v="week"]'));
+  check('… and its range is a dial it remembers', tlS().dat.range === 'week', String(tlS().dat.range));
+
+  /* An optimise list and its steps are findable, the way CREATE's stages are. */
+  check('a list and its steps are findable by name',
+    w.SEARCH.results('the morning').some(r => r.kind === 'content') &&
+    w.SEARCH.results('gym').some(r => r.kind === 'content'),
+    w.SEARCH.results('gym').map(r => r.kind + ':' + r.title).join(', ').slice(0, 80));
+
+  w.Prefs.reset('toolsShown');
+  w.Config.reset('tools.optimise');
+  w.Config.reset('tools.pomodoro');
+  w.TOOLS.resetAll(); settle();
+  w.Shell.go('do');
+}
+
+check('no errors through the whole of 4.12', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+
+
+/* 4.12 — CREATE's practice counters.
+   The hours that are not about any one thing. What is checked is the part that
+   would be wrong silently: several taps in a minute have to be one session, or
+   the session count stops meaning anything at all. */
+{
+  w.localStorage.removeItem('create_v1');
+  w.CREATE.reload();
+  w.Shell.go('create');
+  /* The shelf, from the top and unnarrowed. `go` renders whichever screen was
+     last open, so an earlier section leaving CREATE on its session log is what
+     this asks past — and the strip is what the counters follow. */
+  w.CREATE.go('home');
+  const allChip = $('.ns-create .cr-tab[data-a="all"]');
+  if (allChip) click(allChip);
+  const prac = () => w.CREATE.sessions().filter(e => e.practice);
+  const cards = () => [...d.querySelectorAll('.ns-create .cr-pcard')];
+  const areas412 = w.CREATE.areas();
+
+  check('the shelf opens with a counter for every area',
+    cards().length === areas412.length && !!$('.ns-create .cr-range'),
+    String(cards().length) + ' of ' + areas412.length);
+  check('… each with a +30 and a +60 under it, and nothing logged yet',
+    d.querySelectorAll('.ns-create .cr-pb').length === areas412.length * 2 && prac().length === 0,
+    String(d.querySelectorAll('.ns-create .cr-pb').length));
+
+  const first = areas412[0].key;
+  const btn = (a, m) => $(`.ns-create [data-act="practice-add"][data-a="${a}"][data-m="${m}"]`);
+  click(btn(first, 30));
+  check('a tap logs half an hour of practice against that area',
+    prac().length === 1 && prac()[0].hours === 0.5 && prac()[0].area === first &&
+    prac()[0].work === null && prac()[0].date === today,
+    JSON.stringify(prac()[0]));
+  /* The rule the whole thing turns on: +30 twice because it was an hour is one
+     session, not two. A log that said two would make the session count a lie. */
+  click(btn(first, 30));
+  check('… and a second tap inside the minute is more of that session, not a new one',
+    prac().length === 1 && prac()[0].hours === 1, JSON.stringify(prac()));
+  click(btn(first, 60));
+  check('… however many land in it', prac().length === 1 && prac()[0].hours === 2,
+    JSON.stringify(prac()));
+  /* Aged out of the window by hand: a minute later is a different session. */
+  /* Aged out of the grouping window by hand — sessions() hands back the live
+     rows, so this is the real record moving back in time. */
+  prac()[0].at = w.Date.now() - 90000;
+  click(btn(first, 30));
+  check('… while one that lands after the minute starts a session of its own',
+    prac().length === 2, JSON.stringify(prac().map(e => e.hours)));
+
+  check('the counter shows the total, not the session count',
+    /2h30|2\.5h/.test($('.ns-create .cr-pcard .cr-pv b').textContent),
+    $('.ns-create .cr-pcard .cr-pv b').textContent);
+
+  /* The window is a word in the title line, and tapping it cycles. */
+  check('the window starts on the week', /this week/.test($('.ns-create .cr-range').textContent),
+    $('.ns-create .cr-range').textContent);
+  click($('.ns-create .cr-range'));
+  check('… and tapping it moves to the month', /this month/.test($('.ns-create .cr-range').textContent),
+    $('.ns-create .cr-range').textContent);
+  click($('.ns-create .cr-range'));
+  click($('.ns-create .cr-range'));
+  check('… and it comes back round to the week rather than running out',
+    /this week/.test($('.ns-create .cr-range').textContent), $('.ns-create .cr-range').textContent);
+
+  /* The strip filters the section, because the section is part of the shelf. */
+  if (areas412.length > 1) {
+    const chip = $(`.ns-create .cr-tab[data-a="${first}"]`);
+    if (chip) click(chip);
+    check('narrowing to one area leaves that area’s counter and no other',
+      cards().length === 1, String(cards().length));
+    const all = $('.ns-create .cr-tab[data-a="all"]');
+    if (all) click(all);
+    check('… and "all" brings them all back', cards().length === areas412.length, String(cards().length));
+  }
+
+  /* Switched off in settings. The hours stay — the list says which areas get a
+     counter, never which sessions exist. */
+  w.SET.panel('create');
+  const sw = $(`.ns-create [data-act="practice-show"][data-a="${first}"]`);
+  check('settings offers a switch per area', !!sw && sw.classList.contains('on'),
+    [...d.querySelectorAll('.ns-create [data-act="practice-show"]')].map(b => b.dataset.a).join(','));
+  click(sw);
+  w.Shell.go('create');
+  check('switching an area off takes its counter away and keeps its hours',
+    cards().length === areas412.length - 1 && prac().length === 2,
+    String(cards().length) + ' cards, ' + prac().length + ' sessions');
+  w.SET.panel('create');
+  click($(`.ns-create [data-act="practice-show"][data-a="${first}"]`));
+  w.Shell.go('create');
+  check('… and switching it back on finds the total exactly where it was left',
+    cards().length === areas412.length &&
+    /2h30|2\.5h/.test($('.ns-create .cr-pcard .cr-pv b').textContent),
+    $('.ns-create .cr-pcard .cr-pv b').textContent);
+
+  /* Practice is time at the desk like any other, so the week's hours count it —
+     it is a session with no work, not a second kind of record. */
+  check('practice reaches the week the shelf reports, like every other session',
+    /2h30|2\.5h|3h/.test($('.ns-create #cr-week .cr-stat .v').textContent),
+    $('.ns-create #cr-week .cr-stat .v').textContent);
+
+  w.localStorage.removeItem('create_v1');
+  w.CREATE.reload();
+  w.Shell.go('do');
+}
+
+check('no errors through CREATE 4.12', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+
+/* 4.12 — the band's wordmark can wear the app's own tab glyph. */
+{
+  const shellCss412 = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+  w.Shell.go('log');
+  const mark = () => d.querySelector('.ns-log .h-top .h-logo-ic');
+  check('every band carries the icon, injected once by the shell rather than typed into eleven headers',
+    !!mark() && mark().querySelector('use').getAttribute('href') === '#tab-log' &&
+    d.querySelectorAll('#track .view .h-top .h-logo-ic').length >= 10,
+    String(d.querySelectorAll('#track .view .h-top .h-logo-ic').length) + ' bands');
+  check('… and settings takes the short sprite name its tab button does',
+    d.querySelector('#view-settings .h-logo-ic use') &&
+    d.querySelector('#view-settings .h-logo-ic use').getAttribute('href') === '#tab-set',
+    d.querySelector('#view-settings .h-logo-ic use')
+      ? d.querySelector('#view-settings .h-logo-ic use').getAttribute('href') : 'none');
+  check('it is the name alone by default, which is what every version before this was',
+    d.documentElement.dataset.bandMark === 'name' &&
+    /\[data-band-mark="both"\][^{]*\.h-logo-ic,/.test(shellCss412),
+    d.documentElement.dataset.bandMark);
+  w.Prefs.set('bandMark', 'icon');
+  check('… and the choice is one attribute on the root, so switching costs no redraw',
+    d.documentElement.dataset.bandMark === 'icon' &&
+    /\[data-band-mark="icon"\] \.view > \.h-top \.h-logo\{font-size:0/.test(shellCss412),
+    d.documentElement.dataset.bandMark);
+  /* It is a title, so it wears what a title wears — the same hard offset, in
+     the drawing's own way. */
+  check('the icon carries the title shadow, as a drop-shadow rather than a text one',
+    /\.h-logo-ic\{[\s\S]*?filter:drop-shadow\(var\(--title-sh-x\) 0 0 var\(--title-sh-c\)\)/.test(shellCss412));
+  check('… and it is sized off the title, not off a pixel of its own',
+    /\.h-logo-ic\{[\s\S]*?width:calc\(var\(--title-px\)/.test(shellCss412));
+  w.Prefs.reset('bandMark');
+  w.Shell.go('do');
+}
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

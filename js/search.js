@@ -58,6 +58,14 @@ const CONTENT = [
     rows: v => (v && v.project) ? [{ name: v.project, sub:'the curate tab · todoist project' }] : [] },
   { path:'tools.wimhof',       app:'tools',
     rows: v => (v && v.label) ? [{ name: v.label, sub:'the breathing round' }] : [] },
+  { path:'tools.pomodoro',     app:'tools',
+    rows: v => (v && v.label) ? [{ name: v.label, sub:'the pomodoro' }] : [] },
+  /* A list and every step in it. A step is ambiguous across lists — two of
+     them may start with `shower` — so each row says whose it is, the way
+     CREATE's stages do. */
+  { path:'tools.optimise',     app:'tools',
+    rows: v => (Array.isArray(v) ? v : []).flatMap(l => [{ name: l.name, sub:'optimise list' }]
+      .concat((l.steps || []).map(s => ({ name: s, sub: 'step · ' + l.name })))) },
 ];
 
 function contentHits(q) {

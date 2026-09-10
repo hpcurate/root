@@ -370,6 +370,74 @@ function moveEvent(i, j) {
   Prefs.tap();
 }
 
+
+/* EDIT MODE
+   Everything that reshapes the day — the arrows, the delete, the two length
+   buttons — is behind one switch. Reading a schedule and editing one are
+   different jobs, and a row carrying four controls is a row you tick by
+   accident. Off is the reading day, which is what the day mostly is.
+
+   It is deliberately *not* a preference: it is where you are, not how you like
+   things, and a day left in edit mode a week ago should not still be in it. */
+let editMode = false;
+const calStep = () => Math.max(5, Math.min(60, Math.round(+Prefs.get('calStep') || 15)));
+function toggleEdit() {
+  editMode = !editMode;
+  render();
+  Prefs.tap();
+  Shell.toast(editMode ? 'edit mode · move and re-time rows' : 'edit mode off');
+}
+
+/* Changing a row's length
+   The row grows or shrinks by the step, and every row after it moves by the
+   same amount — the ordinary thing a calendar does, and the thing that keeps
+   the day's shape while one part of it changes.
+
+   A `fixed` row is an anchor and does not move, which is the whole of why it
+   is called one: a train at six is at six. So the shift stops at the first one
+   after the row, and if growing would push into it the change is refused and
+   says so. Shrinking never can, since it only ever moves rows earlier — but it
+   still stops at the anchor, or a fixed row would drift away from its clock.
+
+   The floor is one step: a row of zero minutes is a row that is not there, and
+   deleting is what that is for. */
+function resizeEvent(i, dir) {
+  const rec = sel && DB.days[sel];
+  const evs = rec && rec.events;
+  const idx = +i;
+  const e = evs && evs[idx];
+  if (!e) return;
+  if (e.kind === 'fixed') { Shell.toast('a fixed row keeps its own clock'); return; }
+  const step = calStep() * (dir < 0 ? -1 : 1);
+  const dur = +e.dur || 0;
+  if (dur + step < calStep()) { Shell.toast('delete it instead — it has nothing left to give'); return; }
+
+  /* How far the rows after it may move: up to the first anchor, and no further
+     than the room in front of that anchor. */
+  const after = evs.slice(idx + 1);
+  const anchorAt = after.findIndex(x => x.kind === 'fixed');
+  if (step > 0 && anchorAt >= 0) {
+    const anchor = after[anchorAt];
+    const last = anchorAt === 0 ? e : after[anchorAt - 1];
+    const room = (minsOf(anchor.from) || 0) - (minsOf(last.to) || 0);
+    if (room < step) { Shell.toast(`no room before “${anchor.name}”`); return; }
+  }
+
+  const at = minsOf(e.from);
+  if (at == null) return;
+  e.dur = dur + step;
+  e.to = hhmm(at + e.dur);
+  e.over = at + e.dur >= 1440;
+  /* Only the rows between here and the anchor. `slice(0, anchorAt)` is the
+     whole tail when there is no anchor, because findIndex answered -1 and
+     slice(0, -1) would silently drop the last row — so it is spelled out. */
+  (anchorAt < 0 ? after : after.slice(0, anchorAt)).forEach(x => shiftEvent(x, step));
+
+  rec.localEdit = Date.now();
+  save(); render(); renderSettings();
+  Shell.toast(`${e.name} · ${e.dur} min`);
+}
+
 /* Adding empty time
    An hour that is yours rather than the day's. It goes on the end, where the
    only thing it can push is nothing, and is then moved into place with the
@@ -612,7 +680,7 @@ function dayHTML() {
   ].filter(Boolean).join(' ');
   /* Which completions belong to a row on this day, and which are floating. */
   const { byRow, used } = stampsFor(evs);
-  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }, vi) => {
+  return dayHead(rec) + schedHTML(rec) + `<div class="cal-day${cls ? ' ' + cls : ''}${editMode ? ' editing' : ''}" style="--cal-hour:${per}px">${evs.map(({ e, i }, vi) => {
     const h = Math.max(18, Math.round((e.dur / 60) * per));
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
                 : e.kind === 'fixed' ? fixedColor(e.cal) : null;
@@ -630,9 +698,18 @@ function dayHTML() {
        with a role, and the row's handler is the one delegated listener either
        way: `data-act` on the span wins over the row's, because the listener
        reads the closest one. An idle row has nothing to delete. */
-    const del = e.kind === 'idle' ? '' :
+    const del = (e.kind === 'idle' || !editMode) ? '' :
       `<span class="ev-del" role="button" tabindex="0" data-act="del" data-i="${i}"
              aria-label="delete ${esc(e.name)}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2L8 8M8 2L2 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>`;
+    /* Longer and shorter, by the step in settings. Spans with a role for the
+       same reason the delete and the arrows are: they sit inside a row that is
+       itself a button on a tickable row. A fixed row keeps its own clock and
+       gets neither. */
+    const size = (editMode && e.kind !== 'fixed')
+      ? `<span class="ev-sz">${[[-1,'shorter','M2 5h6'],[1,'longer','M5 2v6M2 5h6']].map(([d, label, path]) =>
+          `<span class="ev-szb" role="button" tabindex="0" data-act="size" data-i="${i}" data-d="${d}"
+                 aria-label="${esc(e.name)} ${label} by ${calStep()} minutes"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="${path}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>`).join('')}</span>`
+      : '';
     /* Up and down, on every row that has somewhere to go. Spans with a role
        for the same reason the delete is one — they sit inside a row that is
        itself a button on a tickable row, and a nested <button> is invalid
@@ -653,7 +730,7 @@ function dayHTML() {
                aria-label="move ${esc(e.name)} ${label}"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="${
           dir < 0 ? 'M2 6L5 3L8 6' : 'M2 4L5 7L8 4'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
       : '';
-    const mv = (canUp || canDn)
+    const mv = (editMode && (canUp || canDn))
       ? `<span class="ev-mvs">${arrow(-1, canUp, up, 'earlier')}${arrow(1, canDn, dn, 'later')}</span>` : '';
     /* The minute this row was ticked, if it was — written into the row rather
        than floated over it. See stampsFor(). */
@@ -666,7 +743,7 @@ function dayHTML() {
         ${meta || at ? `<span class="ev-meta">${meta ? `<em>${esc(meta)}</em>` : ''}${
           at ? `<b class="ev-done-at">${esc(at)}</b>` : ''}</span>` : ''}
       </span>
-      ${mv}${del}
+      ${size}${mv}${del}
       ${tickable(e) ? `<span class="ev-check"><svg viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ''}
     </${tag}>`;
   }).join('')}${nowY == null ? '' :
@@ -787,6 +864,11 @@ function dayHead(rec) {
     <div class="ch-acts">
       ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">+ do</button>' : ''}
       <button class="ch-act" data-act="gap">+ gap</button>
+      <!-- The switch every reshaping control lives behind. It reads as pressed
+           while it is on, because in edit mode the rows look different and the
+           button is the only thing that explains why. -->
+      <button class="ch-act ch-edit${editMode ? ' on' : ''}" data-act="edit"
+              aria-pressed="${editMode}">${editMode ? 'done' : 'edit'}</button>
       <button class="ch-clear" data-act="clear-day">clear</button>
     </div>
   </div>`;
@@ -996,6 +1078,8 @@ document.addEventListener('click', e => {
      a button, so their click has to stop here or moving a row also ticks it. */
   if (act === 'mv')          { e.stopPropagation(); e.preventDefault(); moveEvent(t.dataset.i, t.dataset.j); return; }
   if (act === 'gap')         { addGap(); return; }
+  if (act === 'edit')        { toggleEdit(); return; }
+  if (act === 'size')        { resizeEvent(t.dataset.i, +t.dataset.d); return; }
   if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
   if (act === 'start-day')   { startDay(); return; }
   if (act === 'sched')       { openSched(); return; }

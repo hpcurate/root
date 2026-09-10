@@ -99,7 +99,10 @@ const colorOf = st => (st && st.color) || '#7a8699';
    the tab draws instantly and refetches in the background. Nothing in it is
    ever authored here and losing it costs one network call. */
 const blank = () => ({ v:2, works:[], sessions:[], curate:{ fetched:0, project:'', color:'#7a8699', groups:[] },
-                       settings:{ sort:null, showDone:false, area:'all' } });
+                       settings:{ sort:null, showDone:false, area:'all',
+                                  /* the practice counters: what window they are
+                                     totalling, and which areas are off them */
+                                  practiceRange:'week', practiceOff:[] } });
 let DB = blank();
 let uid = 0;
 const newId = p => p + '_' + Date.now().toString(36) + '_' + (uid++).toString(36);
@@ -158,10 +161,22 @@ function normalise(raw) {
       date: e.date || Shell.today(),
       hours: Math.max(0, +e.hours || 0),
       what: String(e.what == null ? '' : e.what),
+      /* 4.12. A practice session is one the counters wrote rather than the
+         form: it has no work and no description, and its hours arrive half an
+         hour at a time. `at` is the wall clock of the last tap, which is what
+         lets several taps in a row be one session instead of four. Both are
+         only written where they are true, so a record from before 4.12 stays
+         the size it was. */
+      ...(e.practice ? { practice: true, at: Math.max(0, +e.at || 0) } : {}),
     };
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-  db.settings = Object.assign({ sort:null, showDone:false, area:'all' }, db.settings || {});
+  db.settings = Object.assign({ sort:null, showDone:false, area:'all',
+                                practiceRange:'week', practiceOff:[] }, db.settings || {});
+  db.settings.practiceRange = ['week','month','year'].includes(db.settings.practiceRange)
+    ? db.settings.practiceRange : 'week';
+  db.settings.practiceOff = Array.isArray(db.settings.practiceOff)
+    ? db.settings.practiceOff.map(String).slice(0, 24) : [];
   /* The curate cache is rebuilt from its known keys, never trusted
      It is the only thing in this record that did not come from the app itself,
      and it is the only thing whose *row shape* has changed between versions —
@@ -442,11 +457,13 @@ function renderHome() {
      else's records, not a shelf, and none of the shelf's furniture — the
      count, the stage strips, the sort chips, the add buttons, the week —
      means anything about it. */
-  const shelf = ['cr-stages','cr-sec-live','cr-sorts','cr-list','cr-add','cr-released','cr-week'];
+  const shelf = ['cr-practice','cr-stages','cr-sec-live','cr-sorts','cr-list','cr-add','cr-released','cr-week'];
   shelf.forEach(id => { const el = $id(id); if (el) el.classList.toggle('hidden', onCurate()); });
   const curBox = $id('cr-curate');
   if (curBox) curBox.classList.toggle('hidden', !onCurate());
   if (onCurate()) { renderCurate(); return; }
+
+  renderPractice();
 
   const live = inProgress(), done = finished();
 
@@ -524,6 +541,137 @@ function renderHome() {
         <span class="r">${hrs(r.h)}</span>
       </div>`).join('')}</div>` : ''}
     <button class="cr-act" data-act="open-sessions">the whole session log →</button>`;
+}
+
+
+/* PRACTICE
+   The hours that are not *about* anything. A song has a name and a stage and a
+   session log; practice has none of those — it is the scale you ran for half an
+   hour, and the only question worth asking of it is how much of it there has
+   been. So it is a counter rather than a form: one big block per area, two
+   buttons under it, and no screen to go to.
+
+   The window it totals — week, month, year — is a word in the section's own
+   title line rather than a row of chips: there are three of them and they are
+   in a fixed order, so tapping through is the whole control.
+
+   Several taps in a row are one session. Hitting +30 twice because it was an
+   hour is not two sessions, and a log that says it was would make the session
+   count worthless. GROUP_MS is the window that decides. */
+const PRACTICE_RANGES = ['week', 'month', 'year'];
+const PRACTICE_DAYS   = { week: 7, month: 30, year: 365 };
+const GROUP_MS = 60000;
+
+const practiceRange = () => PRACTICE_RANGES.includes(DB.settings.practiceRange)
+  ? DB.settings.practiceRange : 'week';
+const practiceOff = () => Array.isArray(DB.settings.practiceOff) ? DB.settings.practiceOff : [];
+/* Which areas the section draws: those not switched off, narrowed by the strip
+   the same way everything else on this screen is. `all` shows the lot, area one
+   shows area one — the section is part of the shelf, not a thing beside it. */
+const practiceAreas = () => areasShown().filter(a => !practiceOff().includes(a.key));
+
+/* The first day inside the window, as an ISO string. */
+function practiceFrom() {
+  const days = PRACTICE_DAYS[practiceRange()] || 7;
+  const from = new Date(D(Shell.today()).getTime() - (days - 1) * 864e5);
+  const pad = n => String(n).padStart(2, '0');
+  return from.getFullYear() + '-' + pad(from.getMonth() + 1) + '-' + pad(from.getDate());
+}
+function practiceHours(areaKey) {
+  const from = practiceFrom();
+  return DB.sessions.filter(e => e.practice && e.area === areaKey && e.date >= from)
+                    .reduce((a, b) => a + b.hours, 0);
+}
+function practiceCount(areaKey) {
+  const from = practiceFrom();
+  return DB.sessions.filter(e => e.practice && e.area === areaKey && e.date >= from).length;
+}
+
+/* Adding time
+   The one rule worth writing down: if the newest practice session for this area
+   is today and landed inside the last minute, this is more of *that* session
+   rather than a new one. Anything else starts one. */
+function addPractice(areaKey, mins) {
+  const a = AREAS[areaIx(areaKey)];
+  const h = Math.max(0, +mins || 0) / 60;
+  if (!h) return;
+  const now = Date.now();
+  const open = DB.sessions.find(e => e.practice && e.area === a.key &&
+                                     e.date === Shell.today() && now - (+e.at || 0) < GROUP_MS);
+  if (open) { open.hours += h; open.at = now; }
+  else DB.sessions.unshift({ id: newId('se'), work: null, area: a.key, date: Shell.today(),
+                             hours: h, what: '', practice: true, at: now });
+  save();
+  /* The whole screen, not just the counters. Practice is time at the desk like
+     any other, so the week's hours under the shelf change with it — repainting
+     only the counter left two numbers on one page disagreeing about the same
+     afternoon, which is worse than either of them being wrong. */
+  render();
+  toast('+' + Math.round(mins) + 'm ' + a.label + (open ? ' · same session' : ''));
+}
+
+/* An area switched off keeps every practice hour it has — the list is what the
+   *counters* show, never what the sessions are. Turning one back on finds its
+   total exactly where it was left. */
+function togglePractice(areaKey) {
+  const a = AREAS[areaIx(areaKey)];
+  const off = practiceOff();
+  const i = off.indexOf(a.key);
+  DB.settings.practiceOff = i < 0 ? off.concat([a.key]) : off.filter(k => k !== a.key);
+  save();
+  renderPractice(); renderSettings();
+}
+
+function cyclePractice() {
+  const i = PRACTICE_RANGES.indexOf(practiceRange());
+  DB.settings.practiceRange = PRACTICE_RANGES[(i + 1) % PRACTICE_RANGES.length];
+  save();
+  /* Only the counters: the window is this section's own, and the week under
+     the shelf is a different question with a different dial. */
+  renderPractice();
+}
+
+/* The counters
+   One big block per area, its own colour, the hours in it very large — this is
+   the number the section exists for, so it is the biggest thing on it and it is
+   set in the title face. The two buttons under it are half its height and set
+   in the mono, because they are controls and not readings. */
+function renderPractice() {
+  const box = $id('cr-practice');
+  if (!box) return;
+  const list = practiceAreas();
+  /* Nothing to count for, or a screen that is not the shelf: the section is
+     simply not there. An empty box with a title on it is furniture. */
+  if (!list.length || onCurate()) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+
+  const range = practiceRange();
+  const total = list.reduce((a, x) => a + practiceHours(x.key), 0);
+  const most  = list.reduce((m, x) => Math.max(m, practiceHours(x.key)), 0);
+
+  box.innerHTML = `
+    <div class="cr-sec">
+      <span>Practice</span>
+      <button class="cr-range" data-act="practice-range" aria-label="change the window">
+        this ${esc(range)}<i></i></button>
+    </div>
+    <div class="cr-prac">${list.map(a => {
+      const h = practiceHours(a.key);
+      const n = practiceCount(a.key);
+      return `<div class="cr-pcard" style="--ar-c:${esc(a.color)}">
+        <div class="cr-pv" data-v="${esc(hrs(h))}">
+          <b>${esc(hrs(h))}</b>
+          <span>${esc(a.label)}</span>
+          <em>${n ? n + ' session' + (n === 1 ? '' : 's') : 'nothing yet'}</em>
+          <i class="cr-prail"><u style="width:${most ? Math.round(h / most * 100) : 0}%"></u></i>
+        </div>
+        <div class="cr-pbtns">
+          <button class="cr-pb" data-act="practice-add" data-a="${esc(a.key)}" data-m="30">+30</button>
+          <button class="cr-pb" data-act="practice-add" data-a="${esc(a.key)}" data-m="60">+60</button>
+        </div>
+      </div>`;
+    }).join('')}</div>
+    ${list.length > 1 && total ? `<div class="cr-ptotal">${esc(hrs(total))} this ${esc(range)}</div>` : ''}`;
 }
 
 /* The band
@@ -1140,6 +1288,9 @@ document.addEventListener('click', ev => {
   if (act === 'stage')         { setStage(t.dataset.k); return; }
   if (act === 'tick')          { tick(t.dataset.i); return; }
   if (act === 'log')           { logSession(); return; }
+  if (act === 'practice-range')  { cyclePractice(); return; }
+  if (act === 'practice-add')    { addPractice(t.dataset.a, +t.dataset.m); return; }
+  if (act === 'practice-show')   { togglePractice(t.dataset.a); return; }
   if (act === 'del-session')   { delSession(t.dataset.e); return; }
   if (act === 'delete')        { deleteWork(); return; }
   if (act === 'kind') {
@@ -1216,6 +1367,20 @@ function renderSettings() {
   const lc = document.querySelector('.ns-create #cr-set-labelcolors');
   if (lc) { lc.classList.toggle('on', CURATE.labelColors);
             lc.setAttribute('aria-checked', String(CURATE.labelColors)); }
+
+  /* Which areas carry a practice counter. A row per area with a switch, drawn
+     here rather than declared in the markup because the areas themselves are
+     Config and can be renamed, added to or deleted at any time. */
+  const pr = document.querySelector('.ns-create #cr-set-practice');
+  if (pr) pr.innerHTML = AREAS.map(a => {
+    const on = !practiceOff().includes(a.key);
+    return `<div class="setting-row">
+      <span class="setting-lbl" style="--ar-c:${esc(a.color)}">${esc(a.label)}<small>${
+        esc(hrs(practiceHours(a.key)))} this ${esc(practiceRange())}</small></span>
+      <button class="tog${on ? ' on' : ''}" data-act="practice-show" data-a="${esc(a.key)}"
+              role="switch" aria-checked="${on}" aria-label="practice counter for ${esc(a.label)}"></button>
+    </div>`;
+  }).join('');
 
   const st = document.querySelector('.ns-create #cr-status');
   if (st) {

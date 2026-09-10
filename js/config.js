@@ -347,8 +347,26 @@ const DEFAULTS = {
       pace: 2.2,
       recovery: 15,
       chime: true,
-      label: 'wim hof',
+      /* 4.12 renamed the instrument to "breathing" — the method is Wim Hof's
+         but the tool is a breathing round, and that is what the strip and the
+         written-down session should say. The *key* stays `wimhof`: it is a
+         storage path and ROOT.md §5 does not rename those for a word. */
+      label: 'breathing',
     },
+    /* OPTIMISE
+       Named lists of steps, each run against the clock. A list is content in
+       the plainest sense — it is what you do in the morning, written down —
+       so it lives here and travels with the content export.
+
+       `color` reads with `colorMode`: `accent` and `gradient` take the app's
+       own accent and ignore the hex, `custom` uses it, `preset` uses it too
+       but the editor offers a palette rather than a picker. `icon` is a key
+       into TOOLS' own twenty, not a sprite id — these are drawn inline
+       because the sprite sheet is the shell's and this is one tool's set. */
+    optimise: [
+      { id:'morning', name:'morning routine', color:'#e8a33d', colorMode:'preset',
+        icon:'sun', steps:['walk kamo','gym','shower','breakfast'] },
+    ],
   },
 
   /* STORE */

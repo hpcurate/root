@@ -331,3 +331,39 @@ body:has(#nav.chrome-off) .cal-steps,
   padding:calc(9px * var(--dens)) calc(12px * var(--dens));border-radius:var(--r1);
   border:var(--bw) solid var(--bd);color:var(--tx-2);margin-bottom:calc(10px * var(--dens))}
 .ns-cal .settings-status.ok{color:var(--gr);border-color:color-mix(in srgb,var(--gr) 40%,var(--bd))}
+
+
+/* ── EDIT MODE ───────────────────────────────────────────────────────────────
+   Reading a schedule and editing one are different jobs. Off, a row is a name,
+   a clock and — where it can be ticked — a tick; every reshaping control is
+   simply absent, so there is nothing to catch a thumb against. On, the three
+   of them appear and the day says so.
+
+   The rows are not restyled beyond that: what edit mode changes is what a row
+   *carries*, not what it looks like, so the day you are editing is still
+   recognisably the day you were reading. */
+.ns-cal .ch-edit.on{background:var(--y);border-color:var(--y);color:var(--on-y)}
+
+/* longer and shorter, stacked the way the move arrows are and sitting next to
+   them — two pairs of small controls in one place rather than four scattered */
+.ns-cal .ev-sz{flex:0 0 auto;align-self:center;display:flex;flex-direction:column;
+  margin-right:2px}
+.ns-cal .ev-szb{height:14px;width:22px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--mu);border-radius:var(--r1);
+  transition:color .15s ease,background .15s ease}
+.ns-cal .ev-szb svg{width:10px;height:10px;display:block}
+.ns-cal .ev-szb:active{color:var(--y);background:var(--press)}
+.ns-cal .cal-ev.done .ev-szb{color:var(--bd-2)}
+
+/* A row in edit mode grows and shrinks as its length changes, and the height is
+   the only thing on the page that says how long it is — so it is worth
+   animating. Off in reduced motion, where a row jumping to its new size is the
+   clearer of the two anyway. */
+.ns-cal .cal-day.editing .cal-ev{transition:min-height .28s var(--ease-out)}
+
+@media (hover:hover){
+  .ns-cal .ev-szb:hover{color:var(--y)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ns-cal .cal-day.editing .cal-ev{transition:none}
+}

@@ -423,3 +423,74 @@
    before the "· loose" on its second line is read. */
 .ns-create .cr-ses.loose .l{padding-left:calc(8px * var(--dens));
   border-left:2px solid var(--bd-2)}
+
+
+/* ── PRACTICE ────────────────────────────────────────────────────────────────
+   The hours that are not about any one thing. A counter per area: the number
+   is what the section exists for, so it is the biggest thing on the screen and
+   it is set in the title face; the two buttons under it are half its height and
+   set in the mono, because they are controls and not readings.
+
+   The window is a word in the section's own title line rather than a row of
+   chips. There are three of them in a fixed order, so tapping through is the
+   whole control — and a chip row here would compete with the sort chips forty
+   pixels below it. */
+.ns-create .cr-range{background:none;border:none;cursor:pointer;color:var(--mu);
+  display:flex;align-items:center;gap:calc(6px * var(--dens));padding:calc(2px * var(--dens)) 0;
+  font:400 9px/1 var(--mono);letter-spacing:.14em;text-transform:var(--caps);
+  transition:color .18s ease}
+.ns-create .cr-range i{width:5px;height:5px;border-radius:50%;background:var(--y);
+  transition:transform .3s var(--ease-out)}
+.ns-create .cr-range:active{color:var(--tx)}
+.ns-create .cr-range:active i{transform:scale(1.7)}
+
+/* Two across on a phone, more where there is room. `auto-fit` rather than a
+   fixed two: an install with one area gets one wide counter rather than a
+   half-empty row, and an install with four gets four. */
+.ns-create .cr-prac{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));
+  gap:calc(10px * var(--dens))}
+.ns-create .cr-pcard{border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  background:var(--s1);border-top:2px solid var(--ar-c);overflow:hidden}
+.ns-create .cr-pv{padding:calc(14px * var(--dens)) calc(13px * var(--dens)) calc(11px * var(--dens));
+  display:flex;flex-direction:column;gap:calc(5px * var(--dens))}
+/* The one number the section is for. Tabular figures so it does not twitch as
+   it grows, and the same hard offset shadow every title in the app carries. */
+.ns-create .cr-pv b{font:800 clamp(26px,8.5vw,34px)/1 var(--head);letter-spacing:-.035em;
+  color:var(--tx);font-variant-numeric:tabular-nums;
+  text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
+  transition:color .25s ease}
+.ns-create .cr-pv span{font:400 9px/1 var(--mono);letter-spacing:.13em;
+  text-transform:var(--caps);color:var(--ar-c);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-create .cr-pv em{font:400 8.5px/1 var(--mono);letter-spacing:.05em;color:var(--mu);font-style:normal}
+/* How this area's practice compares with the busiest one. A rail rather than a
+   second number: the comparison is the only thing it says, and a percentage
+   would be a number you then have to compare. */
+.ns-create .cr-prail{display:block;height:3px;border-radius:var(--r1);background:var(--s2);
+  margin-top:calc(5px * var(--dens));overflow:hidden}
+.ns-create .cr-prail u{display:block;height:100%;background:var(--ar-c);text-decoration:none;
+  transition:width .5s var(--ease-out)}
+
+.ns-create .cr-pbtns{display:flex;border-top:var(--bw) solid var(--bd)}
+.ns-create .cr-pb{flex:1 1 0;cursor:pointer;background:none;border:none;color:var(--tx-2);
+  padding:calc(11px * var(--dens)) 0;
+  font:400 10px/1 var(--mono);letter-spacing:.1em;
+  transition:background .18s ease,color .18s ease,transform .12s var(--ease-out)}
+.ns-create .cr-pb + .cr-pb{border-left:var(--bw) solid var(--bd)}
+.ns-create .cr-pb:active{background:color-mix(in srgb, var(--ar-c) 18%, transparent);
+  color:var(--tx);transform:scale(.96)}
+
+.ns-create .cr-ptotal{margin-top:calc(10px * var(--dens));text-align:right;
+  font:400 9px/1 var(--mono);letter-spacing:.1em;text-transform:var(--caps);color:var(--mu)}
+
+/* the area rows in settings wear their own colour, the way the adds do */
+.ns-create #cr-set-practice .setting-lbl{color:var(--ar-c)}
+.ns-create #cr-set-practice .setting-lbl small{color:var(--mu)}
+
+@media (hover:hover){
+  .ns-create .cr-range:hover{color:var(--tx)}
+  .ns-create .cr-pb:hover{background:color-mix(in srgb, var(--ar-c) 12%, transparent);color:var(--tx)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ns-create .cr-prail u,.ns-create .cr-range i,.ns-create .cr-pb{transition:none}
+}

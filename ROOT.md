@@ -23,9 +23,9 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
-| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have. Since 4.3 that number is a **tally** while the filter is `all` (one number per chip, each captioned — three unlike things added together answered nothing), a work's progress is **two** bars (the stages of its area, then the steps of the stage it is on), and an hour at the desk that made no song can be logged loose from the session log. |
-| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 4.8 a row can be **moved** with the arrows on it — a swap with the neighbour that re-times the pair from the earlier one's start, so the pair keeps the span it had and nothing outside it moves; a `fixed` row is an anchor and neither moves nor is moved past. `+ gap` adds an empty hour on the end, to be walked up into place with the same arrows, which is why it asks for a length and not for a position. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
-| **TOOLS** | Two instruments behind one strip: a **pomodoro** and a **Wim Hof round**. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3 with four; 4.8 cut the stopwatch and the countdown (the phone's own two clocks with a worse readout) and the decider (which answered a question by not answering it), and added the breathing round — three phases a round, a retention that is **not** timed because its length is the measurement, and a finished session written into LOG's day as a block and onto DAY's schedule as a mark. |
+| **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have. Since 4.3 that number is a **tally** while the filter is `all` (one number per chip, each captioned — three unlike things added together answered nothing), a work's progress is **two** bars (the stages of its area, then the steps of the stage it is on), and an hour at the desk that made no song can be logged loose from the session log. Since 4.12 the shelf opens on **practice counters** — one block per area with `+30` and `+60` under it, totalling a week, a month or a year (a word in the section's own title line). Several taps inside a minute are one session; the counters follow the strip, and which areas get one is a switch per area in settings. Practice is an ordinary session with no work and a `practice` flag, so it reaches the week, the note and both reports like every other hour. |
+| **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 4.8 a row can be **moved** with the arrows on it — a swap with the neighbour that re-times the pair from the earlier one's start, so the pair keeps the span it had and nothing outside it moves; a `fixed` row is an anchor and neither moves nor is moved past. `+ gap` adds an empty hour on the end, to be walked up into place with the same arrows, which is why it asks for a length and not for a position. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Since 4.12 all of that reshaping lives behind an **edit mode** — the delete, the arrows and two new length buttons appear only while it is on, because reading a schedule and editing one are different jobs. The length buttons move a row by `calStep` (15 minutes by default) and shift what follows by the same amount, stopping at a `fixed` row: an anchor keeps its clock, so growing into one is refused. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
+| **TOOLS** | Four instruments behind one strip: a **pomodoro**, a **breathing** round, **optimise** and **data**. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3 with four; 4.8 cut the stopwatch, the countdown and the decider and added the breathing round — three phases a round, a retention that is **not** timed because its length is the measurement. 4.12 renamed that round from *wim hof* (the method is his; the tool is a breathing round — its Config path is still `tools.wimhof`), gave every clocked instrument its own dials on the page and its history under it, squared the big button, made the strip itself a setting (`toolsShown` — which instruments, in what order), and added two more. **OPTIMISE** is named lists of steps run against the clock: a shelf row per list with its best time on it, two buttons in a run (the clock and the step), splits that come back **gold** when they beat that list's best for that step, and a history with filters. Its lists are Config (`tools.optimise`); its times are filed under a list's **id**, so a rename keeps the record. **DATA** reads the other three back — tiles, the range day by day, a pie, a nightingale wheel of the week, and a kept-up strip — as inline SVG with no library. Since 4.12 every finished thing here, not only a session, is written into LOG's day as a block and onto DAY's schedule as a mark. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it twelve panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Sync** | Not a tab either: two routes under settings → data, one through Todoist and one through a file you move yourself, and a merge that completes a day rather than replacing it — see §10. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
@@ -1836,6 +1836,78 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*
+
+### 4.12 — 2026-09-10 — two more instruments, the hours that are not about anything, and a day you can re-time
+
+A written brief rather than a Todoist batch: `systems_tools_update.md`, whole,
+minus the live indicator, which was asked to be left for now.
+
+- **TOOLS is four instruments.** The Wim Hof round is called **breathing** —
+  the method is his, the tool is a breathing round, and that is what the strip
+  and the written-down session should say. Its Config path stays `tools.wimhof`:
+  §5 does not rename a storage key for a word.
+- **Every clocked instrument carries its own dials,** folded behind one word:
+  the pomodoro's focus, break and rounds; breathing's rounds, breath and
+  recovery. A dial reads the settings default until it is moved and says so
+  while it does, because a dial that never admits it is a dial you cannot get
+  back. The ranges are written once (`DIAL` in tools.js) and the settings
+  editors offer exactly them, so a default cannot be set to a number the tool
+  would clamp the moment you touched it.
+- **The big button is square,** with its size and its corner on two dials in
+  appearance. The corner is a *share* of the size rather than a pixel radius, so
+  50% is a circle at any size and the two never have to be set in step.
+- **Which instruments the strip carries, and in what order, is a setting** —
+  the same shape `apps` has: the list *is* the visibility, so a tool switched
+  off keeps its place for when it comes back on. One has to stay.
+- **Both instruments show their history on their own page** — a row a day,
+  lines and nothing else, with the accent on the one thing worth *finding*: the
+  best day, the best hold ever posted. Everything else stays grey, because three
+  highlights are no highlight.
+- **Everything that finishes is written down now,** not only a breathing
+  session: a finished focus round reaches LOG's day and DAY's schedule through
+  the same two calls, and so does a finished run.
+- **OPTIMISE** is new: named lists of steps, run against the clock. The shelf is
+  a row per list with its fastest time on it, because that is the reason to
+  press the button. A run has two buttons — the clock and the step — and the
+  splits land under them as they are taken; a split faster than that list's best
+  for that step comes back **gold**, which is the comparison made visible and the
+  whole point of the instrument. A history with sorting, per-list filters and a
+  records-only view. Lists are Config: a name, a colour (a palette, a colour of
+  its own, the accent, or an accent gradient), one of twenty icons, and its
+  steps one a line. Times are filed under a list's **id**, so renaming one keeps
+  its record.
+- **DATA** is new: five readings of what the other three wrote down — a tile per
+  series, the range day by day, the share as a pie, the week as a nightingale
+  wheel, and how many of the last days had anything on them at all. Inline SVG
+  against the same tokens as everything else; no library, no canvas.
+- **CREATE has practice counters** at the top of the shelf: one big block per
+  area with `+30` and `+60` under it, the window (week / month / year) a word in
+  the section's own title line. Taps inside a minute of each other are **one**
+  session, not four — a log that said four would make the session count
+  worthless. The section follows the strip, so `all` shows every counter and an
+  area shows only its own, and which areas get one is a switch per area in
+  settings. Practice is time at the desk like any other, so it reaches the week
+  under the shelf, LOG's note and both reports.
+- **DAY has an edit mode.** Reading a schedule and editing one are different
+  jobs, so the delete, the move arrows and two new length buttons are all behind
+  one switch — off, a row is a name, a clock and a tick, with nothing to catch a
+  thumb against. The length buttons move a row by the step in settings (15
+  minutes by default) and shift what is after it by the same amount, stopping at
+  a `fixed` row: an anchor keeps its own clock, so growing into one is refused
+  rather than quietly overrunning it. A row cannot be shrunk out of existence.
+- **The band's wordmark can wear the app's own tab glyph** — name, icon and
+  name, or icon alone. The shell puts one inside every `.h-logo` rather than
+  eleven headers each carrying their own, and it is treated as a title: sized
+  off `--title-px` and wearing the same hard offset shadow, as a drop-shadow
+  because the mark is a drawing.
+- Pre-edit backup: `../root-backup-2026-09-10T11-46-52-891Z/` (1,536 files, verified).
+- Validated through the runner: 20 syntax checks, smoke for 10 apps / 15 themes /
+  14 panels, **1177 behavior checks and 6 runner tests passed** (55 added). Three
+  older checks were rewritten where they encoded a contract this version
+  deliberately changed — two instruments became four, the session's name became
+  `breathing`, and DAY's row controls moved behind the switch. No browser: the
+  gold split, the nightingale and the square button are drawings, and how they
+  look is Hugo's call.
 
 ### 4.11 — 2026-09-09 — the blocks were the whole page, and now the cursor can be tested
 

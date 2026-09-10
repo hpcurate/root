@@ -141,6 +141,10 @@ const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'cr
    each call site. */
 const TAB_IDS = APPS.concat('settings');
 const tabVar  = a => '--tab-' + (a === 'settings' ? 'set' : a);
+/* The instruments inside TOOLS. Not apps — they share one slide and one tab —
+   but the strip that carries them is switched on and ordered the same way the
+   tab bar is, so the ids live beside the app ids that taught them the shape. */
+const TOOL_IDS = ['pom', 'whf', 'opt', 'dat'];
 
 /* Schema
    Every setting in one table: its default, its kind, and its bounds. The
@@ -197,6 +201,12 @@ const SCHEMA = {
      and wanting one big and the other small is a real thing to want. Its box
      is derived from it, so a larger title gets a taller header (tokens.css). */
   hdTitleSize:  { kind:'enum',   def:'m',      values:['xs','s','m','l','xl'],         attr:'data-hd-title' },
+  /* What the band's wordmark is made of. The icon is the app's own tab glyph,
+     put in front of its name by the shell; this says whether each half is
+     drawn. `icon` alone is the one worth having and the one worth being
+     careful about — an app with no name on it is only readable because the
+     glyph is the one already in the tab bar. */
+  bandMark:     { kind:'enum',   def:'name',   values:['name','both','icon'],          attr:'data-band-mark' },
 
   // appearance — continuous, written as inline custom properties
   /* How fast the motion runs, on top of whichever preset is picked. Stored as
@@ -354,6 +364,11 @@ const SCHEMA = {
   /* LOG's morning wake-up time moves the day. Off keeps the day exactly as
      PLAN exported it. See CAL.setWake(). */
   calWakeShift: { kind:'bool',   def:true },
+  /* DAY's edit mode. The step the + and − on a row move its length by; a
+     quarter of an hour by default, because that is the grain PLAN's own
+     durations come in. It is a *setting* rather than a dial on the row: a
+     schedule whose increment changes row to row is one you cannot read. */
+  calStep:      { kind:'range',  def:15,  min:5,  max:60,  step:5, unit:' min' },
 
   /* DO's routine cards. `doHideDone` drops a finished routine off the grid
      rather than greying it; `doCardStyle` is how much of a card is drawn. */
@@ -363,6 +378,16 @@ const SCHEMA = {
      them is fed the same 0-to-1 fraction — so this is a look, not a mode. */
   toolsLayout:  { kind:'enum',   def:'ring', values:['ring','bar','stack','plain'],
                                               attr:'data-tools-layout' },
+  /* Which instruments the strip carries, and in what order. Same shape as
+     `apps`: the list *is* the visibility, so a tool missing from it is one
+     switched off rather than one this build does not have. Never empty — a
+     strip with nothing on it is a screen with nothing to do. */
+  toolsShown:   { kind:'list',   def:TOOL_IDS.slice(), members:TOOL_IDS },
+  /* The one big button. Square since 4.12, and its corner is a *percentage*
+     of its own box rather than a pixel radius — so 50 is a circle at any size
+     and the two dials never have to be set in step with each other. */
+  toolsBtnSize: { kind:'range',  def:74, min:52, max:120, step:2, unit:'px', cssVar:'--tl-btn-size' },
+  toolsBtnRound:{ kind:'range',  def:16, min:0,  max:50,  step:1, unit:'%',  cssVar:'--tl-btn-round' },
   doHideDone:   { kind:'bool',   def:false },
   doCardStyle:  { kind:'enum',   def:'full', values:['full','minimal'] },
 };
@@ -487,7 +512,10 @@ function coerce(k, v) {
      that names an app this build does not have simply loses that entry */
   if (s.kind === 'list') {
     if (!Array.isArray(v)) return s.def.slice();
-    const out = v.filter((x, i, a) => APPS.includes(x) && a.indexOf(x) === i);
+    /* `members` names the pool where it is not the app list — TOOLS' strip is
+       the same shape (the list *is* the visibility) over a different set. */
+    const pool = s.members || APPS;
+    const out = v.filter((x, i, a) => pool.includes(x) && a.indexOf(x) === i);
     return out.length ? out : s.def.slice();
   }
   /* the custom tab palette: known tabs only, one well-formed hex each — a
@@ -656,6 +684,7 @@ function apply() {
   root.setAttribute('data-accent-use', prefs.accentUse);
   root.setAttribute('data-title',      prefs.titleSize);
   root.setAttribute('data-hd-title',   prefs.hdTitleSize);
+  root.setAttribute('data-band-mark',  prefs.bandMark);
   root.setAttribute('data-tab-labels', prefs.showTabLabels ? 'on' : 'off');
   root.setAttribute('data-glow',       prefs.accentGlow    ? 'on' : 'off');
   root.setAttribute('data-tnum',       prefs.monoNumbers   ? 'on' : 'off');
@@ -707,6 +736,11 @@ function apply() {
   st.setProperty('--nav-fh',      Math.round(+prefs.navHeight || 58) + 'px');
   st.setProperty('--nav-r',       Math.round(+prefs.navRadius || 0) + 'px');
   st.setProperty('--nav-icon',    Math.round(+prefs.navIcon   || 19) + 'px');
+  /* TOOLS' big button, sized in pixels and cornered as a share of that size —
+     see the pair in SCHEMA. Rounded here for the same reason the nav dials
+     are: half a pixel of radius is a soft edge, not a sharper one. */
+  st.setProperty('--tl-btn-size',  Math.round(+prefs.toolsBtnSize  || 74) + 'px');
+  st.setProperty('--tl-btn-round', Math.round(+prefs.toolsBtnRound || 0) + '%');
 
   /* The custom tab palette, written inline rather than as a stylesheet block:
      it is one hex per tab and the tabs it does not name are meant to fall

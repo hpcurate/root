@@ -1104,6 +1104,12 @@
       <!-- the tab strip: all, one per area, then curate. DO's DAILY/MEDIA/OTHER
            selector — a bordered rail with a glider under the live chip. -->
       <div class="cr-areas" id="cr-areas"></div>
+      <!-- PRACTICE: the hours that are not about anything. One counter per
+           area, two buttons under each, and the window it totals is a word in
+           its own title line. Written whole by CREATE.renderPractice(); it
+           follows the strip, so "all" shows every counter and an area shows
+           only its own. -->
+      <div id="cr-practice"></div>
       <div id="cr-stages"></div>
       <div class="cr-sec" id="cr-sec-live"><span>In progress</span><em id="cr-count"></em></div>
       <div class="cr-sorts" id="cr-sorts"></div>
@@ -1861,6 +1867,11 @@
           <span class="slider-val">56px / hour</span></div>
         <input type="range" class="sl" data-pref="calHour" min="28" max="120" step="4" value="56">
       </div>
+      <div class="slider-row" data-slider="calStep">
+        <div class="slider-head"><label class="lbl">Edit step<em>what the + and − on a row move its length by, in edit mode</em></label>
+          <span class="slider-val">15 min</span></div>
+        <input type="range" class="sl" data-pref="calStep" min="5" max="60" step="5" value="15">
+      </div>
       <div class="setting-row">
         <span class="setting-lbl">Show the template<small>the routine, kamo and break hours around your blocks</small></span>
         <button class="tog on" data-pref="calShowFixed" data-toggle="1" role="switch" aria-checked="true" aria-label="show the template"></button>
@@ -1949,6 +1960,13 @@
                data-cfg="create.home" data-sub="weekDays" aria-label="days in a week">
       </div>
 
+      <div class="sec"><span>Practice</span></div>
+      <div class="set-note">The counters at the top of the shelf — the hours that
+        are not about any one thing. Which areas get one is up to you; an area
+        switched off here keeps its practice, it just stops asking for more of
+        it. Taps inside a minute of each other are one session, not four.</div>
+      <div id="cr-set-practice"></div>
+
       <div class="sec"><span>The curate tab</span></div>
       <div class="setRow">
         <div class="sl">Todoist project<s>the tab lists the whole project, grouped by its sections and in their order — blank switches the tab off</s></div>
@@ -2002,11 +2020,32 @@
       <div class="sec"><span>Status</span></div>
       <div class="settings-status idle" id="tl-status">nothing running</div>
 
+      <div class="sec"><span>Instruments</span></div>
+      <div class="set-note">Which of the four the strip carries, and in what order.
+        A tool switched off keeps its place for when it comes back on — the order
+        is the list, so nothing is ever removed from it. One has to stay.</div>
+      <div id="tl-strip"></div>
+
+      <div class="sec"><span>The button</span></div>
+      <div class="set-note">The one big button every instrument is driven by. The
+        corner is a share of the size rather than a number of pixels, so 50% is a
+        circle at any size and the two never have to be set in step.</div>
+      <div class="slider-row" data-slider="toolsBtnSize">
+        <div class="slider-head"><label class="lbl">Size<em>how big the target is</em></label>
+          <span class="slider-val">74px</span></div>
+        <input type="range" class="sl" data-pref="toolsBtnSize" min="52" max="120" step="2" value="74">
+      </div>
+      <div class="slider-row" data-slider="toolsBtnRound">
+        <div class="slider-head"><label class="lbl">Corners<em>0 is a hard square, 50 is a circle</em></label>
+          <span class="slider-val">16%</span></div>
+        <input type="range" class="sl" data-pref="toolsBtnRound" min="0" max="50" step="1" value="16">
+      </div>
+
       <div class="sec"><span>Pomodoro</span></div>
-      <div class="set-note">The four numbers the cycle is made of. They are content,
-        not preferences: a clock that runs 50/10 is a different working day, not a
-        different-looking one, so they live with the lists below and travel with
-        your content export.</div>
+      <div class="set-note">The numbers the cycle is made of, and the defaults the
+        tool's own sliders start from. They are content, not preferences: a clock
+        that runs 50/10 is a different working day, not a different-looking one, so
+        they live with the lists below and travel with your content export.</div>
       <div class="ed-pair">
         <div class="f"><label class="lbl">Focus</label>
           <input type="number" id="tl-set-focus" data-cfg="tools.pomodoro" data-sub="focus" min="1" max="180" step="1" aria-label="focus minutes"></div>
@@ -2022,6 +2061,10 @@
       <div class="setting-row">
         <span class="setting-lbl">Roll straight on<small>the next phase starts the moment the last one ends, instead of waiting for you</small></span>
         <button class="tog" id="tl-set-auto" data-cfg-toggle="tools.pomodoro.autoStart" role="switch" aria-checked="false" aria-label="roll straight on"></button>
+      </div>
+      <div class="f">
+        <label class="lbl">Name it <em>what a finished focus round is called in LOG’s day and on DAY’s schedule</em></label>
+        <input type="text" id="tl-set-pomlabel" data-cfg="tools.pomodoro" data-sub="label" maxlength="40" aria-label="focus round name">
       </div>
 
       <div class="sec">Readout</div>

@@ -351,6 +351,9 @@ function layoutHTML() {
     ${chips('titleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Title size', 'the DO. LOG. PLAN. wordmarks')}
+    ${chips('bandMark', [
+      { v:'name', l:'the name' }, { v:'both', l:'icon and name' }, { v:'icon', l:'the icon' },
+    ], 'Wordmark', 'the icon is the app’s own tab glyph, in front of its name and wearing the same shadow')}
     ${chips('hdTitleSize', [
       { v:'xs', l:'xs' }, { v:'s', l:'s' }, { v:'m', l:'m' }, { v:'l', l:'l' }, { v:'xl', l:'xl' },
     ], 'Sub-screen title size', 'the sticky header inside a screen — its bar grows with it')}
@@ -1513,19 +1516,21 @@ const EDITORS = {
      content and live with the rest of the app's dials. */
   'tools.wimhof': {
     title: 'The breathing round',
-    note: 'How a Wim Hof session is shaped. The retention is deliberately not here \u2014 it has no length, because how long you last is the thing being measured. The label is what the finished session is called in LOG\u2019s day and on DAY\u2019s schedule.',
+    note: 'Where the tool\u2019s own sliders start from. The retention is deliberately not here \u2014 it has no length, because how long you last is the thing being measured. The label is what the finished session is called in LOG\u2019s day and on DAY\u2019s schedule.',
     render() {
-      const w = Object.assign({ rounds:3, breaths:30, pace:2.2, recovery:15, chime:true, label:'wim hof' },
+      const w = Object.assign({ rounds:3, breaths:30, pace:2.25, recovery:15, chime:true, label:'breathing' },
                               Config.get('tools.wimhof') || {});
       const num = (k, label, min, max, step, hint) => `<div class="f">
         <label class="lbl">${esc(label)}${hint ? `<em>${esc(hint)}</em>` : ''}</label>
         <input type="number" data-field="${esc(k)}" value="${esc(w[k])}"
                min="${min}" max="${max}" step="${step}" aria-label="${esc(label)}"></div>`;
+      /* The three ranges the *tool's* sliders offer, so a default cannot be set
+         to a number the tool would then clamp the moment you touched it. */
       return `<div class="ed-card">
-        ${num('rounds', 'Rounds', 1, 10, 1, 'a full breathe, hold and recover')}
+        ${num('rounds', 'Rounds', 1, 5, 1, 'a full breathe, hold and recover')}
         ${num('breaths', 'Breaths per round', 5, 80, 1)}
-        ${num('pace', 'Seconds per breath', 1, 6, 0.1, 'in and out together \u2014 the ring follows it')}
-        ${num('recovery', 'Recovery hold', 5, 60, 1, 'seconds, on the big inhale')}
+        ${num('pace', 'Seconds per breath', 1, 5, 0.25, 'in and out together \u2014 the ring follows it')}
+        ${num('recovery', 'Recovery hold', 5, 30, 1, 'seconds, on the big inhale')}
         <div class="f"><label class="lbl">Name it</label>
           <input type="text" data-field="label" value="${esc(w.label)}" maxlength="40"
                  aria-label="session name"></div>
@@ -1544,13 +1549,109 @@ const EDITORS = {
         return isFinite(n) ? Math.min(max, Math.max(min, n)) : dflt;
       };
       Config.set('tools.wimhof', {
-        rounds:   numOf('rounds', 3, 1, 10),
+        rounds:   numOf('rounds', 3, 1, 5),
         breaths:  numOf('breaths', 30, 5, 80),
-        pace:     numOf('pace', 2.2, 1, 6),
-        recovery: numOf('recovery', 15, 5, 60),
+        pace:     numOf('pace', 2.25, 1, 5),
+        recovery: numOf('recovery', 15, 5, 30),
         chime:    (v('chime') || {}).classList ? v('chime').classList.contains('on') : true,
-        label:    ((v('label') || {}).value || 'wim hof').trim().slice(0, 40) || 'wim hof',
+        label:    ((v('label') || {}).value || 'breathing').trim().slice(0, 40) || 'breathing',
       });
+    },
+  },
+
+  /* OPTIMISE's lists
+     A card per list, and the card is the whole thing: what it is called, what
+     colour and icon it wears, and its steps as one line each. The steps are a
+     textarea for the reason every other ordered list in Config is one — a row
+     of inputs for something you reorder by retyping is a worse textarea.
+
+     The icons and the palette are asked of TOOLS rather than restated here, so
+     the editor can only ever offer what the tool can actually draw. */
+  'tools.optimise': {
+    title: 'Optimise lists',
+    note: 'A list is something you do in a fixed order and would like to get faster at — a morning routine, a pack-down, a set-up. Give it its steps and it appears on the shelf with a START and your best time on it. Each step is timed on its own, and a step faster than your best for it comes back gold.',
+    render() {
+      const lists = optLists();
+      const icons  = (window.TOOLS && TOOLS.icons)   ? TOOLS.icons()   : ['bolt'];
+      const swatch = (window.TOOLS && TOOLS.palette) ? TOOLS.palette() : ['#e8a33d'];
+      const glyph  = k => (window.TOOLS && TOOLS.iconHTML) ? TOOLS.iconHTML(k) : '';
+      const MODES = [['preset','from the palette'], ['custom','a colour of its own'],
+                     ['accent','the app’s accent'], ['gradient','accent gradient']];
+      if (!lists.length) return `<div class="ed-hint">No lists yet.</div>
+        <button class="ed-add" data-add="1">+ add a list</button>`;
+      return lists.map((l, i) => {
+        const mode = ['accent','gradient','custom','preset'].includes(l.colorMode) ? l.colorMode : 'preset';
+        const own = mode === 'preset' || mode === 'custom';
+        return `<div class="ed-card" data-i="${i}">
+          <div class="ed-head">
+            <input type="text" data-field="name" value="${esc(l.name || '')}" maxlength="40"
+                   placeholder="morning routine" aria-label="list name">
+            <input type="color" class="ed-swatch" data-field="color" value="${esc(l.color || '#e8a33d')}"
+                   aria-label="${esc(l.name || 'list')} colour">
+            <button class="ed-del" data-del="${i}" aria-label="delete list">×</button>
+          </div>
+          <div class="chips">${MODES.map(([m, word]) =>
+            `<button class="chip${mode === m ? ' on' : ''}" data-ed="${i}/mode/${m}"
+                     type="button">${esc(word)}</button>`).join('')}</div>
+          ${own ? `<div class="tl-ed-swatches">${swatch.map(c =>
+            `<button type="button" class="${String(l.color || '').toLowerCase() === c ? 'on' : ''}"
+                     data-ed="${i}/color/${c.slice(1)}" style="--sw:${c}"
+                     aria-label="use ${c}"></button>`).join('')}</div>` : ''}
+          <div class="tl-ed-icons ns-tools">${icons.map(k =>
+            `<button type="button" class="${l.icon === k ? 'on' : ''}" data-ed="${i}/icon/${k}"
+                     aria-label="${esc(k)}">${glyph(k)}</button>`).join('')}</div>
+          <textarea data-field="steps" rows="${Math.min(14, Math.max(3, (l.steps || []).length + 1))}"
+                    spellcheck="false" placeholder="walk kamo&#10;gym&#10;shower"
+                    aria-label="steps">${esc((l.steps || []).join('\n'))}</textarea>
+          <div class="ed-hint">one step a line, in the order you do them — each is timed on its own</div>
+        </div>`;
+      }).join('') + `<button class="ed-add" data-add="1">+ add a list</button>`;
+    },
+    read(box) {
+      const src = optLists();
+      const out = [];
+      box.querySelectorAll('.ed-card').forEach((card, i) => {
+        const v = f => card.querySelector(`[data-field="${f}"]`);
+        const was = src[i] || {};
+        out.push(Object.assign({}, was, {
+          /* The id is minted once and never re-derived from the name: it is the
+             key the record book and the history are filed under, so renaming a
+             list must not orphan its times. */
+          id:    optId(was, i),
+          name:  ((v('name') || {}).value || '').trim().slice(0, 40) || 'list ' + (i + 1),
+          color: (v('color') || {}).value || '#e8a33d',
+          steps: lines((v('steps') || {}).value || '').slice(0, 24),
+        }));
+      });
+      Config.set('tools.optimise', out);
+    },
+    /* The three pickers. Each is one field on one list, so they go through the
+       editor `act` hook rather than growing a listener of their own. */
+    act(spec) {
+      const [iRaw, field, val] = String(spec).split('/');
+      const i = +iRaw;
+      const lists = optLists();
+      if (!lists[i]) return;
+      if (field === 'mode')  lists[i].colorMode = val;
+      if (field === 'icon')  lists[i].icon = val;
+      if (field === 'color') { lists[i].color = '#' + val; lists[i].colorMode =
+        lists[i].colorMode === 'accent' || lists[i].colorMode === 'gradient' ? 'preset' : lists[i].colorMode; }
+      Config.set('tools.optimise', lists);
+    },
+    add() {
+      const lists = optLists();
+      const swatch = (window.TOOLS && TOOLS.palette) ? TOOLS.palette() : ['#e8a33d'];
+      lists.push({ id: 'l' + Date.now().toString(36), name: 'new list',
+                   color: swatch[lists.length % swatch.length], colorMode: 'preset',
+                   icon: 'bolt', steps: [] });
+      Config.set('tools.optimise', lists);
+    },
+    del(which) {
+      const lists = optLists();
+      const i = +which;
+      if (i < 0 || i >= lists.length) return;
+      lists.splice(i, 1);
+      Config.set('tools.optimise', lists);
     },
   },
 
@@ -1580,7 +1681,17 @@ const EDITOR_ORDER = ['do.routines','do.mediaLabels','do.travelCategories','log.
                       'plan.types','plan.chips','plan.formFields','plan.presets','plan.calendars','plan.dayTemplates',
                       'store.categories','store.meals','store.quickAmounts',
                       'tend.groups','tend.labels','track.labels','learn.ratings','cal.eventColors',
-                      'create.areas','tools.wimhof'];
+                      'create.areas','tools.wimhof','tools.optimise'];
+
+/* OPTIMISE's lists, read as a fresh array every time. The editor writes the
+   whole branch on every change, so it must never hand Config a reference to
+   the object Config already holds — an in-place edit would slip past
+   `isCustom` and the subscribe that redraws the tool. */
+function optLists() {
+  const raw = Config.get('tools.optimise');
+  return Array.isArray(raw) ? JSON.parse(JSON.stringify(raw)) : [];
+}
+const optId = (was, i) => String(was.id || 'l' + Date.now().toString(36) + i).slice(0, 40);
 
 function editorHTML(path) {
   const ed = EDITORS[path];
@@ -2508,7 +2619,7 @@ view.addEventListener('click', e => {
        'depth','texture','motion','motionSpeed','navMotion','contrast','caps','navStyle',
        'navShape','navAnim','tabPalette','tabColors','tabAccent','cardStyle',
        'accentUse','radius','border',
-       'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize',
+       'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize','bandMark',
        'bandDrop','navHeight','navRadius','navIcon','desktopMode','frameW','frameH',
        'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');

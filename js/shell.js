@@ -191,8 +191,44 @@ window.Shell = (function () {
     v.appendChild(body);
     const head = body.querySelector('#s-home > .h-top');
     if (head) v.insertBefore(head, body);
+    markWordmark(v);
   });
   const bodyOf = n => { const v = viewOf(n); return v ? (v.querySelector('.view-body') || v) : null; };
+
+  /* The wordmark's icon
+     The same glyph the app wears in the tab bar, put in front of its name in
+     the band. Injected here rather than typed into eleven headers: it is the
+     *tab's* icon by definition, so the only thing that could go wrong is one
+     of the eleven getting a different one, and the way to make that impossible
+     is to have one place decide.
+
+     Whether it is drawn, and whether the name beside it is, is `bandMark` —
+     one dial in appearance, read as a data attribute on the root, so this runs
+     once and the choice costs no JavaScript at all afterwards.
+
+     `#tab-set` for settings and `#tab-<id>` for everything else: the button's
+     data-app is the long name and the sprite is the short one, the same pair
+     prefs.js maps for the tab colours. */
+  function markWordmark(v) {
+    const logo = v.querySelector('.h-top .h-logo');
+    if (!logo || logo.querySelector('.h-logo-ic')) return;
+    const id = String(v.id || '').replace(/^view-/, '');
+    if (!id) return;
+    const sprite = id === 'settings' ? 'tab-set' : 'tab-' + id;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'h-logo-ic');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#' + sprite);
+    svg.appendChild(use);
+    /* Inside the wordmark rather than beside it. Five of the eleven bands have
+       no `.h-logo-row` around their title — they are a `.h-logo` sitting
+       straight in the band — so a sibling would need one of two layouts
+       depending on which band it landed in. A first child of the wordmark is
+       one shape everywhere, inherits the title's colour, and needs no band to
+       change its own layout to hold it. */
+    logo.insertBefore(svg, logo.firstChild);
+  }
 
   /* Order the slides and the tab buttons to match the preference, and hide the
      apps that are switched off. A hidden .view is display:none, so the flex

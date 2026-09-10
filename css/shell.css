@@ -697,3 +697,34 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   .view.morph > .h-top .h-cost,.view.leaving > .h-top .h-cost{animation:none}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+
+/* ── the wordmark's icon ─────────────────────────────────────────────────────
+   The same glyph the app wears in the tab bar, in front of its name. The shell
+   puts one inside every `.h-logo` — inside rather than beside it, because five
+   of the eleven bands have no row around their title and a sibling would need
+   two layouts. `data-band-mark` on the root decides which half of the pair is
+   drawn, so switching between the three costs nothing after the first paint.
+
+   It is a title, so it is treated as one: sized off `--title-px` rather than a
+   pixel of its own, and carrying the same hard offset shadow every other title
+   in the app has. `drop-shadow` rather than `text-shadow` because the mark is a
+   drawing — same offset, same colour, same absence of blur, which is the whole
+   of what that shadow is. */
+.view > .h-top .h-logo .h-logo-ic{
+  display:none;vertical-align:baseline;
+  width:calc(var(--title-px) * .8);height:calc(var(--title-px) * .8);
+  margin-right:calc(8px * var(--dens));
+  color:var(--tx);stroke-width:var(--icon-stroke,2);
+  filter:drop-shadow(var(--title-sh-x) 0 0 var(--title-sh-c))}
+
+[data-band-mark="both"] .view > .h-top .h-logo .h-logo-ic,
+[data-band-mark="icon"] .view > .h-top .h-logo .h-logo-ic{display:inline-block}
+/* Icon alone. The letters go by collapsing the type rather than by hiding the
+   wordmark — the icon is inside it, so `display:none` there would take both.
+   The icon's own size is absolute, not an em, so it survives the collapse; and
+   with no word beside it, it is drawn at the full title size to hold the weight
+   the word was holding. */
+[data-band-mark="icon"] .view > .h-top .h-logo{font-size:0;text-shadow:none}
+[data-band-mark="icon"] .view > .h-top .h-logo .h-logo-ic{
+  width:var(--title-px);height:var(--title-px);margin-right:0}
