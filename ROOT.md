@@ -408,15 +408,15 @@ Config.subscribe(path => {
 });
 ```
 
-### Settings — a menu, three categories, two conventions
+### Settings — a menu, four categories, two conventions
 
 The settings view is two screens: `#s-home` (the menu: the apps out of the bar
-as tappable tiles, then **apps** / **appearance** / **data**) and `#s-cat` (a
-sticky back header, the pill bar of that category's panels, the panels).
-`SET.CATS` says which panel sits where; `SET.panel(name)` opens the right
-category with that pill lit, `SET.home()` goes back to the menu. `data` is a
-single panel, so its pill bar is hidden. `#settings` is the menu,
-`#settings/<panel>` a panel.
+as tappable tiles, then **apps** / **appearance** / **sync** / **data**) and
+`#s-cat` (a sticky back header, the pill bar of that category's panels, the
+panels). `SET.CATS` says which panel sits where; `SET.panel(name)` opens the
+right category with that pill lit, `SET.home()` goes back to the menu. `sync`
+and `data` are single panels, so their pill bars are hidden. `#settings` is the
+menu, `#settings/<panel>` a panel.
 
 1. **Appearance and behaviour controls** carry `data-pref="<key>"` and are handled
    by one delegated listener. Adding a control is markup, not wiring.
@@ -527,6 +527,7 @@ versions still work off the same data.
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_sync_v1` | SYNC | this install's device id and, per route, when it last pushed and last imported. Nothing else — the data itself is never cached here |
 | `root_sync_undo_v1` | SYNC | the raw value of every key the **last** import overwrote, so it can be taken back once. A snapshot, not a history: the next import replaces it, and undoing removes it |
+| `root_sync_touch_v1` | SYNC | since 4.13, `{ key: when }` — when this device last wrote each key, kept by a wrapper around `Storage.prototype.setItem` in `js/sync.js`. It is what "everything I changed in the last 24 hours" and "the more recent one wins" are both computed from. Never travels, and is never journalled itself |
 | `root_tab` | shell | last tab, so a reload lands where you left |
 | `root_theme` | shell | legacy; kept in step with the active theme for the standalone apps |
 | **`root_prefs_v1`** | Prefs | every appearance and behaviour setting, plus `appsSeen` — every app this install has ever been offered, which is what lets a new app arrive (§6) |
@@ -1743,9 +1744,20 @@ private journal and does not belong on someone else's server; a routine tick is
 not. The two are the same machine underneath — the same payload, the same
 merge, the same overlap sheet — and only the transport differs.
 
-Both are manual. There is no background sync and no automatic pull: an import
-that runs on its own is an import you cannot be standing next to when it goes
-wrong, and the thing it would go wrong with is twenty days of log.
+Since 4.13 there is a third thing that is not a route either: **one tap**.
+`SYNC.run()` reads the Todoist route, merges whatever is new, and then sends
+back what this device holds — which is why the button says `sync` and not
+`import` or `export`. It is what DO's header button and the section's own
+button both call.
+
+**Automatic, but only because the merge stopped asking.** Until 4.13 both routes
+were manual, on the grounds that an import you are not standing next to is one
+you cannot catch going wrong. What changed is not the nerve but the merge: a
+journal (below) gives every record a time, the newer one wins, and the only
+thing left to ask about is a tie. So `syncEvery` — off, or a minute up to an
+hour — runs the same one tap on a timer, and a run that finds a tie keeps this
+device's copy and leaves the question for a sync you *are* standing next to.
+Off is still the default.
 
 ### Sync belongs to the shell, not to the apps
 
@@ -1754,6 +1766,62 @@ and a harness check fails if `sync.js` ever names one. That is what keeps
 CREATE's "the shelf has no network" (§1) true while CREATE's shelf still
 travels, and it means a new app joins the sync by having its key added to a
 list here rather than by growing a sync of its own.
+
+### The journal — when each key was written
+
+No record carries its own timestamp; a list is a list. So `js/sync.js` wraps
+`Storage.prototype.setItem` (and `removeItem`) **once**, at load, and notes
+`key → moment` into `root_sync_touch_v1`. That is the whole mechanism behind
+three things the request asked for:
+
+- **"Anything I do should be synced."** A payload carries the route's own list
+  *plus* every key this device has written in the last 24 hours — `SINCE_MS`,
+  deliberately not a dial. A key nothing in `sync.js` has ever heard of travels
+  because it was written, not because it is on a list.
+- **"The most recent is used."** Each record's moment travels beside it as
+  `touch`, so the two devices compare the same two numbers. Equal-and-different
+  is still a question.
+- **A merge keeps the *author's* moment.** `commit()` re-stamps a record it took
+  from the other device with that device's time, not with now — otherwise the
+  next sync would think this device had just written it.
+
+The wrapper is the same rule as everything else here: sync belongs to the shell,
+and no app reports its own writes. Sync's own three keys are skipped, or the
+journal would journal itself and never settle.
+
+### What travels, and what is allowed to
+
+Two separate questions, and two separate switches.
+
+| Group | Keys | Default |
+| --- | --- | --- |
+| `apps` | everything an app wrote | on |
+| `settings` | `root_config_v1`, the content layer | on |
+| `style` | `root_prefs_v1`, the whole appearance engine | on |
+| `system` | `root_tab`, `root_theme`, `root_labels_v1`, the Todoist target | **off** |
+
+`system` is off because it is the one group where the other device's answer is
+not better than this one's — the tab you were on is yours.
+
+**Safe transfer** (`syncSafe`, on) is the route split of the table above made
+into a dial: while it is on, the Todoist route leaves behind `log_*`,
+`capTracker.*` and `store_state_*`. Turning it off is how the logged day goes
+over Todoist, and it is a thing to decide rather than a thing to default.
+`syncTodayPrivate` is still the narrow version of the same exception.
+
+**A key that is nothing but a Todoist key travels on no route, by no switch** —
+`plan_token` and `root_todoist_v1`. A record that merely contains one still
+travels, scrubbed.
+
+### An id says whether it has already been taken in
+
+Every payload carries `id`: a digest of its *contents*, not of who wrote it or
+when. A push records it, an import records it, and the next run compares one
+string instead of planning a merge over twenty days — which is "know
+immediately that the data it is importing has already been imported". It is also
+what stops two devices on a timer from trading the same bytes forever: an
+unchanged board builds the same id, and a push whose id has already been sent is
+not sent.
 
 ### Never a whole-record replace
 
@@ -1772,10 +1840,11 @@ not overwrite one.**
 - **DO's ticks union.** A tick is a fact; an untick losing to a tick is the safe
   way round.
 - **DAY compares `written`,** which cal.js already stamps on every export.
-- **State records ask.** `create_v1`, `tend.v3`, `capTracker.v2`, `store_state_v1`
-  and the rest have no timestamp inside them, and inventing one would be worse
-  than asking. Identical is a no-op, missing on one side is taken, and anything
-  else goes to the overlap sheet.
+- **State records take the newer one.** `create_v1`, `tend.v3`, `capTracker.v2`,
+  `store_state_v1` and the rest have no timestamp *inside* them, which is why
+  until 4.13 they were a question. The journal gives them one from outside, so
+  identical is a no-op, missing on one side is taken, a different moment takes
+  the more recent, and only the same moment goes to the overlap sheet.
 
 ### `do_<iso>` is today only
 
@@ -1833,6 +1902,43 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.13 — 2026-09-11 — a sync that carries everything you changed, settles it by recency, and can run itself
+
+`have a better sync`, whole. The engine stopped being a list of keys this file
+knows about and became a question about what this device has actually written.
+
+- **A journal under everything.** `js/sync.js` wraps `Storage.prototype.setItem`
+  once at load and notes `key → moment` into `root_sync_touch_v1`. No app
+  reports its own writes and no app knows this happened, which is the same rule
+  §10 has always had. It is what makes the next three entries possible.
+- **Everything changed in the last 24 hours travels**, on top of the route's own
+  list — which stays as the floor, so an install with no journal yet syncs
+  exactly what it used to. A key nothing here has heard of is carried because it
+  was written.
+- **The more recent write wins.** Each record's moment travels beside it, so a
+  record written on both devices is settled rather than asked about. Only a real
+  tie — the same record, the same moment, different contents — still opens the
+  overlap sheet. A merge that took the other device's answer keeps *its* moment,
+  so the next sync compares the same two numbers.
+- **One tap.** `SYNC.run()` reads, merges, then sends back what this device
+  holds; there is nothing to choose between import and export. **DO's header
+  `sync` button is now this** — DO's own Todoist routine sync keeps its button
+  under settings → do, which is the one decision made on Hugo's behalf here.
+- **An id per payload.** A digest of the contents, recorded on both push and
+  import, so "already imported" is one string compare and two devices on a timer
+  stop writing to each other once they agree.
+- **A SYNC section of its own,** the fourth category beside apps, appearance and
+  data. It carries the one button, the refresh dial (`syncEvery`: off, or 1–60
+  minutes), safe transfer, the window dial, the four what-travels switches and
+  the three routes, which moved here out of `data`.
+- **Four groups and a safe-transfer switch.** apps / settings / style / system,
+  with system off; safe transfer is the old private/not-private route split made
+  into a dial. Tokens travel on no route either way, switch or no switch.
+- **Automatic refresh is off by default.** The dial has nine intervals and an
+  `off`, which the request did not ask for and which a background sync nobody
+  chose is the reason for.
+
 
 *Newest first. Every change to `root/` gets an entry — what changed, and why if
 the why is not obvious from the what.*

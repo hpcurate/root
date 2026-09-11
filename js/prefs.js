@@ -315,6 +315,30 @@ const SCHEMA = {
      not belong on someone else's server, and the one honest exception is the
      day you are still in the middle of. See ROOT.md §10. */
   syncTodayPrivate: { kind:'bool', def:false },
+  /* How often a sync runs on its own, in minutes. `0` is off, and off is the
+     default: §10's "both are manual" was a rule about not being stood next to
+     an import that goes wrong, and the answer to that is the merge settling
+     overlaps by recency rather than a switch nobody chose. The steps are the
+     ones asked for — a minute up to an hour — and nothing between them, because
+     a sync interval is a decision, not a slider you land on 37 with. */
+  syncEvery:    { kind:'enum',   def:'0',
+                  values:['0','1','2','3','4','5','10','15','30','60'] },
+  /* What a sync is allowed to carry. Four groups, because "everything" and
+     "one app" are both wrong answers: `apps` is what every app wrote, `settings`
+     is the content layer, `style` is the whole appearance engine, and `system`
+     is the shell's own bookkeeping — the tab you were on, the label cache, the
+     sync stamps. `system` is the one that is off: it is the only group where the
+     other device's answer is not better than this one's. */
+  syncApps:     { kind:'bool',   def:true },
+  syncSettings: { kind:'bool',   def:true },
+  syncStyle:    { kind:'bool',   def:true },
+  syncSystem:   { kind:'bool',   def:false },
+  /* Keep the private records off the route that leaves this device. On, which
+     is the split ROOT has always had between the two routes (§10) — turning it
+     off is saying "carry the journal over Todoist too", which is a thing to
+     decide rather than a thing to default. Tokens are not part of this deal:
+     they travel on no route either way. */
+  syncSafe:     { kind:'bool',   def:true },
   keyboardNav:  { kind:'bool',   def:true },
   /* The five bindings that are letters rather than arrows, each one rebindable.
      The arrows, 1–9 and "/" are built in and are *not* in here: they are the

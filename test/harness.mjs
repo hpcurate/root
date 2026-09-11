@@ -821,10 +821,10 @@ const noteNoMedia = w.LOG.buildNote();
 check('a day with nothing finished has no media section', !/#### media/.test(noteNoMedia));
 w.DO.setTab('daily');
 
-// settings: a home menu, three categories, the apps out of the bar
+// settings: a home menu, four categories, the apps out of the bar
 w.Shell.go('settings'); w.SET.home();
-check('settings opens on a home menu with three categories', $('.ns-set #s-home').classList.contains('on') &&
-  [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,data');
+check('settings opens on a home menu with four categories', $('.ns-set #s-home').classList.contains('on') &&
+  [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,sync,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
 check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools',
@@ -6018,8 +6018,8 @@ check('SYNC reaches no app module — every app stays as networkless as it was',
 
 /* The panel, and the sheet that is the only thing standing between an import
    and twenty overwritten days. */
-w.SET.panel('data');
-check('the data panel offers both routes, and says which apps take which',
+w.SET.panel('sync');
+check('the sync panel offers both routes, and says which apps take which',
   /todoist/.test($('.ns-set #sync-todoist').textContent) &&
   /DO, DAY, CREATE and TEND/.test($('.ns-set #sync-todoist').textContent) &&
   /LOG, TRACK and STORE/.test($('.ns-set #sync-file').textContent));
@@ -6979,6 +6979,129 @@ check('no errors through CREATE 4.12', errors.length === 0, errors.slice(0, 3).j
 }
 
 check('no errors through 4.12.1', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* 4.13 — SYNC: the journal, the four groups, safe transfer, and one tap.
+   The engine changed from "a list of keys this file knows about" to "whatever
+   this device has written lately", so what is checked here is the part that
+   decides: what a payload is allowed to carry, and who wins when both sides
+   wrote the same record. */
+{
+  const LS413 = w.localStorage;
+  const S = w.SYNC;
+  const day413 = w.Shell.today();
+
+  /* The journal. Every write is noted by wrapping Storage.prototype once, so a
+     key nothing in sync.js has ever heard of is still carried. */
+  LS413.setItem('brand_new_key_v1', JSON.stringify({ hello: 1 }));
+  check('a write this file knows nothing about is still noted',
+    S.touchedAt('brand_new_key_v1') > 0, String(S.touchedAt('brand_new_key_v1')));
+  check('and it is in the last 24 hours of changes',
+    S.changedSince(Date.now() - 60000).includes('brand_new_key_v1'));
+  check('sync’s own bookkeeping is never journalled — it would never settle',
+    S.touchedAt('root_sync_touch_v1') === 0 && S.touchedAt('root_sync_v1') === 0);
+
+  check('a key on no route’s list travels anyway, because it was written',
+    'brand_new_key_v1' in S.build('file').state,
+    Object.keys(S.build('file').state).join(','));
+  check('and the payload says when each record was written',
+    S.build('file').touch.brand_new_key_v1 === S.touchedAt('brand_new_key_v1'));
+
+  /* The four groups. `apps` is everything an app wrote; style is the whole
+     appearance engine; system is the shell's bookkeeping and is off. */
+  check('the groups are what the section says they are',
+    S.groupOf('brand_new_key_v1') === 'apps' && S.groupOf('root_prefs_v1') === 'style' &&
+    S.groupOf('root_config_v1') === 'settings' && S.groupOf('root_tab') === 'system',
+    [S.groupOf('root_prefs_v1'), S.groupOf('root_config_v1'), S.groupOf('root_tab')].join(','));
+  check('the shell’s own bookkeeping stays here unless it is asked for',
+    !S.carries('file', 'root_tab'));
+  w.Prefs.set('syncSystem', true);
+  check('… and travels when it is', S.carries('file', 'root_tab'));
+  w.Prefs.reset('syncSystem');
+  w.Prefs.set('syncStyle', false);
+  check('a group switched off carries none of its keys', !S.carries('file', 'root_prefs_v1'));
+  w.Prefs.reset('syncStyle');
+  check('… and carries them again when it is back on', S.carries('file', 'root_prefs_v1'));
+
+  /* Safe transfer is the old route split, made into a dial. */
+  check('safe transfer keeps the journal off the route that leaves the device',
+    !S.carries('todoist', 'log_' + day413) && S.carries('file', 'log_' + day413));
+  w.Prefs.set('syncSafe', false);
+  check('turning it off is what lets the logged day go over Todoist',
+    S.carries('todoist', 'log_' + day413));
+  {
+    LS413.setItem('log_' + day413, JSON.stringify({ m: { nrg: '3', saved: 10 }, e: {} }));
+    const built = S.build('todoist');
+    check('and then the day itself is in the payload, beside DO’s',
+      !!(built.days[day413] && built.days[day413].log), JSON.stringify(Object.keys(built.days[day413] || {})));
+  }
+  w.Prefs.reset('syncSafe');
+  check('a key that is nothing but a Todoist key travels on no route, by no switch',
+    !S.carries('file', 'plan_token') && !S.carries('todoist', 'plan_token') &&
+    !S.carries('file', 'root_todoist_v1'));
+
+  /* The rule the request asked for: the most recent write wins, rather than a
+     question nobody is there to answer. */
+  {
+    const M413 = S._merge;
+    check('the more recently written record wins',
+      M413.mergeState('k', { a: 1 }, { a: 2 }, 500, 100).out.a === 2);
+    check('… and ours is kept when ours is the newer one',
+      M413.mergeState('k', { a: 1 }, { a: 2 }, 100, 500).out.a === 1);
+    check('… and the same moment is still a question, not a guess',
+      M413.mergeState('k', { a: 1 }, { a: 2 }, 100, 100).conflicts.length === 1);
+  }
+  {
+    LS413.setItem('brand_new_key_v1', JSON.stringify({ hello: 'mine' }));
+    const mine413 = S.touchedAt('brand_new_key_v1');
+    const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
+                      written: Date.now(), days: {}, state: { brand_new_key_v1: { hello: 'theirs' } },
+                      touch: { brand_new_key_v1: mine413 + 5000 } };
+    const planned = S.plan('file', payload);
+    check('a record written later on the other device is planned as a write, not a question',
+      planned.conflicts.length === 0 &&
+      planned.writes.some(x => x.key === 'brand_new_key_v1'), JSON.stringify(planned.conflicts.map(c => c.label)));
+    S.commit(planned, []);
+    check('committing takes their answer',
+      JSON.parse(LS413.getItem('brand_new_key_v1')).hello === 'theirs');
+    check('and the journal keeps *their* moment, not the moment it landed here',
+      S.touchedAt('brand_new_key_v1') === mine413 + 5000, String(S.touchedAt('brand_new_key_v1')));
+    S.undoImport();
+  }
+
+  /* "Know immediately that the data it is importing has already been imported." */
+  {
+    const a = S.build('file'), b = S.build('file');
+    check('two builds of an unchanged device have the same id', a.id === b.id, a.id + ' / ' + b.id);
+    check('a payload that has not been taken in is not already seen', !S.alreadySeen('file', a.id));
+    S.markPulled('file', a.id);
+    check('… and is, once it has', S.alreadySeen('file', a.id));
+    LS413.setItem('brand_new_key_v1', JSON.stringify({ hello: 'changed' }));
+    check('a device that has changed since says so with a different id',
+      S.build('file').id !== a.id);
+  }
+
+  LS413.removeItem('brand_new_key_v1');
+  LS413.removeItem('log_' + day413);
+
+  /* The section, and the one button that is both directions. */
+  w.SET.panel('sync');
+  check('the sync section carries the refresh dial, safe transfer and the four groups',
+    !!$('.ns-set [data-pref="syncEvery"]') && !!$('.ns-set [data-pref="syncSafe"]') &&
+    ['syncApps', 'syncSettings', 'syncStyle', 'syncSystem']
+      .every(k => !!$('.ns-set #sync-groups [data-pref="' + k + '"]')));
+  check('the refresh dial offers off and the nine intervals asked for',
+    [...d.querySelectorAll('.ns-set [data-pref="syncEvery"]')].map(b => b.dataset.val).join(',')
+      === '0,1,2,3,4,5,10,15,30,60');
+  check('one tap is one tap: DO’s header sync is the device sync, not a direction',
+    /SET\.syncNow/.test($('#view-do .h-act.sync').getAttribute('onclick') || ''),
+    $('#view-do .h-act.sync').getAttribute('onclick'));
+  check('and the automatic refresh is off until it is asked for',
+    String(w.Prefs.get('syncEvery')) === '0');
+  w.Shell.go('do');
+}
+
+check('no errors through 4.13', errors.length === 0, errors.slice(0, 3).join(' | '));
+
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

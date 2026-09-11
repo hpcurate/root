@@ -27,6 +27,14 @@ window.SYNC = (function () {
   const TITLE   = 'ROOT · ';            // + <iso> | 'state'
   const STAMP   = 'root_sync_v1';       // last push/pull per route, and this device's id
   const BACKUP  = 'root_sync_undo_v1';  // the keys an import overwrote, for one step back
+  const TOUCH   = 'root_sync_touch_v1'; // key → when this device last wrote it
+
+  /* How far back "everything I have changed" reaches. A day, because that is
+     the unit the request is in: whatever you did since yesterday should be on
+     the other device. It is not a dial — a window you can shrink is a window
+     that silently stops carrying things. `syncDays` is still the dial, and it
+     is about *which days* travel, which is a different question. */
+  const SINCE_MS = 24 * 60 * 60 * 1000;
 
   const readJSON = (k, fb = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fb; } catch { return fb; } };
   const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -63,6 +71,113 @@ window.SYNC = (function () {
 
   const CAL_KEY = 'cal_days_v1';
 
+  /* ── The journal ──────────────────────────────────────────────────────────
+     "Anything I do should be kept and then synced" needs an answer to *when*
+     each key was last written, and no record carries one: a list is a list, not
+     a stamped one. So every write to localStorage is noted here, key → moment,
+     and that is what "changed in the last 24h" and "the most recent wins" are
+     both computed from.
+
+     It is done by wrapping `Storage.prototype.setItem` once rather than by
+     asking each app to report its own writes. That is the same rule the rest of
+     this file follows (§10: sync belongs to the shell): no module knows this
+     exists, and a new app is carried by being written at all rather than by
+     being added to a list.
+
+     The index itself, the undo snapshot and the stamps are skipped — they are
+     sync's own bookkeeping, and a journal that journals itself never settles. */
+  const OURS = new Set([TOUCH, BACKUP, STAMP]);
+  let touch = null;                     // the index, read once and kept
+  let touchTimer = 0;
+
+  function touchMap() {
+    if (!touch) touch = readJSON(TOUCH, {}) || {};
+    return touch;
+  }
+  function flushTouch() {
+    touchTimer = 0;
+    if (touch) writeJSON(TOUCH, touch);
+  }
+  /* Written on a timer because a burst of writes is one change to a person —
+     ticking a routine is a dozen setItems — and an index rewritten a dozen
+     times is a dozen serialisations of the whole map for one answer. */
+  function note(key, at) {
+    if (OURS.has(key)) return;
+    touchMap()[key] = at || Date.now();
+    if (!touchTimer) touchTimer = setTimeout(flushTouch, 1000);
+  }
+
+  (function journal() {
+    const S = window.Storage && window.Storage.prototype;
+    if (!S || S.__rootSyncJournal) return;
+    const setItem = S.setItem, removeItem = S.removeItem;
+    S.setItem = function (key, value) {
+      setItem.call(this, key, value);
+      if (this === window.localStorage) note(String(key));
+    };
+    /* A removal is a change like any other: a list emptied on this device has
+       to beat the copy of it still sitting on the other one. */
+    S.removeItem = function (key) {
+      removeItem.call(this, key);
+      if (this === window.localStorage) note(String(key));
+    };
+    S.__rootSyncJournal = true;
+    /* The timer is a second at most, but a tab can close inside that second. */
+    window.addEventListener('pagehide', () => { if (touchTimer) { clearTimeout(touchTimer); flushTouch(); } });
+  })();
+
+  const touchedAt = key => touchMap()[key] || 0;
+  const changedSince = at => Object.keys(touchMap()).filter(k => touchMap()[k] >= at);
+
+  /* ── What is allowed to travel ────────────────────────────────────────────
+     Two questions, deliberately separate. **Which group** a key is in answers
+     "do I want this carried at all"; **whether it is sensitive** answers "may
+     it go over the route that leaves this device".
+
+     The groups are the four the settings section offers. `apps` is everything
+     an app wrote; `settings` is the content layer; `style` is the appearance
+     engine; `system` is the shell's own bookkeeping — the tab you were on, the
+     label colours, the sync stamps — which is the one group that is off by
+     default, because it is the only one where the other device's answer is not
+     better than yours. */
+  const SYSTEM_KEYS = ['root_tab', 'root_theme', 'root_labels_v1', 'root_todoist_v1', STAMP, TOUCH, BACKUP];
+
+  function groupOf(key) {
+    const k = String(key);
+    if (k === 'root_prefs_v1') return 'style';
+    if (k === 'root_config_v1') return 'settings';
+    if (SYSTEM_KEYS.includes(k)) return 'system';
+    return 'apps';
+  }
+
+  /* Private in the sense §10 means it: a journal, a body of coursework and a
+     shopping list are yours. These are the keys the Todoist route leaves
+     behind while safe transfer is on — the switch is the old route split made
+     into a dial rather than a new idea. */
+  const SENSITIVE = [/^log_/, /^log-/, /^capTracker\./, /^store_state_/];
+  const sensitive = key => SENSITIVE.some(re => re.test(String(key)));
+
+  /* A key that is nothing but a Todoist key travels on no route, by no switch.
+     §10: tokens never travel. A record that merely *contains* one still does,
+     with the field scrubbed out of it on the way — dropping STORE's whole list
+     to hide one field would be the wrong trade. */
+  const TOKEN_ONLY = ['plan_token', 'root_todoist_v1'];
+
+  const pref = (name, fallback) => (window.Prefs ? Prefs.get(name) : fallback);
+  const groupOn = g => pref('sync' + g[0].toUpperCase() + g.slice(1),
+                            g === 'system' ? false : true) !== false;
+  const safeTransfer = () => pref('syncSafe', true) !== false;
+
+  /* One rule, asked by everything that builds a payload. `route` is what makes
+     it a rule rather than a preference: a file you move yourself can carry a
+     journal; a task on someone else's server cannot, unless you say so. */
+  function carries(route, key) {
+    if (OURS.has(key) || TOKEN_ONLY.includes(key)) return false;
+    if (!groupOn(groupOf(key))) return false;
+    if (route === 'todoist' && safeTransfer() && sensitive(key)) return false;
+    return true;
+  }
+
   /* A Todoist key must never travel in a Todoist task, and has no business in
      a file either. Every record is walked on the way out and any field called
      `token` is dropped; on the way back in the local one is kept whatever
@@ -93,11 +208,19 @@ window.SYNC = (function () {
     writeJSON(STAMP, r);
     return r.device;
   };
-  function stamp(route, what) {
+  function stamp(route, what, extra) {
     const r = readJSON(STAMP, {}) || {};
-    r[route] = Object.assign({}, r[route], { [what]: Date.now() });
+    r[route] = Object.assign({}, r[route], { [what]: Date.now() }, extra || null);
     writeJSON(STAMP, r);
   }
+  const routeStamp = route => (readJSON(STAMP, {}) || {})[route] || {};
+
+  /* "When a device hits sync it should know immediately that the data it is
+     importing has already been imported." The payload's id names its contents,
+     so this is one string compare against the last one taken in — no merge
+     planned, no twenty days walked, nothing written. A push records its own id
+     too: a device obviously already holds what it just sent. */
+  const alreadySeen = (route, id) => !!id && routeStamp(route).seen === id;
   function lastAt(route, what) {
     const r = readJSON(STAMP, {}) || {};
     return (r[route] && r[route][what]) || 0;
@@ -117,14 +240,29 @@ window.SYNC = (function () {
 
   /* ── Building what goes out ───────────────────────────────────────────── */
 
+  const DAY_KEY = /^(do|log)_\d{4}-\d{2}-\d{2}$/;
+  const isDayKey = k => DAY_KEY.test(String(k));
+
   function dayPayload(route, day) {
     const R = ROUTES[route];
     const out = {};
-    if (!R.todayOnly || day === Shell.today()) {
-      const rec = readJSON(R.dayKey(day));
+    const own = R.dayKey(day);
+    if ((!R.todayOnly || day === Shell.today()) && carries(route, own)) {
+      const rec = readJSON(own);
       if (rec) out.day = scrub(rec);
     }
-    if (R.slices.includes('cal')) {
+    /* The *other* route's day, when the two are not being kept apart. Safe
+       transfer is what keeps them apart, so with it off the Todoist route
+       carries the logged day too — and it is still merged by LOG's own rules,
+       because it is a LOG record wherever it travelled. The file route is the
+       complete one and takes today's ticks the same way. */
+    const guest = route === 'todoist' ? 'log_' + day
+                : day === Shell.today() ? 'do_' + day : null;
+    if (guest && carries(route, guest)) {
+      const rec = readJSON(guest);
+      if (rec) out[route === 'todoist' ? 'log' : 'do'] = scrub(rec);
+    }
+    if (R.slices.includes('cal') && carries(route, CAL_KEY)) {
       const cal = readJSON(CAL_KEY, {}) || {};
       if (cal.days && cal.days[day]) out.cal = scrub(cal.days[day]);
       if (cal.marks && cal.marks[day]) out.marks = scrub(cal.marks[day]);
@@ -132,13 +270,45 @@ window.SYNC = (function () {
     return Object.keys(out).length ? out : null;
   }
 
+  /* The route's own records, plus anything else this device has written since
+     the window opened. The list is the floor rather than the whole answer: it
+     is what a route has always carried, so an install with no journal yet syncs
+     exactly what it used to, and the journal is what makes "anything I do"
+     true for everything that came after.
+
+     Day records and the calendar are left out on purpose — both travel under
+     `days`, where they are merged a piece at a time instead of being chosen
+     between whole. */
   function statePayload(route) {
     const out = {};
-    ROUTES[route].state.forEach(k => {
-      const v = readJSON(k);
-      if (v !== null) out[k] = scrub(v);
+    const add = k => { const v = readJSON(k); if (v !== null) out[k] = scrub(v); };
+    ROUTES[route].state.forEach(k => { if (carries(route, k)) add(k); });
+    changedSince(Date.now() - SINCE_MS).forEach(k => {
+      if (k in out || isDayKey(k) || k === CAL_KEY) return;
+      if (carries(route, k)) add(k);
     });
     return out;
+  }
+
+  /* When this device last wrote each record that is travelling. It is what the
+     other side compares against its own journal, and the whole of "if an info
+     is overlapping, the most recent is used". */
+  function touchPayload(state) {
+    const out = {};
+    Object.keys(state).forEach(k => { const t = touchedAt(k); if (t) out[k] = t; });
+    return out;
+  }
+
+  /* A name for a payload's *contents* — everything except who wrote it and
+     when. Two pushes of an unchanged board have the same id, which is how the
+     other device knows it has already taken this in and how a pair of devices
+     on a timer stop talking once they agree. */
+  function digest(body) {
+    const s = JSON.stringify({ days: body.days || {}, state: body.state || {},
+                               today: body.today || null });
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + '-' + s.length.toString(36);
   }
 
   /* Today's private day, carried on the Todoist route on purpose.
@@ -168,6 +338,9 @@ window.SYNC = (function () {
       const p = todayPrivate();
       if (p) { body.today = p; body.todayFor = Shell.today(); }
     }
+    body.touch = touchPayload(body.state);
+    body.since = SINCE_MS;
+    body.id = digest(body);
     return body;
   }
 
@@ -269,10 +442,20 @@ window.SYNC = (function () {
   /* Everything that is not day-scoped. There is no timestamp inside these
      records and inventing one would be worse than asking: identical is a
      no-op, missing on one side is taken, and anything else is a question. */
-  function mergeState(key, local, incoming) {
+  function mergeState(key, local, incoming, theirs, mine) {
     if (incoming === undefined) return { out: local, notes: [], conflicts: [] };
     if (same(local, incoming)) return { out: local, notes: [], conflicts: [] };
     if (local === null) return { out: clone(incoming), notes: [`${key} · added`], conflicts: [] };
+    /* The journal is what turned this from a question into an answer. When both
+       devices can say when they last wrote a record, the more recent one is the
+       one you meant — that is the rule the request asked for, and it is also
+       the only rule an automatic sync can have, since nobody is standing there
+       to be asked. Without two timestamps it is still a question. */
+    if (theirs && mine && theirs !== mine) {
+      return theirs > mine
+        ? { out: clone(incoming), notes: [`${key} · updated`], conflicts: [], at: theirs }
+        : { out: local, notes: [], conflicts: [] };
+    }
     return { out: local, notes: [],
              conflicts: [{ id: `state:${key}`, label: key, why: 'changed on both devices',
                            apply: null, value: clone(incoming) }] };
@@ -308,8 +491,23 @@ window.SYNC = (function () {
     const calOut = calLocal ? clone(calLocal) : null;
     let calTouched = false;
 
+    /* One day record, merged by the rules of the app that owns it rather than
+       by the rules of the route it arrived on. `day` is the route's own; `log`
+       and `do` are the guests a route carries when the two are not being kept
+       apart, and a guest is still a LOG day or a DO day. */
+    const dayInto = (day, key, rec, kind) => {
+      const local = readJSON(key);
+      const r = kind === 'log' ? mergeLogDay(day, local, rec) : mergeDoDay(day, local, rec);
+      notes.push(...r.notes);
+      if (r.conflicts.length) bases[key] = clone(r.out);
+      r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key, applyTo: c.apply })));
+      if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
+    };
+
     Object.keys(payload.days || {}).forEach(day => {
       const inc = payload.days[day] || {};
+      if (inc.log) dayInto(day, 'log_' + day, inc.log, 'log');
+      if (inc.do)  dayInto(day, 'do_' + day, inc.do, 'do');
       if (inc.day) {
         const key = R.dayKey(day);
         const local = readJSON(key);
@@ -353,13 +551,31 @@ window.SYNC = (function () {
       if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
     }
 
-    R.state.forEach(key => {
+    /* Every record the payload actually carries, not a list kept here. That is
+       the difference the journal makes: a key this build has never heard of —
+       a new app's, or one an old device still writes — arrives, is merged by
+       the same rule as the rest, and is not silently dropped for not being on
+       a list. The route's own list is still merged when the payload is an old
+       one that carries nothing else. */
+    const stateKeys = [];
+    const seenKey = new Set();
+    [].concat(R.state, Object.keys(payload.state || {})).forEach(k => {
+      if (seenKey.has(k) || isDayKey(k) || k === CAL_KEY || OURS.has(k)) return;
+      seenKey.add(k); stateKeys.push(k);
+    });
+
+    const theirTouch = payload.touch || {};
+    stateKeys.forEach(key => {
       const incoming = (payload.state || {})[key];
       const local = readJSON(key);
-      const r = key === 'do-stats-v1' ? mergeStats(local, incoming) : mergeState(key, local, incoming);
+      const r = key === 'do-stats-v1'
+        ? mergeStats(local, incoming)
+        : mergeState(key, local, incoming, theirTouch[key], touchedAt(key));
       notes.push(...r.notes);
       r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key })));
-      if (r.out !== undefined && !same(r.out, local)) writes.push({ key, value: keepToken(key, r.out) });
+      if (r.out !== undefined && !same(r.out, local)) {
+        writes.push({ key, value: keepToken(key, r.out), at: r.at || 0 });
+      }
     });
 
     if (calTouched) writes.push({ key: CAL_KEY, value: calOut });
@@ -371,6 +587,8 @@ window.SYNC = (function () {
      it is a snapshot, not an edit history, and the next import replaces it. */
   function commit(planned, taken) {
     const byKey = new Map(planned.writes.map(w => [w.key, clone(w.value)]));
+    /* When each of those records was *authored*, where the merge knows. */
+    const authored = new Map(planned.writes.filter(w => w.at).map(w => [w.key, w.at]));
 
     (taken || []).forEach(c => {
       if (c.calDay) {
@@ -398,8 +616,14 @@ window.SYNC = (function () {
     let n = 0;
     for (const [key, value] of byKey) {
       if (!writeJSON(key, value)) return { ok: false, written: n };
+      /* The journal holds when a record was written, not when it arrived. A
+         merge that took the other device's answer keeps the other device's
+         moment, so the next sync between the two compares the same two numbers
+         this one did instead of one that has just been moved forward. */
+      if (authored.has(key)) note(key, authored.get(key));
       n++;
     }
+    flushTouch();
     return { ok: true, written: n };
   }
 
@@ -462,6 +686,14 @@ window.SYNC = (function () {
                                         days: {}, state: body.state,
                                         today: body.today, todayFor: body.todayFor }) });
 
+    /* Nothing new to say. The id names the contents, so an unchanged board is
+       an unchanged payload, and a pair of devices on a timer stop writing to
+       each other the moment they agree instead of trading the same bytes every
+       few minutes. */
+    if (routeStamp('todoist').sent === body.id && existing.length) {
+      return { added: 0, updated: 0, total: wanted.length, unchanged: true };
+    }
+
     let added = 0, updated = 0;
     for (const w of wanted) {
       const found = byTitle.get(w.title);
@@ -475,7 +707,7 @@ window.SYNC = (function () {
         added++;
       }
     }
-    stamp('todoist', 'push');
+    stamp('todoist', 'push', { sent: body.id, seen: body.id });
     return { added, updated, total: wanted.length };
   }
 
@@ -484,7 +716,7 @@ window.SYNC = (function () {
     const tasks = await Todoist.getAll('/tasks', { section_id: t.sectionId });
     const keep = new Set(window_(span()));
     const merged = { app: 'root', kind: 'sync', version: 1, route: 'todoist',
-                     device: '', written: 0, days: {}, state: {} };
+                     device: '', written: 0, days: {}, state: {}, touch: {} };
     let found = 0;
     tasks.forEach(task => {
       const title = String(task.content || '').trim();
@@ -494,11 +726,81 @@ window.SYNC = (function () {
       found++;
       Object.keys(body.days || {}).forEach(d => { if (keep.has(d)) merged.days[d] = body.days[d]; });
       Object.assign(merged.state, body.state || {});
+      /* Each record's own moment travels with it, so the newer-wins rule is
+         asked about the record rather than about the task it arrived in. */
+      Object.keys(body.touch || {}).forEach(k => {
+        if (!merged.touch[k] || body.touch[k] > merged.touch[k]) merged.touch[k] = body.touch[k];
+      });
       if (body.today && body.todayFor) { merged.today = body.today; merged.todayFor = body.todayFor; }
       if (+body.written > merged.written) { merged.written = +body.written; merged.device = body.device || ''; }
     });
     if (!found) throw new Error(`nothing to import — no "${TITLE.trim()}…" tasks in ${SECTION}`);
+    merged.id = digest(merged);
     return merged;
+  }
+
+  /* ── One tap ──────────────────────────────────────────────────────────────
+     "It should just know whether it is an import or an export." It is both, in
+     the only order that is safe: take what is there, merge it, then send what
+     this device holds afterwards. Anything else is a device deciding on its own
+     that its copy is the good one.
+
+     Three things make that safe enough to also run on a timer. An id says
+     whether there is anything to take in at all. The merge settles overlaps by
+     which record is newer rather than by asking. And a push whose contents have
+     not changed is not sent. Left over are the ties — the same record written
+     on both devices in the same moment — and those are the one thing an
+     automatic run will not guess: it keeps this device's copy and leaves the
+     question for a sync you are standing next to. */
+  async function run(opts) {
+    const auto_ = !!(opts && opts.auto);
+    const out = { route: 'todoist', already: false, imported: 0, notes: [],
+                  planned: null, payload: null, pushed: null };
+
+    let payload = null;
+    try { payload = await pullTodoist(); }
+    catch (err) {
+      /* An empty section is not a failure — it is the first sync of a pair. */
+      if (!/nothing to import/.test(String((err && err.message) || ''))) throw err;
+    }
+
+    if (payload) {
+      if (alreadySeen('todoist', payload.id)) out.already = true;
+      else {
+        const planned = plan('todoist', payload);
+        if (planned.conflicts.length && !auto_) {
+          out.planned = planned; out.payload = payload;
+          return out;                                   // the caller asks, then finishes
+        }
+        const res = commit(planned, []);
+        out.imported = res.written;
+        out.notes = planned.notes;
+        /* Only a run that had nothing left to ask about can call this payload
+           taken in; one that quietly kept its own side of a tie has not. */
+        if (!planned.conflicts.length) markPulled('todoist', payload.id);
+        else markPulled('todoist');
+      }
+    }
+
+    out.pushed = await pushTodoist();
+    return out;
+  }
+
+  /* The refresh, on the dial. 0 is off, and off is the default — a sync that
+     starts running the day you install it is one you never chose. Re-read every
+     time round rather than captured, so the dial takes effect at the next tick
+     instead of at the next reload. */
+  let autoTimer = 0;
+  function auto(onDone) {
+    clearTimeout(autoTimer); autoTimer = 0;
+    const mins = Math.max(0, +pref('syncEvery', 0) || 0);
+    if (!mins) return;
+    autoTimer = setTimeout(async () => {
+      let res = null;
+      try { res = await run({ auto: true }); } catch { /* offline, no key, no section */ }
+      if (res && typeof onDone === 'function') { try { onDone(res); } catch {} }
+      auto(onDone);
+    }, mins * 60000);
   }
 
   /* ── The file transport ───────────────────────────────────────────────── */
@@ -658,9 +960,22 @@ ${JSON.stringify(body)}
     return { total: incoming.length, over, fresh: incoming.length - over };
   }
 
-  const markPulled = route => stamp(route, 'pull');
+  const markPulled = (route, id) => stamp(route, 'pull', id ? { seen: id } : null);
+
+  /* Who to tell when an automatic run has done something — the settings panel,
+     when it is open, so the section is not stale in front of you. The dial is
+     re-read every tick, but a dial that has just been moved should not have to
+     wait out the old interval first. */
+  let autoDone = null;
+  const onAuto = fn => { autoDone = fn; auto(autoDone); };
+  if (window.Prefs && Prefs.subscribe) {
+    Prefs.subscribe(k => { if (k === 'syncEvery' || k === '*') auto(autoDone); });
+  }
+  auto(null);
 
   return { ROUTES, build, plan, commit, canUndo, undoImport, markPulled, todayPrivate,
+           run, auto, onAuto, alreadySeen, touchedAt, changedSince, carries, groupOf,
+           since: () => SINCE_MS,
            exportEverything, parseEverything, restoreEverything, everythingCount, everythingText,
            pushTodoist, pullTodoist, exportFile, parseFile, fileText,
            lastAt, window: window_, span, unwrap, wrap, deviceId,

@@ -12,15 +12,16 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','tools','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','tools','sync','data'];
 /* Which category a panel sits in, and what its pill says. `data` is a single
    panel, so its category shows no pill bar. */
 const CATS = {
   apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create','tools'] },
   appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
+  sync:       { title:'sync',       hint:'two devices, one board — what travels and how often', panels:['sync'] },
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
-const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data',
+const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data', sync:'sync',
                     do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day',
                     create:'create', tools:'tools' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
@@ -1826,7 +1827,6 @@ function renderStorage() {
 function renderData() {
   renderToken();
   renderStorage();
-  renderSync();
   const n = Config.customPaths().length;
   const el = $id('set-custom-count');
   if (el) el.textContent = n ? `${n} section${n === 1 ? '' : 's'} customised` : 'nothing customised yet';
@@ -1846,11 +1846,40 @@ const agoText = t => {
   return Math.round(hrs / 24) + 'd ago';
 };
 
+/* The frequency dial's words. `0` is off, and the rest read as a sentence
+   rather than as a number with a unit hung off it. */
+const EVERY_LABEL = v => v === '0' ? 'off'
+  : v === '60' ? 'hourly'
+  : v + ' min';
+
 function renderSync() {
   if (!window.SYNC) return;
-  const win = $id('sync-window');
-  if (win) win.innerHTML = slider('syncDays', 'How far the window reaches',
-    v => '±' + Math.round(v) + ' days');
+  const dials = $id('sync-dials');
+  if (dials) dials.innerHTML =
+    chips('syncEvery', Prefs.SCHEMA.syncEvery.values.map(v => ({ v, l: EVERY_LABEL(v) })),
+          'Refresh on its own',
+          'a run takes what is there, merges it and sends back what this device holds') +
+    toggle('syncSafe', 'Safe transfer',
+           'keep the logged days, the curriculum and the shopping list off Todoist') +
+    slider('syncDays', 'How far the window reaches', v => '±' + Math.round(v) + ' days');
+
+  const groups = $id('sync-groups');
+  if (groups) groups.innerHTML =
+    toggle('syncApps', 'apps', 'everything the apps write — days, lists, ticks, plants, works') +
+    toggle('syncSettings', 'settings', 'the content edits under each app') +
+    toggle('syncStyle', 'style', 'the whole appearance setup: theme, layout, type, motion') +
+    toggle('syncSystem', 'system', 'the tab you were on, the label cache, the sync stamps');
+
+  const when = $id('sync-now-when');
+  if (when) {
+    const push = agoText(SYNC.lastAt('todoist', 'push'));
+    const pull = agoText(SYNC.lastAt('todoist', 'pull'));
+    const every = String(Prefs.get('syncEvery') || '0');
+    when.textContent = [push ? 'sent ' + push : 'never sent',
+                        pull ? 'taken in ' + pull : 'never taken in',
+                        every === '0' ? 'manual' : 'every ' + EVERY_LABEL(every)].join(' · ');
+  }
+
   ['todoist', 'file'].forEach(r => {
     const el = $id('sync-' + r + '-when');
     if (!el) return;
@@ -1869,8 +1898,8 @@ function renderSync() {
    Nothing is written to storage while this is set. */
 let syncPending = null;
 
-function syncOpen(planned, route) {
-  syncPending = { planned, route, take: new Set() };
+function syncOpen(planned, route, id) {
+  syncPending = { planned, route, id, take: new Set() };
   const n = planned.conflicts.length;
   $id('ovl-ttl').textContent = 'on both devices';
   $id('ovl-lead').innerHTML =
@@ -1910,16 +1939,18 @@ function syncPick(i, take) {
 
 function syncApply() {
   if (!syncPending) { syncCancel(); return; }
-  const { planned, route, take } = syncPending;
+  const { planned, route, id, take } = syncPending;
   const taken = planned.conflicts.filter((_, i) => take.has(i));
   syncCancel();
-  syncWrite(planned, taken, route);
+  syncWrite(planned, taken, route, id);
 }
 
-function syncWrite(planned, taken, route) {
+function syncWrite(planned, taken, route, id) {
   const res = SYNC.commit(planned, taken);
   if (!res.ok) { Shell.toast('storage full — nothing changed'); return; }
-  SYNC.markPulled(route);
+  /* The id names what was taken in, so the next run can say "already up to
+     date" without planning the same merge again. */
+  SYNC.markPulled(route, id);
   Shell.ask({
     title: `Imported ${res.written} record${res.written === 1 ? '' : 's'}`,
     body: 'Every view re-reads its data on reload. Nothing else on this device was touched, '
@@ -1939,15 +1970,54 @@ function syncReview(payload, route) {
   if (!planned.writes.length && !planned.conflicts.length) {
     Shell.toast('already up to date'); renderSync(); return;
   }
-  if (planned.conflicts.length) { syncOpen(planned, route); return; }
+  if (planned.conflicts.length) { syncOpen(planned, route, payload.id); return; }
   Shell.ask({
     title: `Apply ${planned.writes.length} change${planned.writes.length === 1 ? '' : 's'}?`,
     body: (planned.notes.slice(0, 8).join(' · ') || 'records this device did not have')
         + (planned.notes.length > 8 ? ` · and ${planned.notes.length - 8} more` : '')
         + '. Nothing here is replaced outright — a day only gains what it was missing.',
     yes: 'import',
-    done: a => { if (a) syncWrite(planned, [], route); },
+    done: a => { if (a) syncWrite(planned, [], route, payload.id); },
   });
+}
+
+/* ── One tap ────────────────────────────────────────────────────
+   The button at the top of DO and the one in this section are the same thing:
+   sync, without being asked which direction. SYNC.run() takes what is there,
+   merges it and sends back what this device holds afterwards; the one thing it
+   will not decide on its own is a tie — the same record written on both devices
+   in the same moment — which comes back as a plan for the overlap sheet.
+
+   `already` is the payload saying, by its id, that this device has taken these
+   exact contents in before. It is answered before a merge is planned. */
+let syncRunning = false;
+
+async function syncNow(btn) {
+  if (syncRunning) return;
+  if (!Creds.token()) { Shell.toast('no Todoist key saved'); return; }
+  syncRunning = true;
+  const was = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'syncing…'; }
+  try {
+    const r = await SYNC.run();
+    if (r.planned) {
+      /* Left to the sheet, and the push waits: sending before the question is
+         answered would put this device's half of the tie on the other one. */
+      syncOpen(r.planned, r.route, r.payload && r.payload.id);
+    } else {
+      const bits = [];
+      if (r.imported) bits.push('took in ' + r.imported);
+      else if (r.already) bits.push('already up to date');
+      if (r.pushed && !r.pushed.unchanged) {
+        const n = (r.pushed.added || 0) + (r.pushed.updated || 0);
+        if (n) bits.push('sent ' + n);
+      }
+      Shell.toast(bits.join(' · ') || 'nothing to sync');
+    }
+  } catch (err) { Shell.toast(String(err.message || err)); }
+  if (btn) { btn.disabled = false; btn.textContent = was; }
+  syncRunning = false;
+  renderSync();
 }
 
 async function syncPushTodoist(btn) {
@@ -2231,7 +2301,7 @@ function dropIndex() { indexCache = null; }
 /* Panels */
 
 const RENDERERS = {
-  look: renderLook, layout: renderLayout, behave: renderBehave, data: renderData,
+  look: renderLook, layout: renderLayout, behave: renderBehave, data: renderData, sync: renderSync,
   do:   () => { window.DO   && DO.renderSettings();    renderContent('do'); },
   log:  () => { window.LOG  && LOG.renderDataScreen(); renderContent('log'); },
   plan: () => { window.PLAN && PLAN.renderSettings();  renderContent('plan'); },
@@ -2644,6 +2714,7 @@ view.addEventListener('click', e => {
   if (t.dataset.act === 'reset-tab-colors') {
     keepScroll(() => { Prefs.reset('tabColors'); Prefs.tap(); renderLayout(); }); return;
   }
+  if (t.dataset.act === 'sync-now')          { syncNow(t); return; }
   if (t.dataset.act === 'sync-push-todoist') { syncPushTodoist(t); return; }
   if (t.dataset.act === 'sync-pull-todoist') { syncPullTodoist(t); return; }
   if (t.dataset.act === 'sync-push-file')    { syncPushFile(); return; }
@@ -2707,6 +2778,10 @@ Config.subscribe(() => {
 // the home menu lists the apps out of the bar: keep it current
 Prefs.subscribe(k => { if ((k === 'apps' || k === '*') && currentCat === null) renderHome(); });
 
+/* A run that happened on its own still has to show on the section in front of
+   you — "sent 4 min ago" going stale is how an automatic sync looks broken. */
+if (window.SYNC && SYNC.onAuto) SYNC.onAuto(() => { if (currentPanel === 'sync') renderSync(); });
+
 Shell.register('settings', { onShow: render, home });   // the settings tab tapped while here: the menu
 // a deep link (#settings/data) opens on that panel; anything else on the home menu
 const linked = Shell.hashTarget();
@@ -2714,7 +2789,7 @@ if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub)
 
 return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
-         syncCancel, syncApply, syncPick, syncReadFile, syncReadAll, renderSync,
+         syncCancel, syncApply, syncPick, syncReadFile, syncReadAll, renderSync, syncNow,
          searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,
          reload: () => location.reload() };
 })();

@@ -282,7 +282,10 @@
         <div class="tabs" id="home-tabs"></div>
       </div>
       <div class="h-acts">
-        <button class="h-act sync" data-td-btn="sync" data-td-busy="⋯" onclick="DO.syncTodoist()">sync</button>
+        <!-- The device sync, not DO's own Todoist push: one tap that works out
+             whether there is anything to take in and anything to send. DO's
+             routine sync keeps its button under settings → do. -->
+        <button class="h-act sync" onclick="SET.syncNow(this)">sync</button>
       </div>
     </div>
     <div class="grid" id="home-grid"></div>
@@ -1204,26 +1207,34 @@
     <div class="set-panel"    data-panel="layout"  id="panel-layout"></div>
     <div class="set-panel"    data-panel="behave"  id="panel-behave"></div>
 
-    <!-- DATA ── -->
-    <div class="set-panel" data-panel="data" id="panel-data">
-      <div class="sec"><span>Todoist key</span></div>
+    <!-- SYNC ── -->
+    <div class="set-panel" data-panel="sync" id="panel-sync">
+      <div class="sec"><span>Sync now</span></div>
       <div class="data-warn">
-        One key for all three apps that talk to Todoist. DO closes finished
-        routines, PLAN sends its queue, STORE syncs the shopping list — each has
-        its own project and section under its own tab, but they share this key.
+        One button, either direction. It reads what is on Todoist, merges
+        anything new into this device, and sends back what this device holds
+        afterwards — so there is nothing to choose between import and export.
+        Where the same record was written in both places the more recent one
+        wins; where they were written in the same moment it asks. It carries
+        everything changed in the last 24 hours, not a fixed list.
       </div>
-      <div class="f">
-        <label class="lbl">API key</label>
-        <input type="password" id="set-td-token" placeholder="paste your Todoist API key"
-               autocomplete="off" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="td-status" id="set-td-status">no key yet</div>
-      <div class="td-acts">
-        <button class="setting-btn" onclick="SET.saveToken()">save key</button>
-        <button class="setting-btn" id="set-td-test" onclick="SET.testToken()">test key</button>
-      </div>
+      <button class="btn" data-act="sync-now">⇅ sync now</button>
+      <div class="sync-when" id="sync-now-when">never sent</div>
 
-      <div class="sec"><span>Sync between devices</span></div>
+      <div class="sec"><span>How it runs</span></div>
+      <div id="sync-dials"></div>
+
+      <div class="sec"><span>What travels</span></div>
+      <div class="data-warn">
+        Four groups. Everything an app wrote, the content edits under each app,
+        the whole appearance setup, and the shell’s own bookkeeping — which is
+        off, because the tab you were on is not something the other device
+        should decide. A Todoist key travels on no route either way.
+      </div>
+      <div id="sync-groups"></div>
+
+      <div class="sec"><span>The three routes</span></div>
+
       <div class="data-warn">
         Two routes, because not everything belongs in the same place. Todoist
         carries what is not private and is already signed in on both devices.
@@ -1234,7 +1245,6 @@
         <b>Everything</b> is the third and is not a route: it is the whole
         install as one file, for a new phone rather than for a Tuesday.
       </div>
-      <div id="sync-window"></div>
 
       <div class="sync-route" id="sync-todoist">
         <div class="sync-head"><span class="sync-name">todoist</span>
@@ -1283,6 +1293,33 @@
       <div class="setting-row" id="sync-undo-row" hidden>
         <span class="setting-lbl">Undo the last import<small>puts back every key it overwrote</small></span>
         <button class="setting-btn danger" data-act="sync-undo">undo</button>
+      </div>
+
+    </div>
+
+    <!-- DATA ── -->
+    <div class="set-panel" data-panel="data" id="panel-data">
+      <div class="sec"><span>Todoist key</span></div>
+      <div class="data-warn">
+        One key for all three apps that talk to Todoist. DO closes finished
+        routines, PLAN sends its queue, STORE syncs the shopping list — each has
+        its own project and section under its own tab, but they share this key.
+      </div>
+      <div class="f">
+        <label class="lbl">API key</label>
+        <input type="password" id="set-td-token" placeholder="paste your Todoist API key"
+               autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="td-status" id="set-td-status">no key yet</div>
+      <div class="td-acts">
+        <button class="setting-btn" onclick="SET.saveToken()">save key</button>
+        <button class="setting-btn" id="set-td-test" onclick="SET.testToken()">test key</button>
+      </div>
+
+      <div class="sec"><span>Sync between devices</span></div>
+      <div class="data-warn">
+        Sync has its own section now — <b>settings → sync</b>. What travels,
+        how often it runs on its own, and the three routes are all there.
       </div>
 
       <div class="sec"><span>Backup</span></div>
