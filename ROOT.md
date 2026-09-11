@@ -1879,12 +1879,39 @@ key.
 
 ### The payload, and the fence
 
-One task per day plus one `ROOT · state`, matched on title so a second export
-updates rather than duplicates, and **with no due date** — a dated task would
+One task per day plus **as many `ROOT · state` tasks as the state takes**,
+matched on title so a second export updates rather than duplicates, and **with
+no due date** — a dated task would
 turn a backup into twenty things to do today. The description is a line of
 prose and then the payload inside a ```` ```root ```` fence; the fence is the
 contract, the prose is free to change. The file route writes the same payload
 under a readable header.
+
+### A task description is 16,384 characters, and that is a contract
+
+Todoist's cap, and the reason 4.14.1 exists. Until then the whole of `state`
+went into one task; an install with a year of routine tallies wrote a
+description twice the cap, the API refused it, and **every record in that task
+never left the device** — CREATE's sessions, TEND, the packing lists — while the
+small per-day tasks carried on working. That is what "some things sync and some
+do not" looked like from the outside.
+
+- `stateTasks(body)` splits the state into tasks under `DESC_MAX` (15,000, the
+  margin being the prose and the fence). **One key never straddles two tasks**:
+  a task is parsed on its own and half a record is worse than a missing one.
+- `pullTodoist` already folded every `ROOT · …` task into one payload, so the
+  reading side needed no change. A `state N` task left over from a fatter
+  payload is **emptied**, not deleted — this module has never removed anything
+  from Todoist.
+- `do-stats-v1` travels as its **last 120 days** rather than all 400. The strip
+  draws at most 60, and `mergeStats` only ever fills in a day the other side
+  lacks, so an older day that stays at home stays correct on both devices.
+- A single record too big for a task of its own is **left behind and named** in
+  the push result, which the toast reports. A known limit beats a silent hole.
+
+`stateTasks` is pure and exported for exactly one reason: the fault was never in
+the merge, it was in what the transport could carry, and that is a thing a test
+can measure.
 
 ### Today's log, on the Todoist route
 
@@ -1937,6 +1964,27 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.14.1 — 2026-09-11 — the state task was too big to write, so half the sync never left
+
+`fix sync practice sessions` — "it just doesn't sync". Not the merge: the
+transport.
+
+- **Todoist caps a description at 16,384 characters.** The whole of `state` was
+  written into one `ROOT · state` task. A year of routine tallies is ~36 KB on
+  its own, so the task was refused and everything in it — CREATE's sessions,
+  TEND, the packing lists — never left the device, while the small per-day tasks
+  kept syncing. That is why the ticks arrived and the practice hours did not.
+- **`stateTasks(body)`** splits the state across as many tasks as it needs, one
+  key never straddling two. Pure and exported, because the untestable part was
+  the transport, not the merge.
+- **`do-stats-v1` travels as its last 120 days.** The strip draws at most 60 and
+  `mergeStats` only fills in missing days, so nothing is lost by leaving the
+  rest at home.
+- **A record too big for a task of its own is left behind and named** rather
+  than failing the whole push; the toast says how many.
+- A leftover `state N` task from a fatter payload is emptied, not deleted.
+
 
 ### 4.14 — 2026-09-11 — six routines, entries on the calendar, and what goes with what
 

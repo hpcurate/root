@@ -36,6 +36,24 @@ window.SYNC = (function () {
      is about *which days* travel, which is a different question. */
   const SINCE_MS = 24 * 60 * 60 * 1000;
 
+  /* Todoist caps a task description at 16,384 characters. Everything the
+     Todoist route carries has to fit inside one, and until 4.14.1 nothing here
+     knew that: the whole of `state` went into a single `ROOT · state` task, so
+     an install with a year of routine tallies wrote a description twice the cap
+     and the API refused the lot. The day tasks are small and kept working,
+     which is what made it look like *some* things synced — the ticks did, and
+     everything living in the state task (CREATE's sessions, TEND, the packing
+     lists) never left the device at all.
+
+     The margin is for the prose above the fence and the fence itself. */
+  const DESC_MAX = 15000;
+
+  /* The tally travels as a window rather than whole. 400 days of it is 36 KB on
+     its own, the strip draws at most 60 days, and `mergeStats` only ever *fills
+     in* a day the other side is missing — it never overwrites one — so an older
+     day that stays at home stays correct on both devices. */
+  const STATS_TRAVEL_DAYS = 120;
+
   const readJSON = (k, fb = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fb; } catch { return fb; } };
   const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
   const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
@@ -279,9 +297,16 @@ window.SYNC = (function () {
      Day records and the calendar are left out on purpose — both travel under
      `days`, where they are merged a piece at a time instead of being chosen
      between whole. */
+  /* The one record that is trimmed on the way out rather than carried whole. */
+  function trimForTravel(key, value) {
+    if (key !== 'do-stats-v1' || !value || typeof value !== 'object' || !value.days) return value;
+    const days = Object.keys(value.days).sort().slice(-STATS_TRAVEL_DAYS);
+    return Object.assign({}, value, { days: Object.fromEntries(days.map(d => [d, value.days[d]])) });
+  }
+
   function statePayload(route) {
     const out = {};
-    const add = k => { const v = readJSON(k); if (v !== null) out[k] = scrub(v); };
+    const add = k => { const v = readJSON(k); if (v !== null) out[k] = trimForTravel(k, scrub(v)); };
     ROUTES[route].state.forEach(k => { if (carries(route, k)) add(k); });
     changedSince(Date.now() - SINCE_MS).forEach(k => {
       if (k in out || isDayKey(k) || k === CAL_KEY) return;
@@ -342,6 +367,54 @@ window.SYNC = (function () {
     body.since = SINCE_MS;
     body.id = digest(body);
     return body;
+  }
+
+  /* ── The state, across as many tasks as it takes ─────────────────────────
+     Todoist refuses a description over its cap, and until 4.14.1 the whole of
+     `state` was written into one task: a board with a year of routine tallies
+     produced a description twice the size and the API rejected it, so every
+     record living in that task — CREATE's sessions among them — never left the
+     device while the small per-day tasks kept working.
+
+     One key never straddles two tasks. A task is parsed on its own, and half a
+     record is worse than a missing one. `pullTodoist` already folds every
+     `ROOT · …` task it finds into a single payload, so the reading side needed
+     nothing for this.
+
+     Pure, and exported, because the fault was never in the merge: it was in
+     what the transport could carry, and that is a thing a test can measure. */
+  function wrapState(body, n, state, extra) {
+    return wrap(n === 1 ? 'state' : 'state ' + n,
+      Object.assign({ app: 'root', kind: 'sync', version: 1, route: 'todoist',
+                      device: body.device, written: body.written,
+                      days: {}, state }, extra || null));
+  }
+
+  function stateTasks(body) {
+    const chunks = [];
+    const skipped = [];
+    let chunk = {};
+
+    Object.keys(body.state || {}).forEach(k => {
+      const one = { [k]: body.state[k] };
+      /* A record that cannot fit in a task by itself is left behind rather than
+         taking the whole sync down with it, and it is named in the answer so
+         that it is a thing you are told rather than a thing you notice. */
+      if (wrapState(body, 1, one).length > DESC_MAX) { skipped.push(k); return; }
+      const grown = Object.assign({}, chunk, one);
+      if (Object.keys(chunk).length && wrapState(body, chunks.length + 1, grown).length > DESC_MAX) {
+        chunks.push(chunk); chunk = one;
+      } else chunk = grown;
+    });
+    chunks.push(chunk);
+
+    const out = chunks.map((st, i) => ({
+      title: TITLE + (i ? 'state ' + (i + 1) : 'state'),
+      text: wrapState(body, i + 1, st,
+        i === 0 ? { today: body.today, todayFor: body.todayFor } : null),
+    }));
+    out.skipped = skipped;
+    return out;
   }
 
   /* ── The merge ────────────────────────────────────────────────────────── */
@@ -733,11 +806,19 @@ window.SYNC = (function () {
                                       device: body.device, written: body.written,
                                       days: { [day]: body.days[day] }, state: {} }) });
     });
-    wanted.push({ title: TITLE + 'state',
-                  text: wrap('state', { app: 'root', kind: 'sync', version: 1, route: 'todoist',
-                                        device: body.device, written: body.written,
-                                        days: {}, state: body.state,
-                                        today: body.today, todayFor: body.todayFor }) });
+    const state = stateTasks(body);
+    state.forEach(x => wanted.push(x));
+
+    /* A state task left over from a fatter payload keeps handing back records
+       that are no longer being sent. It is emptied rather than deleted: this
+       module has never removed anything from Todoist, and an empty payload says
+       the same thing without needing that to change. */
+    let over = state.length + 1;
+    while (byTitle.has(TITLE + 'state ' + over)) {
+      wanted.push({ title: TITLE + 'state ' + over,
+                    text: wrapState(body, over, {}) });
+      over++;
+    }
 
     /* Nothing new to say. The id names the contents, so an unchanged board is
        an unchanged payload, and a pair of devices on a timer stop writing to
@@ -761,7 +842,7 @@ window.SYNC = (function () {
       }
     }
     stamp('todoist', 'push', { sent: body.id, seen: body.id });
-    return { added, updated, total: wanted.length };
+    return { added, updated, total: wanted.length, skipped: state.skipped };
   }
 
   async function pullTodoist() {
@@ -1017,6 +1098,7 @@ ${JSON.stringify(body)}
 
   return { ROUTES, build, plan, commit, canUndo, undoImport, markPulled, todayPrivate,
            run, auto, onAuto, alreadySeen, touchedAt, changedSince, carries, groupOf,
+           stateTasks, DESC_MAX,
            since: () => SINCE_MS,
            exportEverything, parseEverything, restoreEverything, everythingCount, everythingText,
            pushTodoist, pullTodoist, exportFile, parseFile, fileText,

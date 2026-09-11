@@ -7330,6 +7330,86 @@ check('no errors through 4.13.1', errors.length === 0, errors.slice(0, 3).join('
 
 check('no errors through 4.14', errors.length === 0, errors.slice(0, 3).join(' | '));
 
+/* 4.14.1 — the state task was over Todoist's description cap, so everything in
+   it never left the device. This is the check that was missing: not "does the
+   merge work" but "can the transport carry what the merge is given". */
+{
+  const LS4141 = w.localStorage;
+  const S4141 = w.SYNC;
+  const kept4141 = ['do-stats-v1', 'create_v1', 'tend.v3'].map(k => [k, LS4141.getItem(k)]);
+
+  /* A year of routine tallies, which is what an install has after a year. */
+  const bigStats = { v: 1, days: {} };
+  for (let i = 0; i < 400; i++) {
+    const d = new Date(2025, 0, 1 + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    bigStats.days[iso] = { fix: [6, 6], fit: [3, 3], log: [3, 3], eat: [5, 5], reset: [5, 5], plan: [7, 7] };
+  }
+  LS4141.setItem('do-stats-v1', JSON.stringify(bigStats));
+  check('the record that broke this is genuinely bigger than one task can hold',
+    LS4141.getItem('do-stats-v1').length > 16384, String(LS4141.getItem('do-stats-v1').length));
+
+  /* Practice sessions: the thing that was reported missing. */
+  LS4141.setItem('create_v1', JSON.stringify({ v: 2, works: [], sessions:
+    [{ id: 'sp1', work: null, area: 'music', date: '2026-09-11', hours: 0.5,
+       what: '', practice: true, at: Date.now() }] }));
+
+  const body = S4141.build('todoist');
+  check('the tally travels as a window, not as every day it has',
+    Object.keys(body.state['do-stats-v1'].days).length <= 120,
+    String(Object.keys(body.state['do-stats-v1'].days).length));
+  check('and a practice session is in the payload',
+    !!(body.state.create_v1 &&
+       body.state.create_v1.sessions.some(x => x.practice && x.id === 'sp1')),
+    JSON.stringify(body.state.create_v1 && body.state.create_v1.sessions));
+
+  /* The transport, measured the way Todoist measures it. */
+  const TASK_MAX = 16384;
+  const tasks = S4141.stateTasks(body);
+  check('the state is split into tasks rather than one that cannot be written',
+    tasks.length >= 1 && tasks.every(t => t.text.length <= TASK_MAX),
+    tasks.map(t => t.title + ':' + t.text.length).join(' | '));
+  check('every key that travels lands in exactly one of them',
+    (() => {
+      const seen = tasks.flatMap(t => Object.keys(S4141.unwrap(t.text).state || {}));
+      return seen.length === new Set(seen).size &&
+             Object.keys(body.state).every(k => seen.includes(k));
+    })(),
+    tasks.map(t => Object.keys(S4141.unwrap(t.text).state || {}).join(',')).join(' | '));
+  check('the practice session is in one of the tasks that will actually be written',
+    tasks.some(t => /"practice":true/.test(t.text)));
+
+  /* Read back the way pullTodoist does: every task folded into one payload. */
+  {
+    const merged = { state: {} };
+    tasks.forEach(t => Object.assign(merged.state, S4141.unwrap(t.text).state || {}));
+    check('folding the tasks back together gives the whole state again',
+      Object.keys(merged.state).sort().join(',') === Object.keys(body.state).sort().join(','),
+      Object.keys(merged.state).sort().join(','));
+    check('… including the session the report was about',
+      merged.state.create_v1.sessions.some(x => x.id === 'sp1'));
+  }
+
+  /* A single record too big even on its own is named, not silently dropped and
+     not allowed to take the whole sync down. */
+  {
+    const huge = { blob: 'x'.repeat(40000) };
+    LS4141.setItem('tend.v3', JSON.stringify(huge));
+    const b2 = S4141.build('todoist');
+    const t2 = S4141.stateTasks(b2);
+    check('a record too big for any task is left behind rather than failing the push',
+      t2.every(x => x.text.length <= TASK_MAX) && t2.skipped.includes('tend.v3'),
+      JSON.stringify(t2.skipped));
+    check('… and the rest still travels',
+      t2.some(x => /"practice":true/.test(x.text)));
+  }
+
+  kept4141.forEach(([k, was]) => { if (was === null) LS4141.removeItem(k); else LS4141.setItem(k, was); });
+}
+
+check('no errors through 4.14.1', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+
 
 
 

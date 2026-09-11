@@ -1965,6 +1965,10 @@ async function syncNow(btn) {
     if (r.pushed && !r.pushed.unchanged) {
       const n = (r.pushed.added || 0) + (r.pushed.updated || 0);
       if (n) bits.push('sent ' + n);
+      /* A record too big for one Todoist task is left behind on purpose. Saying
+         so is the difference between a known limit and a silent hole. */
+      if (r.pushed.skipped && r.pushed.skipped.length)
+        bits.push(r.pushed.skipped.length + ' too big to send');
     }
     Shell.toast(bits.join(' · ') || 'nothing to sync');
     /* Records landed in storage, and every view is holding what it read at
@@ -1995,7 +1999,8 @@ async function syncPushTodoist(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'sending…'; }
   try {
     const r = await SYNC.pushTodoist();
-    Shell.toast(`${r.added} new · ${r.updated} updated`);
+    Shell.toast(`${r.added} new · ${r.updated} updated` +
+      (r.skipped && r.skipped.length ? ` · ${r.skipped.length} too big to send` : ''));
   } catch (err) { Shell.toast(String(err.message || err)); }
   if (btn) { btn.disabled = false; btn.textContent = was; }
   renderSync();
