@@ -1998,26 +1998,57 @@ async function syncNow(btn) {
   syncRunning = true;
   const was = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'syncing…'; }
+  const bits = [];
   try {
+    /* DO's routines first, and not as an afterthought: closing a finished
+       routine in Todoist and ticking one that was finished on the other device
+       is what "sync" meant on that header long before this button existed.
+       It runs first because it can tick routines *here*, and those ticks should
+       be in the payload the device sync sends a moment later. */
+    if (window.DO && DO.syncTodoist) {
+      const routines = await DO.syncTodoist(true);
+      /* Only when it actually moved something. DO's own panel keeps the full
+         answer, including "no Todoist section chosen" — which is a thing to
+         read there once, not on every sync from here. */
+      if (routines && (routines.pulled || routines.pushed || routines.failed)) bits.push(routines.msg);
+    }
+
     const r = await SYNC.run();
     if (r.planned) {
       /* Left to the sheet, and the push waits: sending before the question is
          answered would put this device's half of the tie on the other one. */
       syncOpen(r.planned, r.route, r.payload && r.payload.id);
-    } else {
-      const bits = [];
-      if (r.imported) bits.push('took in ' + r.imported);
-      else if (r.already) bits.push('already up to date');
-      if (r.pushed && !r.pushed.unchanged) {
-        const n = (r.pushed.added || 0) + (r.pushed.updated || 0);
-        if (n) bits.push('sent ' + n);
-      }
-      Shell.toast(bits.join(' · ') || 'nothing to sync');
+      syncRunning = false;
+      if (btn) { btn.disabled = false; btn.textContent = was; }
+      return;
     }
+    if (r.imported) bits.push('took in ' + r.imported);
+    else if (r.already && !bits.length) bits.push('already up to date');
+    if (r.pushed && !r.pushed.unchanged) {
+      const n = (r.pushed.added || 0) + (r.pushed.updated || 0);
+      if (n) bits.push('sent ' + n);
+    }
+    Shell.toast(bits.join(' · ') || 'nothing to sync');
+    /* Records landed in storage, and every view is holding what it read at
+       boot — which is how an import that worked looks like one that did not.
+       The same offer the reviewed import has always made. */
+    if (r.imported) offerReload(r.imported);
   } catch (err) { Shell.toast(String(err.message || err)); }
   if (btn) { btn.disabled = false; btn.textContent = was; }
   syncRunning = false;
   renderSync();
+}
+
+/* One place, because three paths now write records behind a view that is
+   already drawn: the reviewed import, one tap, and the automatic run. */
+function offerReload(n) {
+  Shell.ask({
+    title: `Took in ${n} record${n === 1 ? '' : 's'}`,
+    body: 'Every view re-reads its data on reload. Nothing else on this device was touched, '
+        + 'and this import can be undone from settings → sync.',
+    yes: 'reload now', no: 'later',
+    done: a => { if (a) location.reload(); else renderSync(); },
+  });
 }
 
 async function syncPushTodoist(btn) {
@@ -2780,7 +2811,12 @@ Prefs.subscribe(k => { if ((k === 'apps' || k === '*') && currentCat === null) r
 
 /* A run that happened on its own still has to show on the section in front of
    you — "sent 4 min ago" going stale is how an automatic sync looks broken. */
-if (window.SYNC && SYNC.onAuto) SYNC.onAuto(() => { if (currentPanel === 'sync') renderSync(); });
+if (window.SYNC && SYNC.onAuto) SYNC.onAuto(res => {
+  if (currentPanel === 'sync') renderSync();
+  /* An automatic run never takes the page away from under you: it says what it
+     took in and leaves the reload to you. */
+  if (res && res.imported) Shell.toast('sync took in ' + res.imported + ' — reload to see them');
+});
 
 Shell.register('settings', { onShow: render, home });   // the settings tab tapped while here: the menu
 // a deep link (#settings/data) opens on that panel; anything else on the home menu

@@ -7102,6 +7102,54 @@ check('no errors through 4.12.1', errors.length === 0, errors.slice(0, 3).join('
 
 check('no errors through 4.13', errors.length === 0, errors.slice(0, 3).join(' | '));
 
+/* 4.13.1 — the header sync lost DO's routines, and an import landed unseen.
+   Both are 4.13.0's doing: the button was repointed at the device sync, and
+   SYNC.run() wrote records with none of the "reload to see them" the reviewed
+   import has always had. */
+{
+  const LS4131 = w.localStorage;
+
+  /* DO's own Todoist sync is still there, still reachable, and now answers its
+     caller instead of only toasting. `quiet` is TEND's convention. */
+  check('DO.syncTodoist takes a quiet flag and reports back',
+    typeof w.DO.syncTodoist === 'function' && w.DO.syncTodoist.length === 1,
+    String(w.DO.syncTodoist.length));
+  check('and its own button under settings → do is untouched',
+    /DO\.syncTodoist\(\)/.test(d.querySelector('.set-panel[data-panel="do"] [data-td-btn="sync now"]')
+      ?.getAttribute('onclick') || ''),
+    d.querySelector('.set-panel[data-panel="do"] [data-td-btn="sync now"]')?.getAttribute('onclick'));
+
+  /* The header button is the one that has to do both: routines, then the
+     device sync, so ticks made here are in the payload it sends. */
+  const src4131 = fs.readFileSync(path.join(ROOT, 'js/settings.js'), 'utf8');
+  const runBody = src4131.slice(src4131.indexOf('async function syncNow'),
+                                src4131.indexOf('function offerReload'));
+  check('one tap runs DO’s routines as well as the device sync',
+    /DO\.syncTodoist\(true\)/.test(runBody) && /SYNC\.run\(\)/.test(runBody));
+  check('… and the routines go first, so what they tick here travels',
+    runBody.indexOf('DO.syncTodoist(true)') < runBody.indexOf('SYNC.run()'));
+  check('an import that wrote records offers the reload that makes them visible',
+    /if \(r\.imported\) offerReload\(r\.imported\)/.test(runBody));
+
+  /* A quiet run says nothing itself, but still answers — which is the whole
+     point of the flag: the caller has its own line to compose. */
+  {
+    const res = await w.DO.syncTodoist(true);
+    check('a quiet run answers its caller with what it moved',
+      res !== undefined && (res === null || typeof res.msg === 'string'), JSON.stringify(res));
+  }
+
+  /* And the automatic run reports rather than reloading under you. */
+  const autoWire = src4131.slice(src4131.indexOf('SYNC.onAuto('), src4131.indexOf('SYNC.onAuto(') + 400);
+  check('an automatic run offers no dialog — it says what it took in',
+    /Shell\.toast\(/.test(autoWire) && !/location\.reload/.test(autoWire));
+
+  void LS4131;
+}
+
+check('no errors through 4.13.1', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

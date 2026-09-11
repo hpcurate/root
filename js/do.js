@@ -961,9 +961,15 @@ function markRoutineDone(key) {
   ROUTINES[key].items.forEach(i => { state[key][i] = true; });
 }
 
-async function syncTodoist() {
-  if (tdBusy) return;
-  if (!Creds.token()) { toast('add a Todoist key in settings'); Shell.settings('do'); return; }
+/* `quiet` is for the caller that has its own line to say — the header button
+   runs this and the device sync together and reports them as one thing. It
+   still returns what happened, so that caller has something to report. */
+async function syncTodoist(quiet) {
+  if (tdBusy) return null;
+  if (!Creds.token()) {
+    if (!quiet) { toast('add a Todoist key in settings'); Shell.settings('do'); }
+    return null;
+  }
   tdBusy = true; renderTdButtons(); tdStatus('syncing…', 'busy');
   const today = tdLocalDate();
   try {
@@ -1001,11 +1007,13 @@ async function syncTodoist() {
     if (failed) parts.push(`${failed} failed`);
     if (!byRoutine.size) parts.push('no matching tasks in that section');
     const msg = parts.length ? parts.join(' · ') : 'already in sync';
-    toast(msg);
+    if (!quiet) toast(msg);
     tdStatus(msg, failed ? 'bad' : 'good');
+    return { pulled, pushed, failed, msg };
   } catch (e) {
-    toast('sync failed');
+    if (!quiet) toast('sync failed');
     tdStatus(e.message, 'bad');
+    return { pulled: 0, pushed: 0, failed: 0, msg: 'routines failed' };
   } finally {
     tdRelease();
   }

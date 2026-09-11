@@ -1750,6 +1750,16 @@ back what this device holds — which is why the button says `sync` and not
 `import` or `export`. It is what DO's header button and the section's own
 button both call.
 
+Two things 4.13.1 had to put back into that button. It runs **DO's own Todoist
+routine sync first** (`DO.syncTodoist(true)`, quiet, the same flag TEND uses) and
+then the device sync: closing a finished routine over there is what `sync` meant
+on that header long before this button existed, and running it first means the
+routines it ticks *here* are in the payload the device sync sends a moment later.
+And a run that wrote records **offers the reload** — every view is holding what
+it read at boot, so an import nobody re-reads looks exactly like an import that
+did not happen. An automatic run only says what it took in; it never takes the
+page away from under you.
+
 **Automatic, but only because the merge stopped asking.** Until 4.13 both routes
 were manual, on the grounds that an import you are not standing next to is one
 you cannot catch going wrong. What changed is not the nerve but the merge: a
@@ -1902,6 +1912,23 @@ It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.13.1 — 2026-09-11 — the header sync kept DO's routines, and an import is visible
+
+Two faults in 4.13.0, both reported as "the progress of my daily routines is not
+completing".
+
+- **DO's header `sync` ran the device sync *instead of* DO's routine sync.**
+  Repointing that button dropped the job it already had: closing finished
+  routines in Todoist and ticking here the ones finished on the other device.
+  It now does both, routines first, so what they tick here is in the payload the
+  device sync sends. `DO.syncTodoist(quiet)` gained TEND's `quiet` convention and
+  a return value; its own button under settings → do is unchanged.
+- **An import from one tap wrote records and said nothing.** The reviewed import
+  has always offered "reload now"; `SYNC.run()` did not, so ticks arrived in
+  storage behind views still holding what they read at boot. One `offerReload()`
+  for all three paths, and an automatic run toasts instead of opening a dialog.
+
 
 ### 4.13 — 2026-09-11 — a sync that carries everything you changed, settles it by recency, and can run itself
 
