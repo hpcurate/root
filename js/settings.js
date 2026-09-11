@@ -1894,59 +1894,8 @@ function renderSync() {
   if (undoRow) undoRow.hidden = !SYNC.canUndo();
 }
 
-/* The plan being asked about, held between opening the sheet and applying it.
-   Nothing is written to storage while this is set. */
-let syncPending = null;
-
-function syncOpen(planned, route, id) {
-  syncPending = { planned, route, id, take: new Set() };
-  const n = planned.conflicts.length;
-  $id('ovl-ttl').textContent = 'on both devices';
-  $id('ovl-lead').innerHTML =
-    (planned.notes.length
-      ? esc(planned.notes.length + ' change' + (planned.notes.length === 1 ? '' : 's') + ' merged on its own. ')
-      : '') +
-    `${n} thing${n === 1 ? '' : 's'} ${n === 1 ? 'was' : 'were'} written on both devices and ` +
-    `${n === 1 ? 'does' : 'do'} not match. Pick which side wins — anything left on ` +
-    `<em>keep mine</em> stays exactly as it is here.`;
-  $id('ovl-list').innerHTML = planned.conflicts.map((c, i) => `
-    <div class="ovl-row">
-      <div class="ovl-name">${esc(c.label)}<small>${esc(c.why)}</small></div>
-      <div class="chips">
-        <button class="chip on" data-ovl="${i}" data-ovl-take="0"
-                onclick="SET.syncPick(${i}, 0)">keep mine</button>
-        <button class="chip" data-ovl="${i}" data-ovl-take="1"
-                onclick="SET.syncPick(${i}, 1)">take theirs</button>
-      </div>
-    </div>`).join('');
-  $id('ovl-back').classList.add('on');
-  $id('ovl').classList.add('on');
-  if (window.Prefs && Prefs.sound) Prefs.sound('menu');
-}
-
-function syncCancel() {
-  syncPending = null;
-  $id('ovl-back').classList.remove('on');
-  $id('ovl').classList.remove('on');
-}
-
-function syncPick(i, take) {
-  if (!syncPending) return;
-  if (take) syncPending.take.add(i); else syncPending.take.delete(i);
-  $all(`#ovl [data-ovl="${i}"]`).forEach(b =>
-    b.classList.toggle('on', (b.dataset.ovlTake === '1') === !!take));
-}
-
-function syncApply() {
-  if (!syncPending) { syncCancel(); return; }
-  const { planned, route, id, take } = syncPending;
-  const taken = planned.conflicts.filter((_, i) => take.has(i));
-  syncCancel();
-  syncWrite(planned, taken, route, id);
-}
-
-function syncWrite(planned, taken, route, id) {
-  const res = SYNC.commit(planned, taken);
+function syncWrite(planned, route, id) {
+  const res = SYNC.commit(planned);
   if (!res.ok) { Shell.toast('storage full — nothing changed'); return; }
   /* The id names what was taken in, so the next run can say "already up to
      date" without planning the same merge again. */
@@ -1967,17 +1916,14 @@ function syncReview(payload, route) {
   try { planned = SYNC.plan(route, payload); }
   catch (err) { Shell.toast(String(err.message || err)); return; }
 
-  if (!planned.writes.length && !planned.conflicts.length) {
-    Shell.toast('already up to date'); renderSync(); return;
-  }
-  if (planned.conflicts.length) { syncOpen(planned, route, payload.id); return; }
+  if (!planned.writes.length) { Shell.toast('already up to date'); renderSync(); return; }
   Shell.ask({
     title: `Apply ${planned.writes.length} change${planned.writes.length === 1 ? '' : 's'}?`,
     body: (planned.notes.slice(0, 8).join(' · ') || 'records this device did not have')
         + (planned.notes.length > 8 ? ` · and ${planned.notes.length - 8} more` : '')
         + '. Nothing here is replaced outright — a day only gains what it was missing.',
     yes: 'import',
-    done: a => { if (a) syncWrite(planned, [], route, payload.id); },
+    done: a => { if (a) syncWrite(planned, route, payload.id); },
   });
 }
 
@@ -2014,14 +1960,6 @@ async function syncNow(btn) {
     }
 
     const r = await SYNC.run();
-    if (r.planned) {
-      /* Left to the sheet, and the push waits: sending before the question is
-         answered would put this device's half of the tie on the other one. */
-      syncOpen(r.planned, r.route, r.payload && r.payload.id);
-      syncRunning = false;
-      if (btn) { btn.disabled = false; btn.textContent = was; }
-      return;
-    }
     if (r.imported) bits.push('took in ' + r.imported);
     else if (r.already && !bits.length) bits.push('already up to date');
     if (r.pushed && !r.pushed.unchanged) {
@@ -2825,7 +2763,7 @@ if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub)
 
 return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
-         syncCancel, syncApply, syncPick, syncReadFile, syncReadAll, renderSync, syncNow,
+         syncReadFile, syncReadAll, renderSync, syncNow,
          searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,
          reload: () => location.reload() };
 })();

@@ -126,12 +126,6 @@
 
 /* The overlap sheet's rows. Each is one thing that was written on both
    devices; the chips are the answer, not a preference. */
-.ns-set .ovl-row{border-top:var(--bw) solid var(--bd);padding:11px 0}
-.ns-set .ovl-row:first-child{border-top:none}
-.ns-set .ovl-name{font:400 11.5px/1.4 var(--mono);color:var(--tx);margin-bottom:8px}
-.ns-set .ovl-name small{display:block;font:400 9.5px/1.5 var(--mono);color:var(--mu);letter-spacing:.04em}
-.ns-set #ovl .chips{margin:0}
-.ns-set #ovl-list{max-height:46vh;overflow-y:auto;margin-bottom:14px}
 .ns-set .setting-btn.danger:active{border-color:var(--re)}
 
 .ns-set .btn{width:100%;background:var(--y);border:none;border-radius:var(--r1);color:var(--on-y);

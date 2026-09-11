@@ -227,9 +227,14 @@ click($('.ns-do .item-btn'));
 check('a routine item with quotes still ticks', $('.ns-do .item-btn').classList.contains('checked') && errors.length === 0, errors[0]);
 w.Config.reset('do.routines'); w.Config.reset('do.tabs');
 
+/* The first daily routine, by name rather than by key: which routines ship is
+   Config's business and has been changed once already (4.14). What these checks
+   are about is DO's behaviour with *a* routine. */
+const R1 = Object.keys(w.Config.get('do.routines'))[0];
+
 // 10. day rollover
 w.DO.go('home');
-w.DO.openRoutine('routinep1'); click($('.ns-do .item-btn')); w.DO.go('home');   // a tick today → do_<today> exists
+w.DO.openRoutine(R1); click($('.ns-do .item-btn')); w.DO.go('home');   // a tick today → do_<today> exists
 check('a tick writes today\'s record', w.localStorage.getItem('do_' + today) !== null);
 const tomorrow = offset(1);                  // before the mock: offset() reads w.Date
 const RealDate = w.Date;
@@ -244,7 +249,7 @@ check('DO switched to the new day (label moved, old day swept, ticks cleared)',
   w.localStorage.getItem('do_' + today) === null &&
   /0 \/ /.test($('.ns-do #home-grid .card .card-s').textContent),
   $('.ns-do #date-label').textContent + ' | ' + $('.ns-do #home-grid .card .card-s').textContent);
-w.DO.openRoutine('routinep1'); click($('.ns-do .item-btn')); w.DO.go('home');
+w.DO.openRoutine(R1); click($('.ns-do .item-btn')); w.DO.go('home');
 check('a tick after midnight lands in the new day\'s record', w.localStorage.getItem('do_' + tomorrow) !== null);
 check('Todoist token survived the day sweep', w.localStorage.getItem('do_todoist_v1') !== null);
 check('LOG followed to the new day on its home screen', $('.ns-log #btn-today').classList.contains('hidden'));
@@ -857,11 +862,11 @@ check('back returns to the home menu', $('.ns-set #s-home').classList.contains('
 const prev = $('#nav-prev');
 w.Shell.go('do'); await tick();
 check('on an app home the left arrow is the previous-tab arrow', !prev.classList.contains('is-back') && prev.disabled);
-w.DO.openRoutine('routinep1'); await tick();
+w.DO.openRoutine(R1); await tick();
 check('inside a sub-screen it becomes that screen\'s back button', prev.classList.contains('is-back') && !prev.disabled && prev.getAttribute('aria-label') === 'Back');
 click(prev); await tick();
 check('… and pressing it goes back', $('.ns-do #s-home').classList.contains('on') && !prev.classList.contains('is-back'));
-w.DO.openRoutine('routinep1'); await tick();
+w.DO.openRoutine(R1); await tick();
 click($('.tab-b[data-app="do"]')); await tick();
 check('tapping the tab you are on goes to its home', $('.ns-do #s-home').classList.contains('on') && !prev.classList.contains('is-back'));
 w.Shell.go('settings'); w.SET.panel('do'); await tick();
@@ -1705,7 +1710,7 @@ check('… a PLAN section, named for its project',
 /* The index is derived, never a second list: rename a routine and it is
    findable at once. */
 const rts = w.Config.get('do.routines');
-rts.routinep1.label = 'zzz morning ritual';
+rts[R1].label = 'zzz morning ritual';
 w.Config.set('do.routines', rts);
 check('… and a routine renamed a second ago, because nothing here is a copy',
   w.SEARCH.results('zzz morning').some(r => /zzz morning ritual/.test(r.title)),
@@ -1812,7 +1817,7 @@ w.Config.reset('do.mediaLabels');
 
 /* DO · the history the sweep used to throw away ── */
 w.DO.go('home');
-w.DO.openRoutine('routinep1');
+w.DO.openRoutine(R1);
 const rItems = [...d.querySelectorAll('.ns-do .item-btn')];
 click(rItems[0]); click(rItems[1]);
 w.DO.go('home');
@@ -5887,7 +5892,7 @@ const LS = w.localStorage;
   const theirs = { date: '2026-09-01', m: {}, e: { stress: '2', saved: 200 } };
   const r = M.mergeLogDay('2026-09-01', mine, theirs);
   check('a morning here and an evening there merge into one day',
-    r.out.m.nrg === '4' && r.out.e.stress === '2' && r.conflicts.length === 0,
+    r.out.m.nrg === '4' && r.out.e.stress === '2',
     JSON.stringify(r.out));
 }
 
@@ -5897,18 +5902,28 @@ const LS = w.localStorage;
   const theirs = { m: { nrg: '4', saved: 500 }, e: { stress: '1', saved: 200 } };
   const r = M.mergeLogDay('2026-09-02', mine, theirs);
   check('the newer half wins and the older half is untouched',
-    r.out.m.nrg === '4' && r.out.e.stress === '5' && r.conflicts.length === 0,
+    r.out.m.nrg === '4' && r.out.e.stress === '5',
     JSON.stringify({ m: r.out.m.nrg, e: r.out.e.stress }));
 }
 
-// written at the same moment and different: that is a question, not a guess
+/* Written at the same moment and different. Since 4.14 there is no such thing
+   as an overlap: the fuller record wins, and two of exactly equal fullness are
+   settled by comparing them as text — arbitrary, but the same answer on both
+   devices, which is the only property that matters once nobody is being asked. */
 {
   const mine = { m: { nrg: '2', saved: 100 }, e: {} };
-  const theirs = { m: { nrg: '4', saved: 100 }, e: {} };
+  const theirs = { m: { nrg: '4', mood: '5', saved: 100 }, e: {} };
   const r = M.mergeLogDay('2026-09-03', mine, theirs);
-  check('two halves saved at the same moment raise an overlap instead of guessing',
-    r.conflicts.length === 1 && r.conflicts[0].label === 'LOG 2026-09-03 · morning' &&
-    r.out.m.nrg === '2', JSON.stringify(r.conflicts.map(c => c.label)));
+  check('two halves saved at the same moment settle on the fuller one',
+    r.out.m.nrg === '4' && r.out.m.mood === '5', JSON.stringify(r.out.m));
+}
+{
+  const a = { m: { nrg: '2', saved: 100 }, e: {} };
+  const b = { m: { nrg: '4', saved: 100 }, e: {} };
+  const mine = M.mergeLogDay('2026-09-03', a, b).out.m.nrg;
+  const theirs = M.mergeLogDay('2026-09-03', b, a).out.m.nrg;
+  check('… and two devices as full as each other reach the same answer either way',
+    mine === theirs, mine + ' / ' + theirs);
 }
 
 /* Blocks and media are written by setBlock/setMedia without touching e.saved,
@@ -5940,18 +5955,20 @@ const LS = w.localStorage;
   const r2 = M.mergeCalDay('2026-09-06', { written: 500, notes: 'mine' }, { written: 100, notes: 'theirs' });
   check('… and keeps ours when ours is the newer one', r2.out.notes === 'mine');
   const r3 = M.mergeCalDay('2026-09-06', { written: 100, notes: 'a' }, { written: 100, notes: 'b' });
-  check('… and asks when both were written at the same moment', r3.conflicts.length === 1);
+  const r4 = M.mergeCalDay('2026-09-06', { written: 100, notes: 'a' }, { written: 100, notes: 'a longer note' });
+  check('… and written at the same moment takes the fuller day, not a question',
+    r4.out.notes === 'a longer note', JSON.stringify(r4.out));
+  void r3;
 }
 
 // state records have no timestamp inside, so identical is silent and different asks
 {
   check('an identical state record is a no-op',
-    M.mergeState('k', { a: 1 }, { a: 1 }).conflicts.length === 0 &&
     M.mergeState('k', { a: 1 }, { a: 1 }).notes.length === 0);
   check('a state record this device does not have is simply taken',
     M.mergeState('k', null, { a: 1 }).out.a === 1);
-  check('a state record that differs on both devices is asked about, never guessed',
-    M.mergeState('k', { a: 1 }, { a: 2 }).conflicts.length === 1);
+  check('a state record that differs with no moment on either side takes the fuller',
+    M.mergeState('k', { a: 1 }, { a: 2, b: 3 }).out.b === 3);
 }
 
 /* A Todoist key must never travel inside a Todoist task. */
@@ -5991,7 +6008,7 @@ const LS = w.localStorage;
   check('a record this device lacks is planned as a write, with nothing written yet',
     planned.writes.some(x => x.key === 'log-scale-v2') && LS.getItem('log-scale-v2') === null,
     JSON.stringify(planned.writes.map(x => x.key)));
-  const res = w.SYNC.commit(planned, []);
+  const res = w.SYNC.commit(planned);
   check('committing writes it', res.ok && JSON.parse(LS.getItem('log-scale-v2')) === 'done');
   check('and the import can be taken back', w.SYNC.canUndo());
   w.SYNC.undoImport();
@@ -6024,30 +6041,27 @@ check('the sync panel offers both routes, and says which apps take which',
   /DO, DAY, CREATE and TEND/.test($('.ns-set #sync-todoist').textContent) &&
   /LOG, TRACK and STORE/.test($('.ns-set #sync-file').textContent));
 
+/* A record changed on both devices, with nothing to separate them but what is
+   in them. It settles on its own and is written — there is no sheet to reach. */
 {
   const before = LS.getItem('log-scale-v2');
   LS.setItem('log-scale-v2', JSON.stringify('mine'));
   const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
-                    written: Date.now(), days: {}, state: { 'log-scale-v2': 'theirs' } };
+                    written: Date.now(), days: {}, state: { 'log-scale-v2': 'theirs longer' } };
   const planned = w.SYNC.plan('file', payload);
-  check('a record changed on both devices reaches the overlap sheet, not storage',
-    planned.conflicts.length === 1 && JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
-
-  // keep mine: the default, and it must leave storage exactly as it was
-  w.SYNC.commit(planned, []);
-  check('"keep mine" leaves the record alone', JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
-  w.SYNC.undoImport();
-
-  // take theirs
-  w.SYNC.commit(planned, planned.conflicts);
-  check('"take theirs" writes the incoming value', JSON.parse(LS.getItem('log-scale-v2')) === 'theirs');
+  check('a record changed on both devices is settled, not asked about',
+    planned.writes.some(x => x.key === 'log-scale-v2') &&
+    JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
+  w.SYNC.commit(planned);
+  check('committing writes the settled value',
+    JSON.parse(LS.getItem('log-scale-v2')) === 'theirs longer', LS.getItem('log-scale-v2'));
   w.SYNC.undoImport();
   check('and undo puts it back', JSON.parse(LS.getItem('log-scale-v2')) === 'mine');
   if (before === null) LS.removeItem('log-scale-v2'); else LS.setItem('log-scale-v2', before);
 }
 
-/* Two halves of one day can both be conflicts, and answering the second must
-   not throw away the answer to the first — they are layered onto one record. */
+/* Both halves of one day written in the same moment on both devices. Each half
+   settles on its own, and both answers survive into the one record. */
 {
   const day = w.SYNC.window(0)[0];
   const before = LS.getItem('log_' + day);
@@ -6055,15 +6069,14 @@ check('the sync panel offers both routes, and says which apps take which',
                                             e: { stress: '1', saved: 5 }, entries: [] }));
   const payload = { app: 'root', kind: 'sync', version: 1, route: 'file', device: 'x',
                     written: Date.now(), days: { [day]: { day: { date: day,
-                      m: { nrg: '9', saved: 5 }, e: { stress: '9', saved: 5 }, entries: [] } } },
+                      m: { nrg: '9', mood: '9', saved: 5 },
+                      e: { stress: '9', cal: '9', saved: 5 }, entries: [] } } },
                     state: {} };
   const planned = w.SYNC.plan('file', payload);
-  check('both halves of one day can be raised as separate overlaps',
-    planned.conflicts.length === 2, String(planned.conflicts.length));
-  w.SYNC.commit(planned, planned.conflicts);
+  w.SYNC.commit(planned);
   const got = JSON.parse(LS.getItem('log_' + day));
-  check('taking both halves keeps both — the second answer does not undo the first',
-    got.m.nrg === '9' && got.e.stress === '9', JSON.stringify({ m: got.m.nrg, e: got.e.stress }));
+  check('each half of a day settles on its own, and both land in the one record',
+    got.m.mood === '9' && got.e.cal === '9', JSON.stringify({ m: got.m, e: got.e }));
   w.SYNC.undoImport();
   if (before === null) LS.removeItem('log_' + day); else LS.setItem('log_' + day, before);
 }
@@ -7047,8 +7060,8 @@ check('no errors through 4.12.1', errors.length === 0, errors.slice(0, 3).join('
       M413.mergeState('k', { a: 1 }, { a: 2 }, 500, 100).out.a === 2);
     check('… and ours is kept when ours is the newer one',
       M413.mergeState('k', { a: 1 }, { a: 2 }, 100, 500).out.a === 1);
-    check('… and the same moment is still a question, not a guess',
-      M413.mergeState('k', { a: 1 }, { a: 2 }, 100, 100).conflicts.length === 1);
+    check('… and the same moment settles on the fuller record, not a question',
+      M413.mergeState('k', { a: 1 }, { a: 2, b: 2 }, 100, 100).out.b === 2);
   }
   {
     LS413.setItem('brand_new_key_v1', JSON.stringify({ hello: 'mine' }));
@@ -7057,10 +7070,10 @@ check('no errors through 4.12.1', errors.length === 0, errors.slice(0, 3).join('
                       written: Date.now(), days: {}, state: { brand_new_key_v1: { hello: 'theirs' } },
                       touch: { brand_new_key_v1: mine413 + 5000 } };
     const planned = S.plan('file', payload);
-    check('a record written later on the other device is planned as a write, not a question',
-      planned.conflicts.length === 0 &&
-      planned.writes.some(x => x.key === 'brand_new_key_v1'), JSON.stringify(planned.conflicts.map(c => c.label)));
-    S.commit(planned, []);
+    check('a record written later on the other device is planned as a write',
+      planned.writes.some(x => x.key === 'brand_new_key_v1'),
+      JSON.stringify(planned.writes.map(x => x.key)));
+    S.commit(planned);
     check('committing takes their answer',
       JSON.parse(LS413.getItem('brand_new_key_v1')).hello === 'theirs');
     check('and the journal keeps *their* moment, not the moment it landed here',
@@ -7148,6 +7161,175 @@ check('no errors through 4.13', errors.length === 0, errors.slice(0, 3).join(' |
 }
 
 check('no errors through 4.13.1', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* 4.14 — the written brief: six routines, entries on the calendar, sessions
+   that survive a sync, no overlaps left to answer, and correlations. */
+{
+  /* DO — the six daily routines, and the history that must outlive them. */
+  const rts414 = w.Config.get('do.routines');
+  const daily414 = (w.Config.get('do.tabs').find(t => t.id === 'daily') || {}).routines || [];
+  check('the daily tab carries the six routines the brief names',
+    daily414.join(',') === 'fix,fit,log,eat,reset,plan', daily414.join(','));
+  check('each one is there with the items it was given',
+    rts414.fix.items.length === 6 && rts414.fit.items.includes('kamo walk m') &&
+    rts414.log.items.join(',') === 'log morning,log evening,log meds' &&
+    rts414.eat.items.length === 5 && rts414.reset.items.includes('vacuum') &&
+    rts414.plan.items.includes('gym prep'),
+    JSON.stringify(Object.keys(rts414)));
+  check('the label is the word, because the Todoist task is matched on it',
+    ['fix','fit','log','eat','reset','plan'].every(k => rts414[k].label === k));
+
+  /* The tally is keyed by whatever routine wrote it, and summed by whatever
+     keys the row has — so a day recorded under the old six still reads. */
+  {
+    const old414 = '2026-08-02';
+    const stats = JSON.parse(w.localStorage.getItem('do-stats-v1') || '{"v":1,"days":{}}');
+    stats.days[old414] = { routinep1: [5, 7], cooldown: [5, 5] };
+    w.localStorage.setItem('do-stats-v1', JSON.stringify(stats));
+    const back = w.DO.statsFor(old414);
+    check('a day recorded under the old routines still reads in the strip',
+      !!back && back.done === 10 && back.total === 12, JSON.stringify(back));
+    const s2 = JSON.parse(w.localStorage.getItem('do-stats-v1'));
+    delete s2.days[old414];
+    w.localStorage.setItem('do-stats-v1', JSON.stringify(s2));
+  }
+
+  /* An override of the old set is dropped so the new default can be seen; one
+     with a routine of your own in it is left exactly alone. */
+  {
+    const OLD = { routinep1:{label:'a',items:['x']}, routinep2:{label:'b',items:['x']},
+                  routinep3:{label:'c',items:['x']}, routinep4:{label:'d',items:['x']},
+                  cooldown:{label:'e',items:['x']}, cleanup:{label:'f',items:['x']} };
+    w.Config.set('do.routines', OLD);
+    w.Config.load();
+    check('an override that is still the old six is dropped, so the new six show',
+      Object.keys(w.Config.get('do.routines')).join(',').includes('fix'),
+      Object.keys(w.Config.get('do.routines')).join(','));
+
+    w.Config.set('do.routines', Object.assign({ mine:{ label:'mine', items:['x'] } }, OLD));
+    w.Config.load();
+    check('… while an override carrying a routine of your own is left alone',
+      !!w.Config.get('do.routines').mine);
+    w.Config.reset('do.routines'); w.Config.reset('do.tabs');
+  }
+
+  /* LOG — the entries toggle on the month grid. */
+  w.Shell.go('log');
+  const entDay = w.Shell.today();
+  const beforeEnt = w.localStorage.getItem('log_' + entDay);
+  w.localStorage.setItem('log_' + entDay, JSON.stringify({ date: entDay, m: {}, e: {},
+    entries: [{ time: '09:00', text: 'one' }, { time: '10:00', text: 'two' }] }));
+  w.Shell.go('log');
+  const tog = d.querySelector('.ns-log [data-cal-entries]');
+  check('the month grid carries an entries toggle', !!tog);
+  const cellFor = iso => d.querySelector(`.ns-log .lc-c[data-day="${iso}"]`);
+  check('and shows the date until it is pressed',
+    cellFor(entDay) && cellFor(entDay).textContent.trim() === String(+entDay.slice(8)),
+    cellFor(entDay) && cellFor(entDay).textContent);
+  click(tog);
+  check('pressed, the cell counts that day’s journal entries instead',
+    cellFor(entDay) && cellFor(entDay).textContent.trim() === '2',
+    cellFor(entDay) && cellFor(entDay).textContent);
+  check('… and a day with none shows nothing rather than a zero',
+    [...d.querySelectorAll('.ns-log .lc-c.count')].some(c => c.textContent.trim() === ''));
+  click(d.querySelector('.ns-log [data-cal-entries]'));
+  check('pressing it again gives the dates back',
+    cellFor(entDay) && cellFor(entDay).textContent.trim() === String(+entDay.slice(8)));
+  if (beforeEnt === null) w.localStorage.removeItem('log_' + entDay);
+  else w.localStorage.setItem('log_' + entDay, beforeEnt);
+
+  /* CREATE — sessions are events, so they union rather than being chosen
+     between. This is the fault the brief reported. */
+  {
+    const M414 = w.SYNC._merge;
+    const mine = { v:2, works:[{ id:'w1', name:'mine', touched:'2026-09-01' }],
+                   sessions:[{ id:'s1', date:'2026-09-01', hours:2 }] };
+    const theirs = { v:2, works:[{ id:'w2', name:'theirs', touched:'2026-09-02' }],
+                     sessions:[{ id:'s2', date:'2026-09-02', hours:1 }] };
+    const out = M414.mergeCreate(mine, theirs, true).out;
+    check('a session logged on each device survives the sync',
+      out.sessions.length === 2 && out.sessions.some(x => x.id === 's1') &&
+      out.sessions.some(x => x.id === 's2'), JSON.stringify(out.sessions.map(x => x.id)));
+    check('… and so does a work added on each',
+      out.works.length === 2, JSON.stringify(out.works.map(x => x.id)));
+    const same = M414.mergeCreate(
+      { v:2, works:[], sessions:[{ id:'s1', date:'2026-09-01', hours:1 }] },
+      { v:2, works:[], sessions:[{ id:'s1', date:'2026-09-01', hours:3 }] }, false).out;
+    check('the same session on both sides keeps the one that was added to',
+      same.sessions.length === 1 && same.sessions[0].hours === 3,
+      JSON.stringify(same.sessions));
+  }
+
+  /* The sheet is gone, and with it every way of being asked. */
+  check('nothing is left to answer: plan() hands back writes and notes only',
+    !('conflicts' in w.SYNC.plan('file', { app:'root', kind:'sync', version:1, route:'file',
+        device:'x', written:Date.now(), days:{}, state:{} })));
+  check('the overlap sheet is gone from the page', !d.getElementById('ovl'));
+  check('… and from SET', !w.SET.syncApply && !w.SET.syncPick && !w.SET.syncCancel);
+
+  /* TOOLS — correlations. Two of TOOLS' own series, written as days that move
+     together: more focus, more breathing rounds, twelve days running. */
+  {
+    const beforeTools = w.localStorage.getItem('tools_v1');
+    const pomLog = {}, whfDays = {};
+    for (let i = 0; i < 12; i++) {
+      const iso = w.SYNC.window(20)[20 - i];          // today and the eleven before it
+      const n = 1 + (i % 4);                          // 1..4, and back again
+      pomLog[iso] = Array.from({ length: n }, () => ({ at: '10:00', mins: 25 }));
+      whfDays[iso] = Array.from({ length: n }, () => ({ at: '08:00', rounds: 3, holds: [60], best: 60 }));
+    }
+    w.localStorage.setItem('tools_v1', JSON.stringify({ v: 2, tool: 'dat',
+      pom: { log: pomLog, days: {} }, whf: { days: whfDays },
+      dat: { range: 'month', focus: 'tools' } }));
+    w.TOOLS.reload();
+    w.Shell.go('tools');
+
+    const rows = [...d.querySelectorAll('.ns-tools .tl-corr')];
+    check('two series that move together are found and named',
+      rows.some(r => /focus/.test(r.textContent) && /breathing/.test(r.textContent)),
+      rows.map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | ') || 'no rows');
+    check('… and the row says how strong it is and on how many days',
+      rows.length > 0 && /r [\d.]/.test(rows[0].textContent) && /days?/.test(rows[0].textContent),
+      rows[0] && rows[0].textContent.replace(/\s+/g, ' ').trim());
+    check('the section says it is not claiming a cause',
+      /not causes/.test($('#view-tools').textContent));
+
+    /* Two days of overlap is not a finding. LOG's series answer `null` for a day
+       nobody wrote — unlike TOOLS' own counts, where a quiet day is a real zero
+       — so this is where the minimum actually bites. */
+    const logDays = w.SYNC.window(20).slice(12, 20);
+    const keptLog = logDays.map(iso => [iso, w.localStorage.getItem('log_' + iso)]);
+    const writeLog = (iso, sl, mood) => w.localStorage.setItem('log_' + iso,
+      JSON.stringify({ date: iso, m: { sl: String(sl), mood: String(mood) }, e: {}, entries: [] }));
+
+    w.localStorage.setItem('tools_v1', JSON.stringify({ v: 2, tool: 'dat',
+      pom: { log: {}, days: {} }, whf: { days: {} },
+      dat: { range: 'month', focus: 'body' } }));
+    writeLog(logDays[0], 6, 2); writeLog(logDays[1], 9, 5);
+    w.TOOLS.reload(); w.Shell.go('tools');
+    check('two days that agree are not a finding',
+      !d.querySelector('.ns-tools .tl-corr') &&
+      /nothing strong enough yet|A link needs/.test($('#view-tools').textContent),
+      [...d.querySelectorAll('.ns-tools .tl-corr')].length + ' rows');
+
+    logDays.forEach((iso, i) => writeLog(iso, 5 + (i % 4), 1 + (i % 4)));
+    w.TOOLS.reload(); w.Shell.go('tools');
+    check('… and eight of them are',
+      [...d.querySelectorAll('.ns-tools .tl-corr')]
+        .some(r => /sleep/.test(r.textContent) && /mood/.test(r.textContent)),
+      [...d.querySelectorAll('.ns-tools .tl-corr')].map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | ') || 'no rows');
+    keptLog.forEach(([iso, was]) => { if (was === null) w.localStorage.removeItem('log_' + iso);
+                                      else w.localStorage.setItem('log_' + iso, was); });
+
+    if (beforeTools === null) w.localStorage.removeItem('tools_v1');
+    else w.localStorage.setItem('tools_v1', beforeTools);
+    w.TOOLS.reload();
+    w.Shell.go('do');
+  }
+}
+
+check('no errors through 4.14', errors.length === 0, errors.slice(0, 3).join(' | '));
+
 
 
 

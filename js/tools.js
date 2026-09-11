@@ -1306,6 +1306,7 @@ function datHTML() {
   return head +
     datTilesHTML(live, days) +
     datBarsHTML(days, live) +
+    datCorrHTML(days, live) +
     datPieHTML(live, days) +
     datRoseHTML(days, live) +
     datStreakHTML(days, live);
@@ -1324,6 +1325,96 @@ function datTilesHTML(sets, days) {
       <em>${s.avg ? 'average of ' + seen : seen + ' day' + (seen === 1 ? '' : 's')}</em>
     </div>`;
   }).join('')}</div>`;
+}
+
+/* ── Correlations ──────────────────────────────────────────────────
+   Everything above answers "how much". This answers "what goes with what".
+
+   Two questions, and they are different ones. **Together** is the same day:
+   the days you sleep well are the days your mood is up. **Follows** is the day
+   after: a day at the desk and then a day of low energy. The second is the one
+   worth having — it is the only shape in here that points one way rather than
+   both — and it costs one shifted array.
+
+   Pearson over the days where *both* series recorded something. A blank is not
+   a zero anywhere else in this file and it is not one here either: a day you
+   did not write a mood is a day with no mood, and pairing it with a walk of
+   4 km would invent a relationship out of a gap.
+
+   What it will not do is call this causation. The wording is "moves with" and
+   "tends to follow", both of which are claims about the numbers. */
+const MIN_PAIR = 6;               // days of overlap before a number means anything
+
+function pearson(xs, ys) {
+  const n = xs.length;
+  if (n < MIN_PAIR) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let top = 0, dx = 0, dy = 0;
+  for (let i = 0; i < n; i++) {
+    const a = xs[i] - mx, b = ys[i] - my;
+    top += a * b; dx += a * a; dy += b * b;
+  }
+  if (!dx || !dy) return null;    // one of them never moved: no answer, not zero
+  return top / Math.sqrt(dx * dy);
+}
+
+/* The pairs that survive: both recorded, on enough days, `lag` days apart. */
+function pairUp(a, b, lag) {
+  const xs = [], ys = [];
+  for (let i = 0; i + lag < a.length; i++) {
+    const x = a[i], y = b[i + lag];
+    if (x == null || y == null) continue;
+    xs.push(+x); ys.push(+y);
+  }
+  return { xs, ys };
+}
+
+function datCorrHTML(days, sets) {
+  if (sets.length < 2 || days.length < MIN_PAIR + 1) return '';
+  const vals = new Map(sets.map(s => [s.key, series(s.key, days)]));
+  const found = [];
+
+  sets.forEach((A, i) => sets.slice(i + 1).forEach(B => {
+    const p = pairUp(vals.get(A.key), vals.get(B.key), 0);
+    const r = pearson(p.xs, p.ys);
+    if (r != null && Math.abs(r) >= 0.4) found.push({ A, B, r, n: p.xs.length, lag: 0 });
+  }));
+
+  /* Both directions, because "the desk then a flat day" and "a flat day then
+     the desk" are different sentences about the same two series. */
+  sets.forEach(A => sets.forEach(B => {
+    if (A.key === B.key) return;
+    const p = pairUp(vals.get(A.key), vals.get(B.key), 1);
+    const r = pearson(p.xs, p.ys);
+    if (r != null && Math.abs(r) >= 0.5) found.push({ A, B, r, n: p.xs.length, lag: 1 });
+  }));
+
+  if (!found.length) return `<div class="tl-sec"><span>What goes with what</span>
+      <em>nothing strong enough yet</em></div>
+    <div class="tl-tally">A link needs ${MIN_PAIR} days where both were recorded.
+      Keep writing days and this fills in.</div>`;
+
+  found.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+  const rows = found.slice(0, 6).map(f => {
+    const up = f.r > 0;
+    const how = f.lag
+      ? (up ? 'tends to come before more' : 'tends to come before less')
+      : (up ? 'moves with' : 'moves against');
+    const strength = Math.abs(f.r) >= 0.7 ? 'strong' : Math.abs(f.r) >= 0.55 ? 'clear' : 'slight';
+    return `<div class="tl-corr${up ? ' up' : ''}" style="--lc:${f.A.c};--lc2:${f.B.c}">
+      <div class="cr-pair"><b>${esc(f.A.word)}</b>
+        <span class="cr-how">${esc(how)}</span>
+        <b class="cr-b">${esc(f.B.word)}</b></div>
+      <div class="cr-meta">${esc(strength)} · r ${(f.r < 0 ? '−' : '') +
+        Math.abs(f.r).toFixed(2).replace(/^0/, '')} · ${f.n} day${f.n === 1 ? '' : 's'}${
+        f.lag ? ' · next day' : ''}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="tl-sec"><span>What goes with what</span>
+      <em>${found.length} link${found.length === 1 ? '' : 's'} · not causes</em></div>
+    <div class="tl-corrs">${rows}</div>`;
 }
 
 /* The bars: the range, day by day. Columns rather than a line, because a day

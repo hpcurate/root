@@ -2278,24 +2278,6 @@
   <div id="search-out"></div>
 </div>
 
-<!-- OVERLAP — what an import found on both devices.
-     A sibling of #views like every other sheet, so the track's transform can
-     never become its containing block. It only ever holds the things the merge
-     could not settle on its own: everything unambiguous is already applied by
-     the time this opens. -->
-<div class="ns-set">
-  <div class="sheet-back" id="ovl-back" onclick="SET.syncCancel()"></div>
-  <div class="sheet" id="ovl">
-    <div class="sheet-head">
-      <span class="sheet-ttl"><i class="sheet-dot"></i><span id="ovl-ttl">on both devices</span></span>
-      <button class="sheet-close" onclick="SET.syncCancel()">cancel</button>
-    </div>
-    <div class="data-warn" id="ovl-lead"></div>
-    <div id="ovl-list"></div>
-    <button class="btn" onclick="SET.syncApply()">apply</button>
-  </div>
-</div>
-
 <!-- the portrait curtain: shown by shell.css in landscape on a phone while
      Settings → behaviour → "stay in portrait" is on -->
 <div id="rotate" aria-hidden="true">

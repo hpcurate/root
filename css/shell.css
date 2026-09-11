@@ -564,7 +564,6 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   [data-desktop="frame"] .sheet{max-height:calc(var(--frame-h) * .78)}
   [data-desktop="frame"] #search{max-height:calc(var(--frame-h) * .82)}
   [data-desktop="frame"] .ns-store .clog-list,
-  [data-desktop="frame"] .ns-set #ovl-list{max-height:calc(var(--frame-h) * .46)}
   [data-desktop="frame"] .ns-learn .card-face img{max-height:calc(var(--frame-h) * .55)}
   [data-desktop="frame"] .ns-learn .study-wrap{
     min-height:calc(var(--frame-h) - 56px - var(--scr-pad-b) - var(--sat))}

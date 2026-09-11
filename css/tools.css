@@ -265,6 +265,23 @@
    much. The accent marks the one thing worth *finding* — the best day, the best
    hold ever posted — and everything else stays grey, because three highlights
    are no highlight at all. */
+/* Correlations. Two coloured ends and the sentence between them: the row reads
+   left to right as a claim, and the meta line under it says how strong and on
+   how many days — which is the part that stops "r .8" from meaning anything on
+   its own. */
+.ns-tools .tl-corrs{display:flex;flex-direction:column;
+  gap:calc(2px * var(--dens));margin-bottom:calc(14px * var(--dens))}
+.ns-tools .tl-corr{border-top:var(--bw) solid var(--bd);
+  padding:calc(9px * var(--dens)) 0}
+.ns-tools .tl-corr:first-child{border-top:none}
+.ns-tools .tl-corr .cr-pair{display:flex;align-items:baseline;flex-wrap:wrap;
+  gap:calc(6px * var(--dens));font:400 11.5px/1.4 var(--mono);color:var(--tx)}
+.ns-tools .tl-corr .cr-pair b{font-weight:700;color:var(--lc)}
+.ns-tools .tl-corr .cr-pair b.cr-b{color:var(--lc2)}
+.ns-tools .tl-corr .cr-how{color:var(--mu);font-size:10px;letter-spacing:.04em}
+.ns-tools .tl-corr .cr-meta{margin-top:calc(4px * var(--dens));
+  font:400 9px/1 var(--mono);letter-spacing:.08em;color:var(--bd-2);text-transform:var(--caps)}
+
 .ns-tools .tl-row{display:flex;align-items:center;gap:calc(12px * var(--dens));
   padding:calc(11px * var(--dens)) 0;border-top:var(--bw) solid var(--bd);
   font:400 10.5px/1 var(--mono);letter-spacing:.04em;font-variant-numeric:tabular-nums}

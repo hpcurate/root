@@ -402,6 +402,17 @@ function monthShift(n) {
   renderMonth();
 }
 
+/* What a cell says: the date, or how many journal entries that day holds.
+   Not stored — like `trendBig` and `trendIx`, it is a way of looking at the
+   month rather than a setting about it, and a calendar that opens counting
+   entries would be a calendar that has stopped being a calendar. */
+let calEntries = false;
+function toggleCalEntries() { calEntries = !calEntries; renderMonth(); }
+const entryCount = iso => {
+  const d = readDay(iso);
+  return d && Array.isArray(d.entries) ? d.entries.length : 0;
+};
+
 /* How much of a day was written, as 0–2. Morning and evening are the two halves
    the whole app is built around, so they are what the cell shows. */
 function dayFill(iso) {
@@ -433,8 +444,17 @@ function renderMonth() {
     if (future) cls.push('future');
     if (iso === REAL_TODAY) cls.push('today');
     if (iso === TODAY) cls.push('sel');
+    /* Counting, a day with no entries shows nothing rather than a 0: a month of
+       zeroes is a month of noise, and blank already reads as none. */
+    const n = calEntries && !future ? entryCount(iso) : 0;
+    const face = calEntries ? (future ? '' : (n || '')) : day;
+    if (calEntries) cls.push('count');
+    if (calEntries && n) cls.push('has');
+    const label = calEntries
+      ? `${iso} · ${n} entr${n === 1 ? 'y' : 'ies'}`
+      : iso;
     cells.push(`<button class="${cls.join(' ')}"${future ? ' disabled' : ''}
-      data-day="${iso}" aria-label="${iso}">${day}</button>`);
+      data-day="${iso}" aria-label="${esc(label)}">${face}</button>`);
   }
 
   const label = first.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
@@ -444,6 +464,10 @@ function renderMonth() {
       <button class="lc-arr" data-month="-1" aria-label="previous month">
         <svg aria-hidden="true"><use href="#ico-chev-l"/></svg></button>
       <span class="lc-month">${esc(label)}</span>
+      <button class="lc-tog${calEntries ? ' on' : ''}" data-cal-entries
+              aria-pressed="${calEntries}"
+              aria-label="${calEntries ? 'show the dates' : 'show how many entries each day holds'}"
+              >entries</button>
       <button class="lc-arr" data-month="1"${atNow ? ' disabled' : ''} aria-label="next month">
         <svg aria-hidden="true"><use href="#ico-chev-r"/></svg></button>
     </div>
@@ -2398,6 +2422,7 @@ const calBox = document.querySelector('.ns-log #log-cal');
 if (calBox) calBox.addEventListener('click', e => {
   const arr = e.target.closest('[data-month]');
   if (arr) { if (!arr.disabled) monthShift(+arr.dataset.month); return; }
+  if (e.target.closest('[data-cal-entries]')) { toggleCalEntries(); return; }
   const cell = e.target.closest('[data-day]');
   if (cell && !cell.disabled) { pickDate(cell.dataset.day); return; }
   /* The key row sits inside the chart, so it is asked about first: closest()

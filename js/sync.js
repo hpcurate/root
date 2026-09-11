@@ -347,9 +347,39 @@ window.SYNC = (function () {
   /* ── The merge ────────────────────────────────────────────────────────── */
 
   /* Every merge answers with the record to write plus what it did, so the
-     caller can report "filled 3, updated 1" and hold the rest back for the
-     overlap sheet. `note` is what the sheet shows; `conflict` is what it asks
-     about. */
+     caller can report "filled 3, updated 1". `note` is what it says.
+
+     There is no third answer any more. Until 4.14 a merge could hand back a
+     *question* — two records written in the same moment, different, and nobody
+     to say which — and a sheet asked it. "There should be no such thing as an
+     overlap": the most recent wins, and where there is no most recent the two
+     devices have to reach the same answer without talking, or the next sync
+     undoes this one.
+
+     So a tie is broken by the records themselves. **The fuller one wins** — the
+     one with more written in it, which is the same instinct as the rest of this
+     file: an import completes a record, it does not empty one. Exactly as full
+     and still different is broken by comparing the two as text, which is
+     arbitrary but identical on both devices, which is the only property that
+     actually matters at that point. */
+  function weigh(v) {
+    if (v == null || v === '' || v === false) return 0;
+    if (Array.isArray(v)) return v.reduce((n, x) => n + weigh(x), 0);
+    if (typeof v === 'object') return Object.keys(v).reduce((n, k) => n + weigh(v[k]), 0);
+    /* A field is worth one, whatever is in it — a mood of 2 is not half a mood
+       of 4. Text carries a fraction on top, so a note someone kept writing beats
+       the same note as it was a paragraph earlier, while never outweighing a
+       whole field the other side has and this one does not. */
+    if (typeof v === 'string') return 1 + Math.min(v.length, 4000) / 4001;
+    return 1;
+  }
+  function tieWinner(local, incoming) {
+    const a = weigh(local), b = weigh(incoming);
+    if (b > a) return 'theirs';
+    if (a > b) return 'ours';
+    return JSON.stringify(incoming ?? null) > JSON.stringify(local ?? null) ? 'theirs' : 'ours';
+  }
+
   const has = h => !!(h && h.saved);
 
   /* Union by value: a list nothing ever rewrites in place. `entries` are
@@ -372,9 +402,9 @@ window.SYNC = (function () {
      problem has: a morning written on the phone and an evening written on the
      desktop are not a conflict, they are one day arriving in two pieces. */
   function mergeLogDay(day, local, incoming) {
-    const notes = [], conflicts = [];
+    const notes = [];
     const out = clone(local) || clone(incoming) || null;
-    if (!out) return { out: null, notes, conflicts };
+    if (!out) return { out: null, notes };
     if (!local) { notes.push(`${day} · added`); }
 
     ['m', 'e'].forEach(half => {
@@ -386,9 +416,11 @@ window.SYNC = (function () {
       if (same(L, I)) return;
       if (I.saved > L.saved) { out[half] = clone(I); notes.push(`${day} · ${name} updated`); return; }
       if (L.saved > I.saved) return;                       // ours is newer, leave it
-      conflicts.push({ id: `${day}:${half}`, label: `LOG ${day} · ${name}`,
-                       why: 'both were written and they differ',
-                       apply: rec => { rec[half] = clone(I); } });
+      /* Saved in the same moment and different. */
+      if (tieWinner(L, I) === 'theirs') {
+        out[half] = clone(I);
+        notes.push(`${day} · ${name} — the fuller one kept`);
+      }
     });
 
     /* The three append-shaped lists, whatever the halves did. */
@@ -400,7 +432,7 @@ window.SYNC = (function () {
       out.e.blocksPlan = unionBy(out.e.blocksPlan, ie.blocksPlan, String);
       out.e.media = unionBy(out.e.media, ie.media, mediaKey);
     }
-    return { out, notes, conflicts };
+    return { out, notes };
   }
 
   /* DO's day: a tick map per routine. A tick is a fact, so the two sides are
@@ -408,8 +440,8 @@ window.SYNC = (function () {
      device, and an untick that loses to a tick is the safe way round. */
   function mergeDoDay(day, local, incoming) {
     const notes = [];
-    if (!incoming) return { out: local, notes, conflicts: [] };
-    if (!local) return { out: clone(incoming), notes: [`${day} · added`], conflicts: [] };
+    if (!incoming) return { out: local, notes };
+    if (!local) return { out: clone(incoming), notes: [`${day} · added`] };
     const out = clone(local);
     let touched = false;
     Object.keys(incoming).forEach(routine => {
@@ -421,31 +453,31 @@ window.SYNC = (function () {
       });
     });
     if (touched) notes.push(`${day} · ticks filled in`);
-    return { out, notes, conflicts: [] };
+    return { out, notes };
   }
 
   /* DAY's day. cal.js stamps every export with `written`, so this one has a
      real timestamp to compare and does not need to guess. */
   function mergeCalDay(day, local, incoming) {
-    const notes = [], conflicts = [];
-    if (!incoming) return { out: local, notes, conflicts };
-    if (!local) return { out: clone(incoming), notes: [`DAY ${day} · added`], conflicts };
-    if (same(local, incoming)) return { out: local, notes, conflicts };
+    const notes = [];
+    if (!incoming) return { out: local, notes };
+    if (!local) return { out: clone(incoming), notes: [`DAY ${day} · added`] };
+    if (same(local, incoming)) return { out: local, notes };
     const lw = +local.written || 0, iw = +incoming.written || 0;
-    if (iw > lw) return { out: clone(incoming), notes: [`DAY ${day} · updated`], conflicts };
-    if (lw > iw) return { out: local, notes, conflicts };
-    conflicts.push({ id: `cal:${day}`, label: `DAY ${day}`, why: 'both were written and they differ',
-                     apply: null, value: clone(incoming) });
-    return { out: local, notes, conflicts };
+    if (iw > lw) return { out: clone(incoming), notes: [`DAY ${day} · updated`] };
+    if (lw > iw) return { out: local, notes };
+    return tieWinner(local, incoming) === 'theirs'
+      ? { out: clone(incoming), notes: [`DAY ${day} · the fuller one kept`] }
+      : { out: local, notes };
   }
 
   /* Everything that is not day-scoped. There is no timestamp inside these
      records and inventing one would be worse than asking: identical is a
      no-op, missing on one side is taken, and anything else is a question. */
   function mergeState(key, local, incoming, theirs, mine) {
-    if (incoming === undefined) return { out: local, notes: [], conflicts: [] };
-    if (same(local, incoming)) return { out: local, notes: [], conflicts: [] };
-    if (local === null) return { out: clone(incoming), notes: [`${key} · added`], conflicts: [] };
+    if (incoming === undefined) return { out: local, notes: [] };
+    if (same(local, incoming)) return { out: local, notes: [] };
+    if (local === null) return { out: clone(incoming), notes: [`${key} · added`] };
     /* The journal is what turned this from a question into an answer. When both
        devices can say when they last wrote a record, the more recent one is the
        one you meant — that is the rule the request asked for, and it is also
@@ -453,12 +485,62 @@ window.SYNC = (function () {
        to be asked. Without two timestamps it is still a question. */
     if (theirs && mine && theirs !== mine) {
       return theirs > mine
-        ? { out: clone(incoming), notes: [`${key} · updated`], conflicts: [], at: theirs }
-        : { out: local, notes: [], conflicts: [] };
+        ? { out: clone(incoming), notes: [`${key} · updated`], at: theirs }
+        : { out: local, notes: [] };
     }
-    return { out: local, notes: [],
-             conflicts: [{ id: `state:${key}`, label: key, why: 'changed on both devices',
-                           apply: null, value: clone(incoming) }] };
+    return tieWinner(local, incoming) === 'theirs'
+      ? { out: clone(incoming), notes: [`${key} · the fuller one kept`] }
+      : { out: local, notes: [] };
+  }
+
+  /* CREATE's record, merged rather than chosen between.
+
+     A session is an event: it happened, on one device, at a moment. Taking the
+     newer of two whole records therefore *deletes* whatever the other device
+     logged in between — which is what "sessions are not being synced correctly"
+     was. Sessions and works both carry stable ids, so both union by id; a work
+     the two sides disagree about takes the one touched later, which is the
+     field CREATE already keeps for exactly that question.
+
+     Everything else in the record — the settings, the curate cache — is a
+     preference or a cache and takes the payload's copy only when the record is
+     otherwise newer, which the caller has already decided by the time this is
+     reached. */
+  function mergeCreate(local, incoming, theirsNewer) {
+    if (!incoming || typeof incoming !== 'object') return { out: local, notes: [] };
+    if (!local || typeof local !== 'object') return { out: clone(incoming), notes: ['create_v1 · added'] };
+
+    const base = theirsNewer ? clone(incoming) : clone(local);
+    const notes = [];
+
+    const byId = (mine, theirs, pick) => {
+      const out = [], seen = new Map();
+      (Array.isArray(mine) ? mine : []).forEach(r => { if (r && r.id != null) { seen.set(String(r.id), out.length); out.push(clone(r)); } });
+      (Array.isArray(theirs) ? theirs : []).forEach(r => {
+        if (!r || r.id == null) return;
+        const at = seen.get(String(r.id));
+        if (at === undefined) { seen.set(String(r.id), out.length); out.push(clone(r)); return; }
+        if (pick) out[at] = pick(out[at], r);
+      });
+      return out;
+    };
+
+    const mineS = Array.isArray(local.sessions) ? local.sessions : [];
+    const theirsS = Array.isArray(incoming.sessions) ? incoming.sessions : [];
+    /* The same session on both sides is the same event; the one with more hours
+       on it is the one that was still being added to when the other was sent. */
+    base.sessions = byId(mineS, theirsS, (a, b) => ((+b.hours || 0) > (+a.hours || 0) ? clone(b) : a))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const gainedS = base.sessions.length - mineS.length;
+    if (gainedS > 0) notes.push(`create_v1 · ${gainedS} session${gainedS === 1 ? '' : 's'} filled in`);
+
+    const mineW = Array.isArray(local.works) ? local.works : [];
+    base.works = byId(mineW, Array.isArray(incoming.works) ? incoming.works : [],
+      (a, b) => (String(b.touched || '') > String(a.touched || '') ? clone(b) : a));
+    const gainedW = base.works.length - mineW.length;
+    if (gainedW > 0) notes.push(`create_v1 · ${gainedW} work${gainedW === 1 ? '' : 's'} filled in`);
+
+    return { out: base, notes };
   }
 
   /* `do-stats-v1` is the one state record with a shape worth merging rather
@@ -466,15 +548,14 @@ window.SYNC = (function () {
      taken; a day both have and disagree on is left alone, because the tally is
      derived and the local one matches the local days. */
   function mergeStats(local, incoming) {
-    if (!incoming || typeof incoming !== 'object') return { out: local, notes: [], conflicts: [] };
+    if (!incoming || typeof incoming !== 'object') return { out: local, notes: [] };
     const out = clone(local) || { days: {} };
     out.days = out.days || {};
     let filled = 0;
     Object.keys(incoming.days || {}).forEach(d => {
       if (!(d in out.days)) { out.days[d] = clone(incoming.days[d]); filled++; }
     });
-    return { out, notes: filled ? [`do-stats-v1 · ${filled} day${filled === 1 ? '' : 's'} filled in`] : [],
-             conflicts: [] };
+    return { out, notes: filled ? [`do-stats-v1 · ${filled} day${filled === 1 ? '' : 's'} filled in`] : [] };
   }
 
   /* Plans the whole import without writing anything. The caller shows what it
@@ -483,8 +564,6 @@ window.SYNC = (function () {
     const R = ROUTES[route];
     const writes = [];       // { key, value }
     const notes = [];
-    const conflicts = [];
-    const bases = {};        // key → the merged record a conflict's answer starts from
     const isLog = route === 'file';
 
     const calLocal = R.slices.includes('cal') ? (readJSON(CAL_KEY, {}) || {}) : null;
@@ -499,8 +578,6 @@ window.SYNC = (function () {
       const local = readJSON(key);
       const r = kind === 'log' ? mergeLogDay(day, local, rec) : mergeDoDay(day, local, rec);
       notes.push(...r.notes);
-      if (r.conflicts.length) bases[key] = clone(r.out);
-      r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key, applyTo: c.apply })));
       if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
     };
 
@@ -513,12 +590,6 @@ window.SYNC = (function () {
         const local = readJSON(key);
         const r = isLog ? mergeLogDay(day, local, inc.day) : mergeDoDay(day, local, inc.day);
         notes.push(...r.notes);
-        /* A day can raise two conflicts — a morning and an evening — and both
-           may be answered "theirs". Each carries only the change it is about
-           and commit() layers them onto one record, so answering the second
-           does not undo the first. `bases` is where that record starts. */
-        if (r.conflicts.length) bases[key] = clone(r.out);
-        r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key, applyTo: c.apply })));
         if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
       }
       if (calOut && (inc.cal || inc.marks)) {
@@ -527,7 +598,6 @@ window.SYNC = (function () {
         if (inc.cal) {
           const r = mergeCalDay(day, calOut.days[day] || null, inc.cal);
           notes.push(...r.notes);
-          r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key: CAL_KEY, calDay: day })));
           if (r.out && !same(r.out, calOut.days[day])) { calOut.days[day] = r.out; calTouched = true; }
         }
         if (inc.marks) {
@@ -546,8 +616,6 @@ window.SYNC = (function () {
       const local = readJSON(key);
       const r = mergeLogDay(payload.todayFor, local, payload.today.day);
       notes.push(...r.notes);
-      if (r.conflicts.length) bases[key] = clone(r.out);
-      r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key, applyTo: c.apply })));
       if (r.out && !same(r.out, local)) writes.push({ key, value: r.out });
     }
 
@@ -568,46 +636,31 @@ window.SYNC = (function () {
     stateKeys.forEach(key => {
       const incoming = (payload.state || {})[key];
       const local = readJSON(key);
-      const r = key === 'do-stats-v1'
-        ? mergeStats(local, incoming)
-        : mergeState(key, local, incoming, theirTouch[key], touchedAt(key));
+      const theirs = theirTouch[key], mine = touchedAt(key);
+      const r = key === 'do-stats-v1' ? mergeStats(local, incoming)
+              : key === 'create_v1'   ? mergeCreate(local, incoming, !!(theirs && mine && theirs > mine))
+              : mergeState(key, local, incoming, theirs, mine);
       notes.push(...r.notes);
-      r.conflicts.forEach(c => conflicts.push(Object.assign({}, c, { key })));
       if (r.out !== undefined && !same(r.out, local)) {
         writes.push({ key, value: keepToken(key, r.out), at: r.at || 0 });
       }
     });
 
     if (calTouched) writes.push({ key: CAL_KEY, value: calOut });
-    return { writes, notes, conflicts, calOut, bases };
+    return { writes, notes, calOut };
   }
 
-  /* Writes the plan, plus whichever conflicts were answered "theirs". The keys
-     it is about to overwrite are copied first, so one step back is possible —
-     it is a snapshot, not an edit history, and the next import replaces it. */
-  function commit(planned, taken) {
+  /* Writes the plan. The keys it is about to overwrite are copied first, so one
+     step back is possible — it is a snapshot, not an edit history, and the next
+     import replaces it.
+
+     It used to take a second argument: the overlaps a person had answered
+     "theirs" in a sheet. Since 4.14 every merge settles itself, so there is
+     nothing to answer and nothing to layer on afterwards. */
+  function commit(planned) {
     const byKey = new Map(planned.writes.map(w => [w.key, clone(w.value)]));
     /* When each of those records was *authored*, where the merge knows. */
     const authored = new Map(planned.writes.filter(w => w.at).map(w => [w.key, w.at]));
-
-    (taken || []).forEach(c => {
-      if (c.calDay) {
-        const cal = byKey.get(CAL_KEY) || clone(planned.calOut) || readJSON(CAL_KEY, {}) || {};
-        cal.days = cal.days || {};
-        cal.days[c.calDay] = c.value;
-        byKey.set(CAL_KEY, cal);
-        return;
-      }
-      /* Layered onto whatever is already staged for this key, so two answers
-         about the same day both survive. */
-      if (c.applyTo) {
-        const rec = byKey.get(c.key) || clone((planned.bases || {})[c.key]) || readJSON(c.key) || {};
-        c.applyTo(rec);
-        byKey.set(c.key, rec);
-        return;
-      }
-      byKey.set(c.key, keepToken(c.key, clone(c.value)));
-    });
 
     const undo = {};
     byKey.forEach((_, key) => { undo[key] = localStorage.getItem(key); });
@@ -746,16 +799,12 @@ window.SYNC = (function () {
      that its copy is the good one.
 
      Three things make that safe enough to also run on a timer. An id says
-     whether there is anything to take in at all. The merge settles overlaps by
-     which record is newer rather than by asking. And a push whose contents have
-     not changed is not sent. Left over are the ties — the same record written
-     on both devices in the same moment — and those are the one thing an
-     automatic run will not guess: it keeps this device's copy and leaves the
-     question for a sync you are standing next to. */
-  async function run(opts) {
-    const auto_ = !!(opts && opts.auto);
-    const out = { route: 'todoist', already: false, imported: 0, notes: [],
-                  planned: null, payload: null, pushed: null };
+     whether there is anything to take in at all. Every merge settles itself —
+     the more recent record, and where there is no more recent one, the fuller
+     — so nothing is ever waiting on an answer. And a push whose contents have
+     not changed is not sent. */
+  async function run() {
+    const out = { route: 'todoist', already: false, imported: 0, notes: [], pushed: null };
 
     let payload = null;
     try { payload = await pullTodoist(); }
@@ -768,17 +817,10 @@ window.SYNC = (function () {
       if (alreadySeen('todoist', payload.id)) out.already = true;
       else {
         const planned = plan('todoist', payload);
-        if (planned.conflicts.length && !auto_) {
-          out.planned = planned; out.payload = payload;
-          return out;                                   // the caller asks, then finishes
-        }
-        const res = commit(planned, []);
+        const res = commit(planned);
         out.imported = res.written;
         out.notes = planned.notes;
-        /* Only a run that had nothing left to ask about can call this payload
-           taken in; one that quietly kept its own side of a tie has not. */
-        if (!planned.conflicts.length) markPulled('todoist', payload.id);
-        else markPulled('todoist');
+        markPulled('todoist', payload.id);
       }
     }
 
@@ -797,7 +839,7 @@ window.SYNC = (function () {
     if (!mins) return;
     autoTimer = setTimeout(async () => {
       let res = null;
-      try { res = await run({ auto: true }); } catch { /* offline, no key, no section */ }
+      try { res = await run(); } catch { /* offline, no key, no section */ }
       if (res && typeof onDone === 'function') { try { onDone(res); } catch {} }
       auto(onDone);
     }, mins * 60000);
@@ -979,5 +1021,5 @@ ${JSON.stringify(body)}
            exportEverything, parseEverything, restoreEverything, everythingCount, everythingText,
            pushTodoist, pullTodoist, exportFile, parseFile, fileText,
            lastAt, window: window_, span, unwrap, wrap, deviceId,
-           _merge: { mergeLogDay, mergeDoDay, mergeCalDay, mergeState, mergeStats, unionBy, scrub } };
+           _merge: { mergeLogDay, mergeDoDay, mergeCalDay, mergeState, mergeStats, mergeCreate, unionBy, scrub, tieWinner } };
 })();

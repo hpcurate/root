@@ -1850,7 +1850,13 @@ not overwrite one.**
 - **DO's ticks union.** A tick is a fact; an untick losing to a tick is the safe
   way round.
 - **DAY compares `written`,** which cal.js already stamps on every export.
-- **State records take the newer one.** `create_v1`, `tend.v3`, `capTracker.v2`,
+- **CREATE unions.** A session is an event that happened on one device at a
+  moment; taking the newer of two whole `create_v1` records deletes whatever the
+  other device logged in between, which is what "sessions are not being synced
+  correctly" was (4.14). Sessions and works both carry ids, so both union by id
+  — the same session on both sides keeps the one with more hours on it, a work
+  keeps the one touched later.
+- **Other state records take the newer one.** `create_v1`, `tend.v3`, `capTracker.v2`,
   `store_state_v1` and the rest have no timestamp *inside* them, which is why
   until 4.13 they were a question. The journal gives them one from outside, so
   identical is a no-op, missing on one side is taken, a different moment takes
@@ -1902,16 +1908,68 @@ unless the switch is on; `plan_token` is the only key that is nothing but the
 token, so it is the only one omitted outright. It uses the same snapshot as an
 import, so it too can be taken back once.
 
-### Nothing is written until it has been looked at
+### There is no such thing as an overlap
 
-`plan()` computes every write and every conflict and touches no storage.
-`commit()` copies the raw value of each key it is about to overwrite into
-`root_sync_undo_v1` first, so the last import can be taken back exactly once.
-It is a snapshot, not an edit history — the same reasoning as `Shell.undo`.
+Until 4.14 a merge could hand back a *question* — two records written in the
+same moment, different, and nobody to say which — and a sheet asked it. 4.14
+removed the question and the sheet with it. Every merge settles:
+
+1. the more recent record, where the journal knows both moments;
+2. failing that, **the fuller one** — more fields written, and within a field
+   more text, which is the same instinct as the rest of §10: an import completes
+   a record, it does not empty one;
+3. failing even that, the two compared as text. Arbitrary, but the *same*
+   arbitrary answer on both devices, which is the only property that matters
+   once nobody is being asked. Two devices that disagree here would undo each
+   other on every sync.
+
+`plan()` therefore returns writes and notes and nothing else, and `commit()`
+takes one argument. `SET.syncOpen/syncPick/syncApply/syncCancel`, `#ovl` and the
+`.ovl-*` rules are gone.
+
+### Nothing is written until the whole plan is known
+
+`plan()` computes every write and touches no storage. `commit()` copies the raw
+value of each key it is about to overwrite into `root_sync_undo_v1` first, so
+the last import can be taken back exactly once. It is a snapshot, not an edit
+history — the same reasoning as `Shell.undo`.
 
 ---
 
 ## Changelog
+
+### 4.14 — 2026-09-11 — six routines, entries on the calendar, and what goes with what
+
+From the written brief (`systems_tools_update.md`), whole.
+
+- **DO's day is six routines** — `fix`, `fit`, `log`, `eat`, `reset`, `plan` —
+  by what a block of the day is *for* rather than by where it falls in it. The
+  labels are the words the matching Todoist tasks carry, since the routine sync
+  matches on key or label. **History is untouched**: `do-stats-v1` rows are
+  summed by whatever keys they were stored with, so a day recorded under the old
+  six still reads in the consistency strip.
+- **Config migrates an override of the old set.** An override wins over its
+  whole branch, so a replaced default is invisible to anyone who has used the
+  editor. `Config.migrate()` drops a `do.routines` / `do.tabs` override that is
+  still the shipped set it replaces, and leaves one carrying a routine of your
+  own exactly alone. `Config.load` is exported so this is testable.
+- **LOG's month grid has an `entries` switch.** The cells count that day's
+  journal entries instead of showing the date. Not stored — like the fortnight
+  chart, it is a way of looking at the month rather than a setting about it.
+- **CREATE's record merges instead of being chosen between.** Sessions and works
+  union by id; the same session on both sides keeps the one with more hours. A
+  session is an event, and taking the newer whole record deleted the other
+  device's.
+- **No such thing as an overlap.** Every merge settles itself: the more recent,
+  then the fuller, then text order as a last resort that is at least identical
+  on both devices. The overlap sheet, its four handlers, its markup and its CSS
+  are gone; `plan()` returns writes and notes, `commit()` takes one argument.
+- **TOOLS says what goes with what.** A correlations section over the series it
+  already draws: Pearson on the days where both recorded something, same-day
+  ("moves with") and next-day ("tends to come before"), strongest first, with
+  the overlap count beside each. Six days of overlap minimum, and it says it is
+  not claiming causes.
+
 
 ### 4.13.1 — 2026-09-11 — the header sync kept DO's routines, and an import is visible
 

@@ -16,18 +16,22 @@ const DEFAULTS = {
        the item text, so the editor treats them as plain characters — paste any
        symbol you like. */
     routines: {
-      routinep1: { label: 'Routine P1', items: ['≈ shower','≋ teeth','◡ cream','○ breakfast p1','✚ meds','↑ walk kamo','▲ gym'] },
-      routinep2: { label: 'Routine P2', items: ['○ breakfast p2','≡ morning log','≡ log meds','✎ journal entry'] },
-      routinep3: { label: 'Routine P3', items: ['◐ lunch p1','✎ journal entry','✦ feed kamo','≈ fill kamo water','◐ lunch p2','↑ kamo walk'] },
-      routinep4: { label: 'Routine P4', items: ['≡ evening log','✎ journal entry','▤ plan blocks','▦ schedule','○ cleanup / dishes'] },
-      cooldown:  { label: 'Cooldown',   items: ['▭ bed out','≈ fill water','≋ teeth','◇ tongue','◡ cream'] },
-      cleanup:   { label: 'Cleanup',    items: ['○ dishes','✿ plants','⟳ vacuum','⊞ tidy up','✕ trash/recycle'] },
+      /* Six, by what a block of the day is *for* rather than by where it falls
+         in it. The labels are the words the matching Todoist tasks carry: DO's
+         routine sync matches on the key or the label (`tdRoutineBySlug`), so
+         renaming one here is renaming the task it closes. */
+      fix:   { label: 'fix',   items: ['shower','face morning','teeth morning','tongue morning','teeth evening','face evening'] },
+      fit:   { label: 'fit',   items: ['exercise','kamo walk m','kamo walk e'] },
+      log:   { label: 'log',   items: ['log morning','log evening','log meds'] },
+      eat:   { label: 'eat',   items: ['shake','breakfast','meal 1','meal 2','meal 3'] },
+      reset: { label: 'reset', items: ['dishes','plants','tidy','vacuum','trash'] },
+      plan:  { label: 'plan',  items: ['plan blocks','schedule','clothes','coffee','shake','gym prep','kamo walk prep'] },
       deepclean: { label: 'Deep Clean', items: ['≋ dusting','⟳ vacuum','▧ mop','▭ surfaces','≈ bathroom sink','○ toilet','✕ trash'] },
     },
     /* Which routines sit under which home tab, and what the tabs are called.
        Add a tab here and the home screen grows one. */
     tabs: [
-      { id: 'daily', label: 'daily', routines: ['routinep1','routinep2','routinep3','routinep4','cooldown','cleanup'] },
+      { id: 'daily', label: 'daily', routines: ['fix','fit','log','eat','reset','plan'] },
       /* `media` is a fixed id: DO draws the Todoist media grid on it rather
          than routine cards, and puts it back at this spot if an older override
          of the list is missing it. */
@@ -645,6 +649,45 @@ const subs = [];
 function load() {
   try { overrides = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }
   catch { overrides = {}; }
+  migrate();
+}
+
+/* One-time migrations of the override tree.
+
+   An override wins over the default for its whole branch, which is exactly
+   what makes a *replaced* default invisible to anyone who ever edited that
+   branch — and the settings editors write the whole branch on any edit. So a
+   default that is not a tweak but a replacement needs a migration, or it ships
+   to nobody who has used the editor.
+
+   The rule is deliberately narrow: only an override that still *is* the shipped
+   set it replaces is dropped. One routine renamed, one item added, and the keys
+   still match — that is the same set, edited, and the request replaced it. A
+   routine of your own making is a seventh key, and a seventh key means hands
+   off. Ticks and history are not touched either way: `do-stats-v1` rows are
+   summed by whatever keys they were stored with. */
+const OLD_DAILY_4_13 = ['routinep1','routinep2','routinep3','routinep4','cooldown','cleanup'];
+const sameSet = (a, b) => Array.isArray(a) && a.length === b.length &&
+                          b.every(k => a.includes(k));
+
+function migrate() {
+  const doTree = overrides.do;
+  if (!doTree || typeof doTree !== 'object') return;
+  let touched = false;
+
+  if (doTree.routines && typeof doTree.routines === 'object' &&
+      sameSet(Object.keys(doTree.routines).filter(k => k !== 'deepclean'), OLD_DAILY_4_13)) {
+    delete doTree.routines;
+    touched = true;
+  }
+  if (Array.isArray(doTree.tabs)) {
+    const daily = doTree.tabs.find(t => t && t.id === 'daily');
+    if (daily && sameSet(daily.routines, OLD_DAILY_4_13)) { delete doTree.tabs; touched = true; }
+  }
+  if (touched) {
+    if (!Object.keys(doTree).length) delete overrides.do;
+    persist();
+  }
 }
 function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(overrides)); }
@@ -742,6 +785,10 @@ function customPaths() {
 
 load();
 
+/* `load` is exported for the one caller that has a reason to re-read: something
+   that replaced `root_config_v1` underneath this module — an import — rather
+   than going through set(). It is also what lets the migration above be tested
+   without reloading the page. */
 return { get, set, reset, resetAll, isCustom, defaults, subscribe,
-         replaceAll, raw, customPaths, KEY };
+         replaceAll, raw, customPaths, load, KEY };
 })();

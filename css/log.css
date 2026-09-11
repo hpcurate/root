@@ -69,6 +69,20 @@
 .ns-log .lc-arr svg{width:13px;height:13px;display:block}
 .ns-log .lc-arr:active{color:var(--y)}
 .ns-log .lc-arr:disabled{opacity:.25;pointer-events:none}
+/* The entries switch. It sits in the head with the month and the arrows because
+   it is about how the grid reads, not about which month is in it — and it is a
+   word rather than a glyph, since "entries" is what it turns the cells into. */
+.ns-log .lc-tog{background:none;border:max(.5px, calc(var(--bw) * .5)) solid var(--bd);
+  border-radius:var(--r1);color:var(--mu);cursor:pointer;
+  padding:calc(3px * var(--dens)) calc(7px * var(--dens));
+  font:700 8.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  transition:color var(--dur-1),border-color var(--dur-1),background var(--dur-1)}
+.ns-log .lc-tog:active{background:var(--press)}
+.ns-log .lc-tog.on{color:var(--bg);background:var(--tx);border-color:var(--tx)}
+/* Counting, the number carries the weight the date does not: a blank cell is
+   "no entries" and needs no styling of its own. */
+.ns-log .lc-c.count{font-weight:400;color:var(--mu)}
+.ns-log .lc-c.count.has{font-weight:700;color:var(--tx)}
 
 .ns-log .lc-grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);
   grid-auto-rows:minmax(0,1fr);gap:calc(3px * var(--dens))}
