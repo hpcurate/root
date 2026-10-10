@@ -4,9 +4,10 @@ Use [UPDATE.md](UPDATE.md) for the workflow. Keep this file short; it is the
 entry point, not another changelog.
 
 1. Before editing, run `node test/update.mjs start <area>` from this project.
-   It makes and verifies a complete sibling backup, records the starting state,
-   and prints the relevant file paths. If this update already has a verified
-   backup, reuse that session; do not reset its baseline midway through work.
+   It makes and verifies a complete backup in `../_backups/`, records the
+   starting state, and prints the relevant file paths. If this update already
+   has a verified backup, reuse that session; do not reset its baseline midway
+   through work.
 2. State the intended result and how you will verify it in a few lines. Proceed
    on routine choices; ask only when missing information materially changes scope.
 3. Search with `rg`, then read the owning function and its callers. Consult the

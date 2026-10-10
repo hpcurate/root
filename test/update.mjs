@@ -32,8 +32,10 @@ export function changedFiles(root, baseline) {
 
 export function createBackup(root) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backup = path.join(path.dirname(root), `${path.basename(root)}-backup-${stamp}`);
+  // One shared folder beside the projects, so backups never sit among them.
+  const backup = path.join(path.dirname(root), '_backups', `${path.basename(root)}-backup-${stamp}`);
   if (fs.existsSync(backup)) throw new Error('Backup destination already exists: ' + backup);
+  fs.mkdirSync(path.dirname(backup), { recursive: true });
   const before = inventory(root, new Set());
   fs.cpSync(root, backup, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
   const same = other => {

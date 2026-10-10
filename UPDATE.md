@@ -14,7 +14,8 @@ Replace `tools` with an app ID, `shell`, `prefs`, `config`, `settings`, `search`
 `styles`, `tests` or `docs`. Omit it for a general update. This command:
 
 - Copies the entire project, including hidden files, Git history, dependencies
-  and uncommitted work, into a timestamped sibling folder; verifies file hashes.
+  and uncommitted work, into a timestamped folder in the workspace's shared
+  `_backups/` (beside `root/`, not inside it); verifies file hashes.
 - Saves the backup path in ignored `.update/session.json` and prints a file map
   and Git status. Backups are retained; the runner never deletes them.
 

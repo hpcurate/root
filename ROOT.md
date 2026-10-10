@@ -1965,6 +1965,22 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.14.2 — 2026-10-10 — update backups go into one `_backups/` folder
+
+Asked for directly (not through Todoist) as part of tidying the `github/`
+folder, which had filled up with eighteen `root-backup-*` folders.
+
+- `createBackup` now writes to `../_backups/root-backup-<stamp>/` instead of a
+  sibling of `root/`, creating the folder on first use. The backup is still
+  complete, verified and never deleted by the runner. AGENTS.md and UPDATE.md
+  say where it goes.
+- A runner test now asserts the destination, so the change can't quietly revert.
+- Pre-edit backup: `../root-backup-2026-10-10T11-06-01-401Z/` (1,655 files,
+  verified), the last one made in the old place. It was moved into `_backups/`
+  afterwards.
+- Verified: 6 runner tests and the full harness, **1,262 behaviour checks
+  passed**. No app code changed.
+
 ### 4.14.1 — 2026-09-11 — the state task was too big to write, so half the sync never left
 
 `fix sync practice sessions` — "it just doesn't sync". Not the merge: the

@@ -26,6 +26,7 @@ test('backup includes hidden files, dependencies and uncommitted files', t => {
     fs.writeFileSync(path.join(root, file), file);
   }
   const { backup, files } = createBackup(root);
+  assert.equal(path.dirname(backup), path.join(path.dirname(root), '_backups'));
   assert.equal(files, 4);
   assert.deepEqual(inventory(backup, new Set()), inventory(root, new Set()));
   fs.writeFileSync(path.join(root, 'js/new.js'), 'changed');
