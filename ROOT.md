@@ -8,10 +8,11 @@
 
 ## 1. What ROOT is
 
-Ten small single-purpose tools that share one phone, one frame and one set of
+Eleven small single-purpose tools that share one phone, one frame and one set of
 storage keys. It is a static site — no build step, no framework, no dependencies,
 no network except the Todoist calls you explicitly ask for (and, only when you
-import an Anki deck, the three libraries LEARN needs to unpack it). Open
+import an Anki deck, the three libraries LEARN needs to unpack it; only when you
+ask WALK for a loop, the OSM walking router, Leaflet and OSM's map tiles). Open
 `index.html` over http(s) and it runs.
 
 | Tab       | Does                                                                   |
@@ -26,11 +27,12 @@ import an Anki deck, the three libraries LEARN needs to unpack it). Open
 | **CREATE** | The work being made, in **areas**: `production` is the songs, `mixing` is the DJ sets. Same machine for both — a thing sits on a stage, the stage asks its own checklist of it, and the hours at the desk are written down as sessions — so an area is only its own name, colour, noun, stages and session words, and a third one is a block in Config. Three screens: the shelf, one piece of work, the session log. The shelf is **combined**, with the areas as its filter (4.0): what is on the desk is one question and it stops being answerable the moment the answer is split across two screens. The shelf has no network: a song is not a task and a shelf of unfinished things is the normal state of the room, not a backlog to clear. Since 4.1 the areas are DO's tab strip rather than pills, an area says which meta chips it asks for (a mix has no key), and a fourth chip — **curate** — reads a whole Todoist **project** and lists it under its own sections, subtasks nested. That tab is the one networked thing in the app; since 4.2 a row can be ticked off, which closes it in Todoist, and that is the only thing CREATE writes anywhere. The day's hours also reach LOG's note and both reports. Since 4.1.1 the in-progress count is a number at the right end of the wordmark's row rather than a 74px block under the band — the same box and the same shuffle LOG's and DAY's day numbers have. Since 4.3 that number is a **tally** while the filter is `all` (one number per chip, each captioned — three unlike things added together answered nothing), a work's progress is **two** bars (the stages of its area, then the steps of the stage it is on), and an hour at the desk that made no song can be logged loose from the session log. Since 4.12 the shelf opens on **practice counters** — one block per area with `+30` and `+60` under it, totalling a week, a month or a year (a word in the section's own title line). Several taps inside a minute are one session; the counters follow the strip, and which areas get one is a switch per area in settings. Practice is an ordinary session with no work and a `practice` flag, so it reaches the week, the note and both reports like every other hour. |
 | **DAY**   | The day PLAN exported, drawn as a calendar: the template resolved to clock times, the picked tasks in their slots, each row in its project's colour. A line across it at the hour it is now, and every row tickable. Stepped left and right through the days that are planned. Written at export time, and since 2.23 its slots can also be filled from the blocks DO is holding — see §9. Since 4.8 a row can be **moved** with the arrows on it — a swap with the neighbour that re-times the pair from the earlier one's start, so the pair keeps the span it had and nothing outside it moves; a `fixed` row is an anchor and neither moves nor is moved past. `+ gap` adds an empty hour on the end, to be walked up into place with the same arrows, which is why it asks for a length and not for a position. Since 2.24 a row can be deleted (closing the gap or leaving the hour free), LOG's morning wake-up time moves the whole day, and the blocks and the template hours can each be given their colour. Since 2.24.1 a day PLAN never sent can be started here from the day's own shape — it is marked **not sent** for as long as that is true. Since 2.25 it carries the same big shuffling date LOG does. Since 3.0.4 a completed task leaves a **mark** on it at the minute it was ticked — a green dot, the time and the name — whether it was ticked here, on DO's blocks or on DO's today list; since 3.1.0 a completion that has a row of its own is written **into that row** instead of floated across it, and only the ones with nowhere to sit still float. Since 4.12 all of that reshaping lives behind an **edit mode** — the delete, the arrows and two new length buttons appear only while it is on, because reading a schedule and editing one are different jobs. The length buttons move a row by `calStep` (15 minutes by default) and shift what follows by the same amount, stopping at a `fixed` row: an anchor keeps its clock, so growing into one is refused. Its id is `cal` everywhere that is an identity; **DAY** is only what it is called. |
 | **TOOLS** | Four instruments behind one strip: a **pomodoro**, a **breathing** round, **optimise** and **data**. Every running thing stores the wall-clock moment it ends rather than counting ticks, so a phone that slept, a throttled background tab and a reload all come back to the right number. Added in 4.3 with four; 4.8 cut the stopwatch, the countdown and the decider and added the breathing round — three phases a round, a retention that is **not** timed because its length is the measurement. 4.12 renamed that round from *wim hof* (the method is his; the tool is a breathing round — its Config path is still `tools.wimhof`), gave every clocked instrument its own dials on the page and its history under it, squared the big button, made the strip itself a setting (`toolsShown` — which instruments, in what order), and added two more. **OPTIMISE** is named lists of steps run against the clock: a shelf row per list with its best time on it, two buttons in a run (the clock and the step), splits that come back **gold** when they beat that list's best for that step, and a history with filters. Its lists are Config (`tools.optimise`); its times are filed under a list's **id**, so a rename keeps the record. **DATA** reads the whole app back — since 4.12.1 not just the three instruments beside it but LOG, TRACK, LEARN, CREATE, DAY, TEND and STORE, in five families (body, done, made, tools, life), each series asked of the owning app's own read-only day reader rather than its storage key. Tiles, the range day by day, a pie, a nightingale wheel of the week and a kept-up strip, as inline SVG with no library. A rating is averaged, a count is totalled, and a day nobody wrote is left out rather than counted as a zero. Since 4.12 every finished thing here, not only a session, is written into LOG's day as a block and onto DAY's schedule as a mark. |
+| **WALK**  | A loop for the dog (Kamo by default — the name is Config), asked for as a time or a distance; time becomes distance through a pace per km. Starts from where the phone is, a saved home, or a pin dropped by holding the map. The loop comes from the public OSRM foot router (`routing.openstreetmap.de`, keyless) as three points on a circle through the start, re-asked up to six times until it is within 7% of the length; dead ends are cut before it is measured. Drawn on OSM tiles with Leaflet (inverted for dark themes), or as a bare shape if Leaflet cannot load; leaves as Google Maps walking directions or a GPX. Added in 4.15. |
 | **Settings** | A home menu (search, the apps kept out of the bar, then three categories), and behind it twelve panels: one per app (its settings, then its content editors), look / layout / behaviour, and data. |
 | **Sync** | Not a tab either: two routes under settings → data, one through Todoist and one through a file you move yourself, and a merge that completes a day rather than replacing it — see §10. |
 | **Search** | Not a tab: one sheet over the lot, opened with `/` or from the settings menu. Apps, Config content, each app's own data, and every settings dial by name — see §3. |
 
-Which of the ten get a tab, and in what order, is itself a setting
+Which of the eleven get a tab, and in what order, is itself a setting
 (appearance → layout → apps in the bar). Settings is always last. An app
 switched off keeps its slide and opens from the settings home.
 
@@ -104,7 +106,8 @@ root/
 │   ├── learn.css      │
 │   ├── cal.css        │
 │   ├── create.css     │
-│   ├── tools.css      ┘
+│   ├── tools.css      │
+│   ├── walk.css       ┘
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
@@ -114,6 +117,7 @@ root/
     ├── do.js  log.js  plan.js  store.js  tend.js  track.js  learn.js  cal.js
     ├── create.js       the songs being made
     ├── tools.js        the pomodoro, the stopwatch, the countdown, the decider
+    ├── walk.js         the dog's loop: the router, the trims, the map
     ├── sync.js        the two sync routes and the merge — see §10
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
@@ -124,10 +128,10 @@ root/
 ```
 <head>   prefs.js          stamps the look on <html> before the first paint
          tokens.css → do → log → plan → store → tend → track → learn → cal
-                    → create → tools → shell → settings → themes.css
+                    → create → tools → walk → shell → settings → themes.css
 <body>   config.js         content exists before any app reads it
          shell.js          defines Creds + Shell.toast, used by every module
-         do / log / plan / store / tend / track / learn / cal / create / tools
+         do / log / plan / store / tend / track / learn / cal / create / tools / walk
          sync.js           reads every app's keys, so it follows all of them
          settings.js       needs every module to exist to render its panels
          search.js         reads SET.searchIndex() and the modules' search hooks
@@ -147,7 +151,7 @@ specificity. `settings.css` is after `shell.css` for the same reason.
 ### Namespacing
 
 Each app is one IIFE published as `window.DO` / `LOG` / `PLAN` / `STORE` /
-`TEND` / `TRACK` / `LEARN` / `CAL` / `CREATE` / `TOOLS`, and each does its DOM
+`TEND` / `TRACK` / `LEARN` / `CAL` / `CREATE` / `TOOLS` / `WALK`, and each does its DOM
 lookups through a scoped helper:
 
 ```js
@@ -523,6 +527,7 @@ versions still work off the same data.
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
 | `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read (the project's name and colour and its groups), which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `tools_v1` | TOOLS | what each instrument is doing, and the day's tallies: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the breathing round's phase, round, the moment the current phase began and this session's holds, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds — and `whf.days` is `{ iso: [session] }`, both capped at the last 90 days because they are "today" numbers and a year of them is a store that only grows. Carries `v`; `v:1` is the pre-4.8 shape and its `sw`, `timer` and `decide` branches are **dropped rather than migrated** — there is nowhere for a lap list to go — while `pom.days` is kept, because LOG's note reads it. The lengths are **not** here: they are Config |
+| `walk_v1` | WALK | the dials (`mode`, `km`, `min`), where a loop starts (`from`: here / home / pin), `home` and `pin` as `[lat, lon]`, and the last loop — its start, what was asked, its measured length and its line, simplified to ~3 m and rounded to 5 decimals so the record stays near 1 KB. Pace, the quick lengths and the dog's name are **not** here: they are Config (`walk.*`). **Sensitive** for sync (§10): it says where you live |
 | `root_todoist_v1` | shell | **the** Todoist key, mirrored into the three legacy keys on save |
 | `root_labels_v1` | shell | the Todoist label colours (`{ fetched, colors:{ name: hex } }`), filled by DO's fetches and `Todoist.labels()`, read by DO and PLAN |
 | `root_sync_v1` | SYNC | this install's device id and, per route, when it last pushed and last imported. Nothing else — the data itself is never cached here |
@@ -563,6 +568,15 @@ both say so, and a new device needs the `.apkg` imported again.
   scroller that works with a mouse and is dead under a finger. Every such element
   needs `touch-action:pan-x pan-y` of its own. Four have it: DO's `.tabs`, the
   settings `.set-seg`, and LOG's `.out-pre` / `.rep-pre`.
+- **Something that pans in every direction carries `data-no-swipe`.** The
+  shell's tab swipe ignores a drag that starts inside one (4.15). WALK's map is
+  the first: Leaflet sets `touch-action:none` itself, but the shell listens on
+  `#track` and would still take a sideways pan for "next tab".
+- **`inputmode="decimal"` on a text field turns every comma into a dot as it
+  is typed** (shell.js, for French keypads). Right for one number; wrong for a
+  comma-separated list, which it turns into one number. WALK's two list fields
+  carry no `inputmode` for that reason. TEND's growth curve
+  (`data-numlist="all" inputmode="decimal"`) still has it — not fixed in 4.15.
 - **Anything built from Config has no fixed width.** A strip drawn for the two
   entries it shipped with breaks the moment the editor adds a third — and the
   editor is the whole point of 2.0. Wrap it, or scroll it; DO's tab strip was
@@ -1386,10 +1400,12 @@ in `SET.PANELS`, `CATS.apps.panels`, `SEG_NAMES` and `RENDERERS`, and a
 app list and the shell's TABS all follow `Prefs.APPS` — and because `apps` is
 stored whole, `appsSeen` is what actually gets the new tab onto an install that
 already has an app list. That is automatic, but read the §6 note before
-assuming a new tab appears: for CAL it did not. **TOOLS is the current worked
-example** — 4.3 added it and touched exactly the list above and nothing else,
-plus one line in `search.js`'s `CONTENT` for its decider lists and one row in
-`GROUPS` for `tools_v1`. CREATE (3.0) is the previous one. Use the `card` class on the app's raised surfaces so the depth
+assuming a new tab appears: for CAL it did not. Give it a `--tab-x` hue in
+`:root` and in every named palette in `themes.css`, plus its
+`[data-color-tabs="on"]` row — a harness check fails on a tab without one.
+**WALK (4.15) is the latest worked example**: the list above, the hues, one
+`search.js` `CONTENT` line (`walk.dog`), and the harness lists that name every
+app (tab counts, the no-sound check). TOOLS (4.3) is the previous one. Use the `card` class on the app's raised surfaces so the depth
 ramp and the card treatments reach them without a new class list in
 `themes.css`.
 
@@ -1815,7 +1831,8 @@ not better than this one's — the tab you were on is yours.
 
 **Safe transfer** (`syncSafe`, on) is the route split of the table above made
 into a dial: while it is on, the Todoist route leaves behind `log_*`,
-`capTracker.*` and `store_state_*`. Turning it off is how the logged day goes
+`capTracker.*`, `store_state_*` and (since 4.15) `walk_*` — home and the last
+loop say where you live. Turning it off is how the logged day goes
 over Todoist, and it is a thing to decide rather than a thing to default.
 `syncTodayPrivate` is still the narrow version of the same exception.
 
@@ -1964,6 +1981,37 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.15 — 2026-10-15 — WALK: a loop for Kamo, by time or by distance
+
+Asked for directly: *"a new module called walk … generate a walk path for
+kamo. you input the length / time (with 1km pace) and it generates a route."*
+
+- An eleventh app, built to the §7 recipe. Time becomes distance through
+  `walk.pace` (min/km, default 15, on-screen −/+ or Settings → walk). Start
+  from GPS, a saved home, or a pin (hold the map / right-click).
+- The loop: three points on a circle through the start, routed by the keyless
+  OSRM foot server with `continue_straight=true` (no U-turn at a point), the
+  radius corrected from each answer, up to 3 asks per bearing and 2 bearings.
+  Out-and-backs are cut before measuring — exact reversals (`unspur`) and the
+  other-pavement kind (`unspurNear`: back within 15 m, never wider than 25 m,
+  ≤600 m round). Live trial over 5 cities: mean 4.8% off the asked length,
+  ~3.5 asks, ~3 s.
+- Map: Leaflet 1.9.4 from cdnjs, loaded the first time there is something to
+  draw; OSM tiles, CSS-inverted in dark themes (CARTO's dark basemap now needs
+  a key and watermarks every tile). If Leaflet can't load, the loop is drawn
+  as an SVG shape. Out: Google Maps walking link (3 waypoints, the mobile-web
+  limit) and GPX.
+- Shared changes: `data-no-swipe` in the shell's swipe (§6); `walk_*` is
+  sensitive for the Todoist route (§10); a `--tab-walk` hue in all palettes.
+- No band number: even two digits ran into "WALK." in the default face.
+- Pre-edit backup: `../_backups/root-backup-2026-10-15T20-12-40-491Z/`
+  (1,666 files, verified).
+- Verified: full harness **1,288 passed** (26 new WALK checks, 6 updated
+  app-list checks), 6 runner tests. Headless Chrome at 390×844 against the live
+  router and tiles: dark and light themes, GPS start, save-home, pin by
+  right-click, touch swipe on the map vs off it, no console errors. Not tried
+  on a physical phone: long-press for the pin, and "open in maps" in the app.
 
 ### 4.14.2 — 2026-10-10 — update backups go into one `_backups/` folder
 

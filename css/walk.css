@@ -1,0 +1,139 @@
+/* WALK — a loop for the dog. Shared theme tokens; the map itself is Leaflet's,
+   loaded on demand, and only its frame and its attribution are dressed here. */
+
+.ns-walk .scr{display:none;min-height:100%;padding-bottom:var(--scr-pad-b)}
+.ns-walk .scr.on{display:block}
+
+/* the band's box is shell.css's, shared by every app */
+.ns-walk .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-walk .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
+.ns-walk .h-logo em{font-style:normal}
+
+.ns-walk .cnt{padding:0 calc(18px * var(--dens))}
+
+/* the map
+   Short and empty until there is a loop or a pin, then the biggest thing on
+   the screen. It owns every gesture inside it — `data-no-swipe` keeps the
+   shell's tab swipe out, and Leaflet's own sheet sets touch-action:none —
+   so it stops short of the whole height and the page still scrolls past it. */
+.ns-walk .wk-map-box{position:relative;overflow:hidden;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-radius:var(--r2);height:calc(150px * var(--dens));
+  transition:border-color var(--dur-2)}
+.ns-walk .wk-map-box.has-map{height:clamp(240px, 50vh, 460px)}
+.ns-walk .wk-map{position:absolute;inset:0}
+.ns-walk .wk-map-box:not(.has-map) .wk-map{display:none}
+.ns-walk .wk-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:calc(12px * var(--dens));padding:0 24px;text-align:center;
+  font:400 9px/1.5 var(--mono);letter-spacing:.14em;text-transform:var(--caps);color:var(--tx-2)}
+.ns-walk .wk-empty svg{width:58px;height:58px;color:var(--y)}
+.ns-walk .wk-map-box.has-map .wk-empty{display:none}
+.ns-walk .wk-map-box.busy{animation:wk-pulse .9s var(--ease) infinite alternate}
+@keyframes wk-pulse{to{border-color:var(--y)}}
+
+.ns-walk .leaflet-container{background:var(--s1);font:400 10px/1.4 var(--mono)}
+/* OSM only draws light streets; a dark theme turns them over */
+[data-mode="dark"] .ns-walk .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.85) saturate(.45)}
+.ns-walk .leaflet-control-attribution{background:color-mix(in srgb, var(--bg) 72%, transparent);
+  color:var(--tx-2);font:400 8px/1.5 var(--mono);padding:1px 6px}
+.ns-walk .leaflet-control-attribution a{color:var(--tx-2)}
+
+/* no map library: the loop drawn as a shape */
+.ns-walk .wk-map-box.flat .wk-map{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:calc(10px * var(--dens))}
+.ns-walk .wk-shape{flex:1 1 auto;width:100%;min-height:0}
+.ns-walk .wk-shape polyline{fill:none;stroke:var(--y);stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round;
+  vector-effect:non-scaling-stroke}
+.ns-walk .wk-shape circle{fill:var(--y);stroke:var(--bg);stroke-width:1.5}
+.ns-walk .wk-flat-note{flex:0 0 auto;padding-top:6px;font:400 8px/1.4 var(--mono);letter-spacing:.12em;
+  text-transform:var(--caps);color:var(--mu)}
+
+/* the loop: three numbers and the one button that asks again */
+.ns-walk .wk-route[hidden]{display:none}
+.ns-walk .wk-route-row{display:flex;align-items:stretch;gap:calc(6px * var(--dens));margin-top:calc(8px * var(--dens))}
+.ns-walk .wk-stats{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:calc(6px * var(--dens))}
+.ns-walk .wk-stat{min-width:0;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);
+  padding:calc(11px * var(--dens)) calc(10px * var(--dens))}
+.ns-walk .wk-stat b{display:block;font:800 19px/1 var(--head);letter-spacing:-.02em;color:var(--tx);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-walk .wk-stat em{display:block;margin-top:7px;font:400 8px/1.2 var(--mono);letter-spacing:.12em;
+  text-transform:var(--caps);font-style:normal;color:var(--tx-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-walk .wk-again{flex:0 0 auto;width:calc(56px * var(--dens));cursor:pointer;border:none;border-radius:var(--r2);
+  background:var(--y);color:var(--on-y);display:flex;align-items:center;justify-content:center;
+  transition:transform .14s var(--ease-out),opacity var(--dur-2)}
+.ns-walk .wk-again svg{width:22px;height:22px}
+.ns-walk .wk-again:active{transform:scale(.94)}
+
+.ns-walk .wk-acts{display:flex;gap:calc(6px * var(--dens));margin-top:calc(6px * var(--dens))}
+.ns-walk .wk-act{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
+  text-decoration:none;background:none;color:var(--tx);border:var(--bw) solid var(--bd-2);border-radius:var(--r1);
+  padding:calc(11px * var(--dens)) 8px;font:700 10px/1 var(--head);letter-spacing:.14em;text-transform:var(--caps)}
+.ns-walk .wk-act svg{width:14px;height:14px;flex:0 0 auto}
+
+/* the ask */
+.ns-walk .wk-sec{font:400 9px/1 var(--mono);letter-spacing:2px;color:var(--mu);text-transform:var(--caps);
+  margin:calc(24px * var(--dens)) 0 calc(10px * var(--dens));
+  display:flex;justify-content:space-between;align-items:baseline;gap:calc(10px * var(--dens))}
+.ns-walk .wk-sec em{font-style:normal;letter-spacing:.08em;color:var(--tx-2)}
+
+.ns-walk .wk-seg{display:flex;gap:calc(3px * var(--dens));padding:calc(3px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2)}
+.ns-walk .wk-seg button{flex:1 1 0;min-width:0;cursor:pointer;background:none;border:none;border-radius:var(--r1);
+  color:var(--mu);padding:calc(11px * var(--dens)) 8px;
+  font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
+  transition:background var(--dur-2),color var(--dur-2)}
+.ns-walk .wk-seg button.on{background:var(--y);color:var(--on-y)}
+
+.ns-walk .wk-len{display:flex;align-items:center;gap:calc(12px * var(--dens));margin-top:calc(16px * var(--dens))}
+.ns-walk .wk-len-v{flex:1 1 auto;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:8px}
+.ns-walk .wk-len-v b{font:800 clamp(52px, 17vw, 76px)/.9 var(--head);letter-spacing:-.04em;color:var(--tx)}
+.ns-walk .wk-len-v em{font:400 10px/1 var(--mono);letter-spacing:.16em;text-transform:var(--caps);
+  font-style:normal;color:var(--tx-2)}
+.ns-walk .wk-step{flex:0 0 auto;width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  background:var(--s1);color:var(--tx);border:var(--bw) solid var(--bd-2);border-radius:var(--r2);
+  transition:transform .14s var(--ease-out)}
+.ns-walk .wk-step svg{width:20px;height:20px}
+.ns-walk .wk-step.sm{width:36px;height:36px;border-radius:var(--r1)}
+.ns-walk .wk-step.sm svg{width:16px;height:16px}
+.ns-walk .wk-step:active{transform:scale(.92)}
+
+.ns-walk .wk-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:calc(5px * var(--dens));
+  margin-top:calc(14px * var(--dens))}
+.ns-walk .wk-chip{cursor:pointer;background:var(--s1);color:var(--tx-2);border:var(--bw) solid var(--bd);
+  border-radius:var(--r-pill);padding:calc(8px * var(--dens)) calc(14px * var(--dens));font:700 11px/1 var(--mono)}
+.ns-walk .wk-chip.on{border-color:var(--y);color:var(--y);background:var(--yd)}
+
+.ns-walk .wk-pace{display:flex;align-items:center;gap:calc(8px * var(--dens));margin-top:calc(16px * var(--dens));
+  padding:calc(9px * var(--dens)) calc(10px * var(--dens)) calc(9px * var(--dens)) calc(14px * var(--dens));
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2)}
+.ns-walk .wk-pace-l{flex:1 1 auto;min-width:0;font:400 9px/1 var(--mono);letter-spacing:.14em;
+  text-transform:var(--caps);color:var(--tx-2)}
+.ns-walk .wk-pace-l em{display:block;margin-top:5px;font-style:normal;letter-spacing:.04em;text-transform:none;
+  color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ns-walk .wk-pace-v{min-width:4.4em;text-align:center;font:800 18px/1 var(--head);letter-spacing:-.01em;color:var(--tx)}
+
+.ns-walk .wk-note{display:flex;align-items:center;justify-content:space-between;gap:calc(10px * var(--dens));
+  min-height:30px;margin-top:calc(6px * var(--dens));font:400 10px/1.4 var(--mono);color:var(--tx-2)}
+.ns-walk .wk-link{flex:0 0 auto;cursor:pointer;background:none;border:none;padding:8px 0;color:var(--y);
+  font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
+
+.ns-walk .wk-go{display:block;width:100%;cursor:pointer;margin-top:calc(18px * var(--dens));
+  background:var(--y);color:var(--on-y);border:none;border-radius:var(--r2);padding:calc(19px * var(--dens)) 12px;
+  font:800 13px/1 var(--head);letter-spacing:.18em;text-transform:var(--caps);
+  transition:transform .14s var(--ease-out),opacity var(--dur-2)}
+.ns-walk .wk-go:active{transform:scale(.98)}
+.ns-walk .wk-go:disabled,.ns-walk .wk-again:disabled{opacity:.55;cursor:default;transform:none}
+
+/* settings */
+.ns-walk .wk-set-home{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font:400 10px/1.4 var(--mono);color:var(--tx-2);margin-bottom:8px}
+
+@media (hover:hover){
+  .ns-walk .wk-go:not(:disabled):hover,.ns-walk .wk-again:not(:disabled):hover{filter:brightness(1.07)}
+  .ns-walk .wk-act:hover,.ns-walk .wk-step:hover{border-color:var(--mu)}
+  .ns-walk .wk-chip:hover,.ns-walk .wk-seg button:not(.on):hover{color:var(--tx)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ns-walk .wk-map-box.busy{animation:none;border-color:var(--y)}
+}

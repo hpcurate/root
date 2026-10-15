@@ -15,7 +15,7 @@ const esc = s => String(s == null ? '' : s)
 const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE', tools:'TOOLS' };
+                    create:'CREATE', tools:'TOOLS', walk:'WALK' };
 
 /* What Config holds, flattened
    One entry per line: which path it lives under, what a match is called, and
@@ -63,6 +63,8 @@ const CONTENT = [
   /* A list and every step in it. A step is ambiguous across lists — two of
      them may start with `shower` — so each row says whose it is, the way
      CREATE's stages do. */
+  { path:'walk.dog',           app:'walk',
+    rows: v => v ? [{ name: v, sub:'who the loop is for' }] : [] },
   { path:'tools.optimise',     app:'tools',
     rows: v => (Array.isArray(v) ? v : []).flatMap(l => [{ name: l.name, sub:'optimise list' }]
       .concat((l.steps || []).map(s => ({ name: s, sub: 'step · ' + l.name })))) },

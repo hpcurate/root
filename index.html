@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="css/cal.css">
   <link rel="stylesheet" href="css/create.css">
   <link rel="stylesheet" href="css/tools.css">
+  <link rel="stylesheet" href="css/walk.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -106,6 +107,14 @@
   <symbol id="tab-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="13.5" r="7.5"/><line x1="9.5" y1="2.5" x2="14.5" y2="2.5"/>
     <line x1="12" y1="13.5" x2="15.2" y2="10.3"/>
+  </symbol>
+  <!-- WALK: a paw — the loop is for the dog, and a route line at 19px is a
+       squiggle that reads as LOG's. Four toes and a pad: the only symbol here
+       made of four circles and a path. -->
+  <symbol id="tab-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5.5" cy="10.5" r="1.6"/><circle cx="9" cy="5.5" r="1.6"/>
+    <circle cx="15" cy="5.5" r="1.6"/><circle cx="18.5" cy="10.5" r="1.6"/>
+    <path d="M12 12c-2.8 0-5.2 3-5.2 5.4 0 1.7 1.3 2.6 2.8 2.6 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.5 0 2.8-.9 2.8-2.6C17.2 15 14.8 12 12 12z"/>
   </symbol>
   <!-- the "!" a tab wears in place of its own icon while something is overdue
        (Shell.alert) — one stroke and its dot, at the icon's own weight -->
@@ -1177,6 +1186,37 @@
 </section>
 
 
+<!-- WALK — a loop for the dog, sized by distance or by time at a pace
+
+     One screen: the map, the loop's numbers, then the ask. The map box is
+     static so Leaflet keeps its container across renders; everything else is
+     written by WALK.render(). `data-no-swipe`: a drag on a map is the map's. -->
+<section class="view ns-walk" id="view-walk" aria-label="WALK">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <!-- no number beside the wordmark: WALK. is wide, and even two digits
+           ran into it in the default face. The loop's numbers sit under the map. -->
+      <div class="h-label" id="wk-label">a loop for the dog</div>
+      <div class="h-logo">WALK<em>.</em></div>
+    </div>
+    <div class="cnt">
+      <div class="wk-map-box card" id="wk-map-box" data-no-swipe>
+        <div class="wk-map" id="wk-map"></div>
+        <div class="wk-empty">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+            <path d="M15 47C4 36 9 13 30 10s33 13 25 30-30 15-40 7" stroke-dasharray="3 6"/>
+            <circle cx="15" cy="47" r="4.5" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>pick a length, then find a loop</span>
+        </div>
+      </div>
+      <div class="wk-route" id="wk-route" hidden></div>
+      <div class="wk-form" id="wk-form"></div>
+    </div>
+  </div>
+</section>
+
+
 <!-- SETTINGS — every app's settings, one panel each -->
 <section class="view ns-set" id="view-settings" aria-label="Settings">
 
@@ -2124,6 +2164,52 @@
       <button class="btn btn-2" data-act="reset">reset TOOLS</button>
     </div>
 
+    <!-- WALK ── -->
+    <div class="set-panel ns-walk" data-panel="walk">
+      <div class="sec"><span>Status</span></div>
+      <div class="settings-status idle" id="wk-status">no loop yet</div>
+
+      <div class="sec"><span>The walk</span></div>
+      <div class="set-note">Who the loop is for, and how fast they go. The pace is
+        per kilometre with the sniffing counted in — it is what turns
+        "45 minutes" into a distance, so a dog that stops at every post wants a
+        slower one than you would walk alone.</div>
+      <div class="ed-pair">
+        <div class="f"><label class="lbl">Name</label>
+          <input type="text" id="wk-set-dog" data-cfg="walk.dog" maxlength="24" aria-label="the dog's name"></div>
+        <div class="f"><label class="lbl">Pace <em>min / km</em></label>
+          <input type="number" id="wk-set-pace" data-cfg="walk.pace" min="5" max="40" step="0.5" inputmode="decimal" aria-label="pace in minutes per kilometre"></div>
+      </div>
+
+      <div class="sec"><span>Quick lengths</span></div>
+      <div class="set-note">The chips under the dial, one list per way of asking.
+        Comma-separated, six at most.</div>
+      <!-- no inputmode on these two: the decimal rule in shell.js turns every
+           comma into a dot as it is typed, which makes a list one number -->
+      <div class="f"><label class="lbl">Minutes</label>
+        <input type="text" id="wk-set-min" data-cfg="walk.min" data-numlist="1" aria-label="quick lengths in minutes"></div>
+      <div class="f"><label class="lbl">Kilometres</label>
+        <input type="text" id="wk-set-km" data-cfg="walk.km" data-numlist="1" aria-label="quick lengths in kilometres"></div>
+
+      <div class="sec"><span>Home</span></div>
+      <div class="set-note">Saved from WALK's own screen — "save here as home", or
+        hold the map, then "make it home". It stays on this device and travels
+        only by file: walk_v1 says where you live, so the Todoist route leaves
+        it behind while safe transfer is on.</div>
+      <div class="wk-set-home"><span id="wk-home-note">not saved</span>
+        <button class="setting-btn" id="wk-home-forget" data-act="home-forget">forget</button></div>
+
+      <div class="sec"><span>Where the loops come from</span></div>
+      <div class="set-note">Routes are asked of the public OSRM walking router at
+        routing.openstreetmap.de, and the map is OpenStreetMap's own tiles drawn
+        by Leaflet — no key, and nothing is sent until you ask for a loop.</div>
+
+      <div class="set-content" data-content-for="walk"></div>
+
+      <div class="sec"><span>Reset</span></div>
+      <button class="btn btn-2" data-act="reset">reset WALK</button>
+    </div>
+
   </div><!-- /#s-cat -->
 </section>
 
@@ -2183,6 +2269,9 @@
   </button>
   <button class="tab-b" data-app="tools" role="tab" aria-selected="false" aria-label="TOOLS">
     <svg aria-hidden="true"><use href="#tab-tools"/></svg><span class="tb-l">tools</span>
+  </button>
+  <button class="tab-b" data-app="walk" role="tab" aria-selected="false" aria-label="WALK">
+    <svg aria-hidden="true"><use href="#tab-walk"/></svg><span class="tb-l">walk</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
@@ -2444,6 +2533,7 @@
 <script src="js/cal.js"></script>
 <script src="js/create.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/walk.js"></script>
 <!-- after every app, because it reads their storage keys, and before settings,
      which draws its two buttons. No app module knows it exists. -->
 <script src="js/sync.js"></script>

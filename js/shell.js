@@ -809,6 +809,10 @@ window.Shell = (function () {
     // iOS reserves the left edge for its own back gesture
     if (t.clientX < 22) { tracking = false; return; }
     if (isEditable(e.target) || scrollsSideways(e.target)) { tracking = false; return; }
+    /* A map pans under the finger in every direction, so a sideways drag on
+       one is the map's. Anything else that owns its gestures says so the same
+       way. */
+    if (e.target.closest && e.target.closest('[data-no-swipe]')) { tracking = false; return; }
     sx = t.clientX; sy = t.clientY; st = Date.now();
     dx = 0; axis = null; tracking = true;
   }, { passive: true });

@@ -172,7 +172,8 @@ window.SYNC = (function () {
      shopping list are yours. These are the keys the Todoist route leaves
      behind while safe transfer is on — the switch is the old route split made
      into a dial rather than a new idea. */
-  const SENSITIVE = [/^log_/, /^log-/, /^capTracker\./, /^store_state_/];
+  /* walk_v1 since 4.15: home, the pin and the last loop are where you live. */
+  const SENSITIVE = [/^log_/, /^log-/, /^capTracker\./, /^store_state_/, /^walk_/];
   const sensitive = key => SENSITIVE.some(re => re.test(String(key)));
 
   /* A key that is nothing but a Todoist key travels on no route, by no switch.

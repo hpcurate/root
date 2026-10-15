@@ -295,7 +295,7 @@ w.Config.reset('log.streakRequires');
 
 // 15. 2.2 — three more apps in the track
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
-check('eleven tabs, settings last', w.Shell.TABS.length === 11 && w.Shell.TABS[10] === 'settings', w.Shell.TABS.join(','));
+check('twelve tabs, settings last', w.Shell.TABS.length === 12 && w.Shell.TABS[11] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
@@ -371,7 +371,7 @@ check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settin
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
 w.Prefs.reset('apps');
-check('reset restores all eleven in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,settings', w.Shell.TABS.join(','));
+check('reset restores all twelve in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk,settings', w.Shell.TABS.join(','));
 w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
@@ -832,7 +832,7 @@ check('settings opens on a home menu with four categories', $('.ns-set #s-home')
   [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,sync,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
-check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools',
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools,walk',
   [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
 click($('.ns-set [data-open="tend"]')); await tick();
 check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
@@ -844,7 +844,7 @@ check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,s
 w.Prefs.reset('apps');
 w.SET.panel('do');
 check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
-  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'do');
 check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
   !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
@@ -5100,7 +5100,7 @@ check('a new app reaches an install whose app list predates it',
   !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
   w2.Prefs.get('apps').join(','));
 check('… in its shipped position, not tacked onto the end of settings',
-  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create,tools', w2.Prefs.get('apps').join(','));
+  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create,tools,walk', w2.Prefs.get('apps').join(','));
 check('… while the apps that install had switched off stay switched off',
   ['plan', 'store', 'tend', 'learn'].every(a => !w2.Prefs.get('apps').includes(a)),
   w2.Prefs.get('apps').join(','));
@@ -5615,7 +5615,7 @@ check('completing and opening are decided in the shell, not announced by an app'
   (shellJs43.replace(/\/\*[\s\S]*?\*\//g, '').match(/Prefs\.sound\(/g) || []).length === 3,
   (shellJs43.replace(/\/\*[\s\S]*?\*\//g, '').match(/Prefs\.sound\(/g) || []).length + ' call sites in shell.js');
 check('… and no app module has a line of sound in it',
-  ['do','log','plan','store','tend','track','learn','cal','create','tools']
+  ['do','log','plan','store','tend','track','learn','cal','create','tools','walk']
     .every(f => !/Prefs\.sound\(/.test(fs.readFileSync(path.join(ROOT, 'js/' + f + '.js'), 'utf8'))));
 check('… a tick about to go on sounds like completing; one coming back off does not',
   /return on \? 'tap' : 'done';/.test(shellJs43));
@@ -7408,6 +7408,177 @@ check('no errors through 4.14', errors.length === 0, errors.slice(0, 3).join(' |
 }
 
 check('no errors through 4.14.1', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* 4.15 — WALK: a loop for the dog, sized by distance or by time at a pace.
+   The router is stubbed to route straight through the points it is asked for,
+   with a dead end added at the first one — so the loop that comes back is the
+   polygon WALK drew, and the spur is the thing it has to cut. */
+{
+  const LSw = w.localStorage;
+  const keptW = LSw.getItem('walk_v1');
+  const fetchWas = fetchScript;
+  const calls = [];
+  fetchScript = async url => {
+    calls.push(String(url));
+    const pts = String(url).match(/\/foot\/([^?]+)\?/)[1].split(';').map(p => p.split(',').map(Number));
+    const coords = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      for (let k = 0; k < 10; k++) {
+        const t = k / 10;
+        coords.push([pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t]);
+      }
+      if (i === 0) { const v = pts[1]; coords.push(v, [v[0] + 0.002, v[1]], v); }
+    }
+    coords.push(pts[pts.length - 1]);
+    return { ok: true, status: 200,
+             json: async () => ({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates: coords } }] }) };
+  };
+  Object.defineProperty(w.navigator, 'geolocation', { configurable: true, value: {
+    getCurrentPosition: ok => ok({ coords: { latitude: 45.76, longitude: 4.84 } }) } });
+  LSw.removeItem('walk_v1');
+  w.WALK.reload();
+
+  check('WALK is an eleventh app, with a tab, a slide, a panel and its own icon',
+    !!w.WALK && w.Prefs.APPS.includes('walk') && w.Shell.TABS.includes('walk') &&
+    !!$('#view-walk') && !!$('.ns-set .set-panel[data-panel="walk"]') &&
+    $('.tab-b[data-app="walk"] use')?.getAttribute('href') === '#tab-walk' && !!$('#tab-walk'),
+    w.Shell.TABS.join(','));
+  w.Shell.go('walk');
+  await tick();
+  check('… it opens on the ask: nothing fetched, no map, no loop',
+    calls.length === 0 && !!$('.ns-walk .wk-go') && !$('#wk-map-box').classList.contains('has-map') &&
+    $('#wk-route').hidden && !d.querySelector('script[src*="leaflet"]'));
+
+  check('time is turned into distance by the pace — 45 min at 15′/km is 3 km', w.WALK.target() === 3000,
+    String(w.WALK.target()));
+  click($('.ns-walk [data-act="pace"][data-d="1"]'));
+  check('… the pace dial writes Config, and the distance follows it',
+    w.Config.get('walk.pace') === 15.5 && w.WALK.target() === Math.round(45 / 15.5 * 1000) &&
+    /15′30″/.test($('.ns-walk .wk-pace-v').textContent),
+    w.Config.get('walk.pace') + ' / ' + w.WALK.target());
+  w.Config.reset('walk.pace');
+  click($('.ns-walk [data-act="mode"][data-v="km"]'));
+  click($('.ns-walk [data-act="len"][data-d="1"]'));
+  check('distance asks in kilometres, a half at a time', w.WALK.state().mode === 'km' && w.WALK.target() === 3500,
+    JSON.stringify(w.WALK.state()).slice(0, 80));
+  click($('.ns-walk .wk-chip[data-v="2"]'));
+  check('… and a quick length sets it', w.WALK.target() === 2000 && $('.ns-walk .wk-chip.on')?.dataset.v === '2');
+
+  const G = w.WALK.geo;
+  const A = [45, 5], B = [45, 5.001], S = [45.0005, 5.001], C = [45.001, 5.001], D = [45.001, 5], A0 = [44.999, 5];
+  check('a dead end is cut out of the line, and the street home is not',
+    JSON.stringify(G.unspur([A, B, S, B, C, D, A])) === JSON.stringify([A, B, C, D, A]) &&
+    G.unspur([A0, A, B, C, D, A, A0]).length === 7);
+  /* metres east / north of [45, 5] */
+  const m = (x, y) => [45 + y / 111195, 5 + x / 78626];
+  const quay  = [m(0, 0), m(100, 0), m(200, 0), m(200, 10), m(100, 10), m(4, 10), m(4, 120), m(-60, 120)];
+  const block = [m(0, 0), m(100, 0), m(100, 60), m(0, 60), m(0, 6), m(-60, 6)];
+  check('… and so is one that comes back along the other pavement, but a block walked round is kept',
+    G.unspurNear(quay).length === 4 && Math.round(G.pathLen(quay) - G.pathLen(G.unspurNear(quay))) > 380 &&
+    G.unspurNear(block).length === block.length,
+    G.unspurNear(quay).length + ' / ' + G.unspurNear(block).length);
+  const straight = Array.from({ length: 50 }, (_, i) => [45, 5 + i * 0.0001]);
+  check('… a line is kept to the points that bend it',
+    G.simplify(straight, 3).length === 2 && Math.abs(G.hav([45, 5], G.dest([45, 5], 90, 1000)) - 1000) < 0.5);
+
+  await w.WALK.generate();
+  const st = w.WALK.state();
+  check('a loop is asked of the walking router, with no U-turns at its points',
+    calls.length >= 1 && calls.length <= 6 &&
+    calls.every(u => u.startsWith('https://routing.openstreetmap.de/routed-foot/route/v1/foot/') &&
+                     /continue_straight=true/.test(u)),
+    calls.length + ' calls');
+  check('… from where the phone is, back to it, the circle corrected towards the length asked',
+    calls.length === 2 && /foot\/4\.840000,45\.760000;/.test(calls[0]) && /;4\.840000,45\.760000\?/.test(calls[0]),
+    calls.length + ' · ' + calls[0].slice(55, 120));
+  check('… the dead end is cut before the walk is measured, and the walk is the length asked',
+    !!st.route && G.unspur(st.route.coords).length === st.route.coords.length &&
+    Math.abs(st.route.dist - 2000) <= 2000 * 0.07 &&
+    Math.abs(st.route.dist - G.pathLen(st.route.coords)) < 5 &&
+    st.route.coords.every(p => p.every(n => Math.round(n * 1e5) / 1e5 === n)),
+    st.route && st.route.dist + ' m, ' + st.route.coords.length + ' points');
+  check('… and is stored small enough to travel in one sync task',
+    LSw.getItem('walk_v1').length < 16384 && JSON.parse(LSw.getItem('walk_v1')).route.dist === st.route.dist);
+  await tick(80);
+  check('… drawn: its numbers, and its shape where the map library cannot load',
+    !$('#wk-route').hidden && /^[12]\.\d\d$/.test($('.ns-walk .wk-stat b').textContent) &&
+    d.querySelectorAll('.ns-walk .wk-stat b')[1].textContent === String(Math.round(st.route.dist / 1000 * 15)) &&
+    $('#wk-map-box').classList.contains('has-map') && !!$('#wk-map .wk-shape polyline'),
+    $('.ns-walk .wk-route').textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
+  const href = $('.ns-walk a.wk-act')?.getAttribute('href') || '';
+  check('"open in maps" is walking directions round the loop, through three of its points',
+    /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&travelmode=walking&origin=45\.\d+,4\.\d+&destination=/.test(href) &&
+    (href.match(/%7C/g) || []).length === 2, href.slice(0, 90));
+  const gx = w.WALK.gpx();
+  check('… and the exact line leaves as a GPX track',
+    /<gpx version="1\.1"/.test(gx) && (gx.match(/<trkpt /g) || []).length === st.route.coords.length && /kamo · /.test(gx));
+
+  const routeWas = JSON.stringify(w.WALK.state().route);
+  fetchScript = async () => { throw new Error('offline'); };
+  await w.WALK.generate();
+  check('no network: it says so, keeps the last loop, and gives the button back',
+    /could not reach the route finder/.test($('#toast').textContent) &&
+    JSON.stringify(w.WALK.state().route) === routeWas && !$('.ns-walk .wk-go').disabled,
+    $('#toast').textContent);
+
+  let asked = 0;
+  fetchScript = async () => { asked++; return { ok: false, status: 599, json: async () => ({}) }; };
+  click($('.ns-walk [data-act="from"][data-v="home"]'));
+  await w.WALK.generate();
+  check('from home with no home saved asks nothing of the router',
+    asked === 0 && /no home saved yet/.test($('#toast').textContent), $('#toast').textContent);
+  click($('.ns-walk .wk-note [data-act="home-save"]'));
+  await tick();
+  check('… "save here as home" keeps where the phone is, and starts from it',
+    JSON.stringify(w.WALK.state().home) === '[45.76,4.84]' && w.WALK.state().from === 'home');
+
+  const safeWas = w.Prefs.get('syncSafe');
+  w.Prefs.set('syncSafe', true);
+  check('walk_v1 says where you live: the Todoist route leaves it behind under safe transfer, a file carries it',
+    w.SYNC.carries('todoist', 'walk_v1') === false && w.SYNC.carries('file', 'walk_v1') === true);
+  w.Prefs.set('syncSafe', safeWas);
+
+  const touch = (el, type, x, y) => {
+    const e = new w.Event(type, { bubbles: true });
+    Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : [{ clientX: x, clientY: y }] });
+    el.dispatchEvent(e);
+  };
+  const swipe = el => { touch(el, 'touchstart', 300, 200); touch(el, 'touchmove', 200, 202);
+                        touch(el, 'touchmove', 60, 204); touch(el, 'touchend', 0, 0); };
+  swipe($('#wk-map'));
+  const stayed = $('.tab-b.on')?.dataset.app;
+  swipe($('.ns-walk .wk-form'));
+  check('a drag on the map is the map\'s, and the same drag anywhere else still changes tab',
+    stayed === 'walk' && $('.tab-b.on')?.dataset.app !== 'walk', stayed + ' → ' + $('.tab-b.on')?.dataset.app);
+
+  w.SET.panel('walk');
+  await tick();
+  check('its settings panel shows the pace, the quick lengths and home',
+    $('.ns-walk #wk-set-pace').value === '15' && $('.ns-walk #wk-set-min').value === '20, 30, 45, 60, 75' &&
+    /saved at 45\.7600, 4\.8400/.test($('#wk-home-note').textContent),
+    $('.ns-walk #wk-set-pace').value + ' | ' + $('#wk-home-note').textContent);
+  const kmBox = $('.ns-walk #wk-set-km');
+  kmBox.value = '5, 1.5, 1.5, 99';
+  kmBox.dispatchEvent(new w.Event('input', { bubbles: true }));
+  check('… a quick-length list is Config, and the chips take it sorted, once each, within range',
+    JSON.stringify(w.Config.get('walk.km')) === '[5,1.5,1.5,99]' &&
+    [...d.querySelectorAll('#view-walk .wk-chip')].map(c => c.dataset.v).join() === '1.5,5',
+    [...d.querySelectorAll('#view-walk .wk-chip')].map(c => c.dataset.v).join());
+  w.Config.reset('walk.km');
+  check('the dog\'s name is findable, and finds WALK',
+    w.SEARCH.results('kamo').some(r => r.kind === 'content' && /WALK · who the loop is for/.test(r.sub)));
+
+  click($('.ns-set .set-panel[data-panel="walk"] [data-act="reset"]'));
+  settle(true);
+  check('reset takes the loop and home, and leaves the settings',
+    w.WALK.state().route === null && w.WALK.state().home === null && w.Config.get('walk.dog') === 'kamo');
+
+  fetchScript = fetchWas;
+  delete w.navigator.geolocation;
+  if (keptW === null) LSw.removeItem('walk_v1'); else LSw.setItem('walk_v1', keptW);
+  w.WALK.reload();
+}
+check('no errors through WALK', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 
 

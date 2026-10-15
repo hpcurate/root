@@ -373,6 +373,18 @@ const DEFAULTS = {
     ],
   },
 
+  /* WALK
+     `pace` is minutes per kilometre with the sniffing counted in — it is what
+     turns "45 minutes" into a distance. `min` and `km` are the quick lengths
+     under the dial, one list per way of asking. Where a loop starts (home, a
+     pin) is not content: it says where you live, so it is walk_v1's. */
+  walk: {
+    dog:  'kamo',
+    pace: 15,
+    min:  [20, 30, 45, 60, 75],
+    km:   [1, 2, 3, 4, 6],
+  },
+
   /* STORE */
   store: {
     /* `icon` is a sprite id from index.html. Adding a category with an unknown

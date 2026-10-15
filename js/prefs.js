@@ -133,7 +133,7 @@ const THEME_CHARACTER = {
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
-const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools'];
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools', 'walk'];
 /* Every tab in the bar, which is the apps plus settings — settings has no data
    of its own but it has a tab, and a tab has a colour. Its custom property is
    --tab-set, not --tab-settings: the button's data-app is the long name and the
