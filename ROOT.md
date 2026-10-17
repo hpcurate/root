@@ -82,7 +82,8 @@ root/
 ├── UPDATE.md          backup, targeted reading, validation and completion protocol
 ├── ROOT.md            architecture reference and changelog
 ├── index.html         all markup for all nine views + the icon sprite
-├── favicon.png
+├── favicon.png        the mark: an R in three flat shapes on a rounded dark tile
+├── icon-maskable.png  the same, full-bleed and inside the safe circle (Android maskable, iOS home screen)
 ├── manifest.webmanifest   installable on Android/Chrome; iOS reads the apple-* metas
 ├── test/
 │   ├── update.mjs     verified backups and change-aware validation; see UPDATE.md
@@ -1981,6 +1982,19 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.15.1 — 2026-10-17 — a new mark, in GRIND's and FLOW's family
+
+Asked for: *"change the logo to be in line with grind and flow."* The grey
+checklist square is gone. The mark is now an **R** built from three flat shapes
+(a blue stem, an orange bowl, a yellow leg) on the same dark rounded tile as
+GRIND's G and FLOW's shapes, drawn in their palette. `favicon.png` keeps its
+transparent corners for tabs and the "any" icon. The new `icon-maskable.png` is
+full-bleed with the R scaled into the 80% safe circle, because a rounded tile
+under Android's mask would lose the R's corners and iOS fills transparency with
+black. The manifest's maskable entry and `apple-touch-icon` point at it. A
+matching `root.ico` for a desktop shortcut is in `../_notes/icons/`. Installed
+copies pick the new icon up whenever the browser next refreshes the manifest.
 
 ### 4.15 — 2026-10-15 — WALK: a loop for Kamo, by time or by distance
 
