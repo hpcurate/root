@@ -1983,6 +1983,16 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.15.2 — 2026-10-18 — the mark gets ROOT's own colours
+
+Asked for: *"change the colour scheme to not be just like flow, it needs a
+unique colour palette like grind has it's own."* Same R, same three shapes and
+dark tile; the blue/orange/yellow (FLOW's Bauhaus palette) is replaced by ROOT's
+own tab hues at full strength — DO's violet stem (`#8B5CF6`), LOG's green bowl
+(`#3DDC84`), TRACK's pink leg (`#FF5FA2`). `favicon.png`, `icon-maskable.png` and
+`../_notes/icons/root.ico` redrawn by `../_notes/icons/make-icons.cjs`. Smoke check
+passed; images checked by eye at 512/48/32/16px.
+
 ### 4.15.1 — 2026-10-17 — a new mark, in GRIND's and FLOW's family
 
 Asked for: *"change the logo to be in line with grind and flow."* The grey
