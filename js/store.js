@@ -1,4 +1,4 @@
-/* STORE: groceries, spending, meals, trips and add-only Todoist union sync.
+/* STORE: groceries, spending, meals, trips and a two-way Todoist sync (ticked here = closed there, one task per thing).
    Storage: store_state_v1, with a one-time migration from eat_state_v1. */
 window.STORE = (function () {
 'use strict';
@@ -143,6 +143,21 @@ function lev(a, b, cap) {
 }
 function fuzzyCap(w) { return w.length >= 8 ? 2 : w.length >= 5 ? 1 : 0; }
 
+/* Two names for the same thing (4.16, Hugo: "expand how it sees duplicates, with like a margin of error … like carrot
+   and carrots, make that turn into just carrots"): the same words once plurals are stripped (tomato / tomatoes,
+   cherry / cherries), or one slip in a long word that starts the same (yoghurt / yogurt: six letters and seven at
+   least). Short words must match
+   exactly once stemmed — pasta and paste, butter and bitter, coffee and toffee are different shopping, and merging
+   them would lose one. */
+function dupTokens(s) { return stemTokens(s).map(w => (w.length > 4 && w.endsWith('oe') ? w.slice(0, -1) : w)); }
+function sameItem(a, b) {
+  const x = dupTokens(tdParseQty(a).name), y = dupTokens(tdParseQty(b).name);
+  if (!x.length || x.length !== y.length) return false;
+  return x.every((w, i) => w === y[i] || (Math.min(w.length, y[i].length) >= 6 && Math.max(w.length, y[i].length) >= 7 && w[0] === y[i][0] && lev(w, y[i], 1) <= 1));
+}
+/* the name two of them keep: the fuller one (carrots over carrot, yoghurt over yogurt); a tie keeps the first */
+function bestName(a, b) { return String(b).trim().length > String(a).trim().length ? b : a; }
+
 /* Is `t` a run of consecutive tokens inside `n`? Returns the match position. */
 function phraseAt(n, t) {
   outer:
@@ -191,8 +206,10 @@ function classifyBase(raw) {
 // State
 const SK = 'store_state_v1';
 const SK_LEGACY = 'eat_state_v1';   // pre-rename key — read once, then migrate
+/* queue (4.16): what is still owed to Todoist — { tid, op: close | reopen | delete } that did not get through, sent first
+   by the next sync. An item on the list carries its task's id (`tid`) and whether STORE closed it (`tdc`). */
 const TD_DEFAULTS = { token:'', project:'04|life', section:'home|groceries',
-                      projectId:null, sectionId:null, lastSync:null };
+                      projectId:null, sectionId:null, lastSync:null, queue:[] };
 let state = { cart:0, budget:0, cartLog:[], list:[], history:[], currentCat:null,
               cwPin:false, todoist: { ...TD_DEFAULTS }, learned: {} };
 
@@ -216,6 +233,7 @@ function loadState() {
   } catch {}
   // nested defaults survive an older save that predates these blocks
   state.todoist = Object.assign({ ...TD_DEFAULTS }, state.todoist || {});
+  state.todoist.queue = Array.isArray(state.todoist.queue) ? state.todoist.queue.slice() : [];   // never the defaults' own array
   if (!state.learned || typeof state.learned !== 'object') state.learned = {};
 }
 /* The Todoist key lives in Creds now; it is mirrored back into this app's own
@@ -583,17 +601,17 @@ function renderHome() {
 }
 
 // List
-function addItem(name, cat) {
-  const existing = state.list.find(i => i.name === name && i.cat === cat);
-  if (existing) existing.qty = (existing.qty || 1) + 1;
+/* The same thing already on the list and not yet ticked (sameItem: carrot finds carrots) takes one more and the fuller
+   name; anything else is a new line. A ticked one is this shop's, so a new one is the next. */
+function addItemSilent(name, cat) {
+  const existing = state.list.find(i => !i.checked && sameItem(i.name, name));
+  if (existing) { existing.qty = (existing.qty || 1) + 1; existing.name = bestName(existing.name, name); }
   else state.list.push({ name, cat, qty: 1, checked: false });
+}
+function addItem(name, cat) {
+  addItemSilent(name, cat);
   saveState();
   toast(`+ ${name}`);
-}
-function addItemSilent(name, cat) {
-  const existing = state.list.find(i => i.name === name && i.cat === cat);
-  if (existing) existing.qty = (existing.qty || 1) + 1;
-  else state.list.push({ name, cat, qty: 1, checked: false });
 }
 function addManual() {
   const inp = $id('manual-input');
@@ -607,9 +625,12 @@ function addManual() {
   toast(cat === 'manual' ? `+ ${name}` : `+ ${name} → ${CATEGORIES[cat].label}`);
 }
 function toggleChecked(idx) {
-  state.list[idx].checked = !state.list[idx].checked;
+  const it = state.list[idx];
+  if (!it) return;
+  it.checked = !it.checked;
   saveState();
   renderList();
+  tdTick(it);
 }
 function setQty(idx, delta) {
   const it = state.list[idx];
@@ -618,10 +639,24 @@ function setQty(idx, delta) {
   saveState();
   renderList();
 }
+/* Deleted here is deleted in Todoist too (4.16, Hugo: "delete items in both store and todoist"); the pill puts it back
+   in both — the same task if its delete is still waiting, a new one on the next sync if it went. */
 function deleteItem(idx) {
+  const it = state.list[idx];
+  if (!it) return;
   state.list.splice(idx, 1);
+  const gone = it.tid && Creds.token() ? tdDrop(it.tid) : null;
   saveState();
   renderList();
+  Shell.undo(`${it.name} deleted`, () => {
+    if (gone) {
+      const Q = state.todoist.queue, q = Q.findIndex(o => o.tid === it.tid && o.op === 'delete');
+      if (q >= 0) Q.splice(q, 1); else { it.tid = null; it.tdc = false; }
+    }
+    state.list.splice(Math.min(idx, state.list.length), 0, it);
+    saveState();
+    renderList();
+  });
 }
 function confirmClearList() {
   if (!state.list.length) { toast('list is empty'); return; }
@@ -905,8 +940,8 @@ function restoreTrip(i) {
   const t = state.history[i];
   if (!t) return;
   t.items.forEach(it => addItemSilent(it.name, it.cat));
-  // ensure all re-added items start unchecked
-  state.list.forEach(it => { it.checked = false; });
+  // ensure all re-added items start unchecked (one ticked before is unticked, so its Todoist task reopens)
+  state.list.forEach(it => { if (it.checked) { it.checked = false; tdTick(it); } });
   saveState();
   toast('items re-added to list');
   go('home');
@@ -1050,8 +1085,62 @@ async function testTodoist() {
   }
 }
 
-/* Two-way union merge. Nothing is ever deleted or completed on either side:
-   each side only gains the items the other side has and it is missing. */
+/* Ticking an item is buying it (4.16, Hugo's r261022-73x8: "delete items in both store and todoist when i complete them
+   and reopen on todoist when i undo the complete in store"): its task is closed now, and reopened when it is unticked.
+   Without a connection the close or reopen waits in the queue for the next sync; the opposite one still waiting cancels
+   it instead. A task gone from Todoist (404) lets go of the item: unticked, the next sync sends it again. */
+const gone404 = e => /\b404\b/.test(String(e && e.message));
+async function tdTick(it) {
+  if (!it || !it.tid || !Creds.token()) return;
+  const Q = state.todoist.queue, op = it.checked ? 'close' : 'reopen';
+  const w = Q.findIndex(o => o.tid === it.tid && (o.op === 'close' || o.op === 'reopen'));
+  if (w >= 0) { Q.splice(w, 1); saveState(); return; }
+  if ((op === 'close') === !!it.tdc) return;   // Todoist already has it that way
+  try {
+    await tdFetch(`/tasks/${encodeURIComponent(it.tid)}/${op}`, { method: 'POST' });
+    it.tdc = op === 'close';
+  } catch (e) {
+    if (gone404(e)) { it.tid = null; it.tdc = false; }
+    else { Q.push({ tid: it.tid, op }); toast(`todoist: ${op === 'close' ? 'closes' : 'reopens'} on the next sync`); }
+  }
+  saveState();
+}
+/* deleted here: its task is deleted, now or by the next sync */
+async function tdDrop(tid) {
+  try { await tdFetch(`/tasks/${encodeURIComponent(tid)}`, { method: 'DELETE' }); }
+  catch (e) { if (!gone404(e)) { state.todoist.queue.push({ tid, op: 'delete' }); saveState(); } }
+}
+/* One line per thing (4.16, Hugo: "make sure that there are no duplicate tasks … carrot and carrots, make that turn into
+   just carrots"): unticked items that are the same thing (sameItem) become one, under the fuller name, with the larger
+   quantity. A ticked one is left alone: it is this shop's, and a new one is the next. */
+function mergeList() {
+  let n = 0;
+  for (let i = 0; i < state.list.length; i++) {
+    const a = state.list[i];
+    if (a.checked) continue;
+    for (let j = state.list.length - 1; j > i; j--) {
+      const b = state.list[j];
+      if (b.checked || !sameItem(a.name, b.name)) continue;
+      a.name = bestName(a.name, b.name);
+      a.qty = Math.max(a.qty || 1, b.qty || 1);
+      if (!a.tid && b.tid) { a.tid = b.tid; a.tdc = b.tdc; }
+      state.list.splice(j, 1);
+      n++;
+    }
+  }
+  return n;
+}
+
+/* Two-way, by the task each item is tied to (`tid`; 4.16 — until then a union where nothing was ever deleted or
+   completed, so what was bought came back on the next sync):
+   - what is owed to Todoist goes first (the queue);
+   - duplicates go, on both sides: one item and one task per thing, under the fuller name (sameItem, bestName);
+   - an unticked item is the same as its task: STORE's quantity, the fuller name; one without a task finds it by name,
+     or is sent;
+   - ticked here: its task is closed (one ticked before it reached Todoist too) — unless STORE closed it and it has been
+     reopened in Todoist since, which unticks it here;
+   - its task done or deleted in Todoist: ticked here;
+   - a task with no item: added here. */
 async function syncTodoist() {
   if (tdBusy) return;
   if (!Creds.token()) { toast('add a Todoist key in settings'); Shell.settings('store'); return; }
@@ -1060,55 +1149,92 @@ async function syncTodoist() {
   tdStatus('syncing…', 'busy');
   try {
     const t = await tdResolveTarget();
-    const remote = await tdGetAll('/tasks', { project_id: t.projectId, section_id: t.sectionId });
+    const n = { pulled: 0, pushed: 0, closed: 0, ticked: 0, unticked: 0, merged: 0, failed: 0 };
+    const tryOr = async fn => { try { await fn(); return true; } catch (e) { if (gone404(e)) return true; n.failed++; return false; } };
 
-    const remoteByKey = new Map();
-    remote.forEach(task => {
-      const { name, qty } = tdParseQty(task.content);
-      const k = tdKey(name);
-      if (k && !remoteByKey.has(k)) remoteByKey.set(k, { name, qty });
-    });
-    const localKeys = new Set(state.list.map(i => tdKey(i.name)).filter(Boolean));
+    // what is still owed to Todoist
+    const owed = [];
+    for (const o of state.todoist.queue) {
+      const path = `/tasks/${encodeURIComponent(o.tid)}` + (o.op === 'delete' ? '' : '/' + o.op);
+      if (!(await tryOr(() => tdFetch(path, { method: o.op === 'delete' ? 'DELETE' : 'POST' })))) { owed.push(o); continue; }
+      const it = state.list.find(i => i.tid === o.tid);
+      if (it && o.op !== 'delete') it.tdc = o.op === 'close';
+    }
+    state.todoist.queue = owed;
+    const waiting = new Set(owed.map(o => o.tid));
 
-    // Todoist → STORE
-    let pulled = 0;
-    remoteByKey.forEach((item, k) => {
-      if (localKeys.has(k)) return;
-      state.list.push({ name: item.name, cat: tdGuessCat(item.name), qty: item.qty, checked: false });
-      localKeys.add(k);
-      pulled++;
-    });
-    if (pulled) { saveState(); renderList(); }
+    // one item per thing here; one task per thing there (the one an item holds is kept, the rest deleted)
+    n.merged += mergeList();
+    let remote = (await tdGetAll('/tasks', { project_id: t.projectId, section_id: t.sectionId }))
+      .map(x => ({ id: String(x.id), content: x.content, ...tdParseQty(x.content) }));
+    // a task a ticked item holds is not a duplicate: it is about to be closed; two held ones are left as they are
+    const holder = new Map(state.list.filter(i => i.tid).map(i => [i.tid, i]));
+    const ticked = id => !!(holder.get(id) || {}).checked;
+    const kept = [];
+    for (const r of remote) {
+      const twin = ticked(r.id) ? null : kept.find(k => !ticked(k.id) && sameItem(k.name, r.name));
+      if (!twin || (holder.has(r.id) && holder.has(twin.id))) { kept.push(r); continue; }
+      const [keep, drop] = holder.has(r.id) ? [r, twin] : [twin, r];
+      keep.name = bestName(keep.name, drop.name);
+      keep.qty = Math.max(keep.qty, drop.qty);
+      if (keep !== twin) kept[kept.indexOf(twin)] = keep;
+      if (await tryOr(() => tdFetch(`/tasks/${encodeURIComponent(drop.id)}`, { method: 'DELETE' }))) n.merged++;
+    }
+    remote = kept;
+    const open = new Map(remote.map(r => [r.id, r]));
+    const linked = new Set(state.list.map(i => i.tid).filter(id => id && open.has(id)));
 
-    // STORE → Todoist (snapshot first: the pull above appended to state.list)
-    const toPush = state.list.filter(i => {
-      const k = tdKey(i.name);
-      return k && !remoteByKey.has(k);
-    });
-    let pushed = 0, failed = 0;
-    for (const item of toPush) {
-      try {
-        await tdFetch('/tasks', {
-          method: 'POST',
-          body: JSON.stringify({
-            content: tdContent(item),
-            project_id: t.projectId,
-            section_id: t.sectionId,
-          }),
-        });
-        remoteByKey.set(tdKey(item.name), item);
-        pushed++;
-      } catch (e) { failed++; }
+    // each item against its task — the unticked first, so they are the ones a task of the same name goes to
+    const order = [...state.list.filter(i => !i.checked), ...state.list.filter(i => i.checked)];
+    for (const it of order) {
+      if (it.tid && waiting.has(it.tid)) continue;
+      let r = it.tid ? open.get(it.tid) : null;
+      if (it.tid && !r) {
+        if (!it.checked) { it.checked = true; it.tdc = true; n.ticked++; }   // done (or deleted) in Todoist
+        continue;
+      }
+      if (!r && (r = remote.find(x => !linked.has(x.id) && sameItem(x.name, it.name)))) { it.tid = r.id; it.tdc = false; linked.add(r.id); }
+      if (r) {
+        if (it.checked && it.tdc) { it.checked = false; it.tdc = false; n.unticked++; }   // reopened in Todoist since
+        else if (it.checked) { if (await tryOr(() => tdFetch(`/tasks/${encodeURIComponent(r.id)}/close`, { method: 'POST' }))) { it.tdc = true; n.closed++; } continue; }
+        it.name = bestName(it.name, r.name);
+        const want = tdContent(it);
+        if (r.content !== want) await tryOr(() => tdFetch(`/tasks/${encodeURIComponent(r.id)}`, { method: 'POST', body: JSON.stringify({ content: want }) }));
+        continue;
+      }
+      if (it.checked) continue;   // bought before it ever reached Todoist
+      await tryOr(async () => {
+        const made = await tdFetch('/tasks', { method: 'POST', body: JSON.stringify({ content: tdContent(it), project_id: t.projectId, section_id: t.sectionId }) });
+        if (made && made.id != null) { it.tid = String(made.id); it.tdc = false; linked.add(it.tid); }
+        n.pushed++;
+      });
+    }
+
+    // Todoist → STORE: what is open there and nowhere here
+    for (const r of remote) {
+      if (linked.has(r.id)) continue;
+      const it = { name: r.name, cat: tdGuessCat(r.name), qty: r.qty, checked: false, tid: r.id, tdc: false };
+      state.list.push(it);
+      n.pulled++;
+      // a task that took a duplicate's name or quantity says so in Todoist too
+      if (r.content !== tdContent(it)) await tryOr(() => tdFetch(`/tasks/${encodeURIComponent(r.id)}`, { method: 'POST', body: JSON.stringify({ content: tdContent(it) }) }));
     }
 
     state.todoist.lastSync = Date.now();
     saveState();
+    renderList();
     renderTodoistSettings();
 
     const parts = [];
-    if (pulled) parts.push(`↓ ${pulled} added here`);
-    if (pushed) parts.push(`↑ ${pushed} sent`);
-    if (failed) parts.push(`${failed} failed`);
+    if (n.pulled) parts.push(`↓ ${n.pulled} added here`);
+    if (n.pushed) parts.push(`↑ ${n.pushed} sent`);
+    if (n.closed) parts.push(`✓ ${n.closed} closed`);
+    if (n.ticked) parts.push(`✓ ${n.ticked} done in todoist`);
+    if (n.unticked) parts.push(`↺ ${n.unticked} reopened`);
+    if (n.merged) parts.push(`${n.merged} duplicate${n.merged === 1 ? '' : 's'} merged`);
+    if (n.failed) parts.push(`${n.failed} failed`);
+    if (owed.length) parts.push(`${owed.length} waiting`);
+    const failed = n.failed;
     const msg = parts.length ? parts.join(' · ') : 'already in sync';
     toast(msg);
     tdStatus(msg, failed ? 'bad' : 'good');
@@ -1225,5 +1351,5 @@ return { tripsOn, go, addCart, resetCart, togglePin, openPad, closePad, padKey, 
          openCatPick, closeCatPick, setCat,
          openCategory, addItemAndRefresh, toggleMeal, addMeal,
          restoreTrip, deleteTrip, clearHistory,
-         renderSettings, saveBudget, saveTodoist, testTodoist, syncTodoist };
+         renderSettings, saveBudget, saveTodoist, testTodoist, syncTodoist, sameItem };
 })();

@@ -7584,6 +7584,105 @@ check('no errors through WALK', errors.length === 0, errors.slice(0, 3).join(' |
 
 
 
+// 4.16 — STORE ↔ Todoist (Hugo's r261022-73x8): ticked here closes the task there, unticked reopens it, deleted goes
+// from both; one task and one line per thing (carrot and carrots become carrots). A made-up Todoist, in memory.
+{
+  const fetchWas = fetchScript, LSs = w.localStorage, keptS = LSs.getItem('store_state_v1');
+  const tasks = new Map(); let nextT = 1, offline = false, writes = 0;
+  fetchScript = async (url, opts) => {
+    const method = (opts && opts.method) || 'GET';
+    const ok = body => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+    const none = { ok: true, status: 204, json: async () => null, text: async () => '' };
+    const nf = { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    if (offline) throw new TypeError('Failed to fetch');
+    if (method !== 'GET') writes++;
+    if (url.includes('/projects')) return ok([{ id: 'p4', name: '04 | life' }]);
+    if (url.includes('/sections')) return ok([{ id: 'sg', name: 'home | groceries', project_id: 'p4' }]);
+    let m = url.match(/\/tasks\/(\w+)\/(close|reopen)$/);
+    if (m) { const t = tasks.get(m[1]); if (!t) return nf; t.open = m[2] === 'reopen'; return none; }
+    m = url.match(/\/tasks\/(\w+)$/);
+    if (m && method === 'DELETE') return tasks.delete(m[1]) ? none : nf;
+    if (m && method === 'POST') { const t = tasks.get(m[1]); if (!t) return nf; Object.assign(t, JSON.parse(opts.body)); return ok(t); }
+    if (method === 'POST' && /\/tasks$/.test(url)) { const b = JSON.parse(opts.body), id = 'g' + (nextT++); tasks.set(id, { id, open: true, ...b }); return ok({ id, ...b }); }
+    if (url.includes('/tasks?')) return ok([...tasks.values()].filter(t => t.open).map(t => ({ id: t.id, content: t.content })));
+    return ok([]);
+  };
+  const seed = content => { const id = 'g' + (nextT++); tasks.set(id, { id, content, open: true }); return id; };
+  const sl = () => (JSON.parse(LSs.getItem('store_state_v1') || '{}').list || []);
+  const at = name => sl().findIndex(i => i.name === name);
+  const openC = () => [...tasks.values()].filter(t => t.open).map(t => t.content).sort();
+  const add = name => { $('.ns-store #manual-input').value = name; w.STORE.addManual(); };
+
+  check('STORE knows one thing by two names: plurals and one slip in a long word, never two short words a letter apart',
+    w.STORE.sameItem('carrot', 'carrots ×2') && w.STORE.sameItem('tomato', 'tomatoes') && w.STORE.sameItem('cherry', 'cherries') &&
+    w.STORE.sameItem('yogurt', 'yoghurt') && w.STORE.sameItem('Huile d\'olive', 'huile olive') &&
+    !w.STORE.sameItem('pasta', 'paste') && !w.STORE.sameItem('butter', 'bitter') && !w.STORE.sameItem('coffee', 'toffee') &&
+    !w.STORE.sameItem('milk', 'oat milk'));
+
+  w.Creds.save('tok');
+  w.Shell.go('store'); w.STORE.go('home');
+  confirmAnswer = true;
+  if (sl().length) { w.STORE.confirmClearList(); settle(); await tick(); }
+  add('carrot'); add('tomato'); add('tomatoes'); add('paste');
+  check('adding the same thing twice is one line: tomato then tomatoes is tomatoes ×2',
+    sl().filter(i => /^tomato/.test(i.name)).length === 1 && sl().find(i => /^tomato/.test(i.name)).name === 'tomatoes' && sl().find(i => /^tomato/.test(i.name)).qty === 2,
+    JSON.stringify(sl().map(i => i.name + '×' + i.qty)));
+  seed('carrot'); seed('carrots ×2'); seed('milk'); seed('pasta');
+  await w.STORE.syncTodoist();
+  check('a sync leaves one task per thing: carrot and carrots are one task, "carrots", on both sides; nothing else lost',
+    JSON.stringify(openC()) === JSON.stringify(['carrots', 'milk', 'pasta', 'paste', 'tomatoes ×2']) &&
+    sl().filter(i => /^carrot/.test(i.name)).length === 1 && at('carrots') >= 0 && at('milk') >= 0 && at('pasta') >= 0,
+    JSON.stringify(openC()) + ' | ' + JSON.stringify(sl().map(i => i.name)));
+  check('… every line knows its task', sl().every(i => i.tid && tasks.has(i.tid)), JSON.stringify(sl()));
+
+  const milkT = sl()[at('milk')].tid;
+  w.STORE.toggleChecked(at('milk')); await tick(50);
+  check('ticking milk closes its task in Todoist', tasks.get(milkT).open === false && sl()[at('milk')].checked && sl()[at('milk')].tdc === true);
+  w.STORE.toggleChecked(at('milk')); await tick(50);
+  check('unticking it (undoing the complete) reopens it', tasks.get(milkT).open === true && !sl()[at('milk')].checked && !sl()[at('milk')].tdc);
+
+  const pasteT = sl()[at('paste')].tid;
+  w.Shell.hideUndo();
+  w.STORE.deleteItem(at('paste')); await tick(50);
+  check('deleting paste deletes its task too, with a way back', !tasks.has(pasteT) && at('paste') < 0 && $('#undo-pill').classList.contains('show'));
+  click($('#undo-pill')); await tick(50);
+  check('… the way back puts it on the list again, its task to be sent anew', at('paste') >= 0 && !sl()[at('paste')].tid);
+  await w.STORE.syncTodoist();
+  check('… and the next sync sends it', openC().includes('paste') && !!sl()[at('paste')].tid && tasks.has(sl()[at('paste')].tid));
+
+  offline = true;
+  const pastaT = sl()[at('pasta')].tid;
+  w.STORE.toggleChecked(at('pasta')); await tick(50);
+  const q1 = JSON.parse(LSs.getItem('store_state_v1')).todoist.queue;
+  check('ticked with no connection: still ticked, the close waits', sl()[at('pasta')].checked && q1.length === 1 && q1[0].op === 'close' && tasks.get(pastaT).open === true, JSON.stringify(q1));
+  offline = false;
+  await w.STORE.syncTodoist();
+  check('… and the next sync closes it — it does not come back unticked', tasks.get(pastaT).open === false && sl()[at('pasta')].checked &&
+    JSON.parse(LSs.getItem('store_state_v1')).todoist.queue.length === 0);
+
+  const tomT = sl()[at('tomatoes')].tid;
+  tasks.get(tomT).open = false;                                    // done in Todoist
+  w.STORE.toggleChecked(at('milk')); await tick(50);                 // milk bought: closed by STORE
+  tasks.get(milkT).open = true;                                    // … then reopened in Todoist
+  await w.STORE.syncTodoist();
+  check('done in Todoist is ticked here; reopened in Todoist is unticked here', sl()[at('tomatoes')].checked && !sl()[at('milk')].checked,
+    JSON.stringify(sl().map(i => i.name + (i.checked ? ' ✓' : ''))));
+
+  add('bread'); w.STORE.toggleChecked(at('bread')); await tick(50);   // ticked before it ever reached Todoist
+  const breadT = seed('bread');                                      // and in Todoist from elsewhere
+  await w.STORE.syncTodoist();
+  check('ticked here before a sync, open in Todoist: closed there, not pulled back as a second bread',
+    tasks.get(breadT).open === false && sl().filter(i => i.name === 'bread').length === 1 && sl()[at('bread')].checked);
+  writes = 0;
+  await w.STORE.syncTodoist();
+  check('a second sync has nothing to send', writes === 0, writes + ' writes');
+
+  fetchScript = fetchWas;
+  w.Creds.save('');
+  if (keptS === null) LSs.removeItem('store_state_v1'); else LSs.setItem('store_state_v1', keptS);
+}
+check('no errors through STORE ↔ Todoist', errors.length === 0, errors.slice(0, 3).join(' | '));
+
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

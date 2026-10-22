@@ -20,7 +20,7 @@ ask WALK for a loop, the OSM walking router, Leaflet and OSM's map tiles). Open
 | **DO**    | Daily routine checklists + travel packing lists. Closes finished routines in Todoist. Also the `@quick` cards, the block tiles (how far back "show done" reaches is a dial), the consistency strip, and the media tab — a watchlist, drawn as rows since 2.24, with kind chips, find, sort and *surprise me*. Its cards can be minimal, and a finished routine can be hidden. |
 | **LOG**   | Morning/evening daily log → an Obsidian-shaped `.md` note, plus history and weekly/monthly reports. Its home is one screen: a month of days by how much of each was written, a fortnight of energy, mood and stress (tap it and it opens over the month, with axes), then the doors — and since 4.1 the fortnight is **six** charts, cycled by tapping the key row under it (the day, morning vs evening, sleep, walking, output, intake), each on its own single-unit axis. Its tab wears a `!` while a half of the day is unwritten. |
 | **PLAN**  | Builds a queue of tasks against a project/section tree, then pushes the batch to Todoist. A queue can be saved as a preset. Picked rows of the sent history export back out as one day's schedule — see §8. |
-| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, and a `+` or `−` at its head for a moment when it moves (3.0.2; it went green and red until then). |
+| **STORE** | Grocery list with auto-categorisation, an in-store spend counter (pinnable to the top of the page), premade meals, trip history. Since 2.25 the band carries how much of the list is ticked, and — while the counter is pinned — what the trip has cost: white, with a hard offset shadow, and a `+` or `−` at its head for a moment when it moves (3.0.2; it went green and red until then). Since 4.16 its list and Todoist's groceries section are tied item to task: ticked here is closed there, ✕ deletes in both, and one task per thing (carrot and carrots are one). |
 | **TEND**  | Plant care: today's round by room, a shelf of every plant, an append-only care log that stretches intervals with the season. |
 | **TRACK** | The CAP Électricien plan: 54 topics ticked with a date, a derived pace, and the trajectory against exam, internship and revision. |
 | **LEARN** | Anki `.apkg` decks studied on the go: rate cards, read the scoreboard, drill what needs work. |
@@ -520,7 +520,7 @@ versions still work off the same data.
 | `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200, each filed under the day it is *due*. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
 | `plan_export_v1` | PLAN | the day start time the export last used, and nothing else. The date, template, mode, notes and slots are deliberately *not* kept: each export is its own day, and only the start time is the same one every time |
 | `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
-| `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once) |
+| `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once). Since 4.16 each list item may carry `tid` (its Todoist task) and `tdc` (STORE closed it), and `todoist.queue` holds the closes, reopens and deletes that did not get through yet |
 | `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
 | `tend_todoist_v1` | TEND | Todoist target (project, section, label, priority), the push/show switches, and the ids of the tasks pushed today. **Not inside `tend.v3`**: both apps' `normalise()` rebuild that record from its known keys and would drop it |
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
@@ -1982,6 +1982,41 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.16 — 2026-10-23 — STORE: ticked here is closed in Todoist, and one task per thing
+
+Asked for (prompter request `r261022-73x8`, kept verbatim): *"on the store page
+should delete items in both store and todoist when i complete them and reopen on
+todoist when i undo the complete in store. make sure that there are no duplicate
+tasks (expand how it sees duplicates, with like a margin of error so that it can
+also delete items that are very close : like carrot and carrots , make that turn
+into just carrots"*.
+
+STORE's sync was a union that never deleted or completed anything, so what was
+bought came back on the next sync. Now every item is tied to its task (`tid`):
+
+- **Ticking an item closes its task; unticking it reopens it** — at once, like
+  DO's ticks. With no connection the tick stays and the close (or reopen) waits
+  in `todoist.queue` for the next sync; the opposite one still waiting cancels it.
+  *Claude's reading:* "complete" is the tick and "undo the complete" is the untick,
+  so a ticked item stays on the list, struck through, until the trip is saved —
+  the band's count and the trip's record still need it.
+- **✕ deletes it in both**, with the undo pill to put it back (a new task on the
+  next sync if the old one went). Clearing the whole list still leaves Todoist alone.
+- **Duplicates, with a margin** (`sameItem`): the same words once plurals are
+  stripped (carrot / carrots, tomato / tomatoes), or one slip in a word of six
+  letters and seven at least that starts the same (yogurt / yoghurt). Short words
+  must match exactly — pasta and paste, butter and bitter stay two things. Adding
+  one that is already on the list adds to it; a sync merges what is left, on both
+  sides, under the fuller name (`bestName`: carrots), and deletes the extra tasks.
+- **Two-way by task:** an unticked item is its task (STORE's quantity, the fuller
+  name); a task done or deleted in Todoist ticks the item here; one STORE closed
+  and Todoist reopened is unticked here; an item ticked before it ever reached
+  Todoist closes the task of the same name instead of being pulled back.
+
+The settings note under STORE's Todoist target says the new rule. 15 harness
+checks against a made-up Todoist (`STORE ↔ Todoist`); the full suite passes.
+Not tried on the live Todoist.
 
 ### 4.15.2 — 2026-10-18 — the mark gets ROOT's own colours
 
