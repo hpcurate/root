@@ -161,6 +161,27 @@ check('new aisle vocabulary is used immediately', st.list.find(i => i.name === '
   'filed under ' + st.list.find(i => i.name === 'zzzfoo')?.cat);
 w.Config.reset('store.categories');
 
+// 5b. STORE's list order: by category, or as the items went on
+for (const n of ['milk', 'apples', 'bread']) { $('.ns-store #manual-input').value = n; w.STORE.addManual(); }
+const catKeys = Object.keys(w.Config.get('store.categories'));
+const storedList = () => JSON.parse(w.localStorage.getItem('store_state_v1')).list;
+const shownNames = () => [...d.querySelectorAll('.ns-store #grocery-list .li-name')].map(n => n.textContent);
+const catRank = name => catKeys.indexOf(storedList().find(i => i.name === name)?.cat);
+const inCatOrder = names => names.every((n, i) => i === 0 || catRank(names[i - 1]) <= catRank(n));
+check('the test list is out of category order as entered', !inCatOrder(storedList().map(i => i.name)),
+  storedList().map(i => i.name + ':' + i.cat).join(','));
+check('the list is by category by default', inCatOrder(shownNames()) &&
+  $('.ns-store #order-btn').textContent === 'by category', shownNames().join(','));
+w.STORE.toggleOrder();
+check('the toggle shows it as added', shownNames().join(',') === storedList().map(i => i.name).join(',') &&
+  $('.ns-store #order-btn').textContent === 'as added' && w.Prefs.get('storeOrder') === 'added', shownNames().join(','));
+w.STORE.toggleChecked(storedList().findIndex(i => i.name === 'apples'));
+check('… and a tick keeps its place', shownNames().join(',') === storedList().map(i => i.name).join(','));
+w.SET.panel('store');
+check('settings → store shows the order chip lit', !!$('.ns-set .set-panel[data-panel="store"] .chip.on[data-pref="storeOrder"][data-val="added"]'));
+w.STORE.toggleOrder();
+check('… and back to by category', inCatOrder(shownNames()) && w.Prefs.get('storeOrder') === 'cat', shownNames().join(','));
+
 // 6. PLAN partial send keeps only the failed tasks
 w.Creds.save('tok');
 let n = 0;

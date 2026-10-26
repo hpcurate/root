@@ -732,6 +732,9 @@ function renderList() {
   const tripBtn = $id('trip-btn');
 
   paintBand();
+  const byAdded = Prefs.get('storeOrder') === 'added';
+  const orderBtn = $id('order-btn');
+  if (orderBtn) orderBtn.textContent = byAdded ? 'as added' : 'by category';
   if (!state.list.length) {
     ul.innerHTML = '<div class="li-empty">no items yet</div>';
     countEl.textContent = '0 items';
@@ -746,20 +749,19 @@ function renderList() {
   banner.classList.toggle('show', checked === total && total > 0);
   tripBtn.style.display = '';
 
-  // group by category for display order
-  const order = Object.keys(CATEGORIES);
+  // group by category for display order — or one group, in the order they went on
+  const order = byAdded ? ['*'] : Object.keys(CATEGORIES);
   const grouped = {};
   state.list.forEach((it, i) => {
-    const c = it.cat in CATEGORIES ? it.cat : 'manual';
+    const c = byAdded ? '*' : it.cat in CATEGORIES ? it.cat : 'manual';
     (grouped[c] = grouped[c] || []).push({ ...it, idx: i });
   });
 
   ul.innerHTML = order
     .filter(c => grouped[c])
     .map(c => {
-      const color = CATEGORIES[c].color;
       return grouped[c].map(it => `
-        <div class="li-item${it.checked ? ' checked' : ''}" style="--cat-color:${color}" onclick="STORE.toggleChecked(${it.idx})">
+        <div class="li-item${it.checked ? ' checked' : ''}" style="--cat-color:${(CATEGORIES[it.cat] || CATEGORIES.manual).color}" onclick="STORE.toggleChecked(${it.idx})">
           <button class="li-dot" title="change category"
                   onclick="event.stopPropagation();STORE.openCatPick(${it.idx})"></button>
           <span class="li-name">${esc(it.name)}</span>
@@ -1328,7 +1330,13 @@ Config.subscribe(path => {
 
 // the currency mark reaches nine different readouts and the date label follows
 // the date format; one redraw covers them all
-Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === '*') renderHome(); });
+Prefs.subscribe(k => { if (k === 'currency' || k === 'dateFormat' || k === 'storeOrder' || k === '*') renderHome(); });
+
+// the list header's toggle: by category ⇄ as added (settings → store has the same)
+function toggleOrder() {
+  Prefs.set('storeOrder', Prefs.get('storeOrder') === 'added' ? 'cat' : 'added');
+  toast(Prefs.get('storeOrder') === 'added' ? 'list · as added' : 'list · by category');
+}
 
 Shell.register('store', { home: () => go('home') });   // the STORE tab tapped while on STORE
 
@@ -1346,7 +1354,7 @@ function tripsOn(iso) {
 
 return { tripsOn, go, addCart, resetCart, togglePin, openPad, closePad, padKey, padBack, padClear,
          padCount, padApply, openCartLog, closeCartLog,
-         addManual, toggleChecked, setQty, deleteItem, confirmClearList,
+         addManual, toggleChecked, setQty, deleteItem, confirmClearList, toggleOrder,
          saveTrip, openTripName, closeTripName, confirmTripName,
          openCatPick, closeCatPick, setCat,
          openCategory, addItemAndRefresh, toggleMeal, addMeal,

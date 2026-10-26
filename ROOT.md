@@ -1983,6 +1983,18 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.16.1 — 2026-10-26 — STORE: the list by category, or as added
+
+Asked for (prompter request `r261026-4pgv`, kept verbatim): *"toggle to not sort
+the items of the store list, right now it's sort by category and the toggle would
+sort by # of entry"*. A button in the list's header (beside ⇅ todoist) says how the
+list is sorted, **by category** (as before) or **as added** (the order the items went
+on: the list's own order, which nothing re-sorts), and a tap flips it; settings →
+store → list has the same as two chips. Pref `storeOrder` (`cat` | `added`). Each
+item keeps its category's dot either way. Checked: `update.mjs check` full, 1309
+passed (6 new: the order both ways, a tick keeps its place, the chip, back again);
+screenshots at 420 and 340 px wide in a throwaway Electron window.
+
 ### 4.16 — 2026-10-23 — STORE: ticked here is closed in Todoist, and one task per thing
 
 Asked for (prompter request `r261022-73x8`, kept verbatim): *"on the store page

@@ -414,6 +414,9 @@ const SCHEMA = {
   toolsBtnRound:{ kind:'range',  def:16, min:0,  max:50,  step:1, unit:'%',  cssVar:'--tl-btn-round' },
   doHideDone:   { kind:'bool',   def:false },
   doCardStyle:  { kind:'enum',   def:'full', values:['full','minimal'] },
+  /* STORE's list: grouped by category (the aisle walk), or in the order the
+     items went on — the list array's own order, which is never re-sorted. */
+  storeOrder:   { kind:'enum',   def:'cat',  values:['cat','added'] },
 };
 
 /* State */

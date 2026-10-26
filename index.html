@@ -789,6 +789,7 @@
       <div class="sec">
         <span>list <em id="list-count">0 items</em></span>
         <div class="sec-acts">
+          <button class="sec-act" id="order-btn" onclick="STORE.toggleOrder()" title="sort the list by category, or keep the order they went on">by category</button>
           <button class="sec-act sync" data-td-btn="⇅ todoist" onclick="STORE.syncTodoist()">⇅ todoist</button>
           <button class="sec-act" id="trip-btn" onclick="STORE.saveTrip()">save trip</button>
           <button class="sec-act danger" onclick="STORE.confirmClearList()">clear</button>
@@ -1659,6 +1660,15 @@
         <input type="text" inputmode="decimal" autocomplete="off" id="budget-input" placeholder="100">
       </div>
       <button class="btn" onclick="STORE.saveBudget()">save budget</button>
+
+      <div class="sec"><span>List</span></div>
+      <div class="opt-set">
+        <label class="lbl">Order<em>by category walks the aisles; as added keeps the order they went on. Also the list's own button</em></label>
+        <div class="chips">
+          <button class="chip on" data-pref="storeOrder" data-val="cat">by category</button>
+          <button class="chip" data-pref="storeOrder" data-val="added">as added</button>
+        </div>
+      </div>
 
       <div class="sec"><span>Todoist target</span></div>
       <div class="data-warn hidden" id="td-file-warn">
