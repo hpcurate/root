@@ -155,19 +155,29 @@ body{
    positioned so that one can slide out while the next slides in, and an
    absolute child has no line box to trim. */
 .view > .h-top .h-daynum{position:relative;flex:0 0 auto;
+  display:flex;justify-content:flex-end;align-items:flex-start;
   overflow:visible;clip-path:inset(-100% 0);
   min-width:calc(1.1em + var(--title-sh-x));height:calc(var(--title-cap) * 1em);line-height:1;
+  padding-right:var(--title-sh-x);
   font:800 var(--title-px)/1 var(--head);letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c)}
+  font-variant-numeric:tabular-nums;color:var(--tx);text-shadow:var(--title-sh-x) 0 0 var(--title-sh-c);
+  /* Shell.rollNum's fit: smaller when the row has no room for it beside the
+     wordmark, and dropped so it keeps the wordmark's baseline */
+  font-size:calc(var(--title-px) * var(--dn-fit, 1));
+  top:calc((1 - var(--dn-fit, 1)) * var(--title-cap) * var(--title-px) / 2)}
 /* Clip horizontally with inset(-100% 0): overflow:hidden would cut digits
    vertically after cap-height trimming. Reserve the shadow width on the right. */
+/* The live number is in the flow, so the box is as wide as it is: absolute, a
+   count past 99 (DATA's days on record) or a wide display font ran out of a box
+   sized for two narrow digits and lost its first one to the clip (4.16.2).
+   Only the one on its way out is lifted out of the flow. */
 /* pulled up by the half-leading the box no longer has, so the digits sit on the
    wordmark's baseline rather than a line box's */
-.view > .h-top .h-daynum span{position:absolute;right:var(--title-sh-x);
-  top:calc((var(--title-cap) * 1em - 1em) / 2);display:block;line-height:1}
+.view > .h-top .h-daynum span{position:relative;
+  top:calc((var(--title-cap) * 1em - 1em) / 2);display:block;line-height:1;white-space:nowrap}
 .view > .h-top .h-daynum .dn-cur.shuffling{
   animation:dn-in calc(.44s * var(--mo)) cubic-bezier(.2,.85,.25,1) both}
-.view > .h-top .h-daynum .dn-out{
+.view > .h-top .h-daynum .dn-out{position:absolute;right:var(--title-sh-x);
   animation:dn-out calc(.44s * var(--mo)) cubic-bezier(.35,0,.75,.25) both}
 @keyframes dn-in{
   from{transform:translateX(calc(var(--dn-dir,1) * .55em)) rotate(calc(var(--dn-dir,1) * 7deg));

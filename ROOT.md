@@ -1983,6 +1983,23 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.16.2 — 2026-10-27 — the number beside the wordmark is never cut
+
+Asked for (prompter request `r261025-gq0l`, from Todoist `6hVxwPF8W4rvg3xp`, kept
+verbatim): *"number in the title bar clips"*, with his comment *"the number for the
+"data" tab in tools is cut off on the left side"*. The `.h-daynum` box (LOG's and
+DAY's date, CREATE's and TOOLS' counts) was sized for two narrow digits with its
+digits absolutely positioned, so a count past 99 (DATA's days on record) ran out of
+it to the left and lost its first digit to the clip. Now the live digits are in the
+flow (the box is as wide as they are; only the leaving one is absolute, the shadow
+reserved by the box's `padding-right`), and `Shell.rollNum` fits the number to the
+row: where it hasn't the room beside the wordmark it is set smaller (`--dn-fit`,
+9px at least, dropped onto the wordmark's baseline), never the wordmark; a
+ResizeObserver on the row and the wordmark refits it. In the default display font
+TOOLS. leaves a 390px phone's row about 20px, so there a count is small. Checked:
+`update.mjs check` full, 1311 passed (2 new: the digits in the flow, the fit both
+ways); screenshots at 360, 390 and 430 px in a throwaway Electron window.
+
 ### 4.16.1 — 2026-10-26 — STORE: the list by category, or as added
 
 Asked for (prompter request `r261026-4pgv`, kept verbatim): *"toggle to not sort

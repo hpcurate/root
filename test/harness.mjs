@@ -3685,6 +3685,31 @@ check('… it travels with the title on a tab change, and holds still when the t
   /#track\.still \.h-logo,#track\.still \.hd-title,#track\.still \.h-daynum\{animation:none!important\}/.test(shellCss4));
 check('… and reduced motion takes it off with the rest of the morph',
   /\.view\.morph > \.h-top \.h-daynum,\.view\.leaving > \.h-top \.h-daynum\{animation:none\}/.test(shellCss4));
+/* 4.16.2, "number in the title bar clips": the live digits were absolute in a
+   box sized for two narrow ones, so DATA's days on record past 99 lost the
+   first to the clip. They are in the flow now, and a row with no room for them
+   sets the number smaller, never the wordmark. jsdom has no layout, so a row
+   of its own is given its widths. */
+check('the live number is in the flow, so its box is as wide as its digits; only the leaving one is lifted out',
+  /\.view > \.h-top \.h-daynum span\{position:relative;/.test(shellCss4) &&
+  /\.view > \.h-top \.h-daynum \.dn-out\{position:absolute;/.test(shellCss4) &&
+  /\.view > \.h-top \.h-daynum\{[^}]*font-size:calc\(var\(--title-px\) \* var\(--dn-fit, 1\)\)/.test(shellCss4));
+{
+  const row = d.createElement('div');
+  row.className = 'h-logo-row';
+  row.innerHTML = '<div class="h-logo">TOOLS<em>.</em></div><div class="h-daynum"><span class="dn-cur"></span></div>';
+  const box = row.querySelector('.h-daynum'), cur = box.querySelector('.dn-cur');
+  const give = (el, k, v) => Object.defineProperty(el, k, { configurable: true, get: () => v });
+  give(row, 'clientWidth', 354); give(row.querySelector('.h-logo'), 'offsetWidth', 230); give(cur, 'offsetWidth', 140);
+  w.Shell.rollNum(box, '1234', 1234);
+  const squeezed = box.style.getPropertyValue('--dn-fit');
+  give(cur, 'offsetWidth', Math.round(60 * squeezed));
+  w.Shell.rollNum(box, '12', 12);
+  check('… and a number the row has no room for is set smaller, the wordmark left as it is; one that fits is full size again',
+    +squeezed > .4 && +squeezed < 1 && box.style.getPropertyValue('--dn-fit') === '' &&
+    cur.textContent === '12',
+    'fit=' + squeezed + ' then "' + box.style.getPropertyValue('--dn-fit') + '"');
+}
 
 /* 2.25 */
 
@@ -3978,7 +4003,8 @@ check('... its offset is a whole pixel at every size, with a 1px floor and a fal
    on its right or the shadow is the part that gets cut off */
 check('... and the offset is nameable, so anything that clips can reserve it',
   /\.view > \.h-top \.h-daynum\{[\s\S]*?min-width:calc\(1\.1em \+ var\(--title-sh-x\)\)/.test(shellCss4) &&
-  /\.view > \.h-top \.h-daynum span\{position:absolute;right:var\(--title-sh-x\)/.test(shellCss4));
+  /\.view > \.h-top \.h-daynum\{[^}]*padding-right:var\(--title-sh-x\)/.test(shellCss4) &&
+  /\.view > \.h-top \.h-daynum \.dn-out\{position:absolute;right:var\(--title-sh-x\)/.test(shellCss4));
 /* The dot is the word: title text colour, accent shadow, exactly like the
    letters. 2.26.2 and 3.0 both tried to make it the inverse and the second
    attempt succeeded at applying an effect nobody asked for. There is no rule

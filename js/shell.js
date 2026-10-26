@@ -1637,6 +1637,13 @@ window.Shell = (function () {
      Keep state per element so a render during animation cannot replay it
      based on the outgoing digits still in the DOM. */
   const dnState = new WeakMap();
+  /* the row's width (a turned phone, a hidden slide shown) and the wordmark's
+     (the title size, the font arriving) are the two things that change the
+     room a number has: see fitNum */
+  const fitFor = new WeakMap();
+  const fitObs = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(es => es.forEach(e => { const b = fitFor.get(e.target); if (b) fitNum(b); }))
+    : null;
   /* The general form: any number in a `.h-daynum` box, shuffled. `sort` is what
      decides which way it goes — a date string for LOG and DAY, the number
      itself for a count — and it is compared against the last one this box was
@@ -1651,7 +1658,11 @@ window.Shell = (function () {
     if (!box) return;
     const cur = box.querySelector('.dn-cur');
     if (!cur) return;
-    const num = String(text == null ? '' : text);
+    roll(box, cur, String(text == null ? '' : text), sort);
+    watchFit(box);
+    fitNum(box);
+  }
+  function roll(box, cur, num, sort) {
     const was = dnState.get(box) || null;
     if (was && was.num === num) { cur.textContent = num; return; }
     /* The cleanup timer is part of the per-box state, not a module-level one:
@@ -1682,6 +1693,36 @@ window.Shell = (function () {
       box.querySelectorAll('.dn-out').forEach(o => o.remove());
       cur.classList.remove('shuffling');
     }, 520);
+  }
+  /* The number never pushes the wordmark out of its row: where the two don't
+     fit side by side (TOOLS. beside four digits on a phone, a big title size),
+     the number is set smaller, `--dn-fit`, and the wordmark stays as it is.
+     Measured from layout widths, which the shuffle's and the slide's
+     transforms don't change, and from the fit-free width, so a second pass
+     gives the same answer and the observer settles. A hidden slide measures
+     nothing and is fitted when it shows. In the default display font TOOLS.
+     leaves a 390px phone's row about 20px, so a long count can get small:
+     9px at least, the size of the label above it that says what it is. */
+  function fitNum(box) {
+    const row = box.parentElement, logo = row && row.querySelector('.h-logo'), cur = box.querySelector('.dn-cur');
+    if (!row || !logo || !cur || !row.clientWidth) return;
+    const was = parseFloat(box.style.getPropertyValue('--dn-fit')) || 1;
+    const cs = getComputedStyle(box), pad = parseFloat(cs.paddingRight) || 0;
+    const full = (parseFloat(cs.fontSize) || 0) / was;
+    // the box's own min-width (two narrow digits) counts as much as the digits do
+    const need = Math.max(cur.offsetWidth, (parseFloat(cs.minWidth) || 0) - pad) / was;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const room = row.clientWidth - logo.offsetWidth - gap - pad;
+    const least = full > 9 ? 9 / full : .2;
+    const fit = need > room ? Math.max(least, Math.floor(room / need * 100) / 100) : 1;
+    if (fit === was) return;
+    if (fit === 1) box.style.removeProperty('--dn-fit');
+    else box.style.setProperty('--dn-fit', String(fit));
+  }
+  function watchFit(box) {
+    const row = box.parentElement, logo = row && row.querySelector('.h-logo');
+    if (!fitObs || !logo || fitFor.has(row)) return;
+    [row, logo].forEach(el => { fitFor.set(el, box); fitObs.observe(el); });
   }
   /* The day of the month, which is what LOG and DAY put there. The ISO string
      is both the text's source and the thing that says which way time went. */
