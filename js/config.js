@@ -20,13 +20,13 @@ const DEFAULTS = {
          in it. The labels are the words the matching Todoist tasks carry: DO's
          routine sync matches on the key or the label (`tdRoutineBySlug`), so
          renaming one here is renaming the task it closes. */
-      fix:   { label: 'fix',   items: ['shower','face morning','teeth morning','tongue morning','teeth evening','face evening'] },
-      fit:   { label: 'fit',   items: ['exercise','kamo walk m','kamo walk e'] },
-      log:   { label: 'log',   items: ['log morning','log evening','log meds'] },
-      eat:   { label: 'eat',   items: ['shake','breakfast','meal 1','meal 2','meal 3'] },
-      reset: { label: 'reset', items: ['dishes','plants','tidy','vacuum','trash'] },
-      plan:  { label: 'plan',  items: ['plan blocks','schedule','clothes','coffee','shake','gym prep','kamo walk prep'] },
-      deepclean: { label: 'Deep Clean', items: ['≋ dusting','⟳ vacuum','▧ mop','▭ surfaces','≈ bathroom sink','○ toilet','✕ trash'] },
+      fix:   { label: 'fix',   items: ['shower','face morning','teeth morning','tongue morning','teeth evening','face evening'], shape:'disc',    color:'violet' },
+      fit:   { label: 'fit',   items: ['exercise','kamo walk m','kamo walk e'], shape:'quarter', color:'green' },
+      log:   { label: 'log',   items: ['log morning','log evening','log meds'], shape:'dome',    color:'pink' },
+      eat:   { label: 'eat',   items: ['shake','breakfast','meal 1','meal 2','meal 3'], shape:'disc',    color:'sun' },
+      reset: { label: 'reset', items: ['dishes','plants','tidy','vacuum','trash'], shape:'square',  color:'chalk' },
+      plan:  { label: 'plan',  items: ['plan blocks','schedule','clothes','coffee','shake','gym prep','kamo walk prep'], shape:'bars',    color:'violet' },
+      deepclean: { label: 'Deep Clean', items: ['≋ dusting','⟳ vacuum','▧ mop','▭ surfaces','≈ bathroom sink','○ toilet','✕ trash'], shape:'square', color:'green' },
     },
     /* Which routines sit under which home tab, and what the tabs are called.
        Add a tab here and the home screen grows one. */

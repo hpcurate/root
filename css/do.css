@@ -523,3 +523,86 @@
 .ns-do .tv-cat-row.on .tv-cat-count{color:var(--y)}
 .ns-do .tv-cat-row.on .tv-check{background:var(--y);border-color:var(--y)}
 .ns-do .tv-cat-row.on .tv-check-svg{opacity:1}
+
+
+/* ROOT 5 (4.20) — the home's hero, the routine tiles and the routine's pie
+   The five shape colours are the routine's own (Config `color`), so they are
+   literals here and not the theme's: a routine is the same violet under every
+   preset. The ink on a flooded tile is the ROOT ground's black for the same
+   reason. Washes on the hero mix from its own ink so a light preset still
+   reads. */
+.ns-do .rt[data-c="violet"],.ns-do #s-checklist[data-c="violet"]{--rt-c:#A78BFA}
+.ns-do .rt[data-c="green"], .ns-do #s-checklist[data-c="green"] {--rt-c:#3ddc84}
+.ns-do .rt[data-c="pink"],  .ns-do #s-checklist[data-c="pink"]  {--rt-c:#ff5fa2}
+.ns-do .rt[data-c="sun"],   .ns-do #s-checklist[data-c="sun"]   {--rt-c:#ffc94d}
+.ns-do .rt[data-c="chalk"], .ns-do #s-checklist[data-c="chalk"] {--rt-c:#e9e4f2}
+
+.ns-do .rt-hero{grid-column:1 / -1;position:relative;overflow:hidden;
+  min-height:calc(140px * var(--dens));display:flex;flex-direction:column;
+  padding:calc(16px * var(--dens)) calc(18px * var(--dens));
+  border-radius:calc(var(--r-base) * 1.6);background:var(--y);color:var(--on-y)}
+.ns-do .rt-hero::before,.ns-do .rt-hero::after{content:'';position:absolute;
+  background:color-mix(in srgb, var(--on-y) 13%, transparent)}
+.ns-do .rt-hero::before{right:-58px;top:-74px;width:210px;height:210px;border-radius:50%}
+.ns-do .rt-hero::after{right:46px;bottom:-30px;width:64px;height:64px;border-radius:12px;transform:rotate(18deg)}
+.ns-do .rt-hero-eb{position:relative;font:600 10px/1 var(--mono);letter-spacing:.2em;text-transform:var(--caps);opacity:.75}
+.ns-do .rt-hero-n{position:relative;margin-top:auto;padding-top:14px;display:flex;align-items:baseline;gap:8px}
+.ns-do .rt-hero-n b{font:800 64px/.8 var(--head);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ns-do .rt-hero-n span{font:800 24px/1 var(--head);opacity:.75}
+.ns-do .rt-hero-n em{margin-left:auto;align-self:flex-end;font:700 11px/1 var(--mono);font-style:normal}
+.ns-do .rt-segs{position:relative;display:flex;gap:4px;margin-top:12px}
+.ns-do .rt-segs i{flex:1;height:7px;border-radius:4px;background:color-mix(in srgb, var(--on-y) 22%, transparent);
+  transition:background .4s ease}
+.ns-do .rt-segs i.on{background:var(--on-y)}
+
+.ns-do .card.rt{min-height:calc(100px * var(--dens));overflow:hidden;display:flex;flex-direction:column;
+  border-radius:calc(var(--r-base) * 1.3);padding:calc(13px * var(--dens)) calc(15px * var(--dens));
+  --rt-ink:#0b0a0f;
+  transition:background .45s ease, border-color .3s ease, color .3s ease, scale var(--dur-3) var(--ease-out)}
+.ns-do .rt .card-t{position:relative;margin-bottom:4px;
+  font:800 21px/1 var(--head);letter-spacing:-.02em;text-transform:none}
+.ns-do .rt .card-s{position:relative;margin-bottom:0;font:700 12px/1 var(--mono);color:var(--tx)}
+.ns-do .rt-nx{position:relative;margin-top:auto;padding-top:10px;max-width:64%;
+  font:400 10px/1.2 var(--mono);color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the shape: a wash of the colour, filled from the bottom as far as the ticks go */
+.ns-do .rt-sh{position:absolute;overflow:hidden;background:color-mix(in srgb, var(--rt-c) 16%, transparent)}
+.ns-do .rt-sh::after,.ns-do .rt-bars i::after{content:'';position:absolute;left:0;right:0;bottom:0;
+  height:calc(var(--p, 0) * 100%);background:var(--rt-c);
+  transition:height calc(.55s * var(--mo)) cubic-bezier(.34,1.4,.5,1)}
+.ns-do .rt-disc   {width:86px;height:86px;right:-16px;bottom:-20px;border-radius:50%}
+.ns-do .rt-quarter{width:96px;height:96px;right:-24px;bottom:-24px;border-radius:96px 0 0 0}
+.ns-do .rt-dome   {width:104px;height:52px;right:-6px;bottom:-1px;border-radius:52px 52px 0 0}
+.ns-do .rt-square {width:72px;height:72px;right:-10px;bottom:-14px;border-radius:12px;transform:rotate(14deg)}
+.ns-do .rt-bars   {width:78px;height:96px;right:10px;bottom:-8px;background:none;overflow:visible}
+.ns-do .rt-bars::after{content:none}
+.ns-do .rt-bars i{position:absolute;bottom:0;width:22px;border-radius:8px;overflow:hidden;
+  background:color-mix(in srgb, var(--rt-c) 16%, transparent)}
+.ns-do .rt-bars i:nth-child(1){left:0;height:60px}
+.ns-do .rt-bars i:nth-child(2){left:28px;height:96px}
+.ns-do .rt-bars i:nth-child(3){left:56px;height:76px}
+/* finished: the tile floods with the colour, and the shape is a shadow on it */
+.ns-do .card.rt.done{background:var(--rt-c);border-color:transparent;color:var(--rt-ink)}
+.ns-do .card.rt.done::after{content:none}
+.ns-do .rt.done .card-s,.ns-do .rt.done .rt-nx{color:var(--rt-ink)}
+.ns-do .rt.done .rt-nx{font-weight:700}
+.ns-do .rt.done .rt-sh,.ns-do .rt.done .rt-bars i{background:rgba(11,10,15,.14)}
+.ns-do .rt.done .rt-sh::after,.ns-do .rt.done .rt-bars i::after{height:0}
+
+/* the routine: a pie over the rows, the rows tall enough to hit on the move */
+.ns-do .cl-progress{display:flex;flex-direction:column;align-items:center;gap:10px;margin:6px 0 18px}
+.ns-do .cl-pie{width:150px;height:150px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--rt-c, var(--y)) calc(var(--p, 0) * 360deg),
+                            color-mix(in srgb, var(--rt-c, var(--y)) 16%, transparent) 0)}
+.ns-do .cl-pie b{width:98px;height:98px;border-radius:50%;background:var(--bg);display:grid;place-items:center;
+  font:800 40px/1 var(--head);color:var(--tx);font-variant-numeric:tabular-nums}
+.ns-do .cl-progress .cl-bar{display:none}
+.ns-do #s-checklist .item-btn{min-height:calc(58px * var(--dens));border-radius:calc(var(--r-base) * 1);
+  color:var(--tx);padding-top:0;padding-bottom:0;
+  transition:background .2s ease, color .2s ease, scale var(--dur-3) var(--ease-out)}
+.ns-do #s-checklist .item-btn:active{scale:.97}
+.ns-do #s-checklist .item-btn.checked{background:var(--s1);border-color:var(--bd);color:var(--mu)}
+.ns-do #s-checklist .item-btn.checked span{text-decoration:line-through;text-decoration-color:var(--bd-2)}
+.ns-do #s-checklist .item-check-ico{width:26px;height:26px;border-radius:50%;border-width:2px;border-color:var(--bd-2);
+  color:#0b0a0f;transition:background .25s ease, border-color .25s ease, scale var(--dur-3) var(--ease-out)}
+.ns-do #s-checklist .item-check-svg{width:13px;height:13px}
+.ns-do #s-checklist .item-btn.checked .item-check-ico{background:var(--rt-c, var(--y));border-color:var(--rt-c, var(--y));scale:1.08}

@@ -43,6 +43,24 @@ function readConfig() {
 }
 readConfig();
 
+/* ROOT 5 (4.20): a routine's tile is a shape filling up in the routine's own
+   colour, and a finished one floods the tile. Both are content, on the routine
+   in Config (`shape`, `color`). A routine without them takes the one its key
+   gives — the six daily ones the redesign drew — or its place in the list, so
+   an override written before 4.20 still draws the redesign. */
+const SHAPES = ['disc', 'quarter', 'dome', 'square', 'bars'];
+const COLORS = ['violet', 'green', 'pink', 'sun', 'chalk'];
+const LOOK_BY_KEY = { fix:['disc','violet'], fit:['quarter','green'], log:['dome','pink'], eat:['disc','sun'],
+                      reset:['square','chalk'], plan:['bars','violet'], deepclean:['square','green'] };
+function lookOf(key) {
+  const r = ROUTINES[key] || {}, i = Math.max(0, Object.keys(ROUTINES).indexOf(key));
+  const d = LOOK_BY_KEY[key] || [SHAPES[i % SHAPES.length], COLORS[(i + 1) % COLORS.length]];
+  return { shape: SHAPES.includes(r.shape) ? r.shape : d[0], color: COLORS.includes(r.color) ? r.color : d[1] };
+}
+const shapeHTML = shape => shape === 'bars'
+  ? '<span class="rt-sh rt-bars" aria-hidden="true"><i></i><i></i><i></i></span>'
+  : '<span class="rt-sh rt-' + shape + '" aria-hidden="true"></span>';
+
 /* Home sections
    Three siblings under the header; the preferred order is applied by moving
    the real elements, so nothing else has to know about it. The today list and
@@ -352,12 +370,24 @@ function renderHome() {
   $id('date-label').textContent = Prefs.formatDate(TODAY).toUpperCase();   // #date-label is a span inside .h-label
 
   const minimal = Prefs.get('doCardStyle') === 'minimal';
+  const today = tdLocalDate();
   const routineCards = routinesOfTab(currentTab).map(key => {
     const r = ROUTINES[key];
     const done = r.items.filter(i => state[key]?.[i]).length;
     const pct  = r.items.length ? Math.round((done / r.items.length) * 100) : 0;
     const isDone = done === r.items.length && r.items.length > 0;
     if (isDone && hideDone()) return '';
+    /* The tile (4.20): the name, the count, then what is next — or, once it is
+       finished, whether Todoist has taken the close, which DO records itself */
+    if (!minimal) {
+      const look = lookOf(key), next = r.items.find(i => !state[key]?.[i]) || '';
+      return `<div class="card rt${isDone ? ' done' : ''}" data-c="${look.color}" style="--p:${done / (r.items.length || 1)}" onclick="DO.openRoutine('${key}')">
+        ${shapeHTML(look.shape)}
+        <div class="card-t">${esc(r.label)}</div>
+        <div class="card-s">${done} / ${r.items.length}</div>
+        <div class="rt-nx">${isDone ? (td.closedOn[key] === today ? '✓ closed in todoist' : '✓ done') : esc(next)}</div>
+      </div>`;
+    }
     /* The minimal card is the same card with the word "done" dropped and the
        name and ratio put on one row — a third of the height, so a tab with six
        routines is a screen rather than a scroll.
@@ -380,7 +410,14 @@ function renderHome() {
     const n = travel.order.length;
     const sub = n === 0 ? 'no checklists yet'
                         : `${n} list${n>1?'s':''} · ${tStat.done} / ${tStat.total}${minimal ? '' : ' packed'}`;
-    if (!(tDone && hideDone()))
+    if (!(tDone && hideDone()) && !minimal)
+      travelCard = `<div class="card rt${tDone ? ' done' : ''}" data-c="chalk" style="--p:${tStat.pct / 100}" onclick="DO.go('travel')">
+        ${shapeHTML('square')}
+        <div class="card-t">travel</div>
+        <div class="card-s">${n ? tStat.done + ' / ' + tStat.total : '—'}</div>
+        <div class="rt-nx">${n ? n + ' list' + (n > 1 ? 's' : '') : 'no checklists yet'}</div>
+      </div>`;
+    else if (!(tDone && hideDone()))
       travelCard = `<div class="card${tDone ? ' done' : ''}${minimal ? ' mini' : ''}" onclick="DO.go('travel')">
         <div class="card-t">Travel</div>
         <div class="card-s">${sub}</div>
@@ -393,10 +430,24 @@ function renderHome() {
   /* Everything on this tab is finished and the dial says hide it. An empty
      grid with no explanation reads as a bug — worse, as lost data — so the
      grid says what happened and how to get the cards back. */
-  grid.innerHTML = (routineCards + travelCard) ||
+  /* The hero (4.20): the tab's ticks as one number, and one segment per routine
+     that is finished — counted over every routine of the tab, hidden or not */
+  const tabKeys = routinesOfTab(currentTab);
+  let hero = '';
+  if (!minimal && tabKeys.length) {
+    const tot = tabKeys.reduce((a, k) => a + ROUTINES[k].items.length, 0);
+    const dn  = tabKeys.reduce((a, k) => a + ROUTINES[k].items.filter(i => state[k]?.[i]).length, 0);
+    const fin = tabKeys.filter(k => routineDone(k)).length;
+    hero = `<div class="rt-hero">
+      <span class="rt-hero-eb">today</span>
+      <div class="rt-hero-n"><b>${dn}</b><span>/ ${tot}</span><em>${fin} of ${tabKeys.length} done</em></div>
+      <div class="rt-segs">${tabKeys.map(k => `<i${routineDone(k) ? ' class="on"' : ''}></i>`).join('')}</div>
+    </div>`;
+  }
+  grid.innerHTML = hero + ((routineCards + travelCard) ||
     (hideDone() && routinesOfTab(currentTab).length
       ? `<div class="grid-clear">all done<em>finished routines are hidden — settings → apps → do</em></div>`
-      : '');
+      : ''));
   applySectionOrder();
   renderToday();
   renderBlocks();
@@ -475,6 +526,10 @@ function renderChecklist() {
   const pct   = items.length ? Math.round((done / items.length) * 100) : 0;
   const allDone = done === items.length;
 
+  // the pie (4.20), in the routine's own colour
+  $id('s-checklist').dataset.c = lookOf(key).color;
+  $id('cl-progress').style.setProperty('--p', items.length ? done / items.length : 0);
+  $id('cl-pie-n').textContent = done;
   $id('cl-progress').classList.toggle('all-done', allDone);
   $id('cl-bar-fill').style.width = pct + '%';
   $id('cl-bar-fill').style.background = barColor(pct);
@@ -2046,7 +2101,7 @@ Prefs.subscribe(k => {
 });
 maybeRefreshToday();
 
-return { go, renderSettings: renderTodoistSettings,
+return { go, lookOf, SHAPES, COLORS, renderSettings: renderTodoistSettings,
          renderQuick, toggleQuickTask, toggleQuickSub, toggleQuick, toggleQuickHideDone,
          toggleQuickFold, clearQuickDone, quickTasks,
          renderHistory, toggleHistory, statsFor, statsRange,

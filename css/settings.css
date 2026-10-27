@@ -296,6 +296,9 @@ input[type=range].sl::-moz-range-thumb{
 .ed-head input[type=text]{flex:1;min-width:0;font-size:12px;padding:9px 10px}
 .ed-head input[type=number]{width:66px;flex:0 0 auto;font-size:12px;padding:9px 10px;text-align:center}
 .ed-head select{flex:0 0 auto;width:auto;min-width:96px;font-size:11px;padding:9px 8px}
+/* a routine's shape and colour (4.20), a row of their own under its name */
+.ed-look{display:flex;gap:6px;margin-bottom:9px}
+.ed-look select{flex:1;min-width:0;font-size:11px;padding:9px 8px}
 .ed-swatch{width:34px;height:34px;flex:0 0 auto;padding:2px;background:var(--s2);
   border:var(--bw) solid var(--bd);border-radius:var(--r1);cursor:pointer}
 .ed-del{flex:0 0 auto;width:34px;height:34px;background:var(--s2);border:var(--bw) solid var(--bd);

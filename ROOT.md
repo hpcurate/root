@@ -2013,6 +2013,27 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.20 — 2026-10-27 — ROOT 5, phase 3: DO's tiles, hero and pie
+
+DO's home is the redesign's.
+- **The hero** over the routines: the tab's ticks out of all its items, "N of M done", one segment per routine, lit when
+  it is finished. It counts every routine of the tab, hidden or not.
+- **Each routine a tile:** its name (as written, display face), its count, and what is next. A **shape** (disc,
+  quarter, dome, square or bars) fills from the bottom in the routine's **colour** (violet, green, pink, sun or chalk)
+  as you tick. A finished tile **floods** with the colour and says "✓ closed in todoist" when DO's own record
+  (`td.closedOn`) says Todoist took the close, else "✓ done". Travel is a chalk tile.
+- **The routine** opens on a **pie** in its colour with the count in its middle. The rows are 58px with round checks, and
+  a ticked one is struck through.
+- **Content (his answer 8):** shape and colour are new optional fields on each routine in Config (`do.routines.<key>.shape`
+  / `.color`). The shipped six carry the mockup's. A routine without them, such as an override stored before 4.20, takes
+  the one its key gives, or its place in the list (`DO.lookOf`). They are edited in settings → do → routines, a row of
+  two selects under each name, and read back with the rest. Nothing else in DO's storage or its Todoist calls changed.
+- **The minimal card** keeps its one-row shape and its bar.
+
+Harness: the two checks written for the old card's bar move to what the tile draws. +6 checks: the hero, a tile's shape,
+colour and fill, Config's values drawn, the editor saving them, a finished tile flooding, and the pie. Seen at 390px with
+the mockup's day ticked. Log: `updates/26-10-27_update_v4.20.0.md`.
+
 ### 4.19 — 2026-10-27 — ROOT 5, phase 2: the dock and the R
 
 The bar becomes ROOT 5's **dock**: a new bar style (`navStyle: 'dock'`, the default), drawn across the bottom.

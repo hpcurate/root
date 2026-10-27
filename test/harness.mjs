@@ -745,8 +745,11 @@ check('… "month" reaches further still, and the cycle comes back round to "day
 check('… the setting is on DO\'s own panel, and survives a reload',
   !!$('#td-blocks-done') && JSON.parse(w.localStorage.getItem('do_todoist_v1')).blocksDone === 'day');
 w.localStorage.removeItem('log_' + pastDay);
+// since 4.20 the bar is the minimal card's; the full card fills its shape instead
+w.Prefs.set('doCardStyle', 'minimal');
 const barFill = $('.ns-do #home-grid .card-bar-fill');
 check('routine bars are tinted by progress, foreground → green', /color-mix\(in srgb, var\(--gr\) \d+%, var\(--tx\)\)/.test(barFill?.getAttribute('style') || ''), barFill?.getAttribute('style'));
+w.Prefs.set('doCardStyle', 'full');
 check("it is recorded as a completed block in today's log", JSON.parse(w.localStorage.getItem('log_' + today)).e.blocks.includes('mix the track'));
 w.Shell.go('log'); w.LOG.resetDate(); w.LOG.go('evening');
 const bkChip = [...d.querySelectorAll('.ns-log #blk-plan .blk-b.plan')].find(b => b.dataset.name === 'mix the track');
@@ -3618,11 +3621,41 @@ check('the two colour switches and the wake-up one are on that panel too',
 w.Shell.go('do'); w.DO.setTab('daily');
 const cards = () => [...d.querySelectorAll('.ns-do #home-grid .card')];
 const cardNames = () => cards().map(c => c.querySelector('.card-t').textContent);
-check('a full card carries its name, its ratio and a bar',
-  cards().length > 0 && !!cards()[0].querySelector('.card-bar-fill') &&
-  / \/ .*done/.test(cards()[0].querySelector('.card-s').textContent) &&
+/* 4.20, ROOT 5: a full card is a tile — its name, its ratio, a shape that fills
+   with its ticks, and the next thing to tick — under a hero with the tab's ticks */
+check('a full card carries its name, its ratio, its shape and what is next',
+  cards().length > 0 && !!cards()[0].querySelector('.rt-sh') &&
+  /^\d+ \/ \d+$/.test(cards()[0].querySelector('.card-s').textContent) &&
+  !!cards()[0].querySelector('.rt-nx').textContent.trim() &&
   !d.querySelector('.ns-do #home-grid.mini'),
   cards()[0]?.textContent.replace(/\s+/g, ' ').trim());
+{
+  const keys = w.Config.get('do.tabs').find(t => t.id === 'daily').routines.filter(k => w.Config.get('do.routines')[k]);
+  const all = keys.reduce((a, k) => a + w.Config.get('do.routines')[k].items.length, 0);
+  check('4.20: the hero counts the tab\'s ticks out of all its items, one segment per routine',
+    $('.ns-do #home-grid .rt-hero-n span')?.textContent === '/ ' + all &&
+    d.querySelectorAll('.ns-do #home-grid .rt-segs i').length === keys.length,
+    $('.ns-do #home-grid .rt-hero')?.textContent.replace(/\s+/g, ' ').trim());
+  const fix = cards().find(c => c.querySelector('.card-t').textContent === w.Config.get('do.routines').fix?.label);
+  check('… each tile in its routine\'s shape and colour, filled to its ticks',
+    !!fix && fix.dataset.c === 'violet' && !!fix.querySelector('.rt-disc') &&
+    /--p:\s*0(\.\d+)?\b/.test(fix.getAttribute('style') || ''), fix?.outerHTML.slice(0, 160));
+  const was = JSON.parse(JSON.stringify(w.Config.get('do.routines')));
+  w.Config.set('do.routines', Object.assign({}, was, { fix: Object.assign({}, was.fix, { shape: 'bars', color: 'pink' }) }));
+  w.DO.go('home');
+  const fix2 = cards().find(c => c.querySelector('.card-t').textContent === was.fix.label);
+  check('… and a shape and colour set in Config are the ones drawn',
+    !!fix2 && fix2.dataset.c === 'pink' && fix2.querySelectorAll('.rt-bars i').length === 3, fix2?.outerHTML.slice(0, 160));
+  w.SET.panel('do');
+  const sel = $('.ns-set .ed-card[data-key="fix"] [data-field="shape"]');
+  check('… which the routine editor shows, and a change there is saved to the routine',
+    !!sel && sel.value === 'bars' && (sel.value = 'dome', sel.dispatchEvent(new w.Event('change', { bubbles: true })),
+      w.Config.get('do.routines').fix.shape === 'dome') &&
+    w.Config.get('do.routines').fix.items.length === was.fix.items.length,
+    JSON.stringify(w.Config.get('do.routines').fix));
+  w.Config.set('do.routines', was);
+  w.Shell.go('do'); w.DO.go('home');
+}
 w.Prefs.set('doCardStyle', 'minimal');
 /* 4.8 put the bar back. It is the one part of the card read at a glance rather
    than counted, and as a strip along the bottom edge it costs no height — which
@@ -3656,6 +3689,18 @@ const firstName = w.Config.get('do.routines')[firstKey].label;
 finish(firstKey);
 check('a finished card is marked done and stays on the grid',
   cardNames().includes(firstName) && !!d.querySelector('.ns-do #home-grid .card.done'));
+check('4.20: a finished tile floods, and says "done" when Todoist has not taken the close',
+  /\.ns-do \.card\.rt\.done\{background:var\(--rt-c\)/.test(doCss2) &&
+  $('.ns-do #home-grid .card.rt.done .rt-nx')?.textContent.trim() === '✓ done' &&
+  !!$('.ns-do #home-grid .rt-segs i.on'),
+  $('.ns-do #home-grid .card.rt.done .rt-nx')?.textContent);
+w.DO.openRoutine(firstKey);
+check('… and its routine opens on a pie in its colour, filled all the way',
+  !!$('.ns-do #s-checklist').dataset.c && $('.ns-do #cl-pie-n').textContent ===
+    String(w.Config.get('do.routines')[firstKey].items.length) &&
+  $('.ns-do #cl-progress').style.getPropertyValue('--p') === '1',
+  $('.ns-do #s-checklist').dataset.c + ' ' + $('.ns-do #cl-progress').style.getPropertyValue('--p'));
+w.DO.go('home');
 w.Prefs.set('doHideDone', true);
 check('… until the dial says hide it, and then it is gone',
   !cardNames().includes(firstName) && !d.querySelector('.ns-do #home-grid .card.done'),

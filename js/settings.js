@@ -741,6 +741,20 @@ function behaveHTML() {
 const textareaOf = (rows, ph) =>
   `<textarea data-field="items" rows="${rows}" placeholder="${esc(ph)}" spellcheck="false"></textarea>`;
 
+/* A routine's tile, its shape and its colour (ROOT 5, 4.20): what DO draws for
+   it today, so a routine stored before 4.20 opens on the shape it already has. */
+const LOOK_NAMES = { disc:'disc', quarter:'quarter', dome:'dome', square:'square', bars:'bars',
+                     violet:'violet', green:'green', pink:'pink', sun:'sun', chalk:'chalk' };
+function lookRow(key) {
+  if (!window.DO || !DO.lookOf) return '';
+  const look = DO.lookOf(key);
+  const opts = (list, cur) => list.map(v => `<option value="${v}"${v === cur ? ' selected' : ''}>${LOOK_NAMES[v] || v}</option>`).join('');
+  return `<div class="ed-look">
+    <select data-field="shape" aria-label="shape">${opts(DO.SHAPES, look.shape)}</select>
+    <select data-field="color" aria-label="colour">${opts(DO.COLORS, look.color)}</select>
+  </div>`;
+}
+
 const EDITORS = {
 
   /* DO · routines */
@@ -760,6 +774,7 @@ const EDITORS = {
               `<option value="${esc(t.id)}"${tabOf(key) === t.id ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}</select>
             <button class="ed-del" data-del="${esc(key)}" aria-label="delete routine">×</button>
           </div>
+          ${lookRow(key)}
           <textarea data-field="items" rows="${Math.min(12, Math.max(3, r.items.length))}"
                     spellcheck="false" aria-label="items">${esc(r.items.join('\n'))}</textarea>
         </div>`;
@@ -773,6 +788,11 @@ const EDITORS = {
           label: card.querySelector('[data-field=label]').value.trim() || key,
           items: lines(card.querySelector('[data-field=items]').value),
         };
+        // its tile's shape and colour (4.20) — kept only where the card offers them
+        ['shape', 'color'].forEach(f => {
+          const el = card.querySelector('[data-field=' + f + ']');
+          if (el && el.value) routines[key][f] = el.value;
+        });
         const tab = card.querySelector('[data-field=tab]').value;
         (byTab[tab] = byTab[tab] || []).push(key);
       });
