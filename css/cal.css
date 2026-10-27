@@ -367,3 +367,58 @@ body:has(#nav.chrome-off) .cal-steps,
 @media (prefers-reduced-motion:reduce){
   .ns-cal .cal-day.editing .cal-ev{transition:none}
 }
+
+/* 4.17 (r261027-6iom): the schedule — items in a column, each a switch, its name and calendar, a start, a duration */
+.ns-cal .cal-mk{background:var(--s1);border:var(--bw) solid var(--y);
+  border-radius:var(--r2);padding:calc(13px * var(--dens)) calc(14px * var(--dens));
+  margin-bottom:calc(12px * var(--dens))}
+.ns-cal .mk-dn{display:inline-flex;align-items:center;gap:2px}
+.ns-cal .mk-dn b{font:700 11px/1 var(--mono);color:var(--tx);letter-spacing:.4px}
+.ns-cal .mk-day{background:none;border:none;cursor:pointer;color:var(--y);font:700 14px/1 var(--mono);padding:2px 6px}
+.ns-cal .mk-from{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.ns-cal .mk-acts{display:flex;align-items:baseline;gap:calc(14px * var(--dens))}
+.ns-cal .mk-acts .ch-act.on{color:var(--tx)}
+.ns-cal .mk-start{display:flex;align-items:center;gap:calc(10px * var(--dens));margin:calc(10px * var(--dens)) 0;
+  font:400 9.5px/1 var(--mono);letter-spacing:.6px;color:var(--tx-2);text-transform:none}
+.ns-cal .mk-end{min-width:5ch;text-align:right}
+.ns-cal .mk-s,.ns-cal .mk-at{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
+  font:600 11px/1 var(--mono);padding:calc(5px * var(--dens)) calc(6px * var(--dens));color-scheme:dark;min-width:0}
+.ns-cal .mk-at.pin{border-color:var(--y)}
+.ns-cal .mk-at:disabled{opacity:.3}
+.ns-cal .mk-rows{display:flex;flex-direction:column}
+.ns-cal .mk-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:'sw what what' '. at dur';align-items:center;
+  column-gap:calc(10px * var(--dens));row-gap:calc(6px * var(--dens));padding:calc(9px * var(--dens)) 0;border-top:max(.5px, calc(var(--bw) * .5)) solid var(--bd)}
+.ns-cal .mk-row:has(.mk-mv){grid-template-areas:'sw what mv' '. at dur'}
+.ns-cal .mk-sw{grid-area:sw}
+.ns-cal .mk-what{grid-area:what}
+.ns-cal .mk-at{grid-area:at;justify-self:start}
+.ns-cal .mk-dur{grid-area:dur}
+.ns-cal .mk-mv{grid-area:mv}
+.ns-cal .mk-row.off .mk-what,.ns-cal .mk-row.off .mk-dur{opacity:.38}
+.ns-cal .mk-row.blk .mk-what{padding-left:calc(8px * var(--dens));border-left:3px solid var(--mk-c,var(--y))}
+.ns-cal .mk-none{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'what mv'}
+.ns-cal .mk-none .mk-nb{grid-area:what}
+.ns-cal .mk-nb{font:400 9.5px/1.5 var(--mono);color:var(--tx-2);text-transform:none}
+.ns-cal .mk-sw{width:30px;height:18px;border-radius:9px;border:var(--bw) solid var(--bd-2);background:var(--s2);position:relative;cursor:pointer;padding:0}
+.ns-cal .mk-sw::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--bd-2);transition:transform var(--dur-1),background var(--dur-1)}
+.ns-cal .mk-sw.on{background:var(--y);border-color:var(--y)}
+.ns-cal .mk-sw.on::after{transform:translateX(12px);background:var(--on-y)}
+.ns-cal .mk-what{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ns-cal .mk-n{font:600 12px/1.35 var(--head);color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-cal .mk-n em{font:400 8.5px/1 var(--mono);letter-spacing:1px;color:var(--y);font-style:normal}
+.ns-cal .mk-c{font:400 8.5px/1.3 var(--mono);letter-spacing:.6px;color:var(--tx-2);text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-cal .mk-what:has(.mk-cal){gap:5px}
+.ns-cal .mk-name,.ns-cal .mk-cal{background:var(--s2);border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--tx);
+  font:600 11px/1.2 var(--mono);padding:calc(4px * var(--dens)) calc(6px * var(--dens));min-width:0;width:100%}
+.ns-cal .mk-cal{font-weight:400;font-size:9.5px;color-scheme:dark}
+.ns-cal .mk-dur{display:inline-flex;align-items:center;gap:2px}
+.ns-cal .mk-dur b{font:700 11px/1 var(--mono);color:var(--tx);min-width:38px;text-align:center}
+.ns-cal .mk-b{width:24px;height:24px;border-radius:var(--r1);border:var(--bw) solid var(--bd);background:var(--s2);color:var(--tx-2);
+  font:700 12px/1 var(--mono);cursor:pointer;padding:0}
+.ns-cal .mk-b:active{background:var(--press)}
+.ns-cal .mk-mv{display:inline-flex;gap:3px}
+.ns-cal .mk-x{color:var(--tx-2)}
+.ns-cal .mk-add{width:100%;margin-top:calc(8px * var(--dens));background:none;border:var(--bw) dashed var(--bd-2);border-radius:var(--r1);
+  color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.6px;padding:calc(10px * var(--dens));cursor:pointer;text-transform:none}
+.ns-cal .mk-add:active{color:var(--tx)}
+.ns-cal .mk-note{margin-bottom:0}

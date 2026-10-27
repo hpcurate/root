@@ -1519,6 +1519,95 @@ async function doExport() {
   }
 }
 
+/* The schedule (4.17, Hugo's r261027-6iom "change system": "blocks should still be called blocks but you just set the start
+   time as well as the duration and that's it" · "this schedule is exported to google calendar every evening (if there is
+   one)"). DAY draws and edits it; what only PLAN may do is here — its content (plan.schedule, plan.calendars), the day's
+   blocks out of the sent history, and the one write to Todoist: the day's @import task, `mode: schedule`, which the 22:00
+   agent puts on Google Calendar that evening. Saving the same day again rewrites that task rather than adding a second one
+   (two for one day is a day the agent refuses). */
+const lower = s => String(s == null ? '' : s).toLowerCase();
+const SCHED_DEFAULT = {
+  start: '07:00',
+  items: [
+    { key:'morning',  name:'morning routine', dur:120, cal:'01A1 | routine' },
+    { key:'workout',  name:'workout',         dur:60,  cal:'01A3 | care' },
+    { key:'blocks',   name:'blocks',          dur:60 },
+    { key:'evening',  name:'evening routine', dur:90,  cal:'01A1 | routine' },
+    { key:'activity', name:'activity',        dur:60,  cal:'02B6 | alive' },
+  ],
+  blockCal: '01A5 | no work',
+};
+function scheduleContent() {
+  const c = Config.get('plan.schedule') || {};
+  const items = (Array.isArray(c.items) && c.items.length ? c.items : SCHED_DEFAULT.items)
+    .filter(i => i && i.key).map(i => ({ key:String(i.key), name:String(i.name || i.key), dur:Math.max(5, +i.dur || 60), cal:i.cal ? String(i.cal) : null }));
+  if (!items.some(i => i.key === 'blocks')) items.splice(Math.min(2, items.length), 0, { key:'blocks', name:'blocks', dur:60, cal:null });
+  const fixed = Object.keys(Config.get('cal.eventColors') || {}).filter(k => k !== '*');
+  const calNames = [...new Set([...items.map(i => i.cal), ...Object.values(calendars()), ...fixed, c.blockCal || SCHED_DEFAULT.blockCal].filter(Boolean))];
+  return { start: HM.test(String(c.start || '')) ? c.start : SCHED_DEFAULT.start, items, calendars: calNames,
+           blockCal: String(c.blockCal || SCHED_DEFAULT.blockCal) };
+}
+// a DO block's calendar, from its other label: the project's own, or the first of a split one's
+function calOfLabel(tag) {
+  const k = lower(String(tag || '')), tt = TASK_TYPES.find(t => [t.key, t.label, t.pLabel].some(x => lower(String(x || '')) === k));
+  if (!tt) return null;
+  const c = calendars();
+  if (c[tt.key]) return c[tt.key];
+  const sub = Object.keys(c).find(x => x.startsWith(tt.key + ' > '));
+  return sub ? c[sub] : null;
+}
+/* The day's blocks: what PLAN sent with a block label, due that day, in the order it was queued. `picks` (rows picked on the
+   sent list) take their place when there are any — whatever their label. */
+function blocksFor(iso, picks) {
+  const src = picks && picks.length ? picks : sentLog.filter(t => t.block && t.date === iso).slice().reverse();
+  return src.map(t => {
+    const tt = typeOf(t.typeKey);
+    return { name:String(t.name || ''), cal: calNameFor(t) || calOfLabel(t.project) || null,
+             projectLabel: (tt && tt.label) || t.project || t.typeKey || null, block: t.block || null,
+             color: (tt && labelHue(tt.label, tt.key)) || resolveColor(t.typeKey) };
+  }).filter(b => b.name);
+}
+/* The description, `mode: schedule`: the header as ever (four lines, a contract), then one line per event, down the day —
+   `HH:MM · minutes · calendar · name`. ` · ` and not ` | `, because the calendar's own name holds a pipe. */
+function scheduleDescription(day) {
+  const lines = (day.events || []).map(e => `${e.from} · ${e.dur} · ${e.cal} · ${String(e.name).replace(/\s+/g, ' ').trim()}`);
+  const out = [[`day: ${day.day}`, `start: ${day.start}`, 'template: schedule', 'mode: schedule'].join('\n')];
+  if (lines.length) out.push(lines.join('\n'));
+  if (day.notes && day.notes.length) out.push(['notes:'].concat(day.notes.map(n => '- ' + n)).join('\n'));
+  return out.join('\n\n');
+}
+const SCHED_TASKS = 'plan_sched_tasks_v1';   // { iso: the @import task's id } — so a day saved again rewrites its own task
+async function exportSchedule(day) {
+  if (!day || !day.day || !(day.events || []).length) throw new Error('nothing to send');
+  const missing = day.events.filter(e => !e.cal);
+  if (missing.length) throw new Error(`no calendar for ${missing[0].name}`);
+  let ids = {};
+  try { ids = JSON.parse(localStorage.getItem(SCHED_TASKS) || '{}') || {}; } catch {}
+  const body = JSON.stringify({ content: `schedule ${day.day}`, description: scheduleDescription(day), labels: ['import'] });
+  let id = ids[day.day] || null, made = false;
+  if (id) {
+    // the agent deletes the task once the day is written: then this is a new evening's work, a new task
+    try { await Todoist.call('/tasks/' + encodeURIComponent(id), { method:'POST', body }); }
+    catch (e) { if (!/ 404$/.test(e.message)) throw e; id = null; }
+  }
+  if (!id) { const r = await Todoist.call('/tasks', { method:'POST', body }); id = r && r.id ? String(r.id) : null; made = true; }
+  const today = Shell.today();
+  Object.keys(ids).forEach(k => { if (k < today) delete ids[k]; });
+  if (id) ids[day.day] = id;
+  try { localStorage.setItem(SCHED_TASKS, JSON.stringify(ids)); } catch {}
+  return { ok:true, id, made };
+}
+/* The sent list's button: DAY's schedule for the day of the rows picked (tomorrow when none is picked, or today before noon),
+   their tasks as its blocks */
+function toSchedule() {
+  const picks = selectedSent();
+  const days = [...new Set(picks.map(t => t.date).filter(Boolean))];
+  const iso = days.length === 1 ? days[0] : (new Date().getHours() < 12 ? Shell.today() : isoAdd(Shell.today(), 1));
+  if (Shell.TABS.includes('cal')) Shell.go('cal'); else Shell.open('cal');
+  if (window.CAL && CAL.newSchedule) CAL.newSchedule(iso, picks.length ? blocksFor(iso, picks) : null);
+  sentSel.clear(); renderSent();
+}
+
 function clearSent() {
   if (!sentLog.length) return;
   Shell.confirm('Clear the sent history? The tasks themselves stay in Todoist.', () => {
@@ -1682,6 +1771,8 @@ return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput,
          renderSent, toggleSent, clearSent,
          openExport, closeExport, pickSlot, setTemplate, setMode, expField, doExport,
          exportDescription, previewRows, resolved, blankDay,
+         // 4.17 (r261027-6iom): the schedule — DAY edits it, PLAN gives it its content and writes it to Todoist
+         scheduleContent, blocksFor, calOfLabel, scheduleDescription, exportSchedule, toSchedule,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
          deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
 })();

@@ -3012,14 +3012,16 @@ w.CAL.clearDay(); settle();
    DAY could only ever draw a day PLAN had exported, so a morning with nothing
    planned offered one route: leave for PLAN. But the blocks are usually already
    on DO, and the only thing missing is a shape to drop them into. */
-check('an empty day offers to build one from DO, as well as the older route to PLAN',
-  !!$('.ns-cal .cal-empty') && !!$('.ns-cal [data-act="start-day"]') &&
-  $('.ns-cal [data-act="start-day"]').textContent.replace(/\s+/g, ' ').trim().startsWith('schedule from do') &&
-  !!$('.ns-cal [data-act="to-plan"]'),
+/* 4.17 (r261027-6iom "change system"): the empty day offers a schedule first — the template's slots and "schedule from do"
+   were the block system he said doesn't work — and PLAN second. startDay() stays for a day that still has slots. */
+check('an empty day offers a schedule, as well as the older route to PLAN',
+  !!$('.ns-cal .cal-empty') && !!$('.ns-cal [data-act="mk"]') &&
+  $('.ns-cal [data-act="mk"]').textContent.replace(/\s+/g, ' ').trim().startsWith('make a schedule') &&
+  !!$('.ns-cal [data-act="to-plan"]') && !$('.ns-cal [data-act="start-day"]'),
   $('.ns-cal .cal-empty')?.textContent.replace(/\s+/g, ' ').trim());
 check('… and the two are not both the accent — one question, two answers',
   $('.ns-cal [data-act="to-plan"]').classList.contains('ce-alt') &&
-  !$('.ns-cal [data-act="start-day"]').classList.contains('ce-alt') &&
+  !$('.ns-cal [data-act="mk"]').classList.contains('ce-alt') &&
   /\.ns-cal \.ce-alt\{background:none/.test(calCss));
 /* §9's rule stands: CAL never resolves plan.dayTemplates. PLAN resolves it and
    hands the record over, and write() is still the only way into the store. */
@@ -3037,7 +3039,7 @@ check('the shape PLAN hands over is the template with every slot empty — no ta
   blankRec ? blankRec.events.map(e => e.kind).join(',') : 'null');
 check('… and asking for it changes nothing on its own — it is a value, not a write',
   !w.CAL.day(today));
-click($('.ns-cal [data-act="start-day"]'));
+w.CAL.startDay();
 check('starting a day writes it and it is drawn',
   !!w.CAL.day(today) && !!$('.ns-cal .cal-day') && !$('.ns-cal .cal-empty'),
   w.CAL.days().join(','));
@@ -7739,6 +7741,141 @@ check('no errors through WALK', errors.length === 0, errors.slice(0, 3).join(' |
   if (keptS === null) LSs.removeItem('store_state_v1'); else LSs.setItem('store_state_v1', keptS);
 }
 check('no errors through STORE ↔ Todoist', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* ── 4.17 (r261027-6iom "change system"): the schedule ──
+   "blocks should still be called blocks but you just set the start time as well as the duration and that's it" ·
+   "1. morning routine (default 2h) 2. workout (default 1h) 3. blocks (the ones from plan, default 1h) 4. evening routine
+   (default 1h30) 5. activity | all are toggleable on/off ; it remembers what you had on last time you created a schedule
+   (apart from blocks)" · "in edit mode you can move items around and create new ones" · "this schedule is exported to
+   google calendar every evening (if there is one)" */
+{
+  const LS = w.localStorage;
+  LS.removeItem('cal_sched_v1'); LS.removeItem('plan_sched_tasks_v1');
+  const day1 = offset(5), day2 = offset(6);
+  w.Shell.go('cal');
+  const mkRows = () => [...d.querySelectorAll('.ns-cal .mk-row:not(.mk-none)')];
+  const nameOf = r => (r.querySelector('.mk-n') || r.querySelector('.mk-name')).textContent.trim() || r.querySelector('.mk-name')?.value;
+  const at = r => r.querySelector('.mk-at').value;
+  const row = n => mkRows().find(r => (r.querySelector('.mk-n')?.textContent.trim() || r.querySelector('.mk-name')?.value) === n);
+  w.CAL.newSchedule(day1); await tick();
+  check('a new schedule: his five in order, each from where the one before ends — 07:00, 09:00, (no blocks), 10:00, 11:30',
+    !!$('.ns-cal .cal-mk') && mkRows().map(nameOf).join('|') === 'morning routine|workout|evening routine|activity' &&
+    mkRows().map(at).join('|') === '07:00|09:00|10:00|11:30' && !!$('.ns-cal .mk-none'),
+    mkRows().map(r => nameOf(r) + ' ' + at(r)).join(' · '));
+  check('… their durations as he said: 2h, 1h, 1h30, 1h', [...d.querySelectorAll('.ns-cal .mk-dur b')].map(b => b.textContent).join('|') === '2h|1h|1h30|1h');
+  // the blocks: the rows picked on PLAN's sent list (or the day's block tasks), one item each, 1h, where "blocks" is
+  const picks = w.PLAN.blocksFor(day1, [{ name: 'mix the track', typeKey: 'curate', section: 'mixing', block: 'b1', date: day1 },
+                                        { name: 'clear the desk', typeKey: 'home', section: 'home | chores', block: 'b2', date: day1 }]);
+  check('PLAN hands the blocks over with their calendar', picks.length === 2 && picks[0].cal === '02A1 | curate project mixing' && picks[1].cal === '02B4 | home',
+    JSON.stringify(picks.map(p => p.cal)));
+  w.CAL.newSchedule(day1, picks); await tick();
+  check('… and they take the place of "blocks", 1h each: 09:00 workout, then 10:00 and 11:00, then the evening at 12:00',
+    mkRows().map(nameOf).join('|') === 'morning routine|workout|block mix the track|block clear the desk|evening routine|activity' &&
+    mkRows().map(at).join('|') === '07:00|09:00|10:00|11:00|12:00|13:30', mkRows().map(r => nameOf(r) + ' ' + at(r)).join(' · '));
+  // switched off: it keeps its place and makes no time; a duration changed moves the rest
+  click(row('workout').querySelector('[data-act="mk-on"]')); await tick();
+  check('workout off: the blocks move up to 09:00', mkRows().map(at).join('|') === '07:00||09:00|10:00|11:00|12:30' && row('workout').classList.contains('off'),
+    mkRows().map(at).join('|'));
+  click(row('morning routine').querySelector('[data-act="mk-dur"][data-d="15"]')); await tick();
+  check('the morning 15 minutes longer: everything after follows', mkRows().map(at).join('|') === '07:00||09:15|10:15|11:15|12:45');
+  // a start set by hand: the ones after run on from it
+  const ev = row('evening routine').querySelector('.mk-at'); ev.value = '18:00'; ev.dispatchEvent(new w.Event('change', { bubbles: true })); await tick();
+  check('the evening set to 18:00 by hand: the activity follows it at 19:30', at(row('evening routine')) === '18:00' && at(row('activity')) === '19:30' &&
+    row('evening routine').querySelector('.mk-at').classList.contains('pin'));
+  const st = $('.ns-cal .mk-s'); st.value = '06:30'; st.dispatchEvent(new w.Event('change', { bubbles: true })); await tick();
+  check('the day\'s start moves what is not pinned', at(row('morning routine')) === '06:30' && at(row('block mix the track')) === '08:45' && at(row('evening routine')) === '18:00');
+  // edit mode: one of his own, moved, taken out
+  click($('.ns-cal [data-act="mk-edit"]')); await tick();
+  click($('.ns-cal [data-act="mk-add"]')); await tick();
+  const nm = [...d.querySelectorAll('.ns-cal .mk-name')].pop(); nm.value = 'call mum'; nm.dispatchEvent(new w.Event('change', { bubbles: true })); await tick();
+  check('edit mode: an item of his own, at the end', mkRows().map(r => r.querySelector('.mk-name')?.value || nameOf(r)).pop() === 'call mum');
+  const ownId = mkRows().pop().dataset.id;
+  w.CAL.mkMove(ownId, -1); await tick();
+  check('… moved up one place', mkRows().map(r => r.querySelector('.mk-name')?.value || nameOf(r)).slice(-2).join('|') === 'call mum|activity');
+  w.CAL.mkMove(ownId, -1); w.CAL.mkMove(ownId, -1); await tick();
+  check('… past the evening, then past the blocks as one', mkRows().map(r => r.querySelector('.mk-name')?.value || nameOf(r)).join('|') ===
+    'morning routine|workout|call mum|block mix the track|block clear the desk|evening routine|activity',
+    mkRows().map(r => r.querySelector('.mk-name')?.value || nameOf(r)).join('|'));
+  w.CAL.mkDel(ownId); await tick();
+  check('… and taken out', !mkRows().some(r => r.querySelector('.mk-name')?.value === 'call mum'));
+  check('edit mode shows each item\'s calendar to pick', d.querySelectorAll('.ns-cal .mk-cal').length === mkRows().length &&
+    [...d.querySelectorAll('.ns-cal .mk-cal option')].some(o => o.textContent === '01A1 | routine'));
+  click($('.ns-cal [data-act="mk-edit"]')); await tick();
+  // saving: the day's @import task, mode: schedule, through Todoist; then the day is kept here
+  w.Creds.save('tok');
+  let posts = [];
+  const fetchWas = fetchScript;
+  fetchScript = async (url, opts) => {
+    if (opts && opts.method === 'POST') { posts.push({ url: String(url), body: JSON.parse(opts.body) });
+      return { ok: true, status: 200, json: async () => ({ id: 's1' }), text: async () => '{"id":"s1"}' }; }
+    return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+  };
+  const want = [`day: ${day1}`, 'start: 06:30', 'template: schedule', 'mode: schedule'].join('\n') + '\n\n' + [
+    '06:30 · 135 · 01A1 | routine · morning routine',
+    '08:45 · 60 · 02A1 | curate project mixing · mix the track',
+    '09:45 · 60 · 02B4 | home · clear the desk',
+    '18:00 · 90 · 01A1 | routine · evening routine',
+    '19:30 · 60 · 02B6 | alive · activity'].join('\n');
+  check('the description: the four header lines, then one line per item that is on, down the day — HH:MM · minutes · calendar · name',
+    w.PLAN.scheduleDescription(w.CAL.mkDayRecord()) === want, JSON.stringify(w.PLAN.scheduleDescription(w.CAL.mkDayRecord())));
+  await w.CAL.mkSave(); await tick(50);
+  check('saving POSTs one task labelled import, "schedule <day>", carrying it', posts.length === 1 && posts[0].url === 'https://api.todoist.com/api/v1/tasks' &&
+    posts[0].body.content === `schedule ${day1}` && JSON.stringify(posts[0].body.labels) === '["import"]' && posts[0].body.description === want,
+    JSON.stringify(posts.map(p => p.url)));
+  const rec = w.CAL.day(day1);
+  check('… then the day is kept: its events (the ones on), a schedule, its items for next time',
+    !!rec && rec.mode === 'schedule' && rec.template === 'schedule' && rec.events.length === 5 && rec.events[1].kind === 'task' && rec.events[0].kind === 'fixed' &&
+    rec.events.map(e => e.from).join('|') === '06:30|08:45|09:45|18:00|19:30' && !!rec.sched && !w.CAL.schedule(),
+    rec && rec.events.map(e => e.from + ' ' + e.name).join(' · '));
+  check('… drawn, with a "schedule" button to change it', !!$('.ns-cal .cal-day') && [...d.querySelectorAll('.ns-cal .ch-act')].some(b => b.dataset.act === 'mk' && b.textContent === 'schedule'));
+  const last = JSON.parse(LS.getItem('cal_sched_v1'));
+  check('what he had on is remembered, the blocks never', last.start === '06:30' && last.items.find(i => i.key === 'workout').on === false &&
+    !last.items.some(i => /mix the track/.test(i.name)) && last.items.some(i => i.key === 'blocks'), JSON.stringify(last));
+  // saved again: the same task, rewritten (two for one day is a day the agent refuses)
+  w.CAL.newSchedule(day1); await tick();
+  check('opening it again brings its own items back', mkRows().some(r => nameOf(r) === 'block mix the track') && at(row('evening routine')) === '18:00');
+  click(row('activity').querySelector('[data-act="mk-on"]')); await tick();
+  await w.CAL.mkSave(); await tick(50);
+  check('… saved again, the day\'s own task is rewritten, not a second one', posts.length === 2 && posts[1].url === 'https://api.todoist.com/api/v1/tasks/s1' &&
+    !/activity/.test(posts[1].body.description) && w.CAL.day(day1).events.length === 4, JSON.stringify(posts.map(p => p.url)));
+  // the next day's: workout still off, its own (no) blocks
+  w.CAL.newSchedule(day2); await tick();
+  check('the next new schedule remembers: workout off, the start, no blocks of the other day', row('workout').classList.contains('off') &&
+    $('.ns-cal .mk-s').value === '06:30' && !mkRows().some(r => r.classList.contains('blk')) && !!$('.ns-cal .mk-none'));
+  // a failure is never silent, and nothing is kept
+  fetchScript = async (url, opts) => (opts && opts.method === 'POST') ? { ok: false, status: 500, json: async () => ({}), text: async () => '' }
+    : { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+  await w.CAL.mkSave(); await tick(50);
+  check('a failed send says so, keeps the editor open, and keeps no day', /not sent/.test($('#toast').textContent) && !!w.CAL.schedule() && !w.CAL.day(day2),
+    $('#toast').textContent);
+  w.CAL.mkClose();
+  fetchScript = fetchWas; w.Creds.save('');
+  check('CAL still reaches nothing itself — PLAN does the one write', !/fetch\(|XMLHttpRequest|https?:\/\//.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')) &&
+    /PLAN\.exportSchedule/.test(fs.readFileSync(path.join(ROOT, 'js/cal.js'), 'utf8')));
+  w.CAL.pick(day1); w.CAL.clearDay(); await tick();
+  LS.removeItem('cal_sched_v1'); LS.removeItem('plan_sched_tasks_v1');
+}
+check('no errors through the schedule', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+/* ── 4.17 (r261027-g235 "save to obsidian for the log module, for weekly reports and just to sync the data with obsidian"):
+   any day's .md and its week's report, for ROOT desktop to save into the vault ── */
+{
+  const LS = w.localStorage, d1 = offset(-9), k = 'log_' + d1, keep = LS.getItem(k);
+  const openBefore = w.LOG.buildNote();
+  LS.setItem(k, JSON.stringify({ date: d1, m: { wt: '07:10', sl: '7', nrg: '3', mood: '4', wkg: '70.2', km: '', cs_on: null, saved: true },
+    e: { kme: '', nrg: '', mood: '', stress: '', blocks: [], media: [], meals: [], caf_c: 0, caf_ed: 0 }, entries: [{ time: '09:00', text: 'a day long gone' }] }));
+  const n = w.LOG.noteFor(d1);
+  const [y, m, dd] = d1.split('-');
+  check('noteFor: any day\'s note, named as the vault names them (YY.MM.DD.md), in the share format',
+    !!n && n.name === `${y.slice(2)}.${m}.${dd}.md` && n.md.includes('a day long gone') && /weight_kg\s*\| 70\.2/.test(n.md) && n.md.startsWith(`*:LiCalendar: ${d1}*`),
+    n && n.name);
+  check('… and the day LOG holds open is left as it was', w.LOG.buildNote() === openBefore);
+  const r = w.LOG.weekReportFor(d1);
+  check('weekReportFor: that day\'s week, as the reports screen writes it (review_weekly_YY.WW.md)',
+    !!r && /^review_weekly_\d{2}\.\d{2}\.md$/.test(r.name) && /weekly review/.test(r.md) && r.md.includes('70.2'), r && r.name);
+  check('… a date that is not one gives nothing', w.LOG.noteFor('soon') === null && w.LOG.weekReportFor('') === null);
+  if (keep === null) LS.removeItem(k); else LS.setItem(k, keep);
+}
 
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);

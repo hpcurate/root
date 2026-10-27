@@ -154,6 +154,7 @@ function pickDefault() { return Shell.today(); }
 function pick(iso) {
   if (!isoRe.test(String(iso || ''))) return;
   Prefs.tap();
+  if (mk) { const keep = mk.edit; newSchedule(iso); if (mk) { mk.edit = keep; render(); } return; }   // 4.17: the schedule follows the day
   sel = iso;
   sched = null;              // the panel is about the day it was opened on
   render();
@@ -641,22 +642,15 @@ function dayHTML() {
     /* The action is one of this app's own controls, not a full-width form
        button: the empty state is a card like every other card here, and a
        `.btn` stretched across it read as a screen from a different app. */
-    /* Two ways out of an empty day, and the order is which one is more often
-       right in the morning. Leaving for PLAN is the route when there is
-       something to *send*. But the blocks are usually already on DO — labelled
-       @b1 / @b2 in Todoist, fetched, sitting there — and the only thing missing
-       is a day-shape to drop them into. "schedule from do" asks PLAN for that
-       shape (it resolves the template; CAL never does — §9) and opens the same
-       panel a planned day offers, so one tap goes from "nothing planned" to
-       picking slots. */
-    const canStart = !!(window.PLAN && PLAN.blankDay);
+    /* Two ways out of an empty day: a schedule (4.17, r261027-6iom — the
+       template's slots and "schedule from do" were the block system he said
+       doesn't work), and PLAN, for when there is something to send first. */
     return `<div class="cal-empty card">
       <div class="ce-title">${sel === today ? 'nothing planned for today' : 'nothing planned for this day'}</div>
-      <div class="ce-note">PLAN writes the day here when you export it — pick the sent tasks,
-        give each one a slot, and the day follows.${canStart ? ` Or start from the day's own shape
-        and fill it with the blocks DO is already holding — nothing is sent anywhere.` : ''}</div>
-      ${canStart ? '<button class="ce-go" data-act="start-day">schedule from do<span aria-hidden="true">→</span></button>' : ''}
-      <button class="ce-go${canStart ? ' ce-alt' : ''}" data-act="to-plan">open plan<span aria-hidden="true">→</span></button>
+      <div class="ce-note">a schedule is your morning and evening routines, a workout, the day's blocks from plan and an
+        activity — each a start and a duration. it goes to google calendar that evening.</div>
+      <button class="ce-go" data-act="mk">make a schedule<span aria-hidden="true">→</span></button>
+      <button class="ce-go ce-alt" data-act="to-plan">open plan<span aria-hidden="true">→</span></button>
     </div>`;
   }
   const evs = visibleEvents(rec);
@@ -863,6 +857,7 @@ function dayHead(rec) {
     <div class="ch-meta">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>
     <div class="ch-acts">
       ${slotsOf(rec).length ? '<button class="ch-act" data-act="sched">+ do</button>' : ''}
+      <button class="ch-act" data-act="mk">${rec.sched ? 'schedule' : 'new schedule'}</button>
       <button class="ch-act" data-act="gap">+ gap</button>
       <!-- The switch every reshaping control lives behind. It reads as pressed
            while it is on, because in edit mode the rows look different and the
@@ -996,6 +991,189 @@ function schedHTML(rec) {
   </div>`;
 }
 
+/* ── The schedule (4.17, Hugo's r261027-6iom "change system") ──
+   His words: "the current block system doesn't work, we need a new one" · "blocks should still be called blocks but you
+   just set the start time as well as the duration and that's it" · "the current editor needs to be overhauled" · "when
+   creating a schedule you just set start/duration: 1. morning routine (default 2h) 2. workout (default 1h) 3. blocks (the
+   ones from plan, default 1h) 4. evening routine (default 1h30) 5. activity | all are toggleable on/off ; it remembers
+   what you had on last time you created a schedule (apart from blocks)" · "in edit mode you can move items around and
+   create new ones" · "this schedule is exported to google calendar every evening (if there is one)".
+   A schedule is a list of items, each a start and a duration and nothing else. An item starts where the one before it
+   ends, unless its start is set by hand — then the ones after run on from it. The items are PLAN's content (its five, in
+   plan.schedule) with the day's blocks in the place of "blocks"; switched off, one keeps its place but makes no event.
+   Edit mode moves them, adds one of his own, and picks each one's calendar. Saving hands the day to PLAN, which writes
+   the day's @import task (`mode: schedule`) for the 22:00 agent, and only once that has landed is the day kept here —
+   §9's rule: DAY never draws a day as scheduled that was not sent. What he had on (not the blocks) is remembered in
+   cal_sched_v1. CAL reads no `plan.` content of its own: PLAN hands it over (§9). ── */
+const MK_KEY = 'cal_sched_v1';       // the last schedule's items without its blocks: { start, items: [{ key, name, dur, on, cal, custom }] }
+let mk = null;                       // the editor while it is open: { iso, start, rows, edit, busy }
+const mkMins = t => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '')); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
+const mkHM = n => { const r = ((n % 1440) + 1440) % 1440; return String(Math.floor(r / 60)).padStart(2, '0') + ':' + String(r % 60).padStart(2, '0'); };
+const mkDur = n => (n >= 60 ? Math.floor(n / 60) + 'h' + (n % 60 ? String(n % 60).padStart(2, '0') : '') : n + 'm');
+function mkLast() { try { const v = JSON.parse(localStorage.getItem(MK_KEY) || 'null'); return v && Array.isArray(v.items) ? v : null; } catch { return null; } }
+function mkContent() {
+  return window.PLAN && PLAN.scheduleContent ? PLAN.scheduleContent()
+    : { start: '07:00', items: [{ key: 'blocks', name: 'blocks', dur: 60, cal: null }], calendars: [], blockCal: '' };
+}
+/* the day's blocks: PLAN's (sent with a block label for that day, or the rows picked there), and today's on DO */
+function mkBlocks(iso, picks) {
+  const out = [], seen = new Set();
+  const add = b => { const k = lower(b.name).trim(); if (!k || seen.has(k)) return; seen.add(k); out.push(b); };
+  (picks || (window.PLAN && PLAN.blocksFor ? PLAN.blocksFor(iso) : [])).forEach(add);
+  if (!picks && iso === Shell.today()) doBlocks().forEach(t => add({ name: String(t.content), projectLabel: t.tag || null, color: t.color || null,
+    cal: window.PLAN && PLAN.calOfLabel ? PLAN.calOfLabel(t.tag) : null }));
+  return out;
+}
+let mkSeq = 0;
+function mkRows(iso, picks) {
+  const C = mkContent(), last = mkLast();
+  // what he had last time, in his order; an item added to the content since joins at the end
+  const items = last ? last.items.slice() : C.items.map(i => Object.assign({}, i, { on: true }));
+  if (last) C.items.forEach(i => { if (!items.some(x => x.key === i.key)) items.push(Object.assign({}, i, { on: true })); });
+  const rows = [];
+  items.forEach(it => {
+    if (it.key === 'blocks') {
+      const dur = Math.max(5, +((C.items.find(x => x.key === 'blocks') || {}).dur) || 60);
+      mkBlocks(iso, picks).forEach(b => rows.push({ id: 'b' + (mkSeq++), key: 'block', block: true, name: b.name, dur, on: true, pin: null,
+        cal: b.cal || C.blockCal, color: b.color || null, projectLabel: b.projectLabel || null }));
+      rows.push({ id: 'blocks', key: 'blocks', marker: true });     // where the blocks go when they are moved as one
+      return;
+    }
+    rows.push({ id: it.custom ? 'c' + (mkSeq++) : it.key, key: it.key, name: String(it.name || it.key), dur: Math.max(5, +it.dur || 60),
+      on: it.on !== false, pin: null, cal: it.cal || C.blockCal, custom: !!it.custom });
+  });
+  return { start: last && mkMins(last.start) != null ? last.start : C.start, rows };
+}
+/* every row with its clock times: the day's start, then each one where the one before it ended (or its own start) */
+function mkTimes() {
+  let at = mkMins(mk.start); if (at == null) at = 7 * 60;
+  return mk.rows.filter(r => !r.marker).map(r => {
+    if (!r.on) return Object.assign({}, r, { from: null, to: null });
+    const p = mkMins(r.pin), from = p != null ? p + (p < (mkMins(mk.start) || 0) ? 1440 : 0) : at;
+    at = from + r.dur;
+    return Object.assign({}, r, { from: mkHM(from), to: mkHM(at), over: from >= 1440, fromN: from });
+  });
+}
+function newSchedule(iso, picks) {
+  const day = iso || sel || Shell.today();
+  const rec = DB.days[day];
+  sel = day;
+  if (rec && rec.sched && Array.isArray(rec.sched.rows) && !picks) {
+    mk = { iso: day, start: rec.sched.start, rows: JSON.parse(JSON.stringify(rec.sched.rows)), edit: false, again: true };
+  } else {
+    const r = mkRows(day, picks);
+    mk = { iso: day, start: r.start, rows: r.rows, edit: false };
+  }
+  Prefs.tap(); render();
+  return mk;
+}
+function mkClose() { mk = null; Prefs.tap(); render(); }
+const mkRow = id => mk && mk.rows.find(r => r.id === id);
+function mkSet(id, k, v) {
+  if (!mk) return;
+  if (id === 'start') { if (mkMins(v) != null) mk.start = mkHM(mkMins(v)); render(); return; }
+  const r = mkRow(id); if (!r) return;
+  if (k === 'on') r.on = !r.on;
+  else if (k === 'dur') r.dur = Math.max(5, Math.min(12 * 60, r.dur + (+v || 0)));
+  else if (k === 'pin') r.pin = v && mkMins(v) != null ? mkHM(mkMins(v)) : null;
+  else if (k === 'name') { const n = String(v || '').replace(/\s+/g, ' ').trim(); if (n) r.name = n.slice(0, 80); }
+  else if (k === 'cal') r.cal = String(v || '') || r.cal;
+  Prefs.tap(); render();
+}
+/* edit mode: an item up or down (the blocks move together, as "blocks"), one of his own added or taken away */
+function mkMove(id, d) {
+  if (!mk) return;
+  const r = mkRow(id); if (!r) return;
+  const isB = x => x.block || x.marker, R = mk.rows, i = R.indexOf(r), n = R[i + (d < 0 ? -1 : 1)];
+  // a block past another block: the two change places
+  if (r.block && n && n.block) { R[R.indexOf(n)] = r; R[i] = n; Prefs.tap(); render(); return; }
+  // anything else moves one place among the items, the blocks counting as one ("blocks")
+  const units = [];
+  R.forEach(x => { if (isB(x)) { const u = units.find(v => v.b); if (u) u.rows.push(x); else units.push({ b: true, rows: [x] }); } else units.push({ b: false, rows: [x] }); });
+  const a = units.findIndex(u => u.rows.includes(r)), b = a + (d < 0 ? -1 : 1);
+  if (a < 0 || b < 0 || b >= units.length) return;
+  [units[a], units[b]] = [units[b], units[a]];
+  mk.rows = units.flatMap(u => u.rows);
+  Prefs.tap(); render();
+}
+function mkAdd(name) {
+  if (!mk) return;
+  const C = mkContent();
+  mk.rows.push({ id: 'c' + (mkSeq++), key: 'own' + Date.now().toString(36), name: String(name || 'new item').slice(0, 80), dur: 60, on: true, pin: null,
+    cal: C.blockCal, custom: true });
+  mk.edit = true;
+  Prefs.tap(); render();
+}
+function mkDel(id) { if (!mk) return; const r = mkRow(id); if (!r || !(r.custom || r.block)) return; mk.rows = mk.rows.filter(x => x !== r); Prefs.tap(); render(); }
+function mkDay(n) {
+  if (!mk) return;
+  const iso = shift(mk.iso, n), keep = mk.edit;
+  newSchedule(iso);
+  if (mk) mk.edit = keep;
+  render();
+}
+/* the day as DAY keeps it, and as PLAN sends it: one event per item that is on, down the day */
+function mkDayRecord() {
+  const T = mkTimes().filter(r => r.on).sort((a, b) => a.fromN - b.fromN);
+  return {
+    day: mk.iso, start: mk.start, template: 'schedule', mode: 'schedule', notes: [],
+    events: T.map(r => ({ from: r.from, to: r.to, over: r.over, dur: r.dur, kind: r.block ? 'task' : 'fixed', name: r.name, cal: r.cal || null,
+      color: r.block ? r.color : null, projectLabel: r.block ? r.projectLabel : null })),
+    sched: { start: mk.start, rows: mk.rows },
+  };
+}
+async function mkSave() {
+  if (!mk || mk.busy) return false;
+  const day = mkDayRecord();
+  if (!day.events.length) { Shell.toast('switch something on first'); return false; }
+  if (!window.PLAN || !PLAN.exportSchedule) { Shell.toast('plan is not loaded'); return false; }
+  mk.busy = true; render();
+  try { await PLAN.exportSchedule(day); }
+  catch (err) { if (mk) { mk.busy = false; render(); } Shell.toast('not sent · ' + ((err && err.message) || 'unknown error')); return false; }
+  // what he had on, for the next one: everything but the blocks (their place is kept as "blocks")
+  const items = [];
+  mk.rows.forEach(r => { if (r.block) return; if (r.marker) { items.push({ key: 'blocks', name: 'blocks' }); return; }
+    items.push({ key: r.key, name: r.name, dur: r.dur, on: r.on, cal: r.cal, custom: !!r.custom }); });
+  try { localStorage.setItem(MK_KEY, JSON.stringify({ start: mk.start, items })); } catch {}
+  const n = day.events.length, iso = mk.iso;
+  mk = null;
+  write(day);
+  const rec = DB.days[iso];
+  if (rec) { rec.sched = day.sched; save(); render(); }
+  Shell.toast(`scheduled · ${n} event${n === 1 ? '' : 's'} · on google calendar tonight`);
+  return true;
+}
+function mkHTML() {
+  const T = mkTimes(), C = mkContent(), E = mk.edit;
+  const cals = [...new Set([...C.calendars, ...mk.rows.map(r => r.cal).filter(Boolean)])];
+  const rowsById = new Map(T.map(r => [r.id, r]));
+  const blocksN = mk.rows.filter(r => r.block).length;
+  const line = r0 => {
+    if (r0.marker) return blocksN ? '' : `<div class="mk-row mk-none" data-id="blocks"><span class="mk-nb">no blocks for this day — give tasks a block label in plan, or pick sent ones there</span>
+      ${E ? `<span class="mk-mv"><button class="mk-b" data-act="mk-up" data-id="blocks" aria-label="up">↑</button><button class="mk-b" data-act="mk-down" data-id="blocks" aria-label="down">↓</button></span>` : ''}</div>`;
+    const r = rowsById.get(r0.id);
+    return `<div class="mk-row${r.on ? '' : ' off'}${r.block ? ' blk' : ''}" data-id="${esc(r.id)}"${r.block && r.color ? ` style="--mk-c:${esc(r.color)}"` : ''}>
+      <button class="mk-sw${r.on ? ' on' : ''}" data-act="mk-on" data-id="${esc(r.id)}" aria-pressed="${r.on}" aria-label="${r.on ? 'on' : 'off'}"></button>
+      <div class="mk-what">${E && !r.block ? `<input class="mk-name" data-id="${esc(r.id)}" value="${esc(r.name)}" aria-label="its name">` : `<span class="mk-n">${r.block ? '<em>block</em> ' : ''}${esc(r.name)}</span>`}
+        ${E ? `<select class="mk-cal" data-id="${esc(r.id)}" aria-label="its calendar">${cals.map(c => `<option${c === r.cal ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>` : `<span class="mk-c">${esc(r.cal || '')}</span>`}</div>
+      <input class="mk-at${r.pin ? ' pin' : ''}" type="time" data-id="${esc(r.id)}" value="${r.on ? esc(r.from) : ''}"${r.on ? '' : ' disabled'} aria-label="its start">
+      <span class="mk-dur"><button class="mk-b" data-act="mk-dur" data-id="${esc(r.id)}" data-d="-15" aria-label="15 minutes less">−</button><b>${mkDur(r.dur)}</b><button class="mk-b" data-act="mk-dur" data-id="${esc(r.id)}" data-d="15" aria-label="15 minutes more">+</button></span>
+      ${E ? `<span class="mk-mv"><button class="mk-b" data-act="mk-up" data-id="${esc(r.id)}" aria-label="up">↑</button><button class="mk-b" data-act="mk-down" data-id="${esc(r.id)}" aria-label="down">↓</button>${r.custom || r.block ? `<button class="mk-b mk-x" data-act="mk-del" data-id="${esc(r.id)}" aria-label="take it out">✕</button>` : ''}</span>` : ''}
+    </div>`;
+  };
+  const on = T.filter(r => r.on), last = on.length ? on.reduce((a, b) => (b.fromN + b.dur > a.fromN + a.dur ? b : a)) : null;
+  return `<div class="cal-mk card">
+    <div class="cs-head"><span class="cs-title">${mk.again ? 'the schedule' : 'a new schedule'}</span>
+      <span class="mk-acts"><button class="ch-act${E ? ' on' : ''}" data-act="mk-edit" aria-pressed="${E}">${E ? 'done' : 'edit'}</button><button class="cs-close" data-act="mk-close">cancel</button></span></div>
+    <div class="mk-start"><span class="mk-dn"><button class="mk-day" data-act="mk-day" data-d="-1" aria-label="the day before">‹</button><b>${esc(lower(Prefs.formatDate(mk.iso, 'short')))}</b><button class="mk-day" data-act="mk-day" data-d="1" aria-label="the day after">›</button></span>
+      <span class="mk-from">from <input class="mk-s" type="time" value="${esc(mk.start)}" aria-label="the day's start"></span><span class="mk-end">${last ? 'to ' + esc(mkHM(last.fromN + last.dur)) : ''}</span></div>
+    <div class="mk-rows">${mk.rows.map(line).join('')}</div>
+    ${E ? `<button class="mk-add" data-act="mk-add">+ an item of your own</button>` : ''}
+    <button class="cs-go" data-act="mk-save"${mk.busy || !on.length ? ' disabled' : ''}>${mk.busy ? 'sending…' : on.length ? `schedule ${on.length} · to google calendar` : 'switch something on'}</button>
+    <div class="cs-note mk-note">each item starts where the one before ends — set a start and the ones after follow it. it goes to todoist as the day's import task; the evening agent puts it on google calendar (22:00).</div>
+  </div>`;
+}
+
 /* The notes travelled with the export, so they belong to the day as planned.
    Shown as written and never parsed — the agent downstream owns their meaning. */
 function notesHTML(rec) {
@@ -1009,6 +1187,8 @@ function notesHTML(rec) {
 function render() {
   const box = $id('cal-body');
   if (!box) return;
+  // 4.17: the schedule being made takes the day's place (a day not planned yet is not in the strip)
+  if (mk) { sel = mk.iso; box.innerHTML = mkHTML(); paintBand(); paintSteps(); return; }
   if (!sel || !strip().includes(sel)) sel = pickDefault();
   box.innerHTML = dayHTML();
   paintBand();
@@ -1082,6 +1262,18 @@ document.addEventListener('click', e => {
   if (act === 'size')        { resizeEvent(t.dataset.i, +t.dataset.d); return; }
   if (act === 'tick')        { toggleEvent(t.dataset.i); return; }
   if (act === 'start-day')   { startDay(); return; }
+  // 4.17: the schedule
+  if (act === 'mk')          { newSchedule(sel); return; }
+  if (act === 'mk-close')    { mkClose(); return; }
+  if (act === 'mk-save')     { mkSave(); return; }
+  if (act === 'mk-edit')     { if (mk) { mk.edit = !mk.edit; Prefs.tap(); render(); } return; }
+  if (act === 'mk-on')       { mkSet(t.dataset.id, 'on'); return; }
+  if (act === 'mk-dur')      { mkSet(t.dataset.id, 'dur', +t.dataset.d); return; }
+  if (act === 'mk-up')       { mkMove(t.dataset.id, -1); return; }
+  if (act === 'mk-down')     { mkMove(t.dataset.id, 1); return; }
+  if (act === 'mk-del')      { mkDel(t.dataset.id); return; }
+  if (act === 'mk-add')      { mkAdd(); return; }
+  if (act === 'mk-day')      { mkDay(+t.dataset.d); return; }
   if (act === 'sched')       { openSched(); return; }
   if (act === 'sched-close') { closeSched(); return; }
   if (act === 'sched-pick')  { pickSlot(t.dataset.id, t.dataset.slot); return; }
@@ -1151,7 +1343,19 @@ Shell.register('cal', {
   },
 });
 
+/* 4.17: the schedule's fields — the day's start, an item's start, its name, its calendar */
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (!mk || !t.closest || !t.closest('.ns-cal .cal-mk')) return;
+  if (t.classList.contains('mk-s'))    mkSet('start', null, t.value);
+  else if (t.classList.contains('mk-at'))   mkSet(t.dataset.id, 'pin', t.value);
+  else if (t.classList.contains('mk-name')) mkSet(t.dataset.id, 'name', t.value);
+  else if (t.classList.contains('mk-cal'))  mkSet(t.dataset.id, 'cal', t.value);
+});
+
 return { write, patch, render, renderSettings, clearAll, clearDay, pick, wakeSteps,
+         // 4.17 (r261027-6iom): the schedule
+         newSchedule, mkClose, mkSet, mkMove, mkAdd, mkDel, mkSave, mkDayRecord, schedule: () => mk,
          toggleEvent, deleteEvent, setWake, startDay, openSched, closeSched, pickSlot, applySched, paintNow,
          /* Anything that finishes a task calls this: DAY's own rows, DO's blocks
             and DO's today list. `on:false` takes the mark back. */

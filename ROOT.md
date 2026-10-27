@@ -519,6 +519,7 @@ versions still work off the same data.
 | `plan_sent_v1` | PLAN | what was sent **for today** (name, project, block, time) — LOG offers these as blocks; a new day starts it empty. Since 2.18 a task sent for another day is deliberately absent |
 | `plan_history_v1` | PLAN | the standing sent history behind PLAN's "sent" list — every task ever pushed, newest first, capped at 200, each filed under the day it is *due*. **Deliberately not `plan_sent_v1`**, which is emptied every morning |
 | `plan_export_v1` | PLAN | the day start time the export last used, and nothing else. The date, template, mode, notes and slots are deliberately *not* kept: each export is its own day, and only the start time is the same one every time |
+| `plan_sched_tasks_v1` | PLAN | since 4.17, `{ iso: the @import task id }` — the Todoist task a day's schedule was written to, so saving that day again rewrites the same task (two for one day is a day the agent refuses). Days gone past are dropped on the next save |
 | `learn_daily_v1` | LEARN | per-day tally of cards rated / acquired / per deck, last 60 days — LOG's note reads it, the cards themselves are in IndexedDB |
 | `store_state_v1` | STORE | list, cart, budget, history, Todoist target (`eat_state_v1` read once). Since 4.16 each list item may carry `tid` (its Todoist task) and `tdc` (STORE closed it), and `todoist.queue` holds the closes, reopens and deletes that did not get through yet |
 | `tend.v3` | TEND | plants, the care-event log, season sensitivity and shelf sort (`tend.plants.v2` migrated once, on read) |
@@ -526,6 +527,7 @@ versions still work off the same data.
 | `capTracker.v2` | TRACK | ticks by topic id, the dates, which levels are open. `capTracker.weeks.v1` is surfaced and **never migrated** |
 | `learn_settings` | LEARN | the shuffle flag. **Decks, cards and media are in IndexedDB `learn_v1`**, not localStorage — see §6 |
 | `cal_days_v1` | CAL | the exported days, `{ days: { iso: { start, template, mode, notes, written, events } } }`, plus since 2.24 `localEdit` and `wakeShift` on a day that has been changed here and since 2.24.1 `localOnly` on a day started in DAY that PLAN never sent (all three dropped on re-export, which is correct — a re-exported day is a fresh, sent day). Since 3.0.4 it also holds `marks` — `{ iso: [{ at:'HH:MM', name }] }`, the completions of that day, kept **beside** `days` rather than inside one because a completion is a fact about the afternoon and not a claim about what was sent. Swept on the same keep window. Written by PLAN's export, and since 2.24 edited in place by a row deletion or a logged wake-up time; swept behind by the keep dial and never ahead. **Deliberately not `plan_`-prefixed**: the storage report files it under CAL and PLAN's own clears must not reach it |
+| `cal_sched_v1` | CAL | since 4.17, what the last schedule had **apart from its blocks** — `{ start, items: [{ key, name, dur, on, cal, custom }] }`, in his order, `blocks` kept as a marker of where the blocks go. Hugo's "it remembers what you had on last time you created a schedule (apart from blocks)". A day's own schedule is in its `cal_days_v1` record (`sched`) |
 | `create_v1` | CREATE | `works` — every song and every mix (area, name, stage, tempo, key, tags, notes and every tick) — the session log, the shelf's own three switches, and since 4.1 `curate` — a *cache* of the last Todoist read (the project's name and colour and its groups), which is the only thing in this record the app did not author and costs one network call to lose. A tick is filed under `<areaKey>\|<stageKey>\|<item text>` — see §6. The record carries its own `v`; `v:1` is the pre-4.0 shape (`songs`, two-segment tick keys) and is lifted on read — see §6. The key itself never changed, and the `_v1` in its name is the key's, not the record's. Underscore-suffixed like `store_state_v1`; nothing sweeps it, so there is no `do_`-style collision to dodge |
 | `tools_v1` | TOOLS | what each instrument is doing, and the day's tallies: the pomodoro's phase, round and **the wall-clock moment it ends** (never a countdown that is decremented), the breathing round's phase, round, the moment the current phase began and this session's holds, and which instrument the strip is on. `pom.days` is `{ iso: n }` — finished focus rounds — and `whf.days` is `{ iso: [session] }`, both capped at the last 90 days because they are "today" numbers and a year of them is a store that only grows. Carries `v`; `v:1` is the pre-4.8 shape and its `sw`, `timer` and `decide` branches are **dropped rather than migrated** — there is nowhere for a lap list to go — while `pom.days` is kept, because LOG's note reads it. The lengths are **not** here: they are Config |
 | `walk_v1` | WALK | the dials (`mode`, `km`, `min`), where a loop starts (`from`: here / home / pin), `home` and `pin` as `[lat, lon]`, and the last loop — its start, what was asked, its measured length and its line, simplified to ~3 m and rounded to 5 decimals so the record stays near 1 KB. Pace, the quick lengths and the dog's name are **not** here: they are Config (`walk.*`). **Sensitive** for sync (§10): it says where you live |
@@ -1498,6 +1500,12 @@ not ROOT's — it appears once, in the warning text, deliberately not in Config,
 because making it editable here would let it drift out of step with the side
 that actually does the archiving.
 
+**`mode: schedule` (4.17, Hugo's r261027-6iom "change system") is the fourth, and it carries no template.** DAY's
+schedule sends the day already resolved: `template: schedule`, then one line per event, down the day,
+`HH:MM · minutes · calendar · name` — the clock time, the length, the calendar's own name (` · ` and not ` | `, which
+the name holds) and the event's title. The agent archives the day the `full` way and writes each line; it keeps no table
+of its own for it. One task per day: saving the day again rewrites it (`plan_sched_tasks_v1`). §9 "The schedule".
+
 `mode: patch` (4.3) is the third, and it is the narrow one: **write the slot
 lines and change nothing else on the day.** Not the other slots, not the fixed
 rows, not the start, not the template. It exists because `blocks` was being
@@ -1601,6 +1609,17 @@ in flight mode.
 Google calendar, only what ROOT asked for. If the agent failed at 22:00, CAL
 still shows the day as planned — the same way PLAN's sent list shows what was
 sent, not what survived.
+
+### The schedule (4.17)
+
+Hugo's r261027-6iom ("change system") replaced the template's slots as the way a day is made: **a schedule is items, each
+a start and a duration** — his five from `plan.schedule` (morning routine 2h, workout 1h, the day's blocks 1h each, evening
+routine 1h30, activity 1h), each switched on or off, an item starting where the one before ends unless its start is set by
+hand. DAY edits it (`CAL.newSchedule`, its edit mode: move, add his own, each one's calendar); PLAN gives it its content
+and its blocks (`scheduleContent`, `blocksFor` — CAL still reads no `plan.` content) and sends it (`exportSchedule`, §8
+`mode: schedule`); **the day is written here only once the task has landed**, like every export. What was on, apart from
+the blocks, is remembered (`cal_sched_v1`); a day's own items ride in its record (`sched`), so opening it again brings them
+back. The slot panel and *+ do* stay for the days that have slots, until the new one has been used; then they go.
 
 ### Two doors in, and only two
 
@@ -1982,6 +2001,47 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.17 — 2026-10-27 — a schedule is items with a start and a duration; LOG's files for the vault
+
+Asked for in two prompter requests, his words kept in `updates/26-10-27_update_v4.17.0.md`.
+
+**The schedule** (`r261027-6iom`, p1, "change system": "the current block system doesn't work, we need a new one" ·
+"blocks should still be called blocks but you just set the start time as well as the duration and that's it" · "the
+current editor needs to be overhauled" · "when creating a schedule you just set start/duration: 1. morning routine (default
+2h) 2. workout (default 1h) 3. blocks (the ones from plan, default 1h) 4. evening routine (default 1h30) 5. activity | all
+are toggleable on/off ; it remembers what you had on last time you created a schedule (apart from blocks)" · "in edit mode
+you can move items around and create new ones" · "this schedule is exported to google calendar every evening (if there is
+one)").
+- **DAY makes it** (`CAL.newSchedule`, cal.js "The schedule"): an empty day's first button is *make a schedule* (it was
+  *schedule from do*), a day's head has *schedule* / *new schedule*. Items in a column, each a switch, its name and
+  calendar, a start and a duration (± 15 min): his five from `plan.schedule` (new in Config), the day's blocks in the
+  place of `blocks`, one item each, 1h. An item starts where the one before ends unless its start is set by hand (the
+  ones after run on from it); the day's start moves the rest. Edit mode: ↑ ↓ (the blocks move as one, and past each
+  other), an item of his own, ✕, each item's calendar. ‹ › the day. What was switched on (not the blocks) is remembered
+  (`cal_sched_v1`).
+- **The blocks are PLAN's** (`PLAN.blocksFor`): the sent history's tasks with a block label due that day, or — PLAN's
+  sent list button is now *schedule* (it was *export*) — the rows picked there, whatever their label; today's on DO too.
+  Each one's calendar is its project's (`plan.calendars`), else its DO label's project's, else `plan.schedule.blockCal`.
+- **Saving sends it** (`PLAN.exportSchedule`): the day's `@import` task, `template: schedule`, `mode: schedule`, one line
+  per item that is on, `HH:MM · minutes · calendar · name` — the resolved time and the calendar's own name, so the agent
+  only transcribes (§8; `SCHEDULE-AGENT-PROMPT.md` §3.1's "better architecture"). Saving the same day again rewrites that
+  task (`plan_sched_tasks_v1`). Only once it has landed is the day kept in DAY (`mode: schedule`, its items in `sched`) —
+  §9's rule. CAL still reaches nothing itself.
+- **Not removed yet**: the slot export panel (`PLAN.openExport`, templates, b1a…b3b, `patch`) and DAY's *+ do* for a day
+  that has slots stay in the code, unreachable from the sent list and the empty day, until Hugo has used the new one;
+  then they go. `PLAN`'s task form is unchanged (no time on it by default, as before).
+- **The agent has to be taught `mode: schedule`**: `SCHEDULE-AGENT-PROMPT.md` §1 now says how (archive the day, the
+  `full` way; write each line). The routine holds its own copy, replaced by hand.
+
+**LOG's files for Obsidian** (`r261027-g235`: "save to obsidian for the log module, for weekly reports and just to sync
+the data with obsidian"): `LOG.noteFor(iso)` (any day's .md, the share button's, `YY.MM.DD.md`) and
+`LOG.weekReportFor(iso)` (that week's report, `review_weekly_YY.WW.md`); the day LOG holds open is left as it was. ROOT
+desktop 1.4.0 writes them into the vault.
+
+Checked: `update.mjs check` full, 1340 passed (28 new: the schedule's chain, switches, a pinned start, the edit mode's
+moves, the description byte for byte, the send, a second save rewriting the task, what is remembered, a failure; LOG's two;
+the empty day's buttons rewritten for the new first one). The editor seen at 390 px in Electron (view and edit mode).
 
 ### 4.16.3 — 2026-10-27 — LOG's day hands out the weight, not the wake-up time
 

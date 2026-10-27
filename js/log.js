@@ -2515,6 +2515,22 @@ function loggedDays() {
   } catch {}
   return out.sort();
 }
+/* Any day's .md and its week's report, as the share buttons write them (4.17, Hugo's r261027-g235 "save to obsidian for
+   the log module, for weekly reports and just to sync the data with obsidian"): ROOT desktop saves them into the vault,
+   where his notes of both already are (entries/daily YY.MM.DD.md, entries/weekly review_weekly_YY.WW.md). The day LOG
+   holds open is put back as it was: these only read. */
+function noteFor(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return null;
+  const was = TODAY, open = data;
+  try { TODAY = iso; initData(); return { day: iso, name: fmtFilename(iso) + '.md', md: buildNote() }; }
+  finally { TODAY = was; data = open; }
+}
+function weekReportFor(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return null;
+  const getDay = d => { try { return JSON.parse(localStorage.getItem('log_' + d)) || {}; } catch { return {}; } };
+  const mon = weekMonday(iso), days = Array.from({ length: 7 }, (_, i) => dateOffset(mon, i));
+  return { week: mon, name: `review_weekly_${iso.slice(2, 4)}.${String(isoWeekNum(iso)).padStart(2, '0')}.md`, md: buildWeeklyReport(days, getDay) };
+}
 
 return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
          toggleTrend, cycleTrend, sc, setColdShower, setWo,
@@ -2524,5 +2540,5 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
          setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
-         alertShown, dismissAlert, wakeArrows, dayData, loggedDays };
+         alertShown, dismissAlert, wakeArrows, dayData, loggedDays, noteFor, weekReportFor };
 })();

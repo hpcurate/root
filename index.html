@@ -697,9 +697,9 @@
       <div class="row-lbl">
         <span>sent <em id="sent-count">empty</em></span>
         <span class="row-acts">
-          <button class="sent-export hidden" id="sent-export" onclick="PLAN.openExport()"
-                  aria-label="build a day out of the selected tasks"
-            ><svg aria-hidden="true"><use href="#ico-cal"/></svg>export<span id="sent-export-n"></span></button>
+          <button class="sent-export hidden" id="sent-export" onclick="PLAN.toSchedule()"
+                  aria-label="a schedule for their day, with them as its blocks"
+            ><svg aria-hidden="true"><use href="#ico-cal"/></svg>schedule<span id="sent-export-n"></span></button>
           <button class="muted-act hidden" id="sent-clear" onclick="PLAN.clearSent()">clear all</button>
         </span>
       </div>

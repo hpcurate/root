@@ -292,6 +292,23 @@ const DEFAULTS = {
         { at: 945, dur: 15, cal:'01A1 | routine', event:'cooldown' },
       ],
     },
+
+    /* The schedule (4.17, Hugo's r261027-6iom: "when creating a schedule you just set start/duration: 1. morning routine
+       (default 2h) 2. workout (default 1h) 3. blocks (the ones from plan, default 1h) 4. evening routine (default 1h30) 5.
+       activity"). What a new schedule in DAY starts with, in this order: each item a duration in minutes and the Google
+       calendar its event goes on (a *name*, as plan.calendars). `blocks` stands for the day's blocks, one item each at its
+       `dur`; `blockCal` is a block's calendar when its project has none. DAY remembers what was switched on last time. */
+    schedule: {
+      start: '07:00',
+      items: [
+        { key:'morning',  name:'morning routine', dur:120, cal:'01A1 | routine' },
+        { key:'workout',  name:'workout',         dur:60,  cal:'01A3 | care' },
+        { key:'blocks',   name:'blocks',          dur:60 },
+        { key:'evening',  name:'evening routine', dur:90,  cal:'01A1 | routine' },
+        { key:'activity', name:'activity',        dur:60,  cal:'02B6 | alive' },
+      ],
+      blockCal: '01A5 | no work',
+    },
   },
 
   /* CAL
