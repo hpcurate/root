@@ -5184,6 +5184,11 @@ check('… and on "all" it is one number per chip rather than one total',
   !$('.ns-create #cr-tally').classList.contains('hidden') &&
   talCaps().slice(0, 2).join(',') === 'production,mixing',
   talCaps().join(','));
+/* 4.24: beside the wordmark the readings never fitted — CREATE. alone is wider
+   than a phone's row — so they ride the label line, at the band's top right */
+check('4.24: … riding the label line at the band\'s top right, clear of the wordmark',
+  /\.ns-create > \.h-top \.cr-tally\{position:absolute;top:calc\(var\(--sat\) \+ 14px\);right:18px/.test(
+    fs.readFileSync(path.join(ROOT, 'css/create.css'), 'utf8')));
 /* Curate is a column when it is a chip, and only then — it is the same
    question the strip answers, so the two never disagree about what exists. */
 check('… with curate among them exactly when curate is on the strip',

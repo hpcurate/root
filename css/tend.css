@@ -214,3 +214,16 @@
 
 @media (min-width:880px){ .ns-tend .undo{left:calc(50% + var(--rail-w)/2)} }
 @media (min-width:1180px){ .ns-tend .undo{left:calc(50% + var(--rail-w-wide)/2)} }
+
+/* ROOT 5 (4.24) — the count of things to do is a card in TEND's own colour, the
+   number large at its foot like DO's hero; at zero it says so in the card's ink */
+.ns-tend .hero{position:relative;overflow:hidden;text-align:left;display:flex;flex-direction:column;
+  min-height:calc(132px * var(--dens));margin:0 0 calc(14px * var(--dens));
+  padding:calc(16px * var(--dens)) calc(18px * var(--dens));
+  border-radius:calc(var(--r-base) * 1.6);background:var(--y);color:var(--on-y)}
+.ns-tend .hero::before{content:'';position:absolute;right:-50px;top:-60px;width:180px;height:180px;
+  border-radius:50%;background:color-mix(in srgb, var(--on-y) 13%, transparent)}
+.ns-tend .hero .n{position:relative;order:2;margin-top:auto;font-size:64px;color:var(--on-y)}
+.ns-tend .hero .n.zero{color:var(--on-y)}
+.ns-tend .hero .k{position:relative;order:1;margin-top:0;color:var(--on-y);opacity:.8}
+.ns-tend .hero .sub2{position:relative;order:3;color:var(--on-y);opacity:.8}

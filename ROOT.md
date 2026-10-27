@@ -2013,6 +2013,19 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.24 — 2026-10-27 — ROOT 5, phase 6 (the rest): STORE, TEND and CREATE
+
+Each app's main thing in the redesign's shape, in its own colour:
+- **STORE**'s running total is a card in its colour: the counter widget's top floods, and the keys stay under it. Pinned, the
+  plain top is kept.
+- **TEND**'s count of things to do is a card in its colour, the number at its foot like DO's hero.
+- **CREATE**'s readings on "all" ride the label line at the band's top right. Beside the wordmark they never fitted
+  under any theme (CREATE. is wider than a phone's row); this was the note deferred since 4.18.
+- **TOOLS and WALK** already match the mockup and are unchanged.
+
+Sheets only. Phase 7 (qurOS) still waits on the QUROS brief, so the desktop comes next as 4.25 and qurOS will be 5.0.
+Harness: +1 check (CREATE's readings). Seen at 390px. Log: .
+
 ### 4.23.1 — 2026-10-27 — LOG's month: more room between its rows
 
 His "just need a little more vertical space between the rows for the calendar in log". The month takes what the home column

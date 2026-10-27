@@ -435,3 +435,19 @@
              border-radius:var(--r1);font:400 11px/1.6 var(--mono);color:var(--gr);
              letter-spacing:.06em;text-align:center;padding:calc(14px * var(--dens));margin-bottom:14px;display:none}
 .ns-store .done-banner.show{display:block}
+
+/* ROOT 5 (4.24) — the running total is a card in STORE's own colour: the top of
+   the widget floods, the keys stay on the surface under it. Pinned, the total
+   is in the band, so the widget keeps its plain top. */
+.ns-store .cw{overflow:hidden;border-radius:calc(var(--r-base) * 1.3)}
+.ns-store .cw:not(.pinned) .cw-top{background:var(--y);color:var(--on-y);
+  margin:calc(-16px * var(--dens)) calc(-15px * var(--dens)) 14px;
+  padding:calc(16px * var(--dens)) calc(15px * var(--dens)) calc(14px * var(--dens));min-height:calc(96px * var(--dens))}
+.ns-store .cw:not(.pinned) .cw-total{color:var(--on-y);font-size:44px;letter-spacing:-.04em}
+.ns-store .cw:not(.pinned) .cw-total .cu,
+.ns-store .cw:not(.pinned) .cw-budget,
+.ns-store .cw:not(.pinned) .cw-budget em,
+.ns-store .cw:not(.pinned) .cw-pin,
+.ns-store .cw:not(.pinned) .cw-pin.on{color:var(--on-y)}
+.ns-store .cw:not(.pinned) .cw-budget{opacity:.8}
+.ns-store .cw:not(.pinned) .cw-budget .b-line.over{color:var(--on-y);font-weight:700}

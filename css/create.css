@@ -494,3 +494,14 @@
 @media (prefers-reduced-motion:reduce){
   .ns-create .cr-prail u,.ns-create .cr-range i,.ns-create .cr-pb{transition:none}
 }
+
+/* ROOT 5 (4.24) — the tally rides the label line, at the band's top right, as a
+   row of readings. Beside the wordmark it never fitted: CREATE. alone is wider
+   than a phone's row in the shipped display face, and the three readings ran
+   off the edge (seen under Void and under ROOT alike). The row keeps only the
+   wordmark and, on an area, its one rolling number. */
+.ns-create > .h-top .cr-tally{position:absolute;top:calc(var(--sat) + 14px);right:18px;height:20px;
+  align-items:center;gap:calc(10px * var(--dens));margin:0}
+.ns-create > .h-top .cr-tal{flex-direction:row;align-items:baseline;gap:calc(4px * var(--dens))}
+.ns-create > .h-top .cr-tal b{font-size:13px}
+.ns-create > .h-top .cr-tal s{max-width:64px;font-size:8.5px}
