@@ -99,8 +99,10 @@ check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3)
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
 check('all themes apply', d.documentElement.dataset.theme === 'noir');
 w.Prefs.set('theme', 'void');
-// the suite below was written against the floating pill; the dock (4.19) has checks of its own
+// the suite below was written against the floating pill and the phone-shaped
+// frame; the dock (4.19) and the desktop's rail and today (4.25) have checks of their own
 w.Prefs.set('navStyle', 'pill');
+w.Prefs.set('desktopMode', 'frame');
 for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','create','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
@@ -5299,13 +5301,14 @@ check('no errors during the run', errors.length === 0, errors.slice(0, 3).join('
    tab on any install that has ever opened the layout panel — which is every
    install that has been used. Proved by booting a second window with prefs
    already in localStorage, which is the only way to run Prefs.load() again. */
-async function bootWith(seed, configSeed, storeSeed) {
+// `wide`: a window that answers yes to (min-width: 1100px), for the desktop's today (4.25)
+async function bootWith(seed, configSeed, storeSeed, wide) {
   const dom2 = new JSDOM(html, {
     url: 'http://localhost/root/index.html',
     runScripts: 'dangerously', resources: new LocalLoader(),
     pretendToBeVisual: true, virtualConsole: new VirtualConsole(),
     beforeParse(win) {
-      win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
+      win.matchMedia = q => ({ matches: !!wide && /min-width:\s*1100px/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {} });
       win.requestAnimationFrame = fn => setTimeout(fn, 0);
       win.Element.prototype.scrollIntoView = function () {};
       win.HTMLElement.prototype.scrollIntoView = function () {};
@@ -5535,6 +5538,38 @@ check('… and Shell.go() reaches an app in the R as well as one in the dock',
 w9.Prefs.set('dock', ['do', 'plan', 'log', 'cal', 'store', 'tend', 'walk']);
 check('… the dock holds five at most, in the order given',
   w9.Prefs.get('dock').join() === 'do,plan,log,cal,store', w9.Prefs.get('dock').join());
+
+/* 4.25, the desktop: a wide window has the rail of every app and, first in it,
+   today — DO, DAY, LOG and TOOLS side by side, the apps themselves */
+{
+  const wNew = await bootWith({});
+  const wFrame = await bootWith({ desktopMode: 'frame' });
+  check('4.25: a fresh install fills a wide window with the rail, and one on the old frame moves to it once',
+    wNew.Prefs.get('desktopMode') === 'rail' && wFrame.Prefs.get('desktopMode') === 'rail' &&
+    JSON.parse(wFrame.localStorage.getItem('root_prefs_v1')).root5wide === true,
+    wNew.Prefs.get('desktopMode') + ' / ' + wFrame.Prefs.get('desktopMode'));
+  const wW = await bootWith({}, null, null, true), dW = wW.document;
+  dW.getElementById('nav-today').click();
+  const inToday = () => [...dW.querySelectorAll('#track > .view.in-today')].map(v => v.id).join();
+  check('… today puts DO, DAY, LOG and TOOLS side by side, the apps themselves',
+    dW.documentElement.dataset.today === 'on' && inToday() === 'view-do,view-log,view-cal,view-tools' &&
+    [...dW.querySelectorAll('#track > .view.in-today')].every(v => !v.classList.contains('hidden')) &&
+    dW.getElementById('nav-today').classList.contains('on') && !dW.querySelector('#nav .tab-b.on'),
+    inToday() + ' / ' + dW.documentElement.dataset.today);
+  check('… the first in the rail, with every app after it — the dock\'s, then the rest',
+    dW.getElementById('nav').firstElementChild.id === 'nav-today' &&
+    [...dW.querySelectorAll('#nav .tab-b')].map(b => b.dataset.app).slice(0, 4).join() === 'do,log,cal,tools' &&
+    dW.querySelectorAll('#nav .tab-b').length === wW.Prefs.APPS.length + 1);
+  wW.Shell.go('plan');
+  check('… and a move to one app ends it, the track back to what the dock says',
+    !dW.documentElement.dataset.today && !dW.querySelector('#track > .view.in-today') &&
+    dW.getElementById('view-plan').classList.contains('cur') && !dW.getElementById('nav-today').classList.contains('on'),
+    dW.documentElement.dataset.today + ' / ' + inToday());
+  const wN = await bootWith({}), dN = wN.document;
+  dN.getElementById('nav-today').click();
+  check('… while a narrow window has no today at all',
+    !dN.documentElement.dataset.today && !dN.querySelector('#track > .view.in-today'));
+}
 
 /* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked
    or not, and what a passed day left open carried or dropped, once */

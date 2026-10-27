@@ -2266,6 +2266,10 @@
      slides) from Settings → layout → "apps in the bar", and hides the ones
      switched off, so the order here is only the shipped default. -->
 <nav id="nav" role="tablist" aria-label="Apps">
+  <!-- today (4.25): the desktop's page of four, first in the rail; nowhere else -->
+  <button class="tab-today" id="nav-today" role="tab" aria-selected="false" aria-label="Today">
+    <svg aria-hidden="true"><use href="#tab-cal"/></svg><span class="tb-l">today</span>
+  </button>
   <button class="tab-b" data-app="do" role="tab" aria-selected="false" aria-label="DO">
     <svg aria-hidden="true"><use href="#tab-do"/></svg><span class="tb-l">do</span>
   </button>

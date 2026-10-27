@@ -367,7 +367,9 @@ an app out of the bar always has; the R is lit while you are on one, or on
 settings. `Shell.go(name)` falls back to `open()` for an app with no tab, so a
 module or a link that goes to PLAN still gets there. The swipe walks the dock and
 stops at its last app (`dockCount()`); from an app opened from the R it still
-steps back. The other three bar styles read `apps` as before.
+steps back. The other three bar styles read `apps` as before. On a wide window in rail mode (4.25) the
+rail lists every app after the dock's, and from 1100px **today** (`enterToday`) lays DO, DAY, LOG and TOOLS side by side as
+`.view.in-today` columns; any `go()` leaves it.
 
 The left arrow is context-sensitive: on an app's home it is "previous tab";
 inside a sub-screen (`.scr.on` other than `#s-home` carrying an `.hd-back`)
@@ -2012,6 +2014,24 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.25 — 2026-10-27 — ROOT 5, phase 8: the desktop — a rail of every app, and today
+
+His answer 6, "Yes, the today page".
+- **The rail:** on a wide window the dock stands up as the rail and lists every app, the dock's first, then settings and
+  the R. On a phone the extra buttons stay hidden, after the dock's.
+- **Today** (from 1100px, first in the rail; `enterToday` / `leaveToday`) puts DO, DAY, LOG and TOOLS side by side.
+  They are the apps themselves (`.view.in-today` in a grid), each with its own band, scroll and colour: the accent and
+  its washes are re-mixed per column from the tab's colour.
+- **Leaving today:** any `Shell.go` ends it, and so does a narrowing window. A today left open, or `#today`, is where the
+  next start lands. The swipe is off while it is up.
+- **Arriving on an install:** `desktopMode` ships as `rail`. A frame install moves once (`root5wide`). A phone and ROOT
+  desktop's usual 460px window look the same either way.
+
+Not built: LOG's month and charts at full size, and settings as columns, on a wide window.
+
+Harness: the legacy suite runs on the frame too, and `bootWith` can boot a wide window. +5 checks: the move, the four
+side by side, the rail's order, leaving, no today when narrow. Seen at 1400px. Log: `updates/26-10-27_update_v4.25.0.md`.
 
 ### 4.24 — 2026-10-27 — ROOT 5, phase 6 (the rest): STORE, TEND and CREATE
 

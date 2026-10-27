@@ -166,6 +166,8 @@ window.Shell = (function () {
   const undoEl   = document.getElementById('undo-pill');
   const undoTxt  = document.getElementById('undo-txt');
   const rBtn     = document.getElementById('nav-r');
+  const todayBtn = document.getElementById('nav-today');
+  let todayOn = false;                 // the desktop's page of four (4.25) — see enterToday()
   let transient  = null;               // an app kept out of the bar, opened from settings — see open()
 
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
@@ -252,9 +254,14 @@ window.Shell = (function () {
     TABS.forEach(n => {
       const v = viewOf(n), b = btnOf(n);
       if (v) track.appendChild(v);
-      if (b) navEl.appendChild(b);
+      if (b && n !== 'settings') navEl.appendChild(b);
     });
+    /* the apps with no tab come next, then settings: hidden on a phone, they are
+       the rest of the list where the dock stands up as the desktop's rail */
+    APPS.filter(a => !want.includes(a)).forEach(a => { const b = btnOf(a); if (b) navEl.appendChild(b); });
+    if (btnOf('settings')) navEl.appendChild(btnOf('settings'));
     if (rBtn) navEl.appendChild(rBtn);     // the R is always the dock's last
+    if (todayBtn) navEl.insertBefore(todayBtn, navEl.firstChild);
     APPS.forEach(a => {
       const on = want.includes(a);
       const v = viewOf(a), b = btnOf(a);
@@ -600,7 +607,7 @@ window.Shell = (function () {
     const onT = !!transient && TABS[index] === transient;
     TABS.forEach((n, i) => {
       const b = btnOf(n); if (!b) return;
-      const on = i === index || (n === 'settings' && onT);
+      const on = !todayOn && (i === index || (n === 'settings' && onT));
       b.classList.toggle('on', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
@@ -613,7 +620,8 @@ window.Shell = (function () {
     }
     if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
     // the R stands for whatever is not in the dock: lit on settings and on an app opened from it
-    if (rBtn) rBtn.classList.toggle('on', TABS[index] === 'settings' || (onT && docked()));
+    if (rBtn) rBtn.classList.toggle('on', !todayOn && (TABS[index] === 'settings' || (onT && docked())));
+    if (todayBtn) { todayBtn.classList.toggle('on', todayOn); todayBtn.setAttribute('aria-selected', String(todayOn)); }
     updateBack();
   }
 
@@ -655,6 +663,7 @@ window.Shell = (function () {
   function park() { show(false); }
 
   function go(name, opts = {}) {
+    if (todayOn) leaveToday();           // any move to one app ends the page of four
     // an app with no tab — in the R, or switched out of the bar — opens as one does from there
     if (typeof name === 'string' && !TABS.includes(name) && APPS.includes(name)) { open(name); return; }
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
@@ -847,7 +856,7 @@ window.Shell = (function () {
   function endDrag() {
     if (!tracking) return;
     tracking = false;
-    if (axis !== 'x') return;
+    if (axis !== 'x' || todayOn) return;
     const w = viewport.clientWidth || 1;
     const speed = Math.abs(dx) / Math.max(1, Date.now() - st);
     const far = Math.abs(dx) > w * pref('swipeStrength', 0.22) || speed > FLICK;
@@ -866,6 +875,46 @@ window.Shell = (function () {
 
   // how many of TABS are the dock's: all but settings and an app opened from the R
   function dockCount() { return TABS.length - 1 - (transient ? 1 : 0); }
+
+  /* Today (ROOT 5, 4.25 — his answer: "Yes, the today page")
+     On a wide window, where the dock stands up as the rail, "today" puts four
+     apps side by side: DO, DAY, LOG and TOOLS. They are the apps themselves, not
+     pictures of them, so a routine ticks, a form opens and the breathing round
+     runs in its own column. Any move to one app ends it; so does a window too
+     narrow for four. A today left open is where the next start lands. */
+  const TODAY_VIEWS = ['do', 'cal', 'log', 'tools'];
+  const wideMQ = window.matchMedia ? window.matchMedia('(min-width: 1100px)') : null;
+  const todayFits = () => docked() && pref('desktopMode', 'frame') === 'rail' && !!(wideMQ && wideMQ.matches);
+  function enterToday() {
+    if (!todayFits()) return false;
+    if (transient) retire(true);
+    todayOn = true;
+    document.documentElement.setAttribute('data-today', 'on');
+    TODAY_VIEWS.forEach(n => {
+      const v = viewOf(n);
+      if (v) { v.classList.remove('hidden'); v.classList.add('in-today'); }
+      const a = apps[n];
+      if (a && a.onShow) { try { a.onShow(); } catch (e) { console.error(e); } }
+    });
+    paintNav();
+    try { localStorage.setItem(TAB_KEY, 'today'); } catch {}
+    try { if (location.hash !== '#today') history.replaceState(null, '', '#today'); } catch {}
+    return true;
+  }
+  function leaveToday() {
+    if (!todayOn) return;
+    todayOn = false;
+    document.documentElement.removeAttribute('data-today');
+    TODAY_VIEWS.forEach(n => { const v = viewOf(n); if (v) v.classList.remove('in-today'); });
+    rebuild(); park(); paintNav();
+  }
+  if (todayBtn) todayBtn.addEventListener('click', () => {
+    if (window.Prefs) Prefs.tap();
+    if (!todayOn && !enterToday()) toast('today needs a wide window');
+  });
+  if (wideMQ && wideMQ.addEventListener) wideMQ.addEventListener('change', () => {
+    if (todayOn && !todayFits()) { const back = TABS[index]; leaveToday(); go(back); }
+  });
 
   /* The R (4.19)
      ROOT 5's dock holds a few apps and the R, and the R opens every app: a grid
@@ -1685,6 +1734,9 @@ window.Shell = (function () {
     const raw = location.hash.replace('#', '').split('/')[0];
     if (!fromHash && hidden().includes(raw)) open(raw);
     else if (late) open(late);
+    // a today left open (4.25), or a link to it, lands on today again where the window has room
+    let lastToday = false; try { lastToday = localStorage.getItem(TAB_KEY) === 'today'; } catch {}
+    if (raw === 'today' || (!fromHash && want === 'last' && lastToday)) enterToday();
   })();
 
   /* Turning auto-hide off should bring the chrome back immediately, not at the

@@ -236,7 +236,9 @@ const SCHEMA = {
      which is the layout the app was actually designed against. The frame is
      also what makes the *whole* of the floating chrome land inside the box —
      see the note in shell.css, and §6. */
-  desktopMode:  { kind:'enum',   def:'frame', values:['frame','rail'],  attr:'data-desktop' },
+  /* rail is ROOT 5's (4.25): on a wide window the dock stands up as a rail of every app and opens
+     the today page; on a phone the two are the same */
+  desktopMode:  { kind:'enum',   def:'rail',  values:['frame','rail'],  attr:'data-desktop' },
   frameW:       { kind:'range',  def:420,  min:320, max:2000,step:10,  unit:'px',   cssVar:'--frame-w' },
   frameH:       { kind:'range',  def:880,  min:400, max:1600,step:10,  unit:'px',   cssVar:'--frame-h' },
   /* A few pixels of air under the status bar, folded into `--sat` so it moves
@@ -284,6 +286,7 @@ const SCHEMA = {
      4.19 the dock), so a later choice is left alone. */
   root5:        { kind:'bool',   def:false },
   root5dock:    { kind:'bool',   def:false },
+  root5wide:    { kind:'bool',   def:false },
 
   // behaviour
   startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
@@ -501,6 +504,7 @@ function load() {
   dropUiScale(stored);
   moveToRoot(stored);
   moveToDock(stored);
+  moveToWide(stored);
 }
 
 /* 4.18: ROOT 5's preset arrives as the default. An install still on Void, the
@@ -520,6 +524,16 @@ function moveToDock(stored) {
   if (stored.root5dock) return;
   if (prefs.navStyle === 'pill') prefs.navStyle = 'dock';
   prefs.root5dock = true;
+  persist();
+}
+
+/* 4.25: a wide window fills with the rail and the today page. An install on the
+   phone-shaped frame, the old default, moves to it once — a phone looks the
+   same either way; the frame is still one tap away under layout. */
+function moveToWide(stored) {
+  if (stored.root5wide) return;
+  if (prefs.desktopMode === 'frame') prefs.desktopMode = 'rail';
+  prefs.root5wide = true;
   persist();
 }
 
