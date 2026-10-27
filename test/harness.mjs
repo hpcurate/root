@@ -99,6 +99,8 @@ check('no console/jsdom errors at boot', errors.length === 0, errors.slice(0, 3)
 for (const t of w.Prefs.THEMES) { w.Prefs.set('theme', t.id); }
 check('all themes apply', d.documentElement.dataset.theme === 'noir');
 w.Prefs.set('theme', 'void');
+// the suite below was written against the floating pill; the dock (4.19) has checks of its own
+w.Prefs.set('navStyle', 'pill');
 for (const p of ['look','layout','behave','do','log','plan','store','tend','track','learn','create','data']) w.SET.panel(p);
 check('every settings panel renders', errors.length === 0, errors.slice(0, 3).join(' | '));
 
@@ -5221,7 +5223,7 @@ async function bootWith(seed, configSeed, storeSeed) {
 }
 
 // an install from before CAL, with three apps in the bar and the rest switched off
-const w2 = await bootWith({ apps: ['do', 'log', 'track'], theme: 'void' });
+const w2 = await bootWith({ apps: ['do', 'log', 'track'], theme: 'void', navStyle: 'pill', root5dock: true });
 check('a new app reaches an install whose app list predates it',
   w2.Prefs.get('apps').includes('cal') && w2.Shell.TABS.includes('cal') &&
   !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
@@ -5237,7 +5239,7 @@ check('… and the migration records what it offered, so it runs once and not ev
   JSON.stringify(w2.Prefs.get('appsSeen')));
 
 // an install that has already been offered CAL and turned it off keeps it off
-const w3 = await bootWith({ apps: ['do', 'log'], appsSeen: w.Prefs.APPS.slice(), theme: 'void' });
+const w3 = await bootWith({ apps: ['do', 'log'], appsSeen: w.Prefs.APPS.slice(), theme: 'void', navStyle: 'pill', root5dock: true });
 check('an app switched off on purpose is not resurrected by the same migration',
   !w3.Prefs.get('apps').includes('cal') && !w3.Shell.TABS.includes('cal'),
   w3.Prefs.get('apps').join(','));
@@ -5377,6 +5379,61 @@ check('… Void picked after the move stays picked', w7.Prefs.get('theme') === '
 const w8 = await bootWith({ theme: 'dune', themeDark: 'synth' });
 check('… and any other theme was a choice and stays',
   w8.Prefs.get('theme') === 'dune' && w8.Prefs.get('themeDark') === 'synth', w8.Prefs.get('theme'));
+
+/* 4.19, ROOT 5's dock: the bar holds the dock's apps and the R, which opens
+   every app; one opened from it comes and goes as an app out of the bar does */
+const w9 = await bootWith({}), d9 = w9.document;
+check('4.19: a fresh install has the dock — its four apps, then settings — and the R at its end',
+  w9.Prefs.get('navStyle') === 'dock' && w9.Shell.TABS.join() === 'do,log,cal,tools,settings' &&
+  d9.getElementById('nav').lastElementChild.id === 'nav-r' &&
+  d9.querySelector('.tab-b[data-app="plan"]').classList.contains('hidden'), w9.Shell.TABS.join());
+const wPill = await bootWith({ theme: 'void', navStyle: 'pill' });
+check('… an install on the floating pill, the old default, moves to the dock once',
+  wPill.Prefs.get('navStyle') === 'dock' && JSON.parse(wPill.localStorage.getItem('root_prefs_v1')).root5dock === true,
+  wPill.Prefs.get('navStyle'));
+const wBar = await bootWith({ theme: 'void', navStyle: 'bar' });
+check('… while a bottom bar was a choice and stays', wBar.Prefs.get('navStyle') === 'bar', wBar.Prefs.get('navStyle'));
+d9.getElementById('nav-r').click();
+check('… the R opens every app and settings, the dock\'s marked with a dot',
+  d9.getElementById('r-sheet').classList.contains('on') &&
+  d9.querySelectorAll('#r-grid .r-app').length === w9.Prefs.APPS.length + 1 &&
+  [...d9.querySelectorAll('#r-grid .r-d')].map(i => i.closest('.r-app').dataset.app).join() === 'do,log,cal,tools',
+  [...d9.querySelectorAll('#r-grid .r-d')].map(i => i.closest('.r-app').dataset.app).join());
+const rq = d9.getElementById('r-q');
+rq.value = 'pl'; rq.dispatchEvent(new w9.Event('input'));
+check('… its box finds an app by name, and offers the words to search',
+  [...d9.querySelectorAll('#r-grid .r-app')].map(b => b.dataset.app).join() === 'plan' && !!d9.querySelector('#r-grid .r-all'),
+  [...d9.querySelectorAll('#r-grid .r-app')].map(b => b.dataset.app).join());
+d9.querySelector('#r-grid .r-app[data-app="plan"]').click();
+check('… an app opened from it has its slide and no tab, the R lit, the sheet closed',
+  w9.Shell.TABS.join() === 'do,log,cal,tools,plan,settings' && d9.getElementById('view-plan').classList.contains('cur') &&
+  d9.getElementById('nav-r').classList.contains('on') && !d9.getElementById('r-sheet').classList.contains('on'),
+  w9.Shell.TABS.join());
+w9.Shell.go('tools');
+await new Promise(r => setTimeout(r, 420));
+check('… and leaving it retires its slide', w9.Shell.TABS.join() === 'do,log,cal,tools,settings', w9.Shell.TABS.join());
+{
+  const touch = (el, type, x, y) => {
+    const e = new w9.Event(type, { bubbles: true });
+    Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : [{ clientX: x, clientY: y }] });
+    el.dispatchEvent(e);
+  };
+  const swipeLeft = el => { touch(el, 'touchstart', 300, 200); touch(el, 'touchmove', 200, 202);
+                            touch(el, 'touchmove', 60, 204); touch(el, 'touchend', 0, 0); };
+  swipeLeft(d9.getElementById('view-tools'));
+  const atEnd = d9.querySelector('#track .view.cur')?.id;
+  w9.Shell.go('do');
+  swipeLeft(d9.getElementById('view-do'));
+  check('… a swipe walks the dock and stops at its end rather than running on into settings',
+    atEnd === 'view-tools' && d9.querySelector('#track .view.cur')?.id === 'view-log',
+    atEnd + ' then ' + d9.querySelector('#track .view.cur')?.id);
+}
+w9.Shell.go('store');
+check('… and Shell.go() reaches an app in the R as well as one in the dock',
+  d9.getElementById('view-store').classList.contains('cur') && w9.Shell.TABS.includes('store'), w9.Shell.TABS.join());
+w9.Prefs.set('dock', ['do', 'plan', 'log', 'cal', 'store', 'tend', 'walk']);
+check('… the dock holds five at most, in the order given',
+  w9.Prefs.get('dock').join() === 'do,plan,log,cal,store', w9.Prefs.get('dock').join());
 
 
 /* 4.2

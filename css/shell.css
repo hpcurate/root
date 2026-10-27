@@ -309,6 +309,70 @@ body{
 .nav-arrow.chrome-off{opacity:0;transform:translateY(22px);pointer-events:none}
 .nav-arrow:disabled.chrome-off{opacity:0}
 
+/* The dock (4.19, ROOT 5)
+   The bar as a dock across the bottom: the dock's few apps and the R. The app
+   you are on widens and says its name beside its icon. No arrows: the swipe
+   walks the dock, and a sub-screen's back button floats over the dock's left
+   end only while there is a sub-screen. Before the rail's rules on purpose:
+   at a wide window in rail mode those win on equal footing (and undo the rest
+   below), so the rail stays the rail until ROOT 5's desktop phase. */
+.tab-r{display:none}
+[data-nav="dock"] #nav{
+  left:calc(14px + env(safe-area-inset-left));right:calc(14px + env(safe-area-inset-right));
+  bottom:max(12px, calc(var(--nav-gap) + env(safe-area-inset-bottom)));
+  width:auto;height:calc(var(--nav-fh) + 10px);transform:none;
+  padding:7px;gap:4px;align-items:stretch;
+  border-radius:min(26px, var(--nav-r))}
+[data-nav="dock"] #nav.chrome-off{transform:translateY(22px)}
+[data-nav="dock"] .tab-b[data-app="settings"]{display:none}
+[data-nav="dock"] .tab-b{
+  border-radius:min(19px, max(0px, calc(var(--nav-r) - 7px)));
+  transition:color .18s ease, flex-grow calc(.38s * var(--mo)) cubic-bezier(.34,1.4,.5,1)}
+[data-nav="dock"][data-nav-shape="pill"] .tab-b{--tab-r:min(19px, max(0px, calc(var(--nav-r) - 7px)))}
+[data-nav="dock"] .tab-b .tb-l{font-size:8px}
+[data-nav="dock"] .tab-b.on{flex-grow:1.6;flex-direction:row;gap:8px}
+[data-nav="dock"] .tab-b.on .tb-l{font-size:11px;letter-spacing:.06em}
+[data-nav="dock"] .tab-r{
+  display:grid;place-items:center;flex:0 0 auto;aspect-ratio:1;height:100%;padding:0;cursor:pointer;
+  background:var(--bg);border:var(--bw) solid var(--bd);
+  border-radius:min(19px, max(0px, calc(var(--nav-r) - 7px)));
+  transition:background .2s ease, border-color .2s ease, scale var(--dur-3) var(--ease-out)}
+[data-nav="dock"] .tab-r svg{width:26px;height:26px}
+[data-nav="dock"] .tab-r:active{scale:.88}
+/* lit on settings and on an app opened from the R; filled while the R is open */
+[data-nav="dock"] .tab-r.on{border-color:var(--tx)}
+[data-nav="dock"] .tab-r.open{background:var(--s3);border-color:var(--tx)}
+[data-nav="dock"] #nav-next,
+[data-nav="dock"] #nav-prev:not(.is-back){display:none}
+[data-nav="dock"] #nav-prev{
+  bottom:calc(max(12px, calc(var(--nav-gap) + env(safe-area-inset-bottom))) + var(--nav-fh) + 22px)}
+[data-nav="dock"]{--scr-pad-b:calc(var(--nav-fh) + 46px + env(safe-area-inset-bottom))}
+
+/* The R's sheet: every app, in its own colour */
+.r-acts{display:flex;gap:16px}
+.r-srch{display:flex;align-items:center;gap:10px;height:44px;margin-bottom:12px;padding:0 14px;
+  border-radius:var(--r2);background:var(--bg);border:var(--bw) solid var(--bd);color:var(--mu)}
+.r-srch svg{width:16px;height:16px;flex-shrink:0}
+.r-srch input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--tx);
+  font:400 13px/1 var(--mono)}
+.r-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.r-app{height:88px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;
+  padding:12px;border-radius:var(--r3);background:var(--s2);border:var(--bw) solid var(--bd);
+  color:var(--tx);cursor:pointer;text-align:left;
+  animation:r-in calc(.42s * var(--mo)) cubic-bezier(.34,1.4,.5,1) both;
+  animation-delay:calc(var(--i) * 18ms * var(--mo));
+  transition:scale var(--dur-3) var(--ease-out),border-color .2s ease}
+.r-app:active{scale:.94}
+.r-app.cur{border-color:var(--r-c)}
+.r-app svg{width:26px;height:26px;color:var(--r-c)}
+.r-app .r-n{width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;
+  font:700 12px/1 var(--mono)}
+.r-app .r-d{width:6px;height:6px;border-radius:50%;background:var(--r-c);flex-shrink:0}
+.r-app .r-b{font:800 11px/1 var(--mono);color:var(--r-c)}
+.r-all{grid-column:1/-1;height:48px;border-radius:var(--r2);border:var(--bw) dashed var(--bd-2);
+  background:none;color:var(--tx-2);font:400 12px/1 var(--mono);cursor:pointer}
+@keyframes r-in{from{opacity:0;transform:scale(.7) translateY(10px)}}
+
 /* Generic bottom sheet (PLAN uses it; STORE has its own .pad) */
 .sheet-back{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
             opacity:0;pointer-events:none;transition:opacity .18s}
@@ -514,6 +578,10 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
      shape the user picked outright keeps whatever it picked (themes.css) */
   [data-desktop="rail"][data-nav-shape="pill"] .tab-b{--tab-r:var(--r3)}
   [data-desktop="rail"] #nav-prev{left:calc(var(--rail-w) + 14px)}
+  /* the dock, stood on its side: what the rail rules above do not set */
+  [data-desktop="rail"][data-nav="dock"] #nav{right:auto}
+  [data-desktop="rail"][data-nav="dock"] .tab-b.on{flex:0 0 auto;flex-direction:column;gap:6px}
+  [data-desktop="rail"][data-nav="dock"] .tab-r{width:auto;height:auto;aspect-ratio:auto;padding:12px 6px}
   [data-desktop="rail"] #toast,
   [data-desktop="rail"] .undo-pill{bottom:28px;left:calc(50% + var(--rail-w)/2)}
   [data-desktop="rail"] .sheet,
@@ -569,6 +637,7 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
      frame is the window now. These are all of them — the pill's width, the two
      toasts' caps, and the heights the sheets and the panels cap themselves at. */
   [data-desktop="frame"] #nav{width:min(322px, calc(var(--frame-w) - 136px))}
+  [data-desktop="frame"][data-nav="dock"] #nav{width:auto}
   [data-desktop="frame"] #toast,
   [data-desktop="frame"] .ns-tend .undo{max-width:calc(var(--frame-w) * .84)}
   [data-desktop="frame"] .sheet{max-height:calc(var(--frame-h) * .78)}

@@ -2286,6 +2286,10 @@
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
   </button>
+  <!-- the R: on the dock (4.19) it opens every app; the other bar styles hide it -->
+  <button class="tab-r" id="nav-r" aria-label="Every app" aria-haspopup="dialog">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="8" height="24" rx="2.5" fill="#8B5CF6"/><path d="M14 6.5A2.5 2.5 0 0 1 16.5 4H21a6.5 6.5 0 0 1 0 13h-4.5A2.5 2.5 0 0 1 14 14.5z" fill="#3DDC84"/><path d="M14 19h5.6l7.4 9h-6.1z" fill="#FF5FA2"/></svg>
+  </button>
 </nav>
 
 
@@ -2361,6 +2365,23 @@
     <button class="npad-k alt" data-npad="back" aria-label="backspace">⌫</button>
   </div>
   <button class="npad-clear" data-npad="clear">clear</button>
+</div>
+
+<!-- THE R — every app, the dock's marked (4.19). A .sheet-back sheet like
+     search, so Escape closes it and a swipe under it is refused (js/shell.js). -->
+<div class="sheet-back" id="r-back"></div>
+<div class="sheet r-sheet" id="r-sheet" role="dialog" aria-label="Every app">
+  <div class="sheet-head">
+    <span class="sheet-ttl">apps</span>
+    <span class="r-acts">
+      <button class="sheet-close" id="r-edit">edit the dock</button>
+      <button class="sheet-close" id="r-close">close</button>
+    </span>
+  </div>
+  <label class="r-srch"><svg aria-hidden="true"><use href="#ico-search"/></svg>
+    <input type="search" id="r-q" placeholder="an app, or search everything"
+           autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="find an app"></label>
+  <div class="r-grid" id="r-grid"></div>
 </div>
 
 <!-- SEARCH — one field over every app, its content and every setting.

@@ -359,6 +359,16 @@ the track; while you are on it the settings button wears its icon. Keyboard
 `.view` nodes, which resets their scroll position, so it saves and restores
 each slide's `scrollTop` around the move.
 
+**On the dock (4.19, `navStyle: 'dock'`, the default) the list is `Prefs.dock`**,
+not `apps`: the dock's apps (five at most), then settings, whose button the dock
+hides. Every other app is in **the R** (`#nav-r`, the dock's last button, and the
+`#r-sheet` it opens, a `.sheet-back` sheet), and opens through `open()` exactly as
+an app out of the bar always has; the R is lit while you are on one, or on
+settings. `Shell.go(name)` falls back to `open()` for an app with no tab, so a
+module or a link that goes to PLAN still gets there. The swipe walks the dock and
+stops at its last app (`dockCount()`); from an app opened from the R it still
+steps back. The other three bar styles read `apps` as before.
+
 The left arrow is context-sensitive: on an app's home it is "previous tab";
 inside a sub-screen (`.scr.on` other than `#s-home` carrying an `.hd-back`)
 it becomes that back button. Tapping the tab you are already on calls the
@@ -2002,6 +2012,29 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.19 — 2026-10-27 — ROOT 5, phase 2: the dock and the R
+
+The bar becomes ROOT 5's **dock**: a new bar style (`navStyle: 'dock'`, the default), drawn across the bottom.
+- **Its apps** are a new list, `Prefs.dock` (do · log · day · tools to start, five at most, in your order). The app you
+  are on widens and says its name. The arrows go. The back button floats above the dock's left end only while a
+  sub-screen is up.
+- **The R** at its end opens a sheet with every app and settings, each in its own colour. The dock's apps carry a dot,
+  and an app's "!" or count comes over from its tab. The box finds an app by name and hands anything else to search
+  (`SEARCH.open(q)`). "Edit the dock" opens the dock's editor (settings → layout, the bar's list under the dock). An app
+  from the R opens through `open()`, and the R stays lit while you are on it.
+- **The swipe** walks the dock and stops at its end (his answer 3). `Shell.go()` falls back to `open()` for an app with
+  no tab, so links and modules still reach everything. A last tab that is in the R now reopens on boot.
+- **One-time move** (`root5dock`): an install on the floating pill, the old default, moves to the dock. A bottom bar or a
+  hidden one stays.
+- **Layouts:** the frame (ROOT desktop's default) keeps the dock inside it. A wide window in rail mode keeps the rail
+  until phase 8.
+
+His answer for the fourth app was qurOS, which comes into ROOT in phase 7 (4.24). Until then it is tools.
+
+Harness: +10 checks (the default, the move ×2, the R, its box, opening and retiring an app from it, the swipe stopping at
+the end, `go()` into the R, the cap of five). The legacy suite runs on the pill: its window sets it, and its two app-list
+seeds say the move has run. Seen at 390px and in the 1280px frame. Log: `updates/26-10-27_update_v4.19.0.md`.
 
 ### 4.18 — 2026-10-27 — ROOT 5, phase 1: the ROOT preset, each app in its colour, the lowercase band
 

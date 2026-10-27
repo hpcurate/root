@@ -178,7 +178,9 @@ const SCHEMA = {
   navMotion:    { kind:'bool',   def:false, attr:'data-nav-motion' },
   contrast:     { kind:'enum',   def:'normal', values:['normal','more','max'],         attr:'data-contrast' },
   caps:         { kind:'enum',   def:'on',     values:['on','off'],                    attr:'data-caps' },
-  navStyle:     { kind:'enum',   def:'pill',   values:['pill','bar','minimal'],        attr:'data-nav' },
+  /* 'dock' is ROOT 5's (4.19): the bar holds the dock's few apps and the R,
+     which opens every app — see `dock` below and the R in shell.js */
+  navStyle:     { kind:'enum',   def:'dock',   values:['dock','pill','bar','minimal'], attr:'data-nav' },
   /* The three things the tab bar's active indicator can be asked about, kept
      apart because they are three questions and not one: what shape the mark
      around the tab is, how it arrives, and — once `colorfulTabs` is on — which
@@ -265,6 +267,10 @@ const SCHEMA = {
 
   // navigation — which apps have a tab, and in what order
   apps:         { kind:'list',   def:APPS.slice() },
+  /* The dock's apps, in order, when the bar is the dock: what has a tab and what
+     the swipe walks through. Every other app is in the R. Five at most, the
+     most a phone's dock holds with its names on; four is what it is drawn for. */
+  dock:         { kind:'list',   def:['do', 'log', 'cal', 'tools'], max:5 },
   /* Every app this install has ever been offered. Not a setting — there is no
      control for it — but it lives here so it is stored, exported and restored
      with the rest. See the note on load(): it is what tells a brand-new app
@@ -274,6 +280,10 @@ const SCHEMA = {
      Spacing fold has been undone, so the repair runs once. Stored, exported and
      restored with the rest, like `appsSeen`. */
   densRepair:   { kind:'bool',   def:false },
+  /* The same kind of record: ROOT 5's one-time moves have run (4.18 the preset,
+     4.19 the dock), so a later choice is left alone. */
+  root5:        { kind:'bool',   def:false },
+  root5dock:    { kind:'bool',   def:false },
 
   // behaviour
   startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
@@ -490,6 +500,7 @@ function load() {
   adoptNewApps(stored);
   dropUiScale(stored);
   moveToRoot(stored);
+  moveToDock(stored);
 }
 
 /* 4.18: ROOT 5's preset arrives as the default. An install still on Void, the
@@ -500,6 +511,15 @@ function moveToRoot(stored) {
   if (prefs.theme === 'void') prefs.theme = 'root';
   if (prefs.themeDark === 'void') prefs.themeDark = 'root';
   prefs.root5 = true;
+  persist();
+}
+
+/* 4.19: the bar becomes ROOT 5's dock. An install on the floating pill, the old
+   default, moves to it once; a bottom bar or a hidden one was a choice. */
+function moveToDock(stored) {
+  if (stored.root5dock) return;
+  if (prefs.navStyle === 'pill') prefs.navStyle = 'dock';
+  prefs.root5dock = true;
   persist();
 }
 
@@ -562,7 +582,7 @@ function coerce(k, v) {
     /* `members` names the pool where it is not the app list — TOOLS' strip is
        the same shape (the list *is* the visibility) over a different set. */
     const pool = s.members || APPS;
-    const out = v.filter((x, i, a) => pool.includes(x) && a.indexOf(x) === i);
+    const out = v.filter((x, i, a) => pool.includes(x) && a.indexOf(x) === i).slice(0, s.max || Infinity);
     return out.length ? out : s.def.slice();
   }
   /* the custom tab palette: known tabs only, one well-formed hex each — a

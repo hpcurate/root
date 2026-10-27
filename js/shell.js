@@ -165,9 +165,15 @@ window.Shell = (function () {
   const toastEl  = document.getElementById('toast');
   const undoEl   = document.getElementById('undo-pill');
   const undoTxt  = document.getElementById('undo-txt');
+  const rBtn     = document.getElementById('nav-r');
   let transient  = null;               // an app kept out of the bar, opened from settings — see open()
 
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
+  /* The apps with a tab. On ROOT 5's dock (4.19) that is the dock's list, and
+     every other app is in the R; on the other bar styles it is `apps`, as it
+     always was. */
+  const docked = () => pref('navStyle', 'pill') === 'dock';
+  const barList = () => (docked() ? pref('dock', null) : pref('apps', APPS)) || APPS;
 
   let index = 0;
   const apps = {};                     // name → { onShow, onDayChange, home }
@@ -234,7 +240,7 @@ window.Shell = (function () {
      apps that are switched off. A hidden .view is display:none, so the flex
      track still moves by whole visible slides and index arithmetic holds. */
   function rebuild() {
-    const want = (pref('apps', APPS) || APPS).filter(a => APPS.includes(a));
+    const want = barList().filter(a => APPS.includes(a));
     TABS.length = 0;
     TABS.push(...want, 'settings');
     transient = null;
@@ -248,6 +254,7 @@ window.Shell = (function () {
       if (v) track.appendChild(v);
       if (b) navEl.appendChild(b);
     });
+    if (rBtn) navEl.appendChild(rBtn);     // the R is always the dock's last
     APPS.forEach(a => {
       const on = want.includes(a);
       const v = viewOf(a), b = btnOf(a);
@@ -265,7 +272,7 @@ window.Shell = (function () {
   /* The apps switched off in the bar. Their slides are still in the track,
      hidden; the settings home lists them and open() shows one on demand. */
   function hidden() {
-    const want = (pref('apps', APPS) || APPS);
+    const want = barList();
     return APPS.filter(a => !want.includes(a));
   }
 
@@ -605,6 +612,8 @@ window.Shell = (function () {
       sb.setAttribute('aria-label', onT ? transient.toUpperCase() + ' · settings' : 'Settings');
     }
     if (nextBtn) nextBtn.disabled = index === TABS.length - 1;
+    // the R stands for whatever is not in the dock: lit on settings and on an app opened from it
+    if (rBtn) rBtn.classList.toggle('on', TABS[index] === 'settings' || (onT && docked()));
     updateBack();
   }
 
@@ -646,6 +655,8 @@ window.Shell = (function () {
   function park() { show(false); }
 
   function go(name, opts = {}) {
+    // an app with no tab — in the R, or switched out of the bar — opens as one does from there
+    if (typeof name === 'string' && !TABS.includes(name) && APPS.includes(name)) { open(name); return; }
     const i = typeof name === 'number' ? name : TABS.indexOf(name);
     if (i < 0 || i >= TABS.length) return;
     checkDay();
@@ -841,13 +852,82 @@ window.Shell = (function () {
     const speed = Math.abs(dx) / Math.max(1, Date.now() - st);
     const far = Math.abs(dx) > w * pref('swipeStrength', 0.22) || speed > FLICK;
     let next = index;
-    if (far && dx < 0) next = Math.min(TABS.length - 1, index + 1);
+    /* on the dock, a swipe walks the dock's apps and stops at its ends (4.19,
+       Hugo's answer: "through the dock's four"); from an app opened from the R
+       or from settings it still steps back towards them */
+    const last = docked() && index < dockCount() ? dockCount() - 1 : TABS.length - 1;
+    if (far && dx < 0) next = Math.min(last, index + 1);
     if (far && dx > 0) next = Math.max(0, index - 1);
     if (next !== index) { if (window.Prefs) Prefs.tap(); go(next); }
     dx = 0; axis = null;
   }
   track.addEventListener('touchend', endDrag, { passive: true });
   track.addEventListener('touchcancel', endDrag, { passive: true });
+
+  // how many of TABS are the dock's: all but settings and an app opened from the R
+  function dockCount() { return TABS.length - 1 - (transient ? 1 : 0); }
+
+  /* The R (4.19)
+     ROOT 5's dock holds a few apps and the R, and the R opens every app: a grid
+     in each app's own colour, the dock's marked with a dot, an app's "!" or count
+     carried over from its tab. The box finds an app by name and, past the apps,
+     hands the words to search. An app not in the dock opens as one out of the
+     bar always has (open()), so its slide comes and goes the same way. */
+  const rBack = document.getElementById('r-back'), rSheet = document.getElementById('r-sheet');
+  const rGrid = document.getElementById('r-grid'), rQ = document.getElementById('r-q');
+  const R_NAME = { cal: 'day', settings: 'settings' };
+  const rEsc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function rPaint() {
+    const q = (rQ.value || '').trim().toLowerCase();
+    const dock = docked() ? barList() : [];
+    const cur = TABS[index];
+    const list = APPS.concat('settings').filter(n => !q || (R_NAME[n] || n).includes(q) || n.includes(q));
+    rGrid.innerHTML = list.map((n, i) => {
+      const b = btnOf(n), alerting = b && b.classList.contains('has-alert'), count = b && b.querySelector('.tb-badge');
+      const tv = window.Prefs && Prefs.tabVar ? Prefs.tabVar(n) : '--y';
+      return '<button class="r-app' + (n === cur ? ' cur' : '') + '" data-app="' + n + '" style="--i:' + i + ';--r-c:var(' + tv + ',var(--y))">' +
+        '<svg aria-hidden="true"><use href="#' + (alerting ? 'tab-alert' : n === 'settings' ? 'tab-set' : 'tab-' + n) + '"/></svg>' +
+        '<span class="r-n">' + (R_NAME[n] || n) +
+        (count ? '<b class="r-b">' + rEsc(count.textContent) + '</b>' : dock.includes(n) ? '<i class="r-d" aria-label="in the dock"></i>' : '') +
+        '</span></button>';
+    }).join('') + (q ? '<button class="r-all" data-search="1">search everything for “' + rEsc(q) + '” ›</button>' : '');
+  }
+  function rOpen() {
+    if (!rSheet) return;
+    rQ.value = ''; rPaint();
+    rBack.classList.add('on'); rSheet.classList.add('on');
+    if (rBtn) rBtn.classList.add('open');
+  }
+  function rClose() {
+    if (!rSheet) return;
+    rBack.classList.remove('on'); rSheet.classList.remove('on');
+    if (rBtn) rBtn.classList.remove('open');
+    try { rQ.blur(); } catch {}
+  }
+  if (rBtn && rSheet) {
+    rBtn.addEventListener('click', () => { if (window.Prefs) Prefs.tap(); if (rSheet.classList.contains('on')) rClose(); else rOpen(); });
+    rBack.addEventListener('click', rClose);
+    document.getElementById('r-close').addEventListener('click', rClose);
+    document.getElementById('r-edit').addEventListener('click', () => {
+      rClose(); settings('layout');
+      const row = document.querySelector('.ns-set .app-row');
+      if (row) row.scrollIntoView({ block: 'center' });
+    });
+    rQ.addEventListener('input', rPaint);
+    rQ.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { rClose(); e.preventDefault(); }
+      if (e.key === 'Enter') { const first = rGrid.querySelector('.r-app, .r-all'); if (first) first.click(); e.preventDefault(); }
+    });
+    rGrid.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (window.Prefs) Prefs.tap();
+      if (b.dataset.search) { const q = rQ.value; rClose(); if (window.SEARCH) SEARCH.open(q); return; }
+      const n = b.dataset.app; rClose();
+      if (n === 'settings') { if (window.SET && SET.home) SET.home(); go('settings'); }
+      else if (n === TABS[index]) homeOf(n);
+      else go(n);
+    });
+  }
 
   /* #do … #settings select a tab; #settings/<panel> lands on one panel. */
   function hashTarget() {
@@ -1589,12 +1669,12 @@ window.Shell = (function () {
   // Boot: hash wins, then the start-tab preference, then the last tab
   (function boot() {
     rebuild();
-    let start = TABS[0];
+    let start = TABS[0], late = null;     // late: a last app that is in the R now, opened once the dock is up
     const fromHash = hashTarget().name;
     const want = pref('startTab', 'last');
     if (fromHash) start = fromHash;
     else if (want !== 'last' && TABS.includes(want)) start = want;
-    else { try { const s = localStorage.getItem(TAB_KEY); if (TABS.includes(s)) start = s; } catch {} }
+    else { try { const s = localStorage.getItem(TAB_KEY); if (TABS.includes(s)) start = s; else if (hidden().includes(s)) late = s; } catch {} }
     // Land on the opening tab without animating in from DO: park the track there
     // with the transition off and flush it, so go()'s identical transform is a
     // no-op rather than something to animate towards.
@@ -1604,6 +1684,7 @@ window.Shell = (function () {
     // a link to an app that is out of the bar (#tend) still opens it
     const raw = location.hash.replace('#', '').split('/')[0];
     if (!fromHash && hidden().includes(raw)) open(raw);
+    else if (late) open(late);
   })();
 
   /* Turning auto-hide off should bring the chrome back immediately, not at the
@@ -1612,7 +1693,7 @@ window.Shell = (function () {
     if (k === 'autoHideChrome' || k === '*') { if (pref('autoHideChrome', true) === false) showChrome(); }
     /* the app list changed: re-order the slides and stay on the same app if it
        is still shown, otherwise land on the first one */
-    if (k === 'apps' || k === '*') {
+    if (k === 'apps' || k === 'dock' || k === 'navStyle' || k === '*') {
       const cur = TABS[index];
       rebuild();
       go(TABS.includes(cur) ? cur : TABS[0]);

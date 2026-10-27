@@ -396,8 +396,8 @@ function layoutHTML() {
 
     ${sectionHead('Navigation')}
     ${chips('navStyle', [
-      { v:'pill', l:'floating pill' }, { v:'bar', l:'bottom bar' }, { v:'minimal', l:'hidden' },
-    ], 'Tab bar', 'in a frame it stays a pill at every size; filling the window turns it into a side rail')}
+      { v:'dock', l:'dock' }, { v:'pill', l:'floating pill' }, { v:'bar', l:'bottom bar' }, { v:'minimal', l:'hidden' },
+    ], 'Tab bar', 'the dock holds a few apps and the R, which opens every app; filling the window turns any of them into a side rail')}
     ${toggle('showTabLabels', 'Show tab names', 'off leaves the icons alone')}
     ${chips('navShape', [
       { v:'pill', l:'pill' }, { v:'round', l:'rounded' }, { v:'square', l:'square' },
@@ -430,11 +430,16 @@ function layoutHTML() {
     ${toggle('chromeBlur', 'Blur behind the bar', 'off is flatter, and cheaper on a tired phone')}
     ${toggle('autoHideChrome', 'Get out of the way', 'the bar steps aside while you scroll down')}
 
+    ${Prefs.get('navStyle') === 'dock' ? `
+    ${sectionHead('The dock')}
+    <div class="set-note">Which apps are in the dock, and in what order — four
+      is what it is drawn for, five at most. The swipe walks them. Every app,
+      these included, is in the R at the dock's end.</div>` : `
     ${sectionHead('Apps in the bar')}
     <div class="set-note">Which apps get a tab, and in what order. An app switched
       off keeps its data and its settings panel, and opens from the settings
       home — it just has no tab. Settings is always last. The pill never grows
-      past its phone width, so the arrows stay where they are.</div>
+      past its phone width, so the arrows stay where they are.</div>`}
     ${appsList()}
 
     ${sectionHead('Motion & contrast')}
@@ -456,8 +461,10 @@ function layoutHTML() {
 
 /* The app list: the enabled apps in their order, then the disabled ones. Each
    row has up/down and a switch; the shell rebuilds the track on every change. */
+/* Under the dock it is the dock's list it edits (`dock`), else the bar's. */
+const barKey = () => (Prefs.get('navStyle') === 'dock' ? 'dock' : 'apps');
 function appsList() {
-  const on = Prefs.get('apps');
+  const on = Prefs.get(barKey());
   const order = on.concat(Prefs.APPS.filter(a => !on.includes(a)));
   return order.map((a, i) => {
     const active = on.includes(a);
@@ -2578,18 +2585,23 @@ view.addEventListener('click', e => {
   // the app list: switch an app's tab on or off, or move it — without the
   // page jumping back to the top (the shell keeps the slide's scroll too)
   if (t.dataset.appToggle) {
-    const a = t.dataset.appToggle, on = Prefs.get('apps');
+    const a = t.dataset.appToggle, key = barKey(), on = Prefs.get(key);
+    /* the bar re-enables an app in shipped order; the dock adds it at its end,
+       since the dock's order is the one thing about it you choose */
     const next = on.includes(a) ? on.filter(x => x !== a)
-               : Prefs.APPS.filter(x => on.includes(x) || x === a);   // re-enable in shipped order
+               : key === 'dock' ? on.concat(a)
+               : Prefs.APPS.filter(x => on.includes(x) || x === a);
     if (!next.length) { Shell.toast('keep at least one app'); return; }
-    keepScroll(() => { Prefs.set('apps', next); Prefs.tap(); renderLayout(); }); return;
+    const max = Prefs.SCHEMA[key].max;
+    if (max && next.length > max) { Shell.toast('the dock holds ' + max + ' — take one out first'); return; }
+    keepScroll(() => { Prefs.set(key, next); Prefs.tap(); renderLayout(); }); return;
   }
   if (t.dataset.appMove) {
     const [a, dir] = t.dataset.appMove.split(':');
-    const on = Prefs.get('apps'), i = on.indexOf(a), j = i + (+dir);
+    const key = barKey(), on = Prefs.get(key), i = on.indexOf(a), j = i + (+dir);
     if (i < 0 || j < 0 || j >= on.length) return;
     [on[i], on[j]] = [on[j], on[i]];
-    keepScroll(() => { Prefs.set('apps', on); renderLayout(); }); return;
+    keepScroll(() => { Prefs.set(key, on); renderLayout(); }); return;
   }
 
   // theme card
@@ -2676,7 +2688,7 @@ view.addEventListener('click', e => {
        'accentUse','radius','border',
        'density','iconStroke','chromeAlpha','contentWidth','textureAmount','titleSize','hdTitleSize','bandMark',
        'bandDrop','navHeight','navRadius','navIcon','desktopMode','frameW','frameH',
-       'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps'].forEach(k => Prefs.reset(k));
+       'showTabLabels','accentGlow','monoNumbers','colorfulTabs','chromeBlur','apps','dock','ground'].forEach(k => Prefs.reset(k));
       render(); Shell.toast('appearance reset');
     });
   }

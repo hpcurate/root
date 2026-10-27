@@ -140,11 +140,12 @@ function pick(i) {
   try { h.go(); } catch (e) { console.error(e); Shell.toast('could not open that'); }
 }
 
-function open() {
+/* `q`: words already typed elsewhere — the R hands over what found no app */
+function open(q) {
   if (window.SET && SET.dropIndex) SET.dropIndex();   // a panel may have changed since last time
   back.classList.add('on');
   sheet.classList.add('on');
-  input.value = '';
+  input.value = typeof q === 'string' ? q : '';
   render();
   /* Not focused on a touch device: the keyboard would cover the results before
      there are any, and the field is one tap away. On a laptop — where "/" is
