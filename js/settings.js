@@ -266,9 +266,18 @@ function lookHTML() {
         radius, the depth, the texture and the type pairing. Every one of those
         stays yours to override under <strong>layout</strong>.</div>
       <div class="theme-grid">${themeCards('dark')}</div>
-      <div class="sec"><span>Light themes</span></div>
-      <div class="theme-grid">${themeCards('light')}</div>
+      <details class="more-themes"${Prefs.themeInfo().mode === 'light' ? ' open' : ''}>
+        <summary class="sec"><span>More themes · light</span></summary>
+        <div class="theme-grid">${themeCards('light')}</div>
+      </details>
     `}
+
+    ${Prefs.activeTheme() === 'root' ? `
+      <div class="opt-set">
+        <label class="lbl">Ground<em>how dark ROOT's black is</em></label>
+        <div class="chips">${['dark', 'darker', 'black'].map(v =>
+          `<button class="chip${Prefs.get('ground') === v ? ' on' : ''}" data-pref="ground" data-val="${v}">${v}</button>`).join('')}</div>
+      </div>` : ''}
 
     ${sectionHead('Accent')}
     <div class="acc-grid">

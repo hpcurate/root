@@ -1711,8 +1711,11 @@ window.Shell = (function () {
     const full = (parseFloat(cs.fontSize) || 0) / was;
     // the box's own min-width (two narrow digits) counts as much as the digits do
     const need = Math.max(cur.offsetWidth, (parseFloat(cs.minWidth) || 0) - pad) / was;
-    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-    const room = row.clientWidth - logo.offsetWidth - gap - pad;
+    /* the room is what everything else in the row leaves — DAY's date shares it
+       with the wordmark, and a bigger title (ROOT 5's) leaves no slack to hide that */
+    const others = Array.from(row.children).filter(el => el !== box);
+    const gap = (parseFloat(getComputedStyle(row).columnGap) || 0) * others.length;
+    const room = row.clientWidth - others.reduce((s, el) => s + el.offsetWidth, 0) - gap - pad;
     const least = full > 9 ? 9 / full : .2;
     const fit = need > room ? Math.max(least, Math.floor(room / need * 100) / 100) : 1;
     if (fit === was) return;

@@ -69,6 +69,11 @@
   margin:24px 0 12px;padding-bottom:8px;border-bottom:var(--bw) solid var(--bd);
   display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ns-set .sec:first-child{margin-top:0}
+/* the light themes, folded away under the dark ones (4.18) — open when one is on */
+.ns-set .more-themes > summary{cursor:pointer;list-style:none}
+.ns-set .more-themes > summary::-webkit-details-marker{display:none}
+.ns-set .more-themes > summary::after{content:'+';font:400 14px/1 var(--mono);color:var(--tx-2)}
+.ns-set .more-themes[open] > summary::after{content:'−'}
 .ns-set .sec-reset{background:none;border:none;color:var(--mu);cursor:pointer;
   font:400 9px/1 var(--mono);letter-spacing:.08em;text-transform:none;padding:2px 0}
 .ns-set .sec-reset:active,.ns-set .sec-reset:hover{color:var(--y)}

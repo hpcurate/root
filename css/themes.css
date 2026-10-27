@@ -4,6 +4,22 @@
 
 /* DARK */
 
+/* ROOT — ROOT 5's own look. --or is the sun of the five shape colours; --mu sits
+   lighter than Void's because ROOT 5 reads its quiet labels, not only its rules. */
+[data-theme="root"]{
+  --bg:#0b0a0f; --s1:#15131b; --s2:#1c1924; --s3:#242030; --bd:#272330; --bd-2:#352f42;
+  --tx:#f1edf7; --tx-2:#b3adc2; --mu:#6a6479;
+  --y:#A78BFA; --on-y:#0b0a0f;
+  --gr:#3ddc84; --re:#ff5f7e; --or:#ffc94d;
+  --chrome-rgb:11,10,15}
+/* its ground, three depths deep: `darker` is the block above */
+[data-theme="root"][data-ground="dark"]{
+  --bg:#14121b; --s1:#1d1a26; --s2:#262231; --s3:#2e2939; --bd:#332d3f; --bd-2:#403950;
+  --chrome-rgb:20,18,27}
+[data-theme="root"][data-ground="black"]{
+  --bg:#000000; --s1:#0f0d14; --s2:#17151e; --s3:#1f1c28; --bd:#211e2a; --bd-2:#2e2a3a;
+  --chrome-rgb:0,0,0}
+
 [data-theme="void"]{
   --bg:#0e0e0e; --s1:#161616; --s2:#1e1e1e; --s3:#252525; --bd:#272727; --bd-2:#343434;
   --tx:#dedede; --tx-2:#9a9a9a; --mu:#4a4a4a;
@@ -218,6 +234,17 @@
       --tab-create:#e6c34a;--tab-tools:#ef7261;--tab-walk:#8fd16a;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
 /* warm — one sunset, so the bar reads as a run across itself rather than nine
    unrelated hues */
+/* Under ROOT the shipped palette is ROOT 5's: five shape colours, each app
+   wearing one, and the ground's black on all of them — named per tab, because
+   Prefs' luminance cut would put white on the violet and the pink. */
+[data-theme="root"][data-tab-palette="app"]{
+      --tab-do:#A78BFA;--tab-log:#ff5fa2;--tab-plan:#3ddc84;--tab-store:#ffc94d;
+      --tab-tend:#3ddc84;--tab-track:#c4b5fd;--tab-learn:#ff5fa2;--tab-cal:#ffc94d;
+      --tab-create:#A78BFA;--tab-tools:#e9e4f2;--tab-walk:#3ddc84;--tab-set:#e9e4f2;--tab-on-c:#0b0a0f;
+      --tab-do-ink:#0b0a0f;--tab-log-ink:#0b0a0f;--tab-plan-ink:#0b0a0f;--tab-store-ink:#0b0a0f;
+      --tab-tend-ink:#0b0a0f;--tab-track-ink:#0b0a0f;--tab-learn-ink:#0b0a0f;--tab-cal-ink:#0b0a0f;
+      --tab-create-ink:#0b0a0f;--tab-tools-ink:#0b0a0f;--tab-walk-ink:#0b0a0f;--tab-set-ink:#0b0a0f}
+
 [data-tab-palette="warm"]{--tab-do:#ff9e57;--tab-log:#ffc861;--tab-plan:#ff7a5c;
       --tab-store:#e8a33d;--tab-tend:#d9b26a;--tab-track:#ff6b81;--tab-learn:#ffb38a;
       --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-tools:#e0614a;--tab-walk:#c9a25a;--tab-on-c:#1a0d05}
@@ -369,3 +396,32 @@
 [data-theme="noir"],[data-theme="carbon"]{
   --yd:color-mix(in srgb, var(--y) 9%, transparent);
   --yb:color-mix(in srgb, var(--y) 22%, transparent)}
+
+
+/* ROOT 5 — THE BAND AND THE PRESS
+   Under the ROOT preset the wordmark is ROOT 5's: lowercase, bigger, no hard
+   shadow, and its dot in the app's own colour (per slide, so a swipe does not
+   repaint the slide on its way out). Lowercase has descenders and the band
+   clips sideways-moving titles, so the band keeps room under the letters. */
+[data-theme="root"]{--title-base:60px;--title-sh-x:0px}
+/* DO's strip shares the row with the bigger wordmark: tighter chips keep its three tabs in view */
+[data-theme="root"] .ns-do .tab{padding:0 calc(10px * var(--dens));letter-spacing:.06em}
+[data-theme="root"] .view > .h-top{padding-bottom:22px}
+[data-theme="root"] .view > .h-top .h-logo{text-transform:lowercase;letter-spacing:-.045em}
+[data-theme="root"] .ns-do     > .h-top .h-logo em{color:var(--tab-do)}
+[data-theme="root"] .ns-log    > .h-top .h-logo em{color:var(--tab-log)}
+[data-theme="root"] .ns-plan   > .h-top .h-logo em{color:var(--tab-plan)}
+[data-theme="root"] .ns-store  > .h-top .h-logo em{color:var(--tab-store)}
+[data-theme="root"] .ns-tend   > .h-top .h-logo em{color:var(--tab-tend)}
+[data-theme="root"] .ns-track  > .h-top .h-logo em{color:var(--tab-track)}
+[data-theme="root"] .ns-learn  > .h-top .h-logo em{color:var(--tab-learn)}
+[data-theme="root"] .ns-cal    > .h-top .h-logo em{color:var(--tab-cal)}
+[data-theme="root"] .ns-create > .h-top .h-logo em{color:var(--tab-create)}
+[data-theme="root"] .ns-tools  > .h-top .h-logo em{color:var(--tab-tools)}
+[data-theme="root"] .ns-walk   > .h-top .h-logo em{color:var(--tab-walk)}
+[data-theme="root"] .ns-set    > .h-top .h-logo em{color:var(--tab-set)}
+/* A card and a band action give under the finger and spring back. `scale`, not
+   `transform`, so nothing that already positions itself with a transform moves. */
+[data-theme="root"] .card,[data-theme="root"] .h-act{transition:scale var(--dur-3) var(--ease-out)}
+[data-theme="root"] .card:active{scale:.97}
+[data-theme="root"] .h-act:active{scale:.88}

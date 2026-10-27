@@ -53,7 +53,7 @@ repaint a layout whose shape was hardcoded in five stylesheets.
    what the app is about     what the app looks like    how the app responds
    ────────────────────      ──────────────────────     ─────────────────────
       js/config.js               js/prefs.js               js/prefs.js
-   editable in Settings       15 presets + 42 dials      one delegated reader
+   editable in Settings       16 presets + 43 dials      one delegated reader
    → content panel            → look / layout panels     → behave panel
 ```
 
@@ -97,7 +97,7 @@ root/
 │   └── package.json   its one dev dependency (jsdom); not part of the site
 ├── css/
 │   ├── tokens.css     the token system + every global consequence of a dial
-│   ├── themes.css     15 presets, depth ramps, card treatments, nav variants
+│   ├── themes.css     16 presets (ROOT first), depth ramps, ROOT 5's band, card treatments, nav variants
 │   ├── do.css         ┐
 │   ├── log.css        │
 │   ├── plan.css       │ per-app sheets, each scoped to its .ns-* namespace
@@ -2002,6 +2002,24 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.18 — 2026-10-27 — ROOT 5, phase 1: the ROOT preset, each app in its colour, the lowercase band
+
+The first of ROOT 5's eight phases (the plan and Hugo's nine answers: artifact `RcjmroYUpJ5qX3M3xD9V86`; the mockup:
+`NEzygoEXghcKBAFDw3tnZ7`). A new preset, **ROOT**: the default, first among the dark ones. A violet-cast black, Syne over
+JetBrains Mono, radius 14, flat, **grain on** (his answer 7). Its **ground** has three depths (`ground`: dark / darker / black,
+ROOT's alone). Under ROOT the shipped tab palette is ROOT 5's five shape colours (do/create violet, log/learn pink, day/store
+sun, plan/tend/walk green, track lavender, tools/settings chalk), each with the ground's black as its ink. The ink is named
+per tab, and `tabAccent` honours a palette's own `--tab-<app>-ink`: the luminance cut put white on violet and pink. The
+band: the wordmark **lowercase**, 60px, no hard shadow, its dot in the app's colour, room under the descenders. A card
+and a band action give under the finger (`scale`, so no positioning transform moves). **One-time move:** an install still on
+Void (the old default) goes to ROOT, marked `root5`; Void picked afterwards stays, and so does any other theme. The **light
+five are folded** under "More themes · light" (his answer 1), open while one of them is on. Fixed on the way: the band's
+number fit measured only the wordmark, so DAY's date plus the bigger title pushed its day number off the phone. It now
+fits to what everything else in the row leaves. Harness: +7 checks (the move ×3, the fold, the ground, DAY's row). Seen at
+390px in a local window: every app's band, DO's three tabs in view, DAY's number fitted. CREATE's tally on "all" ran off
+the edge before this too (its wordmark alone is wider than the row under Void), left for phase 6. Log:
+`updates/26-10-27_update_v4.18.0.md`.
 
 ### 4.17.1 — 2026-10-27 — PLAN numbers a day's blocks itself: 1, 2, 3…
 

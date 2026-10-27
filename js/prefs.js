@@ -15,6 +15,10 @@ const root       = document.documentElement;
    asks for; the user's own font choice, if they make one, overrides it. */
 const THEMES = [
   // dark ──
+  /* ROOT 5's own look (4.18): the default, and the one the redesign is drawn in.
+     Its ground has three depths of its own — `ground`, below. */
+  { id:'root',      name:'ROOT',      mode:'dark',  group:'dark',
+    desc:'ROOT 5 — violet-cast black, five shape colours', sw:['#0b0a0f','#15131b','#A78BFA','#f1edf7'] },
   { id:'void',      name:'Void',      mode:'dark',  group:'dark',
     desc:'the original — near-black, violet', sw:['#0e0e0e','#161616','#A78BFA','#dedede'] },
   { id:'ember',     name:'Ember',     mode:'dark',  group:'dark',
@@ -111,7 +115,8 @@ const MONO_FONTS = [
    repaint. These are applied as data-attributes, so they still lose to an
    explicit user dial. */
 const THEME_CHARACTER = {
-  void:      { display:'syne',      mono:'jetbrains', radius:4,  border:1, depth:'flat',  texture:'none' },
+  root:      { display:'syne',      mono:'jetbrains', radius:14, border:1, depth:'flat',  texture:'grain' },
+  void:     { display:'syne',      mono:'jetbrains', radius:4,  border:1, depth:'flat',  texture:'none' },
   ember:     { display:'syne',      mono:'jetbrains', radius:5,  border:1, depth:'flat',  texture:'none' },
   frost:     { display:'grotesk',   mono:'jetbrains', radius:6,  border:1, depth:'soft',  texture:'none' },
   moss:      { display:'grotesk',   mono:'dm',        radius:8,  border:1, depth:'soft',  texture:'none' },
@@ -152,9 +157,12 @@ const TOOL_IDS = ['pom', 'whf', 'opt', 'dat'];
    whatever CSS reads it. `auto` means "take it from the theme's character". */
 const SCHEMA = {
   // appearance — enumerated
-  theme:        { kind:'enum',   def:'void',   values:() => THEMES.map(t => t.id), attr:'data-theme' },
+  theme:        { kind:'enum',   def:'root',   values:() => THEMES.map(t => t.id), attr:'data-theme' },
   themeMode:    { kind:'enum',   def:'fixed',  values:['fixed','system'] },
-  themeDark:    { kind:'enum',   def:'void',   values:() => THEMES.filter(t => t.mode === 'dark').map(t => t.id) },
+  themeDark:    { kind:'enum',   def:'root',   values:() => THEMES.filter(t => t.mode === 'dark').map(t => t.id) },
+  /* How dark the ROOT preset's ground is. Only that preset has the three ramps
+     (themes.css); every other preset ignores the attribute. */
+  ground:       { kind:'enum',   def:'darker', values:['dark','darker','black'],       attr:'data-ground' },
   themeLight:   { kind:'enum',   def:'paper',  values:() => THEMES.filter(t => t.mode === 'light').map(t => t.id) },
   /* 'custom' is a valid accent alongside the named swatches — it reads its hex
      from accentCustom rather than from the ACCENTS table. */
@@ -481,6 +489,18 @@ function load() {
   }
   adoptNewApps(stored);
   dropUiScale(stored);
+  moveToRoot(stored);
+}
+
+/* 4.18: ROOT 5's preset arrives as the default. An install still on Void, the
+   old default, moves to it once; any other theme was a choice and stays. The
+   marker is what lets a later pick of Void stay picked. */
+function moveToRoot(stored) {
+  if (stored.root5) return;
+  if (prefs.theme === 'void') prefs.theme = 'root';
+  if (prefs.themeDark === 'void') prefs.themeDark = 'root';
+  prefs.root5 = true;
+  persist();
 }
 
 /* Drop retired document scale. Repair the old scale-to-density migration by
@@ -618,8 +638,11 @@ function tabAccent() {
   const c  = cs.getPropertyValue(tabVar(curApp)).trim();
   if (!c) return null;
   const hex = /^#[0-9a-f]{3,8}$/i.test(c);
-  return { c, ink: hex ? (luminance(c) > 0.45 ? '#0b0b0b' : '#ffffff')
-                       : (cs.getPropertyValue('--tab-on-c').trim() || '#ffffff') };
+  /* a palette that names its own ink wins — ROOT's five colours all take the
+     ground's black, which the luminance cut would hand white on violet and pink */
+  const own = cs.getPropertyValue(tabVar(curApp) + '-ink').trim();
+  return { c, ink: own || (hex ? (luminance(c) > 0.45 ? '#0b0b0b' : '#ffffff')
+                              : (cs.getPropertyValue('--tab-on-c').trim() || '#ffffff')) };
 }
 
 function accentHex() {
@@ -698,6 +721,7 @@ function apply() {
   // enumerated → attributes
   root.setAttribute('data-theme', id);
   root.setAttribute('data-mode',  info.mode);
+  root.setAttribute('data-ground', prefs.ground);
   root.setAttribute('data-depth',   prefs.depth   === 'auto' ? ch.depth   : prefs.depth);
   root.setAttribute('data-texture', prefs.texture === 'auto' ? ch.texture : prefs.texture);
   root.setAttribute('data-motion',  prefs.motion);

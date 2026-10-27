@@ -504,6 +504,21 @@ themeCard.dispatchEvent(mouseOver);
 check('a mouse over a theme card still previews it', d.documentElement.dataset.theme === 'ember');
 w.Prefs.revert();
 
+/* 4.18, ROOT 5's preset: the light five fold away under the dark ones and open
+   when one of them is the theme on; the ground row is ROOT's alone */
+check('4.18: ROOT is the first dark theme and the light five are folded under "more themes"',
+  $('.ns-set .theme-card').dataset.themePick === 'root' && !$('.ns-set .more-themes').open &&
+  $('.ns-set .more-themes').querySelectorAll('.theme-card').length === 5 &&
+  !$('.ns-set [data-pref="ground"]'));
+w.Prefs.set('theme', 'paper'); w.SET.panel('look');
+check('… and the fold is open while a light theme is the one on', $('.ns-set .more-themes').open);
+w.Prefs.set('theme', 'root'); w.SET.panel('look');
+check('… while ROOT brings its ground: three depths, darker unless picked',
+  [...d.querySelectorAll('.ns-set [data-pref="ground"]')].map(b => b.dataset.val).join() === 'dark,darker,black' &&
+  $('.ns-set [data-pref="ground"].on').dataset.val === 'darker' && d.documentElement.dataset.ground === 'darker',
+  d.documentElement.dataset.ground);
+w.Prefs.set('theme', 'void'); w.SET.panel('look');
+
 // the Todoist "today" block
 const tdCalls = [], tdClosed = new Set();
 fetchScript = async (url, opts) => {
@@ -3759,6 +3774,22 @@ check('the live number is in the flow, so its box is as wide as its digits; only
     cur.textContent === '12',
     'fit=' + squeezed + ' then "' + box.style.getPropertyValue('--dn-fit') + '"');
 }
+/* 4.18: DAY's row holds its date between the wordmark and the number. The fit
+   measured only the wordmark, so under ROOT 5's bigger title the number ran
+   off the edge of the phone. */
+{
+  const row = d.createElement('div');
+  row.className = 'h-logo-row';
+  row.innerHTML = '<div class="h-logo">DAY<em>.</em></div><div class="cal-band-date"></div><div class="h-daynum"><span class="dn-cur"></span></div>';
+  const box = row.querySelector('.h-daynum'), cur = box.querySelector('.dn-cur');
+  const give = (el, k, v) => Object.defineProperty(el, k, { configurable: true, get: () => v });
+  give(row, 'clientWidth', 354); give(row.querySelector('.h-logo'), 'offsetWidth', 191);
+  give(row.querySelector('.cal-band-date'), 'offsetWidth', 110); give(cur, 'offsetWidth', 70);
+  w.Shell.rollNum(box, '27', '2026-10-27');
+  const fit = box.style.getPropertyValue('--dn-fit');
+  check('4.18: a number sharing its row with more than the wordmark is fitted to what is left of it',
+    +fit > 0 && +fit < 1, 'fit="' + fit + '"');
+}
 
 /* 2.25 */
 
@@ -5332,6 +5363,20 @@ check('... and a Spacing chosen after the repair is left alone',
   Math.abs(w5.Prefs.get('density') - 1.25) < 1e-9, String(w5.Prefs.get('density')));
 check('... with no control for the repair flag — it is a record, not a setting',
   !w5.document.querySelector('.ns-set [data-pref="densRepair"]'));
+
+/* 4.18: ROOT 5's preset is the default. An install on Void, the old default,
+   moves to it once; Void picked afterwards, or any other theme, stays. */
+const w6 = await bootWith({ theme: 'void', themeDark: 'void' });
+check('4.18: an install on Void, the old default, moves to ROOT once',
+  w6.Prefs.get('theme') === 'root' && w6.Prefs.get('themeDark') === 'root' &&
+  w6.document.documentElement.dataset.theme === 'root' &&
+  JSON.parse(w6.localStorage.getItem('root_prefs_v1')).root5 === true,
+  w6.Prefs.get('theme') + ' / ' + w6.Prefs.get('themeDark'));
+const w7 = await bootWith({ theme: 'void', root5: true });
+check('… Void picked after the move stays picked', w7.Prefs.get('theme') === 'void', w7.Prefs.get('theme'));
+const w8 = await bootWith({ theme: 'dune', themeDark: 'synth' });
+check('… and any other theme was a choice and stays',
+  w8.Prefs.get('theme') === 'dune' && w8.Prefs.get('themeDark') === 'synth', w8.Prefs.get('theme'));
 
 
 /* 4.2
