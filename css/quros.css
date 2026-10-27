@@ -1,0 +1,21 @@
+/* qurOS inside ROOT (ROOT 5.0). The tab is ROOT's band — the wordmark — over a
+   frame holding qurOS itself (quros/, ?embed=root), which scrolls on its own and
+   carries its three tabs as a strip at its top. Its look is qurOS's sheet on
+   ROOT's colours. */
+
+/* the band, typed as every app types its own */
+.ns-quros .h-label{font:700 10px/1 var(--head);letter-spacing:.16em;text-transform:var(--caps);color:var(--tx-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ns-quros .h-logo{font-weight:800;font-family:var(--head);letter-spacing:-.02em}
+.ns-quros .h-logo em{font-style:normal}
+
+/* the frame fills the slide under the band and scrolls itself; the slide's own
+   body does not, or the two would fight over the gesture */
+.ns-quros > .view-body{overflow:hidden}
+.ns-quros .view-body > #s-home.on{display:flex;flex-direction:column;height:100%}
+.ns-quros #s-home{padding-top:0}
+.ns-quros .qos-frame{flex:1 1 auto;width:100%;min-height:0;border:none;display:block;background:var(--bg)}
+
+/* while qurOS's recorder is up, ROOT's chrome and the band step aside (js/quros.js):
+   a locked recorder takes no touch but its slider */
+.qos-rec #nav,.qos-rec .nav-arrow,.qos-rec .ns-quros > .h-top{opacity:0;pointer-events:none}

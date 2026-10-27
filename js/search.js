@@ -15,7 +15,7 @@ const esc = s => String(s == null ? '' : s)
 const fold = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE', tools:'TOOLS', walk:'WALK' };
+                    create:'CREATE', tools:'TOOLS', walk:'WALK', quros:'qurOS' };
 
 /* What Config holds, flattened
    One entry per line: which path it lives under, what a match is called, and

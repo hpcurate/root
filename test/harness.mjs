@@ -323,7 +323,7 @@ w.Config.reset('log.streakRequires');
 
 // 15. 2.2 — three more apps in the track
 check('TEND, TRACK, LEARN defined', ['TEND', 'TRACK', 'LEARN'].every(k => w[k]));
-check('twelve tabs, settings last', w.Shell.TABS.length === 12 && w.Shell.TABS[11] === 'settings', w.Shell.TABS.join(','));
+check('thirteen tabs, settings last (qurOS the twelfth app, 5.0)', w.Shell.TABS.length === 13 && w.Shell.TABS[12] === 'settings', w.Shell.TABS.join(','));
 check('the pill no longer flags "many" tabs (the arrows always stay)', d.documentElement.dataset.tabs === undefined);
 errors.length = 0;
 for (const p of ['tend', 'track', 'learn']) w.SET.panel(p);
@@ -399,7 +399,7 @@ check('app list reorders the track', w.Shell.TABS.join(',') === 'track,do,settin
 check('a switched-off app has no tab', $('.tab-b[data-app="log"]').classList.contains('hidden') && $('#view-log').classList.contains('hidden'));
 check('landed on the first shown app after LEARN was hidden', $('.tab-b.on')?.dataset.app === 'track', $('.tab-b.on')?.dataset.app);
 w.Prefs.reset('apps');
-check('reset restores all twelve in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk,settings', w.Shell.TABS.join(','));
+check('reset restores all thirteen in shipped order', w.Shell.TABS.join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk,quros,settings', w.Shell.TABS.join(','));
 w.Prefs.set('colorfulTabs', true);
 check('colour-coded tabs are keyed by app, not position', errors.length === 0);   // CSS only; boot did not throw
 w.Prefs.set('colorfulTabs', false);
@@ -878,7 +878,7 @@ check('settings opens on a home menu with four categories', $('.ns-set #s-home')
   [...d.querySelectorAll('.ns-set .set-cat-b')].map(b => b.dataset.cat).join(',') === 'apps,appearance,sync,data');
 check('with every app in the bar the home lists none', !$('.ns-set [data-open]'));
 w.Prefs.set('apps', ['do', 'log']);
-check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools,walk',
+check('apps switched off are listed on the settings home', [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(',') === 'plan,store,tend,track,learn,cal,create,tools,walk,quros',
   [...d.querySelectorAll('.ns-set [data-open]')].map(b => b.dataset.open).join(','));
 click($('.ns-set [data-open="tend"]')); await tick();
 check('opening one shows its slide, just before settings, with no tab', w.Shell.TABS.join(',') === 'do,log,tend,settings' &&
@@ -890,7 +890,7 @@ check('leaving it retires the slide again', w.Shell.TABS.join(',') === 'do,log,s
 w.Prefs.reset('apps');
 w.SET.panel('do');
 check('an app panel sits in the apps category behind its pill bar', $('.ns-set #s-cat').classList.contains('on') && $('.ns-set #set-cat-title').textContent === 'apps' &&
-  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk' &&
+  [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'do,log,plan,store,tend,track,learn,cal,create,tools,walk,quros' &&
   $('.ns-set .set-panel.on')?.dataset.panel === 'do');
 check("the app's content editors live at the end of its own panel", !!$('.ns-set [data-content-for="do"] [data-group="do.routines"]') &&
   !!$('.ns-set [data-content-for="do"] input[data-cfg="do.mediaLabels"]') && !$('.ns-set [data-content-for="do"] [data-group="log.blocks"]'));
@@ -911,8 +911,8 @@ click($('.ns-set #s-area .hd-back'));
 check('back returns to the home menu', $('.ns-set #s-home').classList.contains('on') && !$('.ns-set #s-cat').classList.contains('on'));
 click($('.ns-set .set-cat-b[data-cat="apps"]'));
 const trailOf = id => [...d.querySelectorAll('.ns-set #' + id + ' button, .ns-set #' + id + ' b')].map(x => x.textContent).join('/');
-check('… the apps are an area of eleven rows, the trail saying where you are',
-  $('.ns-set #s-area').classList.contains('on') && d.querySelectorAll('.ns-set #set-area .set-row-b').length === 11 &&
+check('… the apps are an area of twelve rows, the trail saying where you are',
+  $('.ns-set #s-area').classList.contains('on') && d.querySelectorAll('.ns-set #set-area .set-row-b').length === 12 &&
   trailOf('set-area-trail') === 'settings/apps', trailOf('set-area-trail'));
 click($('.ns-set #set-area .set-row-b[data-seg="do"]'));
 check('… an app opens on its settings, its content folded into rows',
@@ -5333,7 +5333,7 @@ check('a new app reaches an install whose app list predates it',
   !w2.document.querySelector('.tab-b[data-app="cal"]').classList.contains('hidden'),
   w2.Prefs.get('apps').join(','));
 check('… in its shipped position, not tacked onto the end of settings',
-  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create,tools,walk', w2.Prefs.get('apps').join(','));
+  w2.Prefs.get('apps').join(',') === 'do,log,track,cal,create,tools,walk,quros', w2.Prefs.get('apps').join(','));
 check('… while the apps that install had switched off stay switched off',
   ['plan', 'store', 'tend', 'learn'].every(a => !w2.Prefs.get('apps').includes(a)),
   w2.Prefs.get('apps').join(','));
@@ -5488,7 +5488,7 @@ check('… and any other theme was a choice and stays',
    every app; one opened from it comes and goes as an app out of the bar does */
 const w9 = await bootWith({}), d9 = w9.document;
 check('4.19: a fresh install has the dock — its four apps, then settings — and the R at its end',
-  w9.Prefs.get('navStyle') === 'dock' && w9.Shell.TABS.join() === 'do,log,cal,tools,settings' &&
+  w9.Prefs.get('navStyle') === 'dock' && w9.Shell.TABS.join() === 'do,log,cal,quros,settings' &&
   d9.getElementById('nav').lastElementChild.id === 'nav-r' &&
   d9.querySelector('.tab-b[data-app="plan"]').classList.contains('hidden'), w9.Shell.TABS.join());
 const wPill = await bootWith({ theme: 'void', navStyle: 'pill' });
@@ -5501,7 +5501,7 @@ d9.getElementById('nav-r').click();
 check('… the R opens every app and settings, the dock\'s marked with a dot',
   d9.getElementById('r-sheet').classList.contains('on') &&
   d9.querySelectorAll('#r-grid .r-app').length === w9.Prefs.APPS.length + 1 &&
-  [...d9.querySelectorAll('#r-grid .r-d')].map(i => i.closest('.r-app').dataset.app).join() === 'do,log,cal,tools',
+  [...d9.querySelectorAll('#r-grid .r-d')].map(i => i.closest('.r-app').dataset.app).join() === 'do,log,cal,quros',
   [...d9.querySelectorAll('#r-grid .r-d')].map(i => i.closest('.r-app').dataset.app).join());
 const rq = d9.getElementById('r-q');
 rq.value = 'pl'; rq.dispatchEvent(new w9.Event('input'));
@@ -5510,12 +5510,12 @@ check('… its box finds an app by name, and offers the words to search',
   [...d9.querySelectorAll('#r-grid .r-app')].map(b => b.dataset.app).join());
 d9.querySelector('#r-grid .r-app[data-app="plan"]').click();
 check('… an app opened from it has its slide and no tab, the R lit, the sheet closed',
-  w9.Shell.TABS.join() === 'do,log,cal,tools,plan,settings' && d9.getElementById('view-plan').classList.contains('cur') &&
+  w9.Shell.TABS.join() === 'do,log,cal,quros,plan,settings' && d9.getElementById('view-plan').classList.contains('cur') &&
   d9.getElementById('nav-r').classList.contains('on') && !d9.getElementById('r-sheet').classList.contains('on'),
   w9.Shell.TABS.join());
-w9.Shell.go('tools');
+w9.Shell.go('quros');
 await new Promise(r => setTimeout(r, 420));
-check('… and leaving it retires its slide', w9.Shell.TABS.join() === 'do,log,cal,tools,settings', w9.Shell.TABS.join());
+check('… and leaving it retires its slide', w9.Shell.TABS.join() === 'do,log,cal,quros,settings', w9.Shell.TABS.join());
 {
   const touch = (el, type, x, y) => {
     const e = new w9.Event(type, { bubbles: true });
@@ -5524,12 +5524,12 @@ check('… and leaving it retires its slide', w9.Shell.TABS.join() === 'do,log,c
   };
   const swipeLeft = el => { touch(el, 'touchstart', 300, 200); touch(el, 'touchmove', 200, 202);
                             touch(el, 'touchmove', 60, 204); touch(el, 'touchend', 0, 0); };
-  swipeLeft(d9.getElementById('view-tools'));
+  swipeLeft(d9.getElementById('view-quros'));
   const atEnd = d9.querySelector('#track .view.cur')?.id;
   w9.Shell.go('do');
   swipeLeft(d9.getElementById('view-do'));
   check('… a swipe walks the dock and stops at its end rather than running on into settings',
-    atEnd === 'view-tools' && d9.querySelector('#track .view.cur')?.id === 'view-log',
+    atEnd === 'view-quros' && d9.querySelector('#track .view.cur')?.id === 'view-log',
     atEnd + ' then ' + d9.querySelector('#track .view.cur')?.id);
 }
 w9.Shell.go('store');
@@ -5550,15 +5550,15 @@ check('… the dock holds five at most, in the order given',
     wNew.Prefs.get('desktopMode') + ' / ' + wFrame.Prefs.get('desktopMode'));
   const wW = await bootWith({}, null, null, true), dW = wW.document;
   dW.getElementById('nav-today').click();
-  const inToday = () => [...dW.querySelectorAll('#track > .view.in-today')].map(v => v.id).join();
+  const inToday = () => [...dW.querySelectorAll('#track > .view.in-today')].map(v => v.id).sort().join();
   check('… today puts DO, DAY, LOG and TOOLS side by side, the apps themselves',
-    dW.documentElement.dataset.today === 'on' && inToday() === 'view-do,view-log,view-cal,view-tools' &&
+    dW.documentElement.dataset.today === 'on' && inToday() === 'view-cal,view-do,view-log,view-tools' &&
     [...dW.querySelectorAll('#track > .view.in-today')].every(v => !v.classList.contains('hidden')) &&
     dW.getElementById('nav-today').classList.contains('on') && !dW.querySelector('#nav .tab-b.on'),
     inToday() + ' / ' + dW.documentElement.dataset.today);
   check('… the first in the rail, with every app after it — the dock\'s, then the rest',
     dW.getElementById('nav').firstElementChild.id === 'nav-today' &&
-    [...dW.querySelectorAll('#nav .tab-b')].map(b => b.dataset.app).slice(0, 4).join() === 'do,log,cal,tools' &&
+    [...dW.querySelectorAll('#nav .tab-b')].map(b => b.dataset.app).slice(0, 4).join() === 'do,log,cal,quros' &&
     dW.querySelectorAll('#nav .tab-b').length === wW.Prefs.APPS.length + 1);
   wW.Shell.go('plan');
   check('… and a move to one app ends it, the track back to what the dock says',
@@ -5569,6 +5569,55 @@ check('… the dock holds five at most, in the order given',
   dN.getElementById('nav-today').click();
   check('… while a narrow window has no today at all',
     !dN.documentElement.dataset.today && !dN.querySelector('#track > .view.in-today'));
+}
+
+/* 5.0, qurOS inside ROOT: the twelfth app, qurOS itself in a frame — its own
+   records, recorder and screens — with ROOT's band driving its three tabs */
+{
+  const w0 = await bootWith({}), d0 = w0.document;
+  const themesCss5 = fs.readFileSync(path.join(ROOT, 'css/themes.css'), 'utf8');
+  check('5.0: qurOS is an app — a slide, a tab with its own icon, a hue in every palette, a row in settings → apps',
+    w0.Prefs.APPS.includes('quros') && !!d0.getElementById('view-quros') &&
+    d0.querySelector('.tab-b[data-app="quros"] use')?.getAttribute('href') === '#tab-quros' && !!d0.getElementById('tab-quros') &&
+    (themesCss5.match(/--tab-quros:/g) || []).length >= 7 && w0.SET.PANELS.includes('quros'),
+    (themesCss5.match(/--tab-quros:/g) || []).length + ' palettes');
+  check('… and in the dock, where tools held its place (his answer: do · log · day · qurOS)',
+    w0.Prefs.get('dock').join() === 'do,log,cal,quros', w0.Prefs.get('dock').join());
+  const frame0 = d0.getElementById('qos-frame');
+  const before = frame0.getAttribute('src');
+  w0.Shell.go('quros');
+  check('… the frame loads the first time the tab is shown, not at ROOT\'s start, embedded and clear of the dock',
+    !before && /^quros\/index\.html\?embed=root&pad=\d+$/.test(frame0.getAttribute('src') || ''),
+    before + ' → ' + frame0.getAttribute('src'));
+  check('… its band naming it as written — qurOS, its capitals kept under ROOT\'s lowercase titles',
+    d0.querySelector('#view-quros .h-logo')?.textContent === 'qurOS.' &&
+    themesCss5.includes('[data-theme="root"] .ns-quros  > .h-top .h-logo{text-transform:none}'));
+  const wOld = await bootWith({ dock: ['do', 'log', 'cal', 'tools'] });
+  const wMine = await bootWith({ dock: ['do', 'plan', 'log', 'tools'] });
+  check('… a dock still as 4.19 shipped it takes qurOS in tools\' place, once; a changed dock stays',
+    wOld.Prefs.get('dock').join() === 'do,log,cal,quros' && wMine.Prefs.get('dock').join() === 'do,plan,log,tools' &&
+    JSON.parse(wOld.localStorage.getItem('root_prefs_v1')).root5quros === true,
+    wOld.Prefs.get('dock').join() + ' / ' + wMine.Prefs.get('dock').join());
+  // the copy itself, embedded: no DAY, no bar of its own, room for the dock
+  const qHtml = fs.readFileSync(path.join(ROOT, 'quros/index.html'), 'utf8');
+  const qDom = new JSDOM(qHtml, { url: 'http://localhost/root/quros/index.html?embed=root&pad=88',
+    runScripts: 'dangerously', resources: new LocalLoader(), pretendToBeVisual: true, virtualConsole: new VirtualConsole(),
+    beforeParse(win) { win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
+      win.requestAnimationFrame = fn => setTimeout(fn, 0); win.HTMLElement.prototype.scrollTo = function () {}; } });
+  await new Promise(r => qDom.window.addEventListener('load', r));
+  await new Promise(r => setTimeout(r, 120));
+  const qW = qDom.window;
+  check('5.0: the copy, embedded, shows dump · map · send — DAY is ROOT\'s — its bar a strip at the top, room for the dock',
+    !!qW.Q && qW.Q.EMBED === true && qW.Q.app.tabs().join() === 'dump,map,send' &&
+    qW.document.documentElement.classList.contains('embed') &&
+    qW.document.documentElement.style.getPropertyValue('--bar-h') === '88px' &&
+    qW.document.querySelectorAll('#bar button').length === 3 &&
+    fs.readFileSync(path.join(ROOT, 'quros/css/app.css'), 'utf8').includes('html.embed #bar {\n  top: 6px; bottom: auto;'),
+    qW.Q ? qW.Q.app.tabs().join() + ' / ' + qW.document.documentElement.className : 'no Q');
+  qW.Q.app.show('day');
+  check('… a stored DAY tab lands on dump instead, and its records are qurOS\'s own names',
+    qW.Q.app.tab() === 'dump' && /const NAME = 'qurOS', VERSION = 1, LS = 'qos_data_v1';/.test(fs.readFileSync(path.join(ROOT, 'quros/js/db.js'), 'utf8')),
+    qW.Q.app.tab());
 }
 
 /* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked

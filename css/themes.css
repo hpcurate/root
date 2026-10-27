@@ -231,7 +231,7 @@
    Prefs writes the ones it does name inline over the top. */
 :root{--tab-do:#A78BFA;--tab-log:#5cdb7d;--tab-plan:#5e8cff;--tab-store:#e8a33d;
       --tab-tend:#3fc9b0;--tab-track:#f0709a;--tab-learn:#5ad4e6;--tab-cal:#c98b3f;
-      --tab-create:#e6c34a;--tab-tools:#ef7261;--tab-walk:#8fd16a;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
+      --tab-create:#e6c34a;--tab-tools:#ef7261;--tab-walk:#8fd16a;--tab-quros:#b49cff;--tab-set:var(--mu);--tab-on-c:#0e0e0e}
 /* warm — one sunset, so the bar reads as a run across itself rather than nine
    unrelated hues */
 /* Under ROOT the shipped palette is ROOT 5's: five shape colours, each app
@@ -240,27 +240,27 @@
 [data-theme="root"][data-tab-palette="app"]{
       --tab-do:#A78BFA;--tab-log:#ff5fa2;--tab-plan:#3ddc84;--tab-store:#ffc94d;
       --tab-tend:#3ddc84;--tab-track:#c4b5fd;--tab-learn:#ff5fa2;--tab-cal:#ffc94d;
-      --tab-create:#A78BFA;--tab-tools:#e9e4f2;--tab-walk:#3ddc84;--tab-set:#e9e4f2;--tab-on-c:#0b0a0f;
+      --tab-create:#A78BFA;--tab-tools:#e9e4f2;--tab-walk:#3ddc84;--tab-quros:#A78BFA;--tab-set:#e9e4f2;--tab-on-c:#0b0a0f;
       --tab-do-ink:#0b0a0f;--tab-log-ink:#0b0a0f;--tab-plan-ink:#0b0a0f;--tab-store-ink:#0b0a0f;
       --tab-tend-ink:#0b0a0f;--tab-track-ink:#0b0a0f;--tab-learn-ink:#0b0a0f;--tab-cal-ink:#0b0a0f;
-      --tab-create-ink:#0b0a0f;--tab-tools-ink:#0b0a0f;--tab-walk-ink:#0b0a0f;--tab-set-ink:#0b0a0f}
+      --tab-create-ink:#0b0a0f;--tab-tools-ink:#0b0a0f;--tab-walk-ink:#0b0a0f;--tab-quros-ink:#0b0a0f;--tab-set-ink:#0b0a0f}
 
 [data-tab-palette="warm"]{--tab-do:#ff9e57;--tab-log:#ffc861;--tab-plan:#ff7a5c;
       --tab-store:#e8a33d;--tab-tend:#d9b26a;--tab-track:#ff6b81;--tab-learn:#ffb38a;
-      --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-tools:#e0614a;--tab-walk:#c9a25a;--tab-on-c:#1a0d05}
+      --tab-cal:#e08a4c;--tab-create:#ffd76e;--tab-tools:#e0614a;--tab-walk:#c9a25a;--tab-quros:#e8a0c0;--tab-on-c:#1a0d05}
 /* cool — the same idea at the other end, and the quietest of the five */
 [data-tab-palette="cool"]{--tab-do:#8ea8ff;--tab-log:#5fd0c4;--tab-plan:#5e8cff;
       --tab-store:#7fb3e8;--tab-tend:#3fc9b0;--tab-track:#a78bfa;--tab-learn:#5ad4e6;
-      --tab-cal:#6fa0d8;--tab-create:#9ad8e8;--tab-tools:#7fd0b0;--tab-walk:#6cc4e0;--tab-on-c:#05121c}
+      --tab-cal:#6fa0d8;--tab-create:#9ad8e8;--tab-tools:#7fd0b0;--tab-walk:#6cc4e0;--tab-quros:#9aa8ff;--tab-on-c:#05121c}
 /* candy — the app palette washed out: coloured, but not loud */
 [data-tab-palette="candy"]{--tab-do:#cbb6ff;--tab-log:#a8e6b8;--tab-plan:#a9c6ff;
       --tab-store:#ffd9a3;--tab-tend:#a6e5da;--tab-track:#ffb3c9;--tab-learn:#b3e9f2;
-      --tab-cal:#eccba3;--tab-create:#f6e6a8;--tab-tools:#ffc0b3;--tab-walk:#c8eba8;--tab-on-c:#171514}
+      --tab-cal:#eccba3;--tab-create:#f6e6a8;--tab-tools:#ffc0b3;--tab-walk:#c8eba8;--tab-quros:#d9c9ff;--tab-on-c:#171514}
 /* neon — full saturation. Too much on a light theme on purpose; it is here
    because a phone at night is the screen this app is mostly read on. */
 [data-tab-palette="neon"]{--tab-do:#b026ff;--tab-log:#39ff14;--tab-plan:#2979ff;
       --tab-store:#ff9100;--tab-tend:#00e5c0;--tab-track:#ff2d95;--tab-learn:#00e5ff;
-      --tab-cal:#ff6d00;--tab-create:#ffe600;--tab-tools:#ff1744;--tab-walk:#76ff03;--tab-on-c:#05050a}
+      --tab-cal:#ff6d00;--tab-create:#ffe600;--tab-tools:#ff1744;--tab-walk:#76ff03;--tab-quros:#d500f9;--tab-on-c:#05050a}
 /* mono — no hues at all, a ramp cut from the text colour. Colour-coding
    without colour: the tabs still differ, by weight rather than by hue, and it
    is the one palette that is as legible in a light theme as in a dark one. */
@@ -276,6 +276,7 @@
       --tab-create:color-mix(in srgb,var(--tx) 38%,transparent);
       --tab-tools:color-mix(in srgb,var(--tx) 31%,transparent);
       --tab-walk:color-mix(in srgb,var(--tx) 27%,transparent);
+      --tab-quros:color-mix(in srgb,var(--tx) 25%,transparent);
       --tab-set:color-mix(in srgb,var(--tx) 24%,transparent);
       --tab-on-c:var(--bg)}
 
@@ -295,6 +296,7 @@
 [data-color-tabs="on"] #nav .tab-b[data-app="create"]{--tab-app-c:var(--tab-create);--tab-app-ink:var(--tab-create-ink,var(--tab-on-c))}
 [data-color-tabs="on"] #nav .tab-b[data-app="tools"]{--tab-app-c:var(--tab-tools);--tab-app-ink:var(--tab-tools-ink,var(--tab-on-c))}
 [data-color-tabs="on"] #nav .tab-b[data-app="walk"]{--tab-app-c:var(--tab-walk);--tab-app-ink:var(--tab-walk-ink,var(--tab-on-c))}
+[data-color-tabs="on"] #nav .tab-b[data-app="quros"]{--tab-app-c:var(--tab-quros);--tab-app-ink:var(--tab-quros-ink,var(--tab-on-c))}
 [data-color-tabs="on"] #nav .tab-b[data-app="settings"]{--tab-app-c:var(--tab-set);--tab-app-ink:var(--tab-set-ink,var(--tab-on-c))}
 
 /* -- Shapes -------------------------------------------------------------------
@@ -419,6 +421,9 @@
 [data-theme="root"] .ns-create > .h-top .h-logo em{color:var(--tab-create)}
 [data-theme="root"] .ns-tools  > .h-top .h-logo em{color:var(--tab-tools)}
 [data-theme="root"] .ns-walk   > .h-top .h-logo em{color:var(--tab-walk)}
+[data-theme="root"] .ns-quros  > .h-top .h-logo em{color:var(--tab-quros)}
+/* qurOS is a name with its own capitals, not a word to lowercase */
+[data-theme="root"] .ns-quros  > .h-top .h-logo{text-transform:none}
 [data-theme="root"] .ns-set    > .h-top .h-logo em{color:var(--tab-set)}
 /* A card and a band action give under the finger and spring back. `scale`, not
    `transform`, so nothing that already positions itself with a transform moves. */

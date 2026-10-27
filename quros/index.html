@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#0e0e0e">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="qurOS — capture your days and brain-dumps on your phone, then send them to your knowledge base.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="qurOS">
+  <title>qurOS</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    /* the accent before first paint, so a custom one never flashes purple */
+    try { var a = JSON.parse(localStorage.getItem('qos_settings_v1') || '{}').accent; if (a) document.documentElement.style.setProperty('--y', a); } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="app">
+    <main id="views">
+      <section class="view" id="v-dump" data-tab="dump" aria-label="dump"></section>
+      <section class="view v-day" id="v-day" data-tab="day" aria-label="day"></section>
+      <section class="view" id="v-map" data-tab="map" aria-label="map"></section>
+      <section class="view" id="v-send" data-tab="send" aria-label="send"></section>
+    </main>
+    <nav id="bar" aria-label="tabs"></nav>
+  </div>
+
+  <!-- the recorder: outside #app so nothing beneath it can take a touch -->
+  <div id="rec" class="rec" role="dialog" aria-modal="true" aria-label="recorder" hidden aria-hidden="true"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/speech.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/rec.js"></script>
+  <script src="js/dump.js"></script>
+  <script src="js/day.js"></script>
+  <script src="js/gym.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/send.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

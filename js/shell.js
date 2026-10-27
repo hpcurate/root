@@ -924,7 +924,7 @@ window.Shell = (function () {
      bar always has (open()), so its slide comes and goes the same way. */
   const rBack = document.getElementById('r-back'), rSheet = document.getElementById('r-sheet');
   const rGrid = document.getElementById('r-grid'), rQ = document.getElementById('r-q');
-  const R_NAME = { cal: 'day', settings: 'settings' };
+  const R_NAME = { cal: 'day', quros: 'qurOS', settings: 'settings' };
   const rEsc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function rPaint() {
     const q = (rQ.value || '').trim().toLowerCase();

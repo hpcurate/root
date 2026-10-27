@@ -12,18 +12,18 @@ const $all = sel => document.querySelectorAll(SCOPE + sel);
 const esc  = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','tools','walk','sync','data'];
+const PANELS = ['look','layout','behave','do','log','plan','store','tend','track','learn','cal','create','tools','walk','quros','sync','data'];
 /* Which category a panel sits in, and what its pill says. `data` is a single
    panel, so its category shows no pill bar. */
 const CATS = {
-  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create','tools','walk'] },
+  apps:       { title:'apps',       hint:"each app's own settings and content", panels:['do','log','plan','store','tend','track','learn','cal','create','tools','walk','quros'] },
   appearance: { title:'appearance', hint:'theme, layout, behaviour',            panels:['look','layout','behave'] },
   sync:       { title:'sync',       hint:'two devices, one board — what travels and how often', panels:['sync'] },
   data:       { title:'data',       hint:'todoist key, backup, storage, resets', panels:['data'] },
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data', sync:'sync',
                     do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day',
-                    create:'create', tools:'tools', walk:'walk' };
+                    create:'create', tools:'tools', walk:'walk', quros:'qurOS' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
@@ -34,10 +34,11 @@ const lastPanel = {};           // per category: the pill you were on
    storage key, the namespace, Prefs.APPS, the settings panel — and DAY is only
    what it is called. Renaming the id would churn all four for a word. */
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE', tools:'TOOLS', walk:'WALK' };
+                    create:'CREATE', tools:'TOOLS', walk:'WALK', quros:'qurOS' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
                     tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day',
-                    create:'songs and mixes', tools:'pomodoro + timers', walk:'a loop for the dog' };
+                    create:'songs and mixes', tools:'pomodoro + timers', walk:'a loop for the dog',
+                    quros:'dumps and the map' };
 
 /* Which storage keys belong to which app — read-only bookkeeping for the
    storage report. The shell never writes to another app's keys. LEARN's decks
@@ -54,6 +55,7 @@ const GROUPS = [
   { name:'CREATE',color:'#e6c34a', match:k => k.startsWith('create_') },
   { name:'TOOLS', color:'#5cdb7d', match:k => k.startsWith('tools_') },
   { name:'WALK',  color:'#8fd16a', match:k => k.startsWith('walk_') },
+  { name:'qurOS', color:'#b49cff', match:k => k.startsWith('qos_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
 ];
 
@@ -2347,6 +2349,7 @@ const RENDERERS = {
   create:() => { window.CREATE && CREATE.renderSettings(); renderContent('create'); },
   tools:() => { window.TOOLS && TOOLS.renderSettings(); renderContent('tools'); },
   walk: () => { window.WALK && WALK.renderSettings();   renderContent('walk'); },
+  quros:() => {},                                          // its settings are inside qurOS
 };
 
 /* Two screens: the home menu and a category. Switching screens starts at the
@@ -2817,6 +2820,7 @@ view.addEventListener('click', e => {
   }
   if (t.dataset.keyCap) { captureKey(t); return; }
   if (t.dataset.act === 'search') { Prefs.tap(); if (window.SEARCH) SEARCH.open(); }
+  if (t.dataset.act === 'quros-settings') { Prefs.tap(); if (window.QUROS) QUROS.openSettings(); }
   if (t.dataset.act === 'export-look') exportLook();
   if (t.dataset.act === 'import-look') importLook();
 });

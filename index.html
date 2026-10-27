@@ -37,6 +37,7 @@
   <link rel="stylesheet" href="css/create.css">
   <link rel="stylesheet" href="css/tools.css">
   <link rel="stylesheet" href="css/walk.css">
+  <link rel="stylesheet" href="css/quros.css">
   <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -115,6 +116,9 @@
     <circle cx="5.5" cy="10.5" r="1.6"/><circle cx="9" cy="5.5" r="1.6"/>
     <circle cx="15" cy="5.5" r="1.6"/><circle cx="18.5" cy="10.5" r="1.6"/>
     <path d="M12 12c-2.8 0-5.2 3-5.2 5.4 0 1.7 1.3 2.6 2.8 2.6 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.5 0 2.8-.9 2.8-2.6C17.2 15 14.8 12 12 12z"/>
+  </symbol>
+  <symbol id="tab-quros" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/>
   </symbol>
   <!-- the "!" a tab wears in place of its own icon while something is overdue
        (Shell.alert) — one stroke and its dot, at the icon's own weight -->
@@ -1221,6 +1225,23 @@
   </div>
 </section>
 
+<!-- qurOS (ROOT 5.0) — capture: DUMP, MAP and SEND. The app itself, a copy of
+     qurOS 2.x in quros/, opened in a frame on the same site with ?embed=root:
+     its own records (IndexedDB qurOS, qos_* keys), recorder and screens, untouched.
+     ROOT's band names it; its tabs are a strip at the frame's top; js/quros.js drives the frame. -->
+<section class="view ns-quros" id="view-quros" aria-label="qurOS">
+  <div id="s-home" class="scr on">
+    <div class="h-top">
+      <div class="h-label">capture · for the qurOS chat</div>
+      <div class="h-logo-row">
+        <div class="h-logo">qurOS<em>.</em></div>
+      </div>
+    </div>
+    <iframe class="qos-frame" id="qos-frame" title="qurOS"
+            allow="microphone *; fullscreen *; screen-wake-lock *; clipboard-read *; clipboard-write *; web-share *"></iframe>
+  </div>
+</section>
+
 
 <!-- SETTINGS — every app's settings, one panel each -->
 <section class="view ns-set" id="view-settings" aria-label="Settings">
@@ -2236,6 +2257,15 @@
       <button class="btn btn-2" data-act="reset">reset WALK</button>
     </div>
 
+    <!-- qurOS (5.0): its settings are its own, inside the app, as they always were -->
+    <div class="set-panel ns-quros-set" data-panel="quros">
+      <div class="sec"><span>qurOS</span></div>
+      <div class="set-note">qurOS keeps its own settings — the recorder, the prompts, the map, the export, the
+        language — inside the app, where they have always been. Its records are its own too, on this same site:
+        nothing of qurOS's is in ROOT's backup or ROOT's sync, and nothing of ROOT's in qurOS's.</div>
+      <button class="btn" data-act="quros-settings">open qurOS's settings</button>
+    </div>
+
   </div><!-- /#s-cat -->
 </section>
 
@@ -2302,6 +2332,9 @@
   </button>
   <button class="tab-b" data-app="walk" role="tab" aria-selected="false" aria-label="WALK">
     <svg aria-hidden="true"><use href="#tab-walk"/></svg><span class="tb-l">walk</span>
+  </button>
+  <button class="tab-b" data-app="quros" role="tab" aria-selected="false" aria-label="qurOS">
+    <svg aria-hidden="true"><use href="#tab-quros"/></svg><span class="tb-l">qurOS</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>
@@ -2585,6 +2618,7 @@
 <script src="js/create.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/walk.js"></script>
+<script src="js/quros.js"></script>
 <!-- after every app, because it reads their storage keys, and before settings,
      which draws its two buttons. No app module knows it exists. -->
 <script src="js/sync.js"></script>

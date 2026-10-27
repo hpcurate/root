@@ -138,7 +138,7 @@ const THEME_CHARACTER = {
    user's own subset and order; the shell builds its slide track and tab bar
    from it, so an app switched off here has no tab and no slide. Settings is
    always last and is not in this list. */
-const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools', 'walk'];
+const APPS = ['do', 'log', 'plan', 'store', 'tend', 'track', 'learn', 'cal', 'create', 'tools', 'walk', 'quros'];
 /* Every tab in the bar, which is the apps plus settings — settings has no data
    of its own but it has a tab, and a tab has a colour. Its custom property is
    --tab-set, not --tab-settings: the button's data-app is the long name and the
@@ -272,7 +272,8 @@ const SCHEMA = {
   /* The dock's apps, in order, when the bar is the dock: what has a tab and what
      the swipe walks through. Every other app is in the R. Five at most, the
      most a phone's dock holds with its names on; four is what it is drawn for. */
-  dock:         { kind:'list',   def:['do', 'log', 'cal', 'tools'], max:5 },
+  /* do · log · day · qurOS: his answer for ROOT 5 (tools stood in until qurOS came, 4.19–4.25) */
+  dock:         { kind:'list',   def:['do', 'log', 'cal', 'quros'], max:5 },
   /* Every app this install has ever been offered. Not a setting — there is no
      control for it — but it lives here so it is stored, exported and restored
      with the rest. See the note on load(): it is what tells a brand-new app
@@ -287,6 +288,7 @@ const SCHEMA = {
   root5:        { kind:'bool',   def:false },
   root5dock:    { kind:'bool',   def:false },
   root5wide:    { kind:'bool',   def:false },
+  root5quros:   { kind:'bool',   def:false },
 
   // behaviour
   startTab:     { kind:'enum',   def:'last', values:['last', ...APPS, 'settings'] },
@@ -505,6 +507,7 @@ function load() {
   moveToRoot(stored);
   moveToDock(stored);
   moveToWide(stored);
+  moveToQuros(stored);
 }
 
 /* 4.18: ROOT 5's preset arrives as the default. An install still on Void, the
@@ -534,6 +537,16 @@ function moveToWide(stored) {
   if (stored.root5wide) return;
   if (prefs.desktopMode === 'frame') prefs.desktopMode = 'rail';
   prefs.root5wide = true;
+  persist();
+}
+
+/* 5.0: qurOS is in ROOT, and his dock was do · log · day · qurOS — tools only
+   held the place. A dock still exactly as 4.19 shipped it takes qurOS in tools'
+   place, once; a dock that was changed was a choice and stays. */
+function moveToQuros(stored) {
+  if (stored.root5quros) return;
+  if (Array.isArray(prefs.dock) && prefs.dock.join() === 'do,log,cal,tools') prefs.dock = ['do', 'log', 'cal', 'quros'];
+  prefs.root5quros = true;
   persist();
 }
 

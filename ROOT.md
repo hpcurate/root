@@ -108,7 +108,8 @@ root/
 │   ├── cal.css        │
 │   ├── create.css     │
 │   ├── tools.css      │
-│   ├── walk.css       ┘
+│   ├── walk.css       │
+│   ├── quros.css      ┘ the frame qurOS opens in (5.0)
 │   ├── shell.css      the frame: slide track, floating chrome, responsive rules
 │   └── settings.css   the settings view
 └── js/
@@ -119,9 +120,12 @@ root/
     ├── create.js       the songs being made
     ├── tools.js        the pomodoro, the stopwatch, the countdown, the decider
     ├── walk.js         the dog's loop: the router, the trims, the map
+    ├── quros.js        qurOS's tab: the frame, ROOT's colours carried in, the chrome aside while recording
     ├── sync.js        the two sync routes and the merge — see §10
     ├── settings.js    the settings view
     └── search.js      the search sheet — reads SET's index and every module's hook
+quros/                 qurOS 2.x itself (5.0), opened by the qurOS tab with ?embed=root — its own
+                       index, css, js, fonts and QUROS.md; its records are IndexedDB `qurOS` + `qos_*`
 ```
 
 ### Load order — this is load-bearing
@@ -2014,6 +2018,26 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 5.0 — 2026-10-27 — ROOT 5: qurOS inside ROOT, one app
+
+The last phase of ROOT 5, and the first of the BRAIN request (r261027-qo06; his answer "3. yes").
+- **qurOS itself, inside ROOT:** a copy of qurOS 2.0.1 lives in `quros/`. The new qurOS tab opens it in a frame with
+  `?embed=root`. On the same origin it reads and writes the records qurOS always has (IndexedDB `qurOS`, `qos_*`), so
+  nothing is moved or re-implemented. The recorder, the map, the export and the screens are qurOS's own code.
+- **Embed mode** (`quros/js/app.js` `EMBED`): no DAY, the bar a strip at the frame's top, the big title given way to
+  ROOT's band, ROOT's colours on its tokens, room for the dock, no service worker.
+- **ROOT's side:**
+  - the twelfth app, with its icon and a hue in every palette, the band reading "qurOS." (capitals kept);
+  - the frame loaded on first show (`js/quros.js`), and ROOT's dock, arrows and band stepping aside while the recorder
+    is open;
+  - a settings row that opens qurOS's own settings;
+  - the dock do · log · day · qurOS, a 4.19-default dock moved once (`root5quros`);
+  - a qurOS group in the storage report.
+
+Harness: eleven-app counts become twelve, the dock's tools becomes qurOS. +7 checks, among them the copy booted embedded
+(dump · map · send, the strip, the dock's padding). Seen at 390px, the recorder full screen over ROOT. Not tried with the
+microphone. Log: `updates/26-10-27_update_v5.0.0.md`.
 
 ### 4.25 — 2026-10-27 — ROOT 5, phase 8: the desktop — a rail of every app, and today
 
