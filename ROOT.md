@@ -364,16 +364,17 @@ the track; while you are on it the settings button wears its icon. Keyboard
 each slide's `scrollTop` around the move.
 
 **On the dock (4.19, `navStyle: 'dock'`, the default) the list is `Prefs.dock`**,
-not `apps`: the dock's apps (five at most), then settings, whose button the dock
-hides. Every other app is in **the R** (`#nav-r`, the dock's last button, and the
+not `apps`: the dock's apps (on a phone its first five, `Prefs.SCHEMA.dock.phone`;
+on the rail all of them, 5.1.2), then settings, whose button the dock hides. Every other app is in **the R** (`#nav-r`, the dock's last button, and the
 `#r-sheet` it opens, a `.sheet-back` sheet), and opens through `open()` exactly as
 an app out of the bar always has; the R is lit while you are on one, or on
 settings. `Shell.go(name)` falls back to `open()` for an app with no tab, so a
 module or a link that goes to PLAN still gets there. The swipe walks the dock and
 stops at its last app (`dockCount()`); from an app opened from the R it still
-steps back. The other three bar styles read `apps` as before. On a wide window in rail mode (4.25) the
-rail lists every app after the dock's, and from 1100px **today** (`enterToday`) lays DO, DAY, LOG and TOOLS side by side as
-`.view.in-today` columns; any `go()` leaves it.
+steps back. The other three bar styles read `apps` as before. On a wide window in rail mode (4.25,
+`Shell.railUp()`) the rail is the bar's list (5.1.2: no longer every app after the dock's), and from 1100px, whatever the
+bar style (5.1.2), **today** (`enterToday`) lays DO, DAY, LOG and TOOLS side by side as `.view.in-today` columns; any
+`go()` leaves it.
 
 The left arrow is context-sensitive: on an app's home it is "previous tab";
 inside a sub-screen (`.scr.on` other than `#s-home` carrying an `.hd-back`)
@@ -2018,6 +2019,26 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 5.1.2 — 2026-10-28 — PLAN's blocks plain and no priority; today and a longer dock on the desktop
+
+Two of his requests: r261027-az7o ("visual bug (block select) remove priority option remove the colours for b1 b2 b3") and
+r261027-zf0v ("today tab on desktop only shows when you are on dock setting as tab bar. to add to that on desktop you can't
+set more than 5 items in your dock…").
+- **PLAN's form:** the block chips no longer wear their Todoist label's colour (b1–b3 coloured all looked picked); only the
+  picked one is lit. The priority row is off by default (`plan.formFields.priority`, its switch kept): a task goes with
+  `plan.defaultPriority`. A queue row names a priority only while the row is on, by its value (it read 2 as "mandatory").
+- **Today** is on any bar style's rail (`todayFits` is the rail and 1100px; `.tab-today` no longer needs the dock).
+- **The dock** keeps a list of any length (`Prefs.SCHEMA.dock.phone: 5` replaces `max`). The rail takes all of it; a phone's
+  dock its first five, the rest in the R (`barList`, `railUp`, `Shell.railUp`; crossing 880px or a new `desktopMode`
+  rebuilds). Settings stops at five only off the rail. The dock's rail lists the dock's apps, then settings and the R — no
+  longer every app (4.25): the R still opens every app.
+
+Harness: 1417 passed. Three checks moved with what they check (priority off, the chips uncoloured, the rail of the dock's
+apps), five are new (the queue's priority off and on, the phone's five and settings' stop, today on the pill's rail, a rail
+of seven and an eighth from settings). Seen in a throwaway Electron window at 1400px (PLAN's form on the pill's rail, today
+on a seven-app dock) and 390px (the phone's five). Not seen: his phone, his ROOT desktop window. Log:
+`updates/26-10-28_update_v5.1.2.md`.
 
 ### 5.1.1 — 2026-10-27 — brain, and the redesign the other screens were still missing
 

@@ -511,8 +511,10 @@ function renderQueue() {
     /* The day only earns a pill when it is not today — every task used to be
        due today and most still will be, so saying so on every row is noise. */
     const day = t.date && t.date !== Shell.today() ? dateWord(t.date) : null;
+    // the priority by its value (4 urgent … 2 optional), and only while the form asks for one (5.1.2)
+    const prio = formFields().priority &&((Config.get('plan.priorities') || []).find(p => p.value === t.priority) || {}).label;
     const pills = [t.subType, day, t.block ? (blockNo(t.block) ? `block ${blockNo(t.block)}` : `@${t.block}`) : null, t.time ? `@${t.time}` : null,
-      ['','urgent','mandatory','optional'][t.priority] || null].filter(Boolean);
+      prio || null].filter(Boolean);
     const stLine = t.subtasks?.length ? `<div class="q-pill">${t.subtasks.length} subtask${t.subtasks.length!==1?'s':''}</div>` : '';
     return `<div class="q-item" style="--q-color:${color}">
       <span class="q-dot"></span>
@@ -819,15 +821,13 @@ function renderFormChips() {
   const prios  = Config.get('plan.priorities');
   const none   = field => `<button class="opt-b none-opt on" onclick="PLAN.optPick(this,'${field}',null)">none</button>`;
 
-  /* A block chip wears its Todoist label's colour, like DO's block tiles.
-     There is no "none" chip on this row: no block is the starting state, and
+  /* There is no "none" chip on this row: no block is the starting state, and
      tapping the picked one again clears it (see optPick). */
-  // 4.17.1: numbered, 1 to 6 at least (blockChoices); each still wears its label's colour
+  /* 4.17.1: numbered, 1 to 6 at least (blockChoices). 5.1.2 (Hugo's r261027-az7o "remove the colours for b1 b2 b3"): no
+     chip wears its Todoist label's colour any more — b1–b3 coloured looked picked, so the one picked was lost among them */
   const ob = $id('opts-block');
-  if (ob) ob.innerHTML = (blocks ? blockChoices() : []).map(({ n, label }) => {
-    const c = labelHue(label);
-    return `<button class="opt-b blk${c ? ' lbl' : ''}"${c ? ` style="--c:${esc(c)}"` : ''} data-v="${attr(label)}" title="block ${n} · @${esc(label)}" onclick="PLAN.optPick(this,'block','${attr(label)}')">${n}</button>`;
-  }).join('');
+  if (ob) ob.innerHTML = (blocks ? blockChoices() : []).map(({ n, label }) =>
+    `<button class="opt-b blk" data-v="${attr(label)}" title="block ${n} · @${esc(label)}" onclick="PLAN.optPick(this,'block','${attr(label)}')">${n}</button>`).join('');
 
   const ot = $id('opts-time');
   if (ot) ot.innerHTML = times.map(t =>

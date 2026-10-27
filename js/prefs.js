@@ -270,10 +270,13 @@ const SCHEMA = {
   // navigation — which apps have a tab, and in what order
   apps:         { kind:'list',   def:APPS.slice() },
   /* The dock's apps, in order, when the bar is the dock: what has a tab and what
-     the swipe walks through. Every other app is in the R. Five at most, the
-     most a phone's dock holds with its names on; four is what it is drawn for. */
+     the swipe walks through. Every other app is in the R. A phone's dock holds
+     five (`phone`, the most it holds with its names on; four is what it is drawn
+     for) and shows the first five of a longer list; the rail on a wide window
+     holds all of it (5.1.2, Hugo's r261027-zf0v: "the dock is on the left so
+     there is infinite space"). */
   /* do · log · day · qurOS: his answer for ROOT 5 (tools stood in until qurOS came, 4.19–4.25) */
-  dock:         { kind:'list',   def:['do', 'log', 'cal', 'quros'], max:5 },
+  dock:         { kind:'list',   def:['do', 'log', 'cal', 'quros'], phone:5 },
   /* Every app this install has ever been offered. Not a setting — there is no
      control for it — but it lives here so it is stored, exported and restored
      with the rest. See the note on load(): it is what tells a brand-new app

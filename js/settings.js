@@ -434,9 +434,10 @@ function layoutHTML() {
 
     ${Prefs.get('navStyle') === 'dock' ? `
     ${sectionHead('The dock')}
-    <div class="set-note">Which apps are in the dock, and in what order — four
-      is what it is drawn for, five at most. The swipe walks them. Every app,
-      these included, is in the R at the dock's end.</div>` : `
+    <div class="set-note">Which apps are in the dock, and in what order. On a
+      phone it is drawn for four and holds five; the rail on a wide window holds
+      as many as you put here, and a phone shows the first five of them. The
+      swipe walks them. Every app, these included, is in the R at the dock's end.</div>` : `
     ${sectionHead('Apps in the bar')}
     <div class="set-note">Which apps get a tab, and in what order. An app switched
       off keeps its data and its settings panel, and opens from the settings
@@ -2687,8 +2688,9 @@ view.addEventListener('click', e => {
                : key === 'dock' ? on.concat(a)
                : Prefs.APPS.filter(x => on.includes(x) || x === a);
     if (!next.length) { Shell.toast('keep at least one app'); return; }
-    const max = Prefs.SCHEMA[key].max;
-    if (max && next.length > max) { Shell.toast('the dock holds ' + max + ' — take one out first'); return; }
+    // a phone's dock holds five; the rail on a wide window holds the whole list (5.1.2)
+    const max = key === 'dock' && !(Shell.railUp && Shell.railUp()) ? Prefs.SCHEMA.dock.phone : 0;
+    if (max && next.length > max) { Shell.toast('a phone\'s dock holds ' + max + ' — take one out first'); return; }
     keepScroll(() => { Prefs.set(key, next); Prefs.tap(); renderLayout(); }); return;
   }
   if (t.dataset.appMove) {

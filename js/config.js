@@ -207,8 +207,11 @@ const DEFAULTS = {
        blocks has no use for a per-task estimate — but the chips above are kept
        so switching it back on needs no re-typing. `date` is the ← today →
        stepper: on by default, and PLAN reads this record through the shipped
-       one, so an override written before the row existed still shows it. */
-    formFields: { date: true, block: true, time: false, priority: true, subtasks: true },
+       one, so an override written before the row existed still shows it.
+       Priority is off since 5.1.2 (Hugo's r261027-az7o "remove priority
+       option"): a task goes with `defaultPriority`, and the switch is still
+       here to bring the row back. */
+    formFields: { date: true, block: true, time: false, priority: false, subtasks: true },
 
     /* Queue presets
        A day that is the same five tasks every week, saved once and refilled

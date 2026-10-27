@@ -823,23 +823,23 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
   width:var(--title-px);height:var(--title-px);margin-right:0}
 
 /* ROOT 5 (4.25) — the desktop
-   On a wide window the dock stands up as the rail and lists every app, then
-   settings and the R; from 1100px "today" leads it, and opens the page of four
-   (js/shell.js, enterToday): DO, DAY, LOG and TOOLS side by side, each its own
-   column with its own band and its own scroll. */
+   On a wide window the bar stands up as the rail: the dock's apps (all of them,
+   5.1.2 — a phone's dock shows five), or the bar's, then settings and the R;
+   from 1100px "today" leads it, whatever the bar style (5.1.2), and opens the
+   page of four (js/shell.js, enterToday): DO, DAY, LOG and TOOLS side by side,
+   each its own column with its own band and its own scroll. */
 .tab-today{display:none}
 @media (min-width:880px){
-  [data-desktop="rail"][data-nav="dock"] #nav{overflow-y:auto;scrollbar-width:none}
-  [data-desktop="rail"][data-nav="dock"] #nav .tab-b.hidden{display:flex!important}
+  [data-desktop="rail"] #nav{overflow-y:auto;scrollbar-width:none}
   [data-desktop="rail"][data-nav="dock"] .tab-b[data-app="settings"]{display:flex}
 }
 @media (min-width:1100px){
-  [data-desktop="rail"][data-nav="dock"] .tab-today{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  [data-desktop="rail"] .tab-today{display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:6px;flex:0 0 auto;padding:13px 6px;margin-bottom:6px;border:none;border-radius:var(--r3);
     background:none;color:var(--mu);cursor:pointer;transition:background .2s ease,color .2s ease}
-  [data-desktop="rail"][data-nav="dock"] .tab-today svg{width:calc(var(--nav-icon) * 1.05);height:calc(var(--nav-icon) * 1.05)}
-  [data-desktop="rail"][data-nav="dock"] .tab-today .tb-l{font:700 8px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
-  [data-desktop="rail"][data-nav="dock"] .tab-today.on{background:var(--tx);color:var(--bg)}
+  [data-desktop="rail"] .tab-today svg{width:calc(var(--nav-icon) * 1.05);height:calc(var(--nav-icon) * 1.05)}
+  [data-desktop="rail"] .tab-today .tb-l{font:700 8px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps)}
+  [data-desktop="rail"] .tab-today.on{background:var(--tx);color:var(--bg)}
   [data-today="on"] #track{display:grid;grid-template-columns:1.15fr 1fr 1fr .85fr;gap:14px;padding:14px}
   [data-today="on"] #track > .view{display:none}
   [data-today="on"] #track > .view.in-today{display:flex;position:relative;inset:auto;opacity:1;pointer-events:auto;
@@ -861,6 +861,6 @@ input.pad-on{border-color:var(--y)!important;background:var(--yd)}
     --yb:color-mix(in srgb, var(--y) 26%, transparent);--y-fade:color-mix(in srgb, var(--y) 6%, transparent)}
 }
 @media (min-width:1180px){
-  [data-desktop="rail"][data-nav="dock"] .tab-today{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
-  [data-desktop="rail"][data-nav="dock"] .tab-today .tb-l{font-size:10px}
+  [data-desktop="rail"] .tab-today{flex-direction:row;justify-content:flex-start;gap:13px;padding:12px 14px}
+  [data-desktop="rail"] .tab-today .tb-l{font-size:10px}
 }

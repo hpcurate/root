@@ -1160,11 +1160,14 @@ check('picking a section opens the task form in the grid, under its own flip key
 check('… and the title tile grows again above it', $('.ns-plan .proj-tile.open.wide') &&
   /curate/.test($('.ns-plan .proj-tile.open').textContent) && $('.ns-plan .pf-sec')?.textContent === 'mixing');
 check('the form is no longer a screen of its own', !$('.ns-plan #s-form'));
-check('the time row is off by default, block and priority on',
-  !$('.ns-plan #opts-time') && !!$('.ns-plan #opts-block') && !!$('.ns-plan #opts-prio') && !!$('.ns-plan #tg-sub'));
+// 5.1.2 (r261027-az7o "visual bug (block select) remove priority option remove the colours for b1 b2 b3")
+check('the time and priority rows are off by default, block on',
+  !$('.ns-plan #opts-time') && !!$('.ns-plan #opts-block') && !$('.ns-plan #opts-prio') && !!$('.ns-plan #tg-sub'));
 const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.dataset.v === 'b1');
-check("the form's block chips wear their label's Todoist colour",
-  !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
+check("… and the block chips wear no label colour, though Todoist has one for b1: only the picked chip stands out",
+  !!b1chip && w.Todoist.labelColor('b1') === '#af38eb' &&
+  !d.querySelector('.ns-plan #opts-block .opt-b.lbl') && ![...d.querySelectorAll('.ns-plan #opts-block .opt-b')].some(b => b.style.getPropertyValue('--c')),
+  b1chip && b1chip.outerHTML);
 /* 4.17.1 (r261027-6iom, back from his try: "plan did not change, every block should just automatically be set to 1,2,3,etc. in
    order. and you can change it if you want") */
 check('… numbered: 1 to 6, the day\'s next one picked by itself',
@@ -1726,6 +1729,9 @@ w.PLAN.addToQueue(); settle();
 check('… and one put back on today wears no pill',
   !/tomorrow/.test([...d.querySelectorAll('.ns-plan #queue-list .q-item')][1].textContent),
   [...d.querySelectorAll('.ns-plan #queue-list .q-item')].map(r => r.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+check('5.1.2: with the priority row off, a queue row names no priority',
+  ![...d.querySelectorAll('.ns-plan #queue-list .q-pill')].some(p => /urgent|mandatory|optional/.test(p.textContent)),
+  [...d.querySelectorAll('.ns-plan #queue-list .q-pill')].map(p => p.textContent).join(','));
 
 /* What Todoist is actually told. */
 const posts = [];
@@ -1772,6 +1778,13 @@ w.PLAN.clearSent(); settle(); w.PLAN.clearQueue(); settle();
 w.Config.set('plan.formFields', { block: true, time: false, priority: true, subtasks: true });
 w.PLAN.pickSub('home', 0);
 check('an override predating the date row still shows it', !!$('.ns-plan #opts-date'));
+$('.ns-plan #task-name').value = 'ring the vet';
+$('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+click($('.ns-plan .prio-b.p1'));
+w.PLAN.addToQueue(); settle();
+check('5.1.2: with the priority row back on, the queue row names its priority by its value (4 is urgent)',
+  /urgent/.test($('.ns-plan #queue-list').textContent), $('.ns-plan #queue-list').textContent.replace(/\s+/g, ' ').trim());
+w.PLAN.clearQueue(); settle();
 w.SET.panel('plan');
 const dateTog = () => $('.ns-set [data-cfg-toggle="plan.formFields.date"]');
 check('… and the switch in settings shows it on', !!dateTog() && dateTog().classList.contains('on'),
@@ -5317,7 +5330,8 @@ async function bootWith(seed, configSeed, storeSeed, wide) {
     runScripts: 'dangerously', resources: new LocalLoader(),
     pretendToBeVisual: true, virtualConsole: new VirtualConsole(),
     beforeParse(win) {
-      win.matchMedia = q => ({ matches: !!wide && /min-width:\s*1100px/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {} });
+      // wide: past the rail's 880px and today's 1100px
+      win.matchMedia = q => ({ matches: !!wide && /min-width:\s*(880|1100)px/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {} });
       win.requestAnimationFrame = fn => setTimeout(fn, 0);
       win.Element.prototype.scrollIntoView = function () {};
       win.HTMLElement.prototype.scrollIntoView = function () {};
@@ -5545,8 +5559,17 @@ w9.Shell.go('store');
 check('… and Shell.go() reaches an app in the R as well as one in the dock',
   d9.getElementById('view-store').classList.contains('cur') && w9.Shell.TABS.includes('store'), w9.Shell.TABS.join());
 w9.Prefs.set('dock', ['do', 'plan', 'log', 'cal', 'store', 'tend', 'walk']);
-check('… the dock holds five at most, in the order given',
-  w9.Prefs.get('dock').join() === 'do,plan,log,cal,store', w9.Prefs.get('dock').join());
+await new Promise(r => setTimeout(r, 420));
+// 5.1.2 (r261027-zf0v): the list is kept whole for the rail; a phone's dock takes its first five
+check('… a phone\'s dock holds five, in the order given, and keeps the rest of the list in the R',
+  w9.Prefs.get('dock').join() === 'do,plan,log,cal,store,tend,walk' && w9.Shell.TABS.join() === 'do,plan,log,cal,store,settings' &&
+  d9.querySelector('.tab-b[data-app="tend"]').classList.contains('hidden'), w9.Prefs.get('dock').join() + ' / ' + w9.Shell.TABS.join());
+w9.SET.panel('layout');
+const trackTog = d9.querySelector('.ns-set [data-app-toggle="track"]');
+trackTog?.click();
+check('… and settings will not put a sixth in a phone\'s dock',
+  !!trackTog && !w9.Prefs.get('dock').includes('track'), w9.Prefs.get('dock').join());
+w9.Prefs.set('dock', ['do', 'log', 'cal', 'quros']);
 
 /* 4.25, the desktop: a wide window has the rail of every app and, first in it,
    today — DO, DAY, LOG and TOOLS side by side, the apps themselves */
@@ -5565,10 +5588,12 @@ check('… the dock holds five at most, in the order given',
     [...dW.querySelectorAll('#track > .view.in-today')].every(v => !v.classList.contains('hidden')) &&
     dW.getElementById('nav-today').classList.contains('on') && !dW.querySelector('#nav .tab-b.on'),
     inToday() + ' / ' + dW.documentElement.dataset.today);
-  check('… the first in the rail, with every app after it — the dock\'s, then the rest',
+  // 5.1.2: the rail is the dock's apps, all of them, then settings and the R (the R still opens every app)
+  check('… the first in the rail, the dock\'s apps after it, then settings and the R',
     dW.getElementById('nav').firstElementChild.id === 'nav-today' &&
-    [...dW.querySelectorAll('#nav .tab-b')].map(b => b.dataset.app).slice(0, 4).join() === 'do,log,cal,quros' &&
-    dW.querySelectorAll('#nav .tab-b').length === wW.Prefs.APPS.length + 1);
+    [...dW.querySelectorAll('#nav .tab-b:not(.hidden)')].map(b => b.dataset.app).join() === 'do,log,cal,quros,settings' &&
+    dW.getElementById('nav').lastElementChild.id === 'nav-r',
+    [...dW.querySelectorAll('#nav .tab-b:not(.hidden)')].map(b => b.dataset.app).join());
   wW.Shell.go('plan');
   check('… and a move to one app ends it, the track back to what the dock says',
     !dW.documentElement.dataset.today && !dW.querySelector('#track > .view.in-today') &&
@@ -5578,6 +5603,32 @@ check('… the dock holds five at most, in the order given',
   dN.getElementById('nav-today').click();
   check('… while a narrow window has no today at all',
     !dN.documentElement.dataset.today && !dN.querySelector('#track > .view.in-today'));
+
+  /* 5.1.2 (r261027-zf0v "today tab on desktop only shows when you are on dock setting as tab bar. to add to that on desktop you
+     can't set more than 5 items in your dock even though you are on desktop") */
+  const shellCss = fs.readFileSync(path.join(ROOT, 'css/shell.css'), 'utf8');
+  const wP = await bootWith({ navStyle: 'pill', root5dock: true }, null, null, true), dP = wP.document;
+  dP.getElementById('nav-today').click();
+  check('5.1.2: today is on the rail of a floating pill too, and opens the page of four',
+    wP.Prefs.get('navStyle') === 'pill' && dP.documentElement.dataset.today === 'on' &&
+    [...dP.querySelectorAll('#track > .view.in-today')].length === 4 &&
+    /\[data-desktop="rail"\] \.tab-today\{display:flex/.test(shellCss) && !/\[data-nav="dock"\] \.tab-today/.test(shellCss),
+    dP.documentElement.dataset.today);
+  const seven = ['do', 'log', 'plan', 'store', 'cal', 'create', 'quros'];
+  const wR = await bootWith({ dock: seven }, null, null, true), dR = wR.document;
+  check('… the rail holds a dock of seven, in its order',
+    wR.Prefs.get('dock').join() === seven.join() && wR.Shell.TABS.join() === seven.concat('settings').join(),
+    wR.Shell.TABS.join());
+  wR.SET.panel('layout');
+  dR.querySelector('.ns-set [data-app-toggle="walk"]').click();
+  await new Promise(r => setTimeout(r, 420));
+  check('… settings puts an eighth in it on a wide window, and the rail takes it',
+    wR.Prefs.get('dock').join() === seven.concat('walk').join() && wR.Shell.TABS.includes('walk') &&
+    !dR.querySelector('.tab-b[data-app="walk"]').classList.contains('hidden'),
+    wR.Prefs.get('dock').join() + ' / ' + wR.Shell.TABS.join());
+  const wR5 = await bootWith({ dock: seven });
+  check('… while the same list on a phone gives the dock its first five, the rest in the R',
+    wR5.Shell.TABS.join() === seven.slice(0, 5).concat('settings').join(), wR5.Shell.TABS.join());
 }
 
 /* 5.0, qurOS inside ROOT: the twelfth app, qurOS itself in a frame — its own

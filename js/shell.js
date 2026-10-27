@@ -173,9 +173,16 @@ window.Shell = (function () {
   const pref = (k, fallback) => (window.Prefs ? Prefs.get(k) : fallback);
   /* The apps with a tab. On ROOT 5's dock (4.19) that is the dock's list, and
      every other app is in the R; on the other bar styles it is `apps`, as it
-     always was. */
+     always was. The rail on a wide window takes the whole dock; a phone's dock
+     takes its first five and leaves the rest in the R (5.1.2). */
   const docked = () => pref('navStyle', 'pill') === 'dock';
-  const barList = () => (docked() ? pref('dock', null) : pref('apps', APPS)) || APPS;
+  const railMQ = window.matchMedia ? window.matchMedia('(min-width: 880px)') : null;
+  const railUp = () => pref('desktopMode', 'frame') === 'rail' && !!(railMQ && railMQ.matches);
+  function barList() {
+    if (!docked()) return pref('apps', APPS) || APPS;
+    const d = pref('dock', null) || APPS;
+    return railUp() ? d : d.slice(0, (window.Prefs && Prefs.SCHEMA.dock.phone) || 5);
+  }
 
   let index = 0;
   const apps = {};                     // name → { onShow, onDayChange, home }
@@ -877,14 +884,15 @@ window.Shell = (function () {
   function dockCount() { return TABS.length - 1 - (transient ? 1 : 0); }
 
   /* Today (ROOT 5, 4.25 — his answer: "Yes, the today page")
-     On a wide window, where the dock stands up as the rail, "today" puts four
+     On a wide window, where the bar stands up as the rail, "today" puts four
      apps side by side: DO, DAY, LOG and TOOLS. They are the apps themselves, not
      pictures of them, so a routine ticks, a form opens and the breathing round
      runs in its own column. Any move to one app ends it; so does a window too
-     narrow for four. A today left open is where the next start lands. */
+     narrow for four. A today left open is where the next start lands. Any bar
+     style's rail has it, not only the dock's (5.1.2, r261027-zf0v). */
   const TODAY_VIEWS = ['do', 'cal', 'log', 'tools'];
   const wideMQ = window.matchMedia ? window.matchMedia('(min-width: 1100px)') : null;
-  const todayFits = () => docked() && pref('desktopMode', 'frame') === 'rail' && !!(wideMQ && wideMQ.matches);
+  const todayFits = () => railUp() && !!(wideMQ && wideMQ.matches);
   function enterToday() {
     if (!todayFits()) return false;
     if (transient) retire(true);
@@ -914,6 +922,12 @@ window.Shell = (function () {
   });
   if (wideMQ && wideMQ.addEventListener) wideMQ.addEventListener('change', () => {
     if (todayOn && !todayFits()) { const back = TABS[index]; leaveToday(); go(back); }
+  });
+  // the rail coming or going changes how much of the dock has a tab
+  if (railMQ && railMQ.addEventListener) railMQ.addEventListener('change', () => {
+    if (!docked() || todayOn) return;
+    const cur = TABS[index];
+    rebuild(); go(cur);
   });
 
   /* The R (4.19)
@@ -1745,7 +1759,7 @@ window.Shell = (function () {
     if (k === 'autoHideChrome' || k === '*') { if (pref('autoHideChrome', true) === false) showChrome(); }
     /* the app list changed: re-order the slides and stay on the same app if it
        is still shown, otherwise land on the first one */
-    if (k === 'apps' || k === 'dock' || k === 'navStyle' || k === '*') {
+    if (k === 'apps' || k === 'dock' || k === 'navStyle' || k === 'desktopMode' || k === '*') {
       const cur = TABS[index];
       rebuild();
       go(TABS.includes(cur) ? cur : TABS[0]);
@@ -1940,7 +1954,7 @@ window.Shell = (function () {
 
   return { cursor, toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
-           hashTarget, searchApps,
+           hashTarget, searchApps, railUp,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,
                      isOpen: padIsOpen, target: () => padTarget } };
 })();
