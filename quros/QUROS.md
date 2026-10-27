@@ -172,6 +172,11 @@ plus settings; an export cannot be restored.
 
 ## 8. Changelog
 
+- **ROOT 5.1** (2026-10-27) — `js/brain.js`: inside ROOT, each dump goes to BRAIN on the PC as a Todoist task in
+  `04 | core › brain | dumps` (three quiet minutes, then once; queued offline), the map as "brain · map". New kv names:
+  `brainQ` (the queue), `brainSent` (ids sent), `brainIds` (the project and section), `brainMap` (the map task),
+  `brainLast` (the last sent, a reason). Hooks in `saveEntry`, `setMap`, `setItemState`; a line in settings.
+
 - **2026-10-23 · v2.0.1** — the microphone (prompter quick request `r261023-3efz`,
   Hugo: "can't use other microphone than the phone microphone, need to use my headset
   or bose earbuds"). Settings → microphone: the phone's own (as before), or one the

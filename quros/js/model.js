@@ -26,7 +26,9 @@ function saveEntry(o) {
   });
   if (have) e.edited = now;
   e.words = words(e.text);
-  return db().put('entries', e);
+  const out = db().put('entries', e);
+  if (Q.brain) Q.brain.queue(e.id);   // 5.1: inside ROOT, it goes to BRAIN on the PC (js/brain.js)
+  return out;
 }
 function editEntry(id, patch) {
   const e = db().get('entries', id);
@@ -104,13 +106,14 @@ function parseMap(text) {
 }
 const itemKey = (secTitle, text) => slug(secTitle) + '/' + slug(text);
 const map = () => db().kv('map', null);
-const setMap = m => db().setKv('map', m);
+const setMap = m => { const r = db().setKv('map', m); if (Q.brain) Q.brain.mapChanged(); return r; };
 const states = () => db().kv('mapState', {});
 const itemState = k => states()[k] || 'empty';
 function setItemState(k, s) {
   const st = Object.assign({}, states());
   if (s === 'empty') delete st[k]; else st[k] = s;
   db().setKv('mapState', st);
+  if (Q.brain) Q.brain.mapChanged();
 }
 function loadMapText(text) {
   const r = parseMap(text);

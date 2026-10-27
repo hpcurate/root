@@ -8246,6 +8246,72 @@ check('no errors through the schedule', errors.length === 0, errors.slice(0, 3).
   if (keep === null) LS.removeItem(k); else LS.setItem(k, keep);
 }
 
+/* ── 5.1 (r261027-qo06, BRAIN: "todoist tasks integration (with new section), also used to sync"): qurOS inside ROOT files each
+   dump as a task in 04 | core › brain | dumps, and the map as "brain · map" — quros/js/brain.js in a window of its own, with a
+   made-up Todoist (fetch stubbed; nothing leaves this machine) ── */
+{
+  const bw = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only', url: 'https://hpcurate.github.io/root/quros/?embed=root' }).window;
+  const KV = new Map(), entries = new Map();
+  bw.Q = { EMBED: true,
+    db: { kv: (k, d) => (KV.has(k) ? KV.get(k) : d), setKv: (k, v) => { KV.set(k, JSON.parse(JSON.stringify(v))); return v; }, get: (_s, id) => entries.get(id) || null },
+    m: { topicLabel: (t, kind) => (t ? t.label : kind === 'evening' ? 'evening dump' : 'free dump'), mapToMd: () => '# map\n## Body — Tier 1\n- [x] Sleep\n- Food' } };
+  bw.localStorage.setItem('root_todoist_v1', JSON.stringify({ token: 'tok' }));
+  const calls = [], tasks = [];
+  let down = false, sections = [];
+  bw.fetch = async (url, o = {}) => {
+    const u = new URL(url), body = o.body ? JSON.parse(o.body) : null;
+    calls.push(`${o.method || 'GET'} ${u.pathname}`);
+    const json = (code, j) => ({ ok: code < 300, status: code, json: async () => j });
+    if (down) return json(503, {});
+    if (o.headers.Authorization !== 'Bearer tok') return json(401, {});
+    if (u.pathname.endsWith('/projects')) return json(200, { results: [{ id: 'p0', name: '04|life' }, { id: 'p1', name: '04 | core' }], next_cursor: null });
+    if (u.pathname.endsWith('/sections') && !o.method) return json(200, { results: sections, next_cursor: null });
+    if (u.pathname.endsWith('/sections')) { const x = { id: 's1', ...body }; sections.push(x); return json(200, x); }
+    if (u.pathname.endsWith('/tasks') && o.method === 'POST') { const t = { id: 't' + (tasks.length + 1), ...body, comments: [] }; tasks.push(t); return json(200, t); }
+    if (u.pathname.endsWith('/tasks')) return json(200, { results: tasks.filter(t => t.section_id === u.searchParams.get('section_id')), next_cursor: null });
+    const up = /\/tasks\/(t\d+)$/.exec(u.pathname);
+    if (up) { const t = tasks.find(x => x.id === up[1]); if (!t) return json(404, {}); Object.assign(t, body); return json(200, t); }
+    if (u.pathname.endsWith('/comments')) { tasks.find(t => t.id === body.task_id).comments.push(body.content); return json(200, {}); }
+    return json(404, {});
+  };
+  bw.eval(fs.readFileSync(path.join(ROOT, 'quros/js/brain.js'), 'utf8'));
+  const B = bw.Q.brain, now = Date.now();
+  entries.set('e1', { id: 'e1', kind: 'dump', at: now - 600e3, end: now - 300e3, secs: 300, words: 6, lang: 'en', text: 'I slept badly, six hours only.', topic: { sec: 'body', item: 'body/sleep', label: 'Body › Sleep' } });
+  entries.set('e2', { id: 'e2', kind: 'dump', at: now - 20e3, end: now - 10e3, secs: 10, words: 2, text: 'still talking', topic: null });
+  B.queue('e1'); B.queue('e2'); B.queue('e1');
+  await B.flush();
+  const t1 = tasks[0];
+  const meta = t1 && JSON.parse(/\nbrain: (\{.*\})$/.exec(t1.description)[1]);
+  check('BRAIN (5.1): a dump said three minutes ago goes as a task in 04 | core › brain | dumps — the section made the first time; its title the topic and the time',
+    tasks.length === 1 && sections.length === 1 && sections[0].name === 'brain | dumps' && sections[0].project_id === 'p1' && t1.project_id === 'p1' && t1.section_id === 's1' &&
+    /^Body › Sleep · \d{2}-\d{2}-\d{2} \d{2}:\d{2}$/.test(t1.content), JSON.stringify({ tasks: tasks.length, sections, c: t1 && t1.content }));
+  check('… its description: the words, then one line brain: {…} with its record (BRAIN\'s core/memory.js fromTask reads it)',
+    t1.description.startsWith('I slept badly, six hours only.\n\n---\nbrain: {') && meta.id === 'e1' && meta.secs === 300 && meta.topic.item === 'body/sleep' && meta.src === 'phone', t1 && t1.description);
+  check('… one still being said waits (three quiet minutes, so "add more" goes whole); one queued twice goes once',
+    JSON.stringify(KV.get('brainQ')) === '["e2"]' && JSON.stringify(KV.get('brainSent')) === '["e1"]', JSON.stringify([KV.get('brainQ'), KV.get('brainSent')]));
+  entries.get('e2').at = now - 500e3; entries.get('e2').end = now - 400e3; entries.get('e2').text = 'w '.repeat(9000).trim();
+  down = true; await B.flush();
+  check('… Todoist away: it stays queued, nothing lost, nothing red (the reason kept for settings)', tasks.length === 1 && JSON.stringify(KV.get('brainQ')) === '["e2"]' && /503/.test(B.status().said));
+  down = false; await B.flush();
+  check('… a long one: the first 15 000 characters in the description, the rest as "brain: more" comments; sent ones never again',
+    tasks.length === 2 && tasks[1].comments.length === 1 && tasks[1].comments[0].startsWith('brain: more 1\n') && KV.get('brainQ').length === 0, JSON.stringify({ n: tasks.length, c: tasks[1] && tasks[1].comments.length }));
+  B.queue('e1'); await B.flush();
+  check('… a dump already sent, queued again (edited later), isn\'t sent twice', tasks.length === 2);
+  B.mapChanged(); await B.flush();
+  const mt = tasks.find(t => t.content === 'brain · map');
+  check('BRAIN (5.1): the map goes as one task "brain · map" — qurOS\'s markdown and brain: {"kind":"map"}', !!mt && mt.description === '# map\n## Body — Tier 1\n- [x] Sleep\n- Food\n\n---\nbrain: {"kind":"map"}', mt && mt.description);
+  bw.Q.m.mapToMd = () => '# map\n## Body\n- [x] Sleep\n- [x] Food'; B.mapChanged(); await B.flush();
+  check('… changed: the same task is updated, not a second one', tasks.filter(t => t.content === 'brain · map').length === 1 && /- \[x\] Food/.test(mt.description));
+  // outside ROOT (qurOS's own app): nothing is queued
+  const ow = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' }).window;
+  const OKV = new Map();
+  ow.Q = { EMBED: false, db: { kv: (k, d) => (OKV.has(k) ? OKV.get(k) : d), setKv: (k, v) => { OKV.set(k, v); return v; }, get: () => null }, m: {} };
+  ow.eval(fs.readFileSync(path.join(ROOT, 'quros/js/brain.js'), 'utf8'));
+  ow.Q.brain.queue('x');
+  check('… qurOS\'s own app (not inside ROOT) files nothing', !OKV.has('brainQ'));
+  bw.close(); ow.close();
+}
+
 console.log(results.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

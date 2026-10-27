@@ -2019,6 +2019,24 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.1 — 2026-10-27 — qurOS's dumps go to BRAIN on the PC
+
+BRAIN's phone side (r261027-qo06: "syncs with root mobile easily" · "todoist tasks integration (with new section), also used
+to sync"; his answer 5: "it would be "brain | dumps" in 04 | core").
+- **Each dump, a Todoist task** (`quros/js/brain.js`, inside ROOT only): in `04 | core › brain | dumps` (the section made the
+  first time), its title the topic and the time, its description the words and one line `brain: {…}` (its record), the rest
+  of a long one in "brain: more" comments. It goes once it has been quiet three minutes ("add more" goes whole), waits on the
+  phone while offline or without ROOT's Todoist key, and is never sent twice. BRAIN (`github/brain_desktop`) takes it into
+  Hugo's memory in Obsidian and closes the task.
+- **The map, one task** "brain · map": qurOS's markdown, updated when the map or a state changes (BRAIN shows its coverage).
+- **Hooks** in qurOS's own `saveEntry`, `setMap`, `setItemState`; a "BRAIN" line in qurOS's settings (waiting, the last
+  sent, a reason — never red).
+- The audio stays on the phone (a web page can't write to the Drive); the PC's whisper.cpp works on the PC's recordings.
+
+Harness: +9 checks — brain.js in a window of its own with a made-up Todoist (the section made, the task's shape, three quiet
+minutes, offline kept, a long one in comments, never twice, the map task made then updated, nothing outside ROOT). The task
+shape read back by BRAIN's own reader (`fromTask`) by hand. Live Todoist not tried. Log: `updates/26-10-27_update_v5.1.0.md`.
+
 ### 5.0 — 2026-10-27 — ROOT 5: qurOS inside ROOT, one app
 
 The last phase of ROOT 5, and the first of the BRAIN request (r261027-qo06; his answer "3. yes").

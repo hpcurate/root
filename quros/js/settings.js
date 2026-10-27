@@ -59,6 +59,13 @@ function listHtml(key) {
   </div>`;
 }
 
+/* 5.1: where the dumps stand on their way to BRAIN (js/brain.js) — never red: a reason, and they wait */
+function brainLine() {
+  const s = Q.brain.status();
+  if (!s.token) return 'each dump goes to BRAIN on the PC through Todoist (04 | core › brain | dumps) — it needs the Todoist key in ROOT → settings';
+  const last = s.last && s.last.at ? `the last one went ${Q.u.hm(s.last.at)}` : 'none sent yet';
+  return `each dump goes to BRAIN on the PC, in Todoist's 04 | core › brain | dumps · ${s.waiting ? s.waiting + ' waiting · ' : ''}${last}${s.said ? ' · ' + esc(s.said) : ''}`;
+}
 function body() {
   const s = S();
   return `
@@ -96,6 +103,8 @@ function body() {
 
   <div class="sec-h">look</div>
   <div class="swatches">${ACCENTS.map(c => `<button type="button" data-c="${c}" style="--c:${c}" class="${s.accent.toLowerCase() === c.toLowerCase() ? 'on' : ''}" aria-label="accent ${c}"></button>`).join('')}</div>
+
+  ${Q.EMBED && Q.brain ? `<div class="sec-h">BRAIN<em>the PC, through Todoist</em></div><div class="fine">${brainLine()}</div>` : ''}
 
   <div class="sec-h">data<em>on this phone only</em></div>
   <div data-store class="fine">checking storage…</div>
