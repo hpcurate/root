@@ -435,3 +435,42 @@
 .ns-plan .gl-left button{height:30px;padding:0 12px;border-radius:var(--r-pill);border:var(--bw) solid var(--bd);
   background:none;color:var(--tx);font:700 10.5px/1 var(--mono);cursor:pointer}
 .ns-plan .gl-left button:disabled{opacity:.4;cursor:default}
+
+/* ROOT 5 (5.1.1, r261027-vr0w — the mockup's plan screen): the projects are chips — a dot and a name, outlined in their
+   colour once something is queued in them; the open one fills with its colour, the others stay beside it, its sections
+   are chips on the line under, and the task form is a card under those. The queue's rows say where each task goes in one
+   line; "send N to todoist" is the big button in PLAN's colour. The flow, the ids and the FLIP are unchanged. */
+.ns-plan .proj-grid{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.ns-plan .proj-tile{flex:0 0 auto;min-height:36px;padding:0 13px;border-radius:999px;background:none;border-color:var(--bd);gap:8px}
+.ns-plan .proj-tile .proj-name{font:600 11.5px/1 var(--mono);letter-spacing:.02em;text-transform:none;color:var(--tx-2)}
+.ns-plan .proj-tile .proj-dot{width:8px;height:8px}
+.ns-plan .proj-tile .proj-meta{font-size:0}
+.ns-plan .proj-tile .proj-meta em,.ns-plan .proj-tile .proj-meta .unmapped{font:700 9.5px/1 var(--mono);letter-spacing:.02em}
+.ns-plan .proj-tile.has{background:none;border-color:var(--proj-color)}
+.ns-plan .proj-tile.has .proj-name{color:var(--tx)}
+.ns-plan .proj-tile.open{flex:0 0 auto;min-height:36px;padding:0 14px;background:var(--proj-color);border-color:transparent;justify-content:center}
+.ns-plan .proj-tile.open:active,.ns-plan .proj-tile.open.has{background:var(--proj-color)}
+.ns-plan .proj-tile.open .proj-head{width:auto;padding-bottom:0}
+.ns-plan .proj-tile.open .proj-name{font:800 11.5px/1 var(--mono)!important;letter-spacing:.02em;color:#0b0a0f}
+.ns-plan .proj-tile.open .proj-dot{display:none}
+.ns-plan .ph-rule{display:none}
+.ns-plan .proj-jumps{display:contents}
+.ns-plan .proj-jumps::after{content:'';flex:0 0 100%;height:2px}
+.ns-plan .proj-jump{min-height:36px;padding:0 13px;border-radius:999px;font:600 11.5px/1 var(--mono);letter-spacing:.02em;text-transform:none;color:var(--tx-2)}
+.ns-plan .proj-jump .proj-dot{width:8px;height:8px}
+.ns-plan .proj-sec{flex:0 0 auto;min-height:36px;padding:0 13px;border-radius:999px;align-items:center;gap:8px;
+  font:600 11.5px/1 var(--mono);letter-spacing:.02em}
+.ns-plan .proj-sec .ps-rail{flex:0 0 8px;height:8px;border-radius:50%}
+.ns-plan .proj-sec i{display:none}
+.ns-plan .proj-form{flex:0 0 100%;min-height:0;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:22px;padding:14px}
+.ns-plan .pf-head{border-bottom:none;margin-bottom:8px;padding-bottom:0}
+.ns-plan .proj-form .btn{height:46px;border-radius:14px;background:var(--y);border-color:var(--y);color:var(--on-y);font:800 13px/1 var(--mono);
+  letter-spacing:.02em;text-transform:none}
+.ns-plan .q-item{border-radius:14px;padding:10px 12px 10px 14px;align-items:center;margin-bottom:6px}
+.ns-plan .q-dot{width:10px;height:10px;margin-top:0}
+.ns-plan .q-item-name{font:700 12.5px/1.35 var(--mono);margin-bottom:3px}
+.ns-plan .q-item-meta{gap:0}
+.ns-plan .q-pill{background:none;padding:0;border-radius:0;font:400 10px/1.4 var(--mono);letter-spacing:.02em;color:var(--mu)}
+.ns-plan .q-pill + .q-pill::before{content:'·';padding:0 .45em;color:var(--bd-2)}
+.ns-plan .q-pill.hl{font-weight:700}
+.ns-plan .btn-send{height:50px;padding:0;border-radius:16px;font:800 13px/1 var(--mono);letter-spacing:.02em;text-transform:none}

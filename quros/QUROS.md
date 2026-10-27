@@ -197,3 +197,11 @@ plus settings; an export cannot be restored.
   (they are STORE's job). Tests: `test/app.test.mjs` (146 checks);
   screenshots of all screens via `test/shots.mjs`. Not verified on a physical
   phone: real speech-to-text sessions, the wake lock and the share sheet.
+- **ROOT 5.1.1 (2026-10-27) — inside ROOT it is "brain"** (r261027-xfg3, r261027-vr0w): the visible words say brain (the
+  tagline, MAP's lines, SEND's line, the about line when embedded); the ids, the storage names and the export's format stay
+  qurOS's (§5, §7). DUMP is the redesign's page: a hero in the accent (the evening's question after 18:00 with "another
+  dump", else a dump on a topic — talk and write), the next thing on the map by its name, the coverage a column a section
+  (`coverage()`, tap → MAP), then the dumps; two columns from 820px. Embedded, the tabs are pills in `#app`'s width and a
+  frame from 600px wide drops the 560px column. The map: an item `**Name** — note` shows its name (`Q.m.itemName`, keys
+  unchanged), and in a map that ticks its items a bold bullet with no box is a note, not a thing to talk through (as BRAIN
+  0.1.1 reads it).

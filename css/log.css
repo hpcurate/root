@@ -499,3 +499,49 @@
 .ns-log .h-streak:empty{min-height:0;padding-bottom:calc(6px * var(--dens))}
 .ns-log .lc-c.future::before{width:4px;height:4px}
 .ns-log #card-m,.ns-log #card-e{min-height:calc(92px * var(--dens))}
+
+/* ROOT 5 (5.1.1, r261027-vr0w — the mockup's log screen): the two halves first, as cards that say what they hold (the
+   written one with a green disc, the due one flooding in LOG's colour with its "!" and "write it"); then the month and the
+   fortnight, taller; then the four doors as tiles with a shape each, and the two utilities quiet under them. */
+.ns-log .lg-halves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10px * var(--dens));
+  padding:calc(2px * var(--dens)) calc(18px * var(--dens)) calc(14px * var(--dens))}
+.ns-log .lg-half{min-height:calc(108px * var(--dens));border-radius:18px;padding:calc(13px * var(--dens)) calc(15px * var(--dens));
+  display:flex;flex-direction:column;overflow:hidden;isolation:isolate}
+.ns-log .lg-half > :not(.lg-blob){position:relative;z-index:1}
+.ns-log .lg-half .card-t{font:600 10px/1.2 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--tx-2);margin:0}
+.ns-log .lg-half .card-w{margin:8px 0 4px}
+.ns-log .lg-half .card-s{margin-top:auto;font:400 10px/1.5 var(--mono);color:var(--tx-2);letter-spacing:0;white-space:normal;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ns-log .lg-blob{position:absolute;z-index:0;right:-10px;top:-46px;width:88px;height:88px;border-radius:50%;background:var(--s2)}
+.ns-log .lg-half.done .lg-blob{background:#3ddc84}
+.ns-log .lg-half.due .lg-blob{top:auto;bottom:-58px;right:-32px;width:116px;height:116px;background:rgba(11,10,15,.14)}
+.ns-log .lg-half.due .card-t{color:var(--on-y);opacity:.8}
+.ns-log .lg-half.due::before{z-index:1}
+.ns-log .lg-go{display:none}
+.ns-log .lg-half.due .lg-go{display:inline-flex;align-items:center;align-self:flex-start;height:28px;padding:0 12px;margin-top:8px;
+  border-radius:999px;background:var(--on-y);color:var(--y);font:800 11px/1 var(--mono)}
+/* the fortnight is taller, and its key is the mockup's squares */
+.ns-log .lc-trend:not(.big) .lc-spark{height:76px}
+.ns-log .lc-kk::before{width:9px;height:9px;border-radius:3px}
+.ns-log .lc-kk{font-size:8.5px}
+/* the doors: four tiles, a shape and a word */
+.ns-log .lg-doors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:calc(8px * var(--dens));padding:0 calc(18px * var(--dens))}
+.ns-log .lg-door{height:calc(66px * var(--dens));border-radius:14px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .12s}
+.ns-log .lg-door:active{transform:scale(.92)}
+.ns-log .lg-door .card-t{font:700 11px/1 var(--mono);letter-spacing:0;text-transform:none;margin:0;white-space:nowrap}
+.ns-log .lg-door .card-t em{font-style:normal;font-weight:400;color:var(--mu)}
+.ns-log .lg-sh{display:block;width:16px;height:16px}
+.ns-log .sh-en{border-radius:50%;background:#ff5fa2}
+.ns-log .sh-out{border-radius:16px 0 0 0;background:#a78bfa}
+.ns-log .sh-hist{border-radius:4px;background:#3ddc84}
+.ns-log .sh-rep{width:20px;height:10px;margin-top:4px;border-radius:10px 10px 0 0;background:#ffc94d}
+.ns-log .lg-utils{display:flex;justify-content:center;gap:calc(22px * var(--dens));padding:calc(10px * var(--dens)) 0 calc(4px * var(--dens))}
+.ns-log .lg-utils button{background:none;border:0;padding:4px 2px;display:inline-flex;align-items:center;cursor:pointer;
+  font:400 10px/1 var(--mono);letter-spacing:.06em;color:var(--mu)}
+.ns-log .lg-utils .ico{width:12px;height:12px;margin-right:6px}
+.ns-log .lg-utils button:active{color:var(--tx)}
+@media (min-height:560px){
+  .ns-log #s-home .lg-halves,.ns-log #s-home .lg-doors,.ns-log #s-home .lg-utils{flex:0 0 auto}
+}
+.ns-log .lg-half.done{border-color:var(--bd)}

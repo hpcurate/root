@@ -436,3 +436,37 @@ body:has(#nav.chrome-off) .cal-steps,
 .ns-cal .ev-name{font-size:13.5px}
 .ns-cal .cal-now{border-top-color:var(--tx)}
 .ns-cal .cal-now span{background:var(--tx);color:var(--bg)}
+
+/* ROOT 5 (5.1.1, r261027-vr0w — the mockup's day screen): each row is a card of its own — rounded, its colour down its
+   left edge, a few pixels apart — drawn on the row's ::before so the row keeps its height and the day its hours (the now
+   line and the marks are placed by them). A done row keeps its words and says when, in green; the row the clock is in
+   is the sun card. The head's actions are pills. */
+.ns-cal .cal-day{border:none;border-radius:0;overflow:visible}
+.ns-cal .cal-ev{position:relative;isolation:isolate;background:transparent;border-top:none;
+  padding:calc(9px * var(--dens)) calc(12px * var(--dens)) calc(9px * var(--dens)) calc(14px * var(--dens))}
+.ns-cal .cal-ev::before{content:'';position:absolute;z-index:-1;inset:3px 0;border-radius:12px;background:var(--s1);
+  border:var(--bw) solid var(--bd);border-left:4px solid var(--ev-color, var(--bd-2));transition:background .2s}
+.ns-cal .cal-ev.task,.ns-cal .cal-ev.fixed,.ns-cal .cal-ev.idle{background:transparent}
+.ns-cal .cal-ev.fixed::before{border-left-color:var(--ev-color, var(--tx-2))}
+.ns-cal .cal-ev.idle::before{background:none;border:var(--bw) dashed var(--bd-2)}
+.ns-cal button.cal-ev:active{background:transparent}
+.ns-cal button.cal-ev:active::before{background:var(--press)}
+.ns-cal .ev-box{border-left:none;padding-left:0}
+.ns-cal .ev-at{font-size:10px;color:var(--tx-2)}
+.ns-cal .cal-ev.done{opacity:1}
+.ns-cal .cal-ev.done .ev-name{text-decoration:none;color:var(--tx-2)}
+.ns-cal .cal-ev.done .ev-check{background:#3ddc84;border-color:#3ddc84;color:#0b0a0f}
+.ns-cal .cal-ev.cur{background:transparent;border-radius:0}
+.ns-cal .cal-ev.cur::before{background:var(--y);border-color:transparent;border-radius:14px}
+.ns-cal .cal-ev.cur .ev-name{font-weight:800}
+.ns-cal .cal-ev.cur.done .ev-name{color:var(--on-y)}
+.ns-cal .cal-day.lit-task .cal-ev.task,.ns-cal .cal-day.lit-fixed .cal-ev.fixed{background:transparent}
+.ns-cal .cal-day.lit-task .cal-ev.task::before{background:color-mix(in srgb, var(--ev-color, var(--s1)) 16%, var(--s1))}
+.ns-cal .cal-day.lit-fixed .cal-ev.fixed::before{background:color-mix(in srgb, var(--ev-color, var(--s1)) 16%, var(--s1))}
+.ns-cal .cal-now span{border-radius:5px;font-size:9px;padding:3px 6px}
+.ns-cal .ch-acts{align-items:center;flex-wrap:wrap;gap:6px}
+.ns-cal .ch-act,.ns-cal .ch-clear{height:34px;padding:0 14px;border-radius:999px;border:var(--bw) solid var(--bd);
+  font:700 11px/1 var(--mono);letter-spacing:.02em;color:var(--tx);transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .2s}
+.ns-cal .ch-act[data-act="mk"]{background:var(--y);border-color:var(--y);color:var(--on-y)}
+.ns-cal .ch-act:active,.ns-cal .ch-clear:active{transform:scale(.9)}
+.ns-cal .ch-clear{color:var(--mu);border-color:transparent}

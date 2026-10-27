@@ -27,24 +27,24 @@ function render() {
       <button class="icon-btn" type="button" data-a="menu" aria-label="map options">${icon('dots')}</button>
     </div>
     <h1 class="wm">Map<em>.</em></h1>
-    <p class="top-sub">${m ? esc(m.title) : 'what qurOS knows about you, and what is still to talk through.'}</p>
+    <p class="top-sub">${m ? esc(m.title) : 'what brain knows about you, and what is still to talk through.'}</p>
   </header>
 
   ${m ? `
     <div class="map-prog" aria-hidden="true"><i style="width:${pct(stats.done)}"></i><i class="p" style="width:${pct(stats.partial)}"></i></div>
     <p class="fine">${fmtNum(stats.items - stats.done - stats.partial)} untouched · tap a dot to change it · tap an item for its dumps</p>
     ${nx ? `<div class="sec-h">next<em>${nx.section.tier < 99 ? 'tier ' + nx.section.tier + ' · ' : ''}${esc(nx.section.title)}</em></div>
-      <div class="card next-map"><div class="nm-k">${esc(nx.section.title)}</div><div class="nm-t">${esc(nx.item.text)}</div>
+      <div class="card next-map"><div class="nm-k">${esc(nx.section.title)}</div><div class="nm-t">${esc(Q.m.itemName(nx.item.text))}</div>
         <div class="btns"><button class="btn go sm" type="button" data-a="talk-item" data-k="${esc(nx.item.key)}">${icon('mic')}talk about this</button>
         <button class="btn sm" type="button" data-a="talk-sec" data-s="${esc(nx.section.key)}">the whole section</button></div></div>`
-      : `<div class="card" style="margin-top:18px"><b>Everything on the map has been talked through.</b><p class="fine">Add new items, or send it all to qurOS and ask what's missing.</p></div>`}
+      : `<div class="card" style="margin-top:18px"><b>Everything on the map has been talked through.</b><p class="fine">Add new items, or send it all to the chat and ask what's missing.</p></div>`}
     <div class="sec-h">sections<em>${secs.length}</em><button class="sec-a" type="button" data-a="edit">${icon(editing ? 'check' : 'edit')}${editing ? 'done' : 'edit'}</button></div>
     ${secs.map(s => section(s, st)).join('')}
     ${editing ? `<div class="btns"><button class="btn sm" type="button" data-a="sec-add">${icon('plus')}section</button></div>` : ''}
   ` : `
     <div class="card" style="margin-top:22px">
       <b>No map yet.</b>
-      <p class="fine">Load the life-dump map qurOS made for you — a markdown file: headings are sections ("Tier 1" in a heading sets the tier), list items are the things to talk through. <b>[x]</b> marks one covered, <b>[~]</b> started.</p>
+      <p class="fine">Load your life-dump map — a markdown file: headings are sections ("Tier 1" in a heading sets the tier), list items are the things to talk through. <b>[x]</b> marks one covered, <b>[~]</b> started.</p>
       <div class="btns">
         <button class="btn go sm" type="button" data-a="import">${icon('file')}load .md file</button>
         <button class="btn sm" type="button" data-a="paste">paste it</button>
@@ -69,8 +69,8 @@ function section(s, st) {
         const lastD = n.length ? n.sort((a, b) => b.at - a.at)[0].day : null;
         return `<div class="mitem ${v}">
           <button class="st" type="button" data-a="state" data-k="${esc(x.key)}" data-s="${v}" aria-label="${esc(x.text)}: ${STATE_WORD[v]}"></button>
-          <div class="row-m" data-a="item" data-k="${esc(x.key)}"><div class="row-t">${esc(x.text)}</div>
-            <div class="row-s">${STATE_WORD[v]}${n.length ? ` · ${n.length} dump${n.length === 1 ? '' : 's'} · ${fmtDay(lastD)}` : ''}</div></div>
+          <div class="row-m" data-a="item" data-k="${esc(x.key)}"><div class="row-t">${esc(Q.m.itemName(x.text))}</div>
+            ${Q.m.itemParts(x.text).note ? `<div class="row-n">${esc(Q.m.itemParts(x.text).note)}</div>` : ''}<div class="row-s">${STATE_WORD[v]}${n.length ? ` · ${n.length} dump${n.length === 1 ? '' : 's'} · ${fmtDay(lastD)}` : ''}</div></div>
           ${editing ? `<button class="icon-btn" type="button" data-a="item-edit" data-k="${esc(x.key)}" data-s="${esc(s.key)}" aria-label="edit">${icon('edit')}</button>`
             : `<button class="icon-btn" type="button" data-a="talk-item" data-k="${esc(x.key)}" aria-label="talk about ${esc(x.text)}">${icon('mic')}</button>`}
         </div>`;

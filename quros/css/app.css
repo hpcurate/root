@@ -594,3 +594,90 @@ html.embed .top .wm { display: none; }
 html.embed .top { padding-top: 8px; }
 html.embed .view, html.embed .scr-b { scrollbar-width: none; }
 html.embed .view::-webkit-scrollbar, html.embed .scr-b::-webkit-scrollbar { display: none; }
+
+/* ═════════ ROOT 5's capture page (ROOT 5.1.1, r261027-vr0w: the mockup's brain screen) ═════════
+   The hero is what to say now, in the accent (the evening's question after 18:00, else a dump on a topic), with talk and
+   write; the next thing on the map; the coverage, a column a section; the dumps. Inside ROOT the tabs are pills, and a
+   wide frame (ROOT desktop) takes the width: two columns, the map's sections side by side (r261027-xfg3). */
+.dgrid { display: grid; }
+.dcol { min-width: 0; }
+.dhero { position: relative; overflow: hidden; isolation: isolate; margin-top: 14px; border-radius: 22px; background: var(--y); color: var(--on-y);
+  padding: 16px 18px 18px; display: flex; flex-direction: column; min-height: 196px; }
+.dhero > :not(.dh-o):not(.dh-s) { position: relative; z-index: 1; }
+.dh-o { position: absolute; z-index: 0; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%;
+  background: color-mix(in srgb, var(--on-y) 13%, transparent); box-shadow: 0 0 0 18px color-mix(in srgb, var(--on-y) 7%, transparent); }
+.dh-s { position: absolute; z-index: 0; right: 70px; bottom: -36px; width: 72px; height: 72px; border-radius: 14px; transform: rotate(18deg);
+  background: color-mix(in srgb, var(--on-y) 9%, transparent); }
+.dh-k { font: 600 10px/1.2 var(--mono); letter-spacing: .2em; text-transform: uppercase; opacity: .8; }
+.dh-t { font: 800 26px/1.05 var(--head); letter-spacing: -.02em; margin: 8px 0 0; max-width: 16ch; }
+.dh-p { font: 400 11px/1.5 var(--mono); margin: 6px 0 0; max-width: 36ch; }
+.dh-p b { font-weight: 700; }
+.dhero .topic-pill { margin-top: 12px; align-self: flex-start; border-color: color-mix(in srgb, var(--on-y) 30%, transparent); color: var(--on-y); }
+.dhero .topic-pill b { color: var(--on-y); }
+.dhero .topic-pill.set { background: color-mix(in srgb, var(--on-y) 12%, transparent); border-color: transparent; }
+.dh-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 16px; }
+.dh-talk, .dh-write, .dh-other { height: 44px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
+  font: 800 12px/1 var(--mono); transition: transform .3s var(--pop); }
+.dh-talk { border: 0; background: var(--on-y); color: var(--y); }
+.dh-write { border: 2px solid var(--on-y); background: none; color: var(--on-y); }
+.dh-other { border: 0; background: color-mix(in srgb, var(--on-y) 12%, transparent); color: var(--on-y); font-weight: 600; padding: 0 12px; }
+.dh-talk .ic, .dh-write .ic { width: 16px; height: 16px; }
+.dh-talk:active, .dh-write:active, .dh-other:active { transform: scale(.92); }
+
+.dnext { margin-top: 10px; border-radius: 18px; background: var(--s1); border: 1px solid var(--bd); padding: 12px 12px 12px 14px;
+  display: flex; align-items: center; gap: 12px; }
+.dn-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dn-k { font: 600 10px/1.3 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--tx2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dn-t { font: 700 13px/1.35 var(--mono); color: var(--tx); }
+.dn-a { display: flex; gap: 16px; }
+.dn-a button { border: 0; background: none; padding: 2px 0; font: 500 11px/1 var(--mono); color: var(--tx2); }
+.dn-a button:active { color: var(--tx); }
+.dn-mic { width: 48px; height: 48px; border-radius: 14px; border: 0; background: var(--y); color: var(--on-y); display: grid; place-items: center;
+  flex: 0 0 auto; transition: transform .3s var(--pop); }
+.dn-mic:active { transform: scale(.9); }
+.dn-mic .ic { width: 20px; height: 20px; }
+.dtip { margin-top: 14px; }
+
+.dcov { display: block; width: 100%; margin-top: 16px; padding: 0; border: 0; background: none; color: inherit; text-align: left; }
+.dc-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 400 10px/1.2 var(--mono); color: var(--tx2); }
+.dc-h span:first-child { font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
+.dc-cols { display: flex; gap: 6px; align-items: stretch; height: 84px; margin-top: 10px; }
+.dc-c { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
+.dc-c i { display: block; width: 100%; height: calc(var(--h) * (100% - 16px)); min-height: 8px; border-radius: 8px 8px 3px 3px; background: var(--y); }
+.dc-c i.e { background: var(--s2); border: 1px dashed var(--mu); }
+.dc-c em { font: 400 9.5px/1 var(--mono); font-style: normal; color: var(--tx2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-cols.many { height: 56px; gap: 4px; }
+.dc-cols.many .dc-c i { height: calc(var(--h) * 100%); }
+.dlist .sec-h:first-of-type { margin-top: 24px; }
+.mitem .row-n { font: 400 11px/1.4 var(--mono); color: var(--tx2); margin-top: 2px; }
+
+/* inside ROOT: the tabs are the mockup's pills, in the page's own width (#app holds them) */
+html.embed #v-dump .top-sub { display: none; }
+html.embed #bar { position: absolute; top: 6px; left: 18px; right: 18px; height: 44px; display: flex; align-items: center; gap: 6px; padding: 0;
+  background: var(--bg); border: 0; border-radius: 0; }
+html.embed #bar button { flex: 0 0 auto; height: 40px; padding: 0 16px; border: 1px solid var(--bd); border-radius: 999px; color: var(--tx2);
+  font: 600 11.5px/1 var(--mono); letter-spacing: .02em; text-transform: none; gap: 8px; transition: background .2s, color .2s, transform .3s var(--pop); }
+html.embed #bar button .ic { display: none; }
+html.embed #bar button:active { transform: scale(.9); }
+html.embed #bar button.on { background: var(--tx); border-color: var(--tx); color: var(--bg); font-weight: 700; }
+html.embed #bar button .badge { position: static; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; font: 800 10px/20px var(--mono);
+  background: var(--y); color: var(--on-y); }
+
+/* a wide frame (ROOT desktop): the page takes the width — no narrow column with rules either side */
+@media (min-width: 600px) {
+  html.embed #app { max-width: 1240px; border: 0; }
+  html.embed .view { padding-left: 28px; padding-right: 28px; }
+  html.embed #bar { left: 28px; right: 28px; }
+}
+@media (min-width: 820px) {
+  html.embed .dgrid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 36px; align-items: start; }
+  html.embed .dlist .sec-h:first-of-type { margin-top: 14px; }
+  html.embed .dhero { min-height: 260px; padding: 24px 26px 26px; }
+  html.embed .dh-t { font-size: 36px; }
+  html.embed .dh-p { font-size: 12px; }
+  html.embed .dc-cols { height: 120px; }
+  html.embed #v-map.on { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; align-content: start; }
+  html.embed #v-map.on > :not(.msec) { grid-column: 1 / -1; }
+  html.embed #v-send.on > *, html.embed #v-map.on > .card { max-width: 760px; }
+}

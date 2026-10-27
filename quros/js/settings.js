@@ -113,7 +113,7 @@ function body() {
     <button class="btn sm quiet" type="button" data-x="wipe">${icon('trash')}erase everything</button>
   </div>
 
-  <div class="about">qurOS ${esc(Q.VERSION)} · a capture app for the qurOS knowledge base.<br>
+  <div class="about">${Q.EMBED ? `brain, ROOT's capture (qurOS ${esc(Q.VERSION)} inside) · its dumps go to BRAIN on the PC.` : `qurOS ${esc(Q.VERSION)} · a capture app for the qurOS knowledge base.`}<br>
   Records stay on this device (IndexedDB) until you send or back them up. Speech-to-text is the browser's own: on most phones the audio goes to the phone maker's speech service, as with the keyboard's mic.</div>`;
 }
 

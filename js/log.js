@@ -359,8 +359,15 @@ function refreshHome() {
     if (!w) { w = document.createElement('div'); w.className = 'card-w'; card.insertBefore(w, card.querySelector('.card-s')); }
     w.textContent = done ? 'written' : '';
   });
+  /* ROOT 5 (5.1.1): a written half says what it holds, an open one what it asks — the mockup's cards */
+  const say = (pairs, ask) => pairs.filter(([, x]) => x != null && String(x).trim() !== '').map(([w, x, u]) => `${w} ${x}${u || ''}`).join(' · ') || ask;
+  const mS = $id('card-m-s'), eS = $id('card-e-s');
+  if (mS) mS.textContent = morningLogged(data)
+    ? say([['sleep', data.m.sl, 'h'], ['energy', data.m.nrg], ['mood', data.m.mood], ['walked', data.m.km, ' km']], 'written') : 'sleep · energy · mood';
+  if (eS) eS.textContent = eveningLogged(data)
+    ? say([['energy', data.e.nrg], ['mood', data.e.mood], ['stress', data.e.stress]], 'written') : 'energy · mood · stress';
   const ec = data.entries.length;
-  $id('en-ct').textContent = ec ? `${ec} entr${ec===1?'y':'ies'}` : 'no entries yet';
+  $id('en-ct').textContent = ec ? String(ec) : '';
   const s = calcStreak();
   const el = $id('h-streak');
   el.innerHTML = s >= 2 ? `streak · <em>${s} days</em>` : '';
@@ -493,7 +500,8 @@ let trendIx = 0;                     // which chart; not stored, like trendBig
    themes, and an accent-relative palette cannot promise that. They are written
    onto the element as `--s-c` so there is one CSS rule per shape rather than
    one per series — a seventh chart needs no stylesheet. */
-const TR = { nrg:'#6ec5e0', mood:'#5cdb7d', stress:'#e0806b', nrg2:'#4a8fa8', mood2:'#3f9a58',
+/* 5.1.1: energy, mood and stress take the redesign's three (checked apart for colour-blindness and on the dark ground) */
+const TR = { nrg:'#c2852a', mood:'#e84a8a', stress:'#8f6cf0', nrg2:'#8a5f1e', mood2:'#a8366a',
              sleep:'#a78bfa', wake:'#e0a060', kmm:'#5ad4e6', kme:'#5e8cff',
              blocks:'#c4b5fd', mix:'#c4b5fd', prod:'#a78bfa', cont:'#8b5cf6',
              coffee:'#c9a227', energy:'#e0806b', meals:'#5cdb7d' };

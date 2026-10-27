@@ -170,7 +170,7 @@ function render() {
     <div class="top-row"><span class="top-meta">${sends.length ? `last export ${fmtDay(Q.u.dayOf(sends[0].at))} ${hm(sends[0].at)}` : 'nothing exported yet'}</span>
       <button class="icon-btn" type="button" data-a="settings" aria-label="settings">${icon('gear')}</button></div>
     <h1 class="wm">Send<em>.</em></h1>
-    <p class="top-sub">one file for qurOS — share it straight into the chat, or copy and paste.</p>
+    <p class="top-sub">one file for the chat — share it straight in, or copy and paste.</p>
   </header>
 
   <div class="send-stats">

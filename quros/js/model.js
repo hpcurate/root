@@ -76,6 +76,9 @@ function parseMap(text) {
   let title = '', tier = 99, cur = null;
   const sections = [], seed = {}, seen = new Set();
   const tierOf = s => { const m = /\btier\s*(\d{1,2})\b/i.exec(s); return m ? +m[1] : null; };
+  // a map that ticks its items ("- [ ] **Sleep** — …") keeps notes in bold bullets with no box ("- **Order:** …", his
+  // life-dump map's "How to use this map"): notes, not things to talk through — as BRAIN reads it (5.1.1)
+  const boxed = lines.some(l => /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX~/-]\]/.test(l));
   lines.forEach(raw => {
     const h = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(raw);
     if (h) {
@@ -91,7 +94,7 @@ function parseMap(text) {
       return;
     }
     const li = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[([ xX~/-])\]\s*)?(.+)$/.exec(raw);
-    if (li && li[2].trim()) {
+    if (li && li[2].trim() && !(boxed && li[1] == null && /^\*\*/.test(li[2]))) {
       if (!cur) { cur = { key: 'general', title: title || 'general', tier, items: [] }; sections.push(cur); seen.add('general'); }
       const itext = li[2].trim();
       const key = itemKey(cur.title, itext);
@@ -201,10 +204,16 @@ function topicFor(sec, item) {
   if (item) return { sec: sec.key, item: item.key, label: `${sec.title} › ${item.text}` };
   return { sec: sec.key, label: sec.title };
 }
+/* an item as said: "**Sleep** — when you sleep" is a name in bold and a note (his life-dump map); the key stays the line */
+function itemParts(text) {
+  const t = String(text || '').trim(), m = /^\*\*(.+?)\*\*\s*(?:[—–:-]\s*)?(.*)$/.exec(t);
+  return m ? { name: m[1].trim(), note: m[2].trim() } : { name: t.replace(/\*\*/g, '').trim(), note: '' };
+}
+const itemName = text => itemParts(text).name;
 function topicLabel(t, kind) {
   if (kind === 'evening' && !t) return 'evening dump';
   if (!t) return 'free dump';
-  if (t.item) { const f = findItem(t.item); if (f) return `${f.section.title} › ${f.item.text}`; }
+  if (t.item) { const f = findItem(t.item); if (f) return `${f.section.title} › ${itemName(f.item.text)}`; }
   if (t.sec && !t.item) { const s = findSection(t.sec); if (s) return s.title; }
   return t.label || 'free dump';
 }
@@ -219,5 +228,5 @@ const dumpsFor = key => db().all('entries').filter(e => e.topic && (e.topic.item
 
 Q.m = { entries, saveEntry, editEntry, delEntry, unsentEntry, blankDay, day, saveDay, hasData, unsentDay, gymLogged,
   weekGoals, setWeekGoals, parseMap, itemKey, map, setMap, states, itemState, setItemState, loadMapText, sections,
-  mapNext, mapStats, mapToMd, mapEdit, rekey, STARTER, findItem, findSection, topicFor, topicLabel, topicPrompt, dumpsFor, norm };
+  mapNext, mapStats, mapToMd, mapEdit, rekey, STARTER, findItem, findSection, topicFor, topicLabel, topicPrompt, dumpsFor, norm, itemParts, itemName };
 })();

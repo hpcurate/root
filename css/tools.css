@@ -487,3 +487,28 @@
 @media (prefers-reduced-motion:reduce){
   .ns-tools .tl-chart rect,.ns-tools .tl-pie path,.ns-tools .tl-rose path{transition:none}
 }
+
+/* ROOT 5's breathing round (5.1.1, r261027-vr0w — the mockup's tools screen; js/tools.js readoutHTML(…, arcs)): a ring of
+   arcs, one a round, each in its colour once done, the running one filling; a pink half-disc under the count that swells
+   with the breath, the count on it in the ground's ink. The dials as four tiles under the start (a tap opens them). */
+.ns-tools .tl-whf{width:min(240px, 64vw)}
+.ns-tools .tl-whf svg{transform:none;overflow:visible}
+.ns-tools .tl-whf .wh-disc{fill:#ff5fa2;opacity:.92;transform-box:fill-box;transform-origin:50% 100%;transition:transform .2s linear}
+.ns-tools .tl-whf.breathe .wh-disc{transform:scale(calc(.86 + var(--tl-breath, 0) * .2))}
+.ns-tools .tl-whf.hold .wh-disc{opacity:1}
+.ns-tools .tl-whf .wa{fill:none;stroke-width:12;stroke-linecap:round;stroke:color-mix(in srgb, var(--wa) 18%, var(--s1))}
+.ns-tools .tl-whf .wa.done{stroke:var(--wa)}
+.ns-tools .tl-whf .wa-go{fill:none;stroke-width:12;stroke-linecap:round;stroke:var(--wa);transition:stroke-dashoffset .24s linear}
+.ns-tools .tl-whf.live::before{content:none}
+.ns-tools .tl-whf .tl-read{inset:14% 0 0}
+.ns-tools .tl-whf .tl-big,.ns-tools .tl-whf .tl-sub{color:#0b0a0f;text-shadow:none}
+.ns-tools .tl-whf .tl-sub{font-weight:700}
+.ns-tools .tl-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:calc(8px * var(--dens));margin:calc(18px * var(--dens)) 0 0}
+.ns-tools .tl-tile{height:62px;border-radius:14px;background:var(--s1);border:var(--bw) solid var(--bd);display:flex;flex-direction:column;
+  align-items:flex-start;justify-content:space-between;padding:10px;color:var(--tx);cursor:pointer;text-align:left;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),border-color .2s}
+.ns-tools .tl-tile b{font:800 22px/1 var(--head);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ns-tools .tl-tile b small{font:700 11px/1 var(--mono);color:var(--mu);margin-left:2px}
+.ns-tools .tl-tile span{font:400 10px/1 var(--mono);color:var(--mu)}
+.ns-tools .tl-tile:active{transform:scale(.92)}
+.ns-tools .tl-tally:has(+ .tl-tiles){display:none}

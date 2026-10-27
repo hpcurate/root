@@ -19,3 +19,7 @@
 /* while qurOS's recorder is up, ROOT's chrome and the band step aside (js/quros.js):
    a locked recorder takes no touch but its slider */
 .qos-rec #nav,.qos-rec .nav-arrow,.qos-rec .ns-quros > .h-top{opacity:0;pointer-events:none}
+
+/* 5.1.1 (r261027-xfg3, "doesn't scale well"): on a wide window the tab is two columns of its own (quros/css/app.css),
+   so its band and frame take more than the reading width every other app keeps */
+.ns-quros{--readable:1240px}

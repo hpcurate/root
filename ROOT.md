@@ -2019,6 +2019,38 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.1.1 — 2026-10-27 — brain, and the redesign the other screens were still missing
+
+Two of his requests: r261027-xfg3 ("qurOS should just be called brain inside root (mobile app/desktop app)" · "qurOS
+(renamed brain) doesn't scale well") and r261027-vr0w ("a lot of the proposed visual changes for root (log, day, plan,
+qurOS(renamed brain), tools didn't get the overhaul"). 4.21–5.0 had taken parts of the mockup and left the rest (4.24 even
+called TOOLS done); this is the rest, against the build plan's phone (RcjmroYUpJ5qX3M3xD9V86) and the mockup's screens.
+- **brain:** the twelfth app reads "brain." in its band ("capture · for your memory"), the dock, the R, settings, search
+  and the storage report. Its id stays `quros`, and its records, keys and export stay qurOS's. Its DUMP page is the
+  mockup's: a hero in the accent (the evening's question after 18:00, else a dump on a topic), the next thing on the map
+  by its name, the coverage a column a section, then the dumps (`quros/js/dump.js`, QUROS.md). On a wide window it takes
+  the width: `.ns-quros` reads to 1240px, the frame drops qurOS's 560px column from 600px, and two columns start at
+  820px. The map reads his life-dump map as BRAIN 0.1.1 does: names without `**`, bold notes not counted as items, keys
+  unchanged.
+- **LOG:** the halves first, as cards that say what they hold or ask (`#card-m-s`, `#card-e-s`), the due one with "write
+  it". Then the month and a taller fortnight in the redesign's three colours (energy `#c2852a`, mood `#e84a8a`, stress
+  `#8f6cf0`). Then four door tiles with a shape each (`.lg-doors`), and data / clear day quiet under them. Nothing stored
+  changed.
+- **DAY:** every row is a card of its own, its colour down the left edge, drawn on `::before`, so a row keeps its height
+  and the day its hours. A done row keeps its words and says when, in green, and the current one is the sun card. The
+  head's actions are pills, with "new schedule" in the sun.
+- **PLAN:** the projects are chips. The open one fills with its colour, the others stay beside it, its sections are chips
+  under them, and the form is a card. The queue's rows say where each task goes in one line, and "send N to todoist" is
+  the big button. Sheets only; the flow, ids and FLIP are 2.24's.
+- **TOOLS:** the breathing round is the redesign's: an arc a round over a pink half-disc. A finished round lights in its
+  colour (chalk, violet, green, sun, pink), the running one fills, and the disc swells with the breath. Its four dials
+  are tiles that open them. The ring layout only.
+
+Harness: 1410 passed. Two checks moved with what they check (the band reads brain., arcs instead of the breathing
+dots), and four are new (brain's dump page and wide rules, LOG's order and lines and doors, DAY's and PLAN's sheets).
+Seen at 390px and 1400–1500px in a throwaway Electron window. Not seen: his phone, his ROOT desktop window, the
+microphone. Log: `updates/26-10-27_update_v5.1.1.md`.
+
 ### 5.1 — 2026-10-27 — qurOS's dumps go to BRAIN on the PC
 
 BRAIN's phone side (r261027-qo06: "syncs with root mobile easily" · "todoist tasks integration (with new section), also used

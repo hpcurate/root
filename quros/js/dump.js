@@ -6,6 +6,7 @@ const S = () => Q.settings.get();
 
 let next = { topic: null, kind: 'dump' };   // the topic the next capture gets; reset after a save
 let showAll = false;
+let eveningOff = false;                      // 'another dump' on the evening's hero, until the page is left
 const skipped = [];                          // map items passed over this session
 
 const kindLabel = (t, kind) => Q.m.topicLabel(t, kind);
@@ -43,6 +44,34 @@ function render() {
   const byDay = new Map();
   shown.forEach(e => { if (!byDay.has(e.day)) byDay.set(e.day, []); byDay.get(e.day).push(e); });
 
+  /* ROOT 5's capture page (5.1.1, r261027-vr0w — the mockup's brain screen): the hero is the thing to say now, in the
+     accent — the evening's question after 18:00, else a dump on a topic — with talk and write; then the next thing on the
+     map, the map's coverage a column a section, and the dumps. Two columns when the frame is wide (ROOT desktop). */
+  const ev = evening && !eveningOff;
+  const note = speech
+    ? `the screen stays on while you capture${s.lockOnStart ? ' · it <b>locks</b> when you talk' : ''}`
+    : 'no speech-to-text in this browser — <b>write</b> works with your keyboard\'s mic, screen on';
+  const hero = `<section class="dhero${ev ? ' ev' : ''}" aria-label="${ev ? 'the evening dump' : 'a dump'}">
+      <i class="dh-o" aria-hidden="true"></i><i class="dh-s" aria-hidden="true"></i>
+      <span class="dh-k">${ev ? 'evening' : 'say it while it\'s fresh'}</span>
+      <h2 class="dh-t">${ev ? 'How did today go?' : 'What\'s on your mind?'}</h2>
+      <p class="dh-p">${ev ? 'one dump before bed — what happened, what\'s still on your mind, tomorrow\'s first step.' : note}</p>
+      ${ev ? '' : `<button class="topic-pill dh-topic ${next.topic || next.kind === 'evening' ? 'set' : ''}" type="button" data-a="topic"><span>topic ·</span><b>${esc(kindLabel(next.topic, next.kind))}</b>${icon('chev')}</button>`}
+      <div class="dh-btns">
+        <button class="dh-talk" type="button" data-a="${ev ? 'evening' : 'talk'}" aria-label="talk">${icon('mic')}<b>talk</b></button>
+        <button class="dh-write" type="button" data-a="${ev ? 'evening-w' : 'write'}" aria-label="write">${icon('pen')}<b>write</b></button>
+        ${ev ? '<button class="dh-other" type="button" data-a="ev-off">another dump</button>' : ''}
+      </div>
+    </section>`;
+  const nxRow = nx ? `<section class="dnext" aria-label="next on the map">
+      <div class="dn-m"><span class="dn-k">next · ${esc(nx.section.title)}${nx.section.tier < 99 ? ' · tier ' + nx.section.tier : ''}</span>
+        <b class="dn-t">${esc(Q.m.itemName(nx.item.text))}</b>
+        <span class="dn-a"><button type="button" data-a="map-skip" data-k="${esc(nx.item.key)}">not now</button><button type="button" data-a="map-done" data-k="${esc(nx.item.key)}">covered</button></span></div>
+      <button class="dn-mic" type="button" data-a="map-talk" data-k="${esc(nx.item.key)}" aria-label="talk about ${esc(Q.m.itemName(nx.item.text))}">${icon('mic')}</button>
+    </section>`
+    : !Q.m.map() && all.length < 5 ? `<p class="fine dtip">Tip: load your life-dump map in <b>MAP</b> and each walk gets a topic — the next untouched one shows up here.</p>` : '';
+  const covH = Q.m.map() ? coverage() : '';
+
   el.innerHTML = `
   <header class="top">
     <div class="top-row">
@@ -50,49 +79,37 @@ function render() {
       <button class="icon-btn" type="button" data-a="settings" aria-label="settings">${icon('gear')}</button>
     </div>
     <h1 class="wm">Dump<em>.</em></h1>
-    <p class="top-sub">say it while it's fresh — it all goes to qurOS later.</p>
+    <p class="top-sub">say it while it's fresh — it all goes to BRAIN on the PC.</p>
   </header>
 
-  <div class="hero">
-    <button class="topic-pill ${next.topic || next.kind === 'evening' ? 'set' : ''}" type="button" data-a="topic"><span>topic ·</span><b>${esc(kindLabel(next.topic, next.kind))}</b>${icon('chev')}</button>
-    <div class="hero-row">
-      <button class="talk-btn" type="button" data-a="talk" aria-label="talk">${icon('mic')}<b>TALK</b></button>
-      <div class="hero-bar">
-        <button class="write-btn" type="button" data-a="write" aria-label="write">${icon('pen')}<b>WRITE</b></button>
-        <p class="hero-note">${speech
-          ? `the screen stays on while you capture${s.lockOnStart ? ' · it <b>locks</b> when you talk' : ''}`
-          : 'no speech-to-text in this browser — <b>write</b> works with your keyboard\'s mic, screen on'}</p>
-      </div>
-    </div>
-  </div>
-
-  ${evening ? `<div class="card next-map" style="margin-top:6px">
-      <div class="nm-k">evening</div>
-      <div class="nm-t">How did today go?</div>
-      <p class="fine">one dump before bed — what happened, what's still on your mind, tomorrow's first step.</p>
-      <div class="btns"><button class="btn go sm" type="button" data-a="evening">${icon('mic')}evening dump</button>
-      <button class="btn sm" type="button" data-a="evening-w">${icon('pen')}write it</button></div>
-    </div>` : ''}
-
-  ${nx ? `<div class="sec-h">next on the map<em>${nx.section.tier < 99 ? 'tier ' + nx.section.tier + ' · ' : ''}${esc(nx.section.title)}</em></div>
-    <div class="card next-map">
-      <div class="nm-k">${esc(nx.section.title)}</div>
-      <div class="nm-t">${esc(nx.item.text)}</div>
-      <div class="btns">
-        <button class="btn go sm" type="button" data-a="map-talk" data-k="${esc(nx.item.key)}">${icon('mic')}talk about this</button>
-        <button class="btn sm" type="button" data-a="map-skip" data-k="${esc(nx.item.key)}">not now</button>
-        <button class="btn sm quiet" type="button" data-a="map-done" data-k="${esc(nx.item.key)}">covered</button>
-      </div>
-    </div>`
-    : !Q.m.map() && all.length < 5 ? `<p class="fine" style="margin-top:22px">Tip: load your life-dump map in <b>MAP</b> and each walk gets a topic — the next untouched one shows up here.</p>` : ''}
-
+  <div class="dgrid">
+  <div class="dcol">${hero}${nxRow}${covH}</div>
+  <div class="dcol dlist">
   <div class="sec-h">today<em>${todays.length ? `${todays.length} · ${fmtNum(nWords)} words` : ''}</em></div>
   ${todays.length ? todays.map(entRow).join('') : '<p class="empty">Nothing captured yet today. Tap <b>talk</b> and say whatever is on your mind.</p>'}
 
   ${earlier.length ? `<div class="sec-h">earlier<em>${fmtNum(earlier.length)} dump${earlier.length === 1 ? '' : 's'}</em></div>
     ${[...byDay].map(([d, list]) => `<div class="day-h"><span>${fmtDay(d)}</span><span>${list.length} · ${fmtNum(list.reduce((a, e) => a + (e.words || 0), 0))} words</span></div>${list.map(entRow).join('')}`).join('')}
     ${!showAll && shown.length < earlier.length ? `<div class="btns"><button class="btn sm" type="button" data-a="all">show all ${fmtNum(earlier.length)}</button></div>` : ''}` : ''}
+  </div>
+  </div>
   `;
+}
+
+/* the map's coverage, a column a section (the mockup's): its height the share talked through, a started item half;
+   tapping it opens MAP. Names under the columns while they fit. */
+function coverage() {
+  const secs = Q.m.sections(), st = Q.m.states(), stats = Q.m.mapStats();
+  if (!secs.length) return '';
+  const cols = secs.map(s => {
+    const n = s.items.length, d = s.items.filter(x => st[x.key] === 'done').length, p = s.items.filter(x => st[x.key] === 'partial').length;
+    const share = n ? (d + p / 2) / n : 0;
+    return `<span class="dc-c" title="${esc(s.title)} · ${d} of ${n} covered${p ? ` · ${p} started` : ''}"><i class="${share ? '' : 'e'}" style="--h:${Math.max(.12, share).toFixed(3)}"></i>${secs.length <= 8 ? `<em>${esc(s.title.split(/[\s,/]+/)[0].toLowerCase())}</em>` : ''}</span>`;
+  }).join('');
+  return `<button class="dcov" type="button" data-a="to-map" aria-label="the map: ${stats.done} of ${stats.items} covered">
+      <span class="dc-h"><span>map</span><span>${stats.done} of ${stats.items} covered${stats.partial ? ` · ${stats.partial} started` : ''}</span></span>
+      <span class="dc-cols${secs.length <= 8 ? '' : ' many'}">${cols}</span>
+    </button>`;
 }
 
 function onClick(e) {
@@ -107,6 +124,8 @@ function onClick(e) {
   else if (a === 'settings') Q.settingsUI.open();
   else if (a === 'open') openEntry(b.dataset.id);
   else if (a === 'all') { showAll = true; render(); }
+  else if (a === 'ev-off') { eveningOff = true; render(); }
+  else if (a === 'to-map') Q.app.show('map');
   else if (a === 'map-talk' || a === 'map-done' || a === 'map-skip') {
     const f = Q.m.findItem(k);
     if (!f) return;

@@ -423,41 +423,47 @@
     <!-- The home is one screen and does not scroll (log.css): the month and the
          fortnight take whatever height is left over, and the six doors below
          them are a fixed block at the bottom. LOG.renderMonth() fills this. -->
+    <!-- ROOT 5 (5.1.1, the mockup's order): the day's two halves first — what each
+         says, the due one in LOG's colour with its "!" — then the month and the
+         fortnight, then the four doors as tiles, each with its shape -->
+    <div class="lg-halves">
+      <div class="card lg-half" id="card-m" onclick="LOG.go('morning')">
+        <i class="lg-blob" aria-hidden="true"></i>
+        <div class="card-t">morning</div>
+        <div class="card-s" id="card-m-s">sleep · energy · mood</div>
+        <span class="lg-go" aria-hidden="true">write it</span>
+      </div>
+      <div class="card lg-half" id="card-e" onclick="LOG.go('evening')">
+        <i class="lg-blob" aria-hidden="true"></i>
+        <div class="card-t">evening</div>
+        <div class="card-s" id="card-e-s">energy · mood · stress</div>
+        <span class="lg-go" aria-hidden="true">write it</span>
+      </div>
+    </div>
     <div class="h-streak" id="h-streak"></div>
     <div id="log-cal" class="lc"></div>
-    <div class="grid">
-      <div class="card" id="card-m" onclick="LOG.go('morning')">
-        <div class="card-t"><svg class="ico"><use href="#ico-sun"/></svg>Morning</div>
-        <div class="card-s">data + workout</div>
+    <div class="lg-doors">
+      <div class="card lg-door" id="card-en" onclick="LOG.go('entries')">
+        <i class="lg-sh sh-en" aria-hidden="true"></i>
+        <div class="card-t">entry <em id="en-ct"></em></div>
       </div>
-      <div class="card" id="card-e" onclick="LOG.go('evening')">
-        <div class="card-t"><svg class="ico"><use href="#ico-moon"/></svg>Evening</div>
-        <div class="card-s">data + blocks done</div>
+      <div class="card lg-door" onclick="LOG.go('output')">
+        <i class="lg-sh sh-out" aria-hidden="true"></i>
+        <div class="card-t">output</div>
       </div>
-      <div class="card" id="card-en" onclick="LOG.go('entries')">
-        <div class="card-t"><svg class="ico"><use href="#ico-edit"/></svg>Entry</div>
-        <div class="card-s" id="en-ct">no entries yet</div>
+      <div class="card lg-door" onclick="LOG.go('history')">
+        <i class="lg-sh sh-hist" aria-hidden="true"></i>
+        <div class="card-t">history</div>
       </div>
-      <div class="card" onclick="LOG.go('output')">
-        <div class="card-t"><svg class="ico"><use href="#ico-upload"/></svg>Output</div>
-        <div class="card-s">share .md file</div>
+      <div class="card lg-door" onclick="LOG.go('reports')">
+        <i class="lg-sh sh-rep" aria-hidden="true"></i>
+        <div class="card-t">reports</div>
       </div>
-      <div class="card" onclick="LOG.go('history')">
-        <div class="card-t"><svg class="ico"><use href="#ico-clock"/></svg>History</div>
-        <div class="card-s">trends + past days</div>
-      </div>
-      <div class="card" onclick="LOG.go('reports')">
-        <div class="card-t"><svg class="ico"><use href="#ico-chart"/></svg>Reports</div>
-        <div class="card-s">weekly · monthly</div>
-      </div>
-      <!-- the two utilities share a row rather than taking one each: on a phone
-           they were two full-width bars pushing the whole grid off the screen -->
-      <div class="card muted" onclick="Shell.settings('log')">
-        <div class="card-t"><svg class="ico"><use href="#ico-sliders"/></svg>data</div>
-      </div>
-      <div class="card muted" onclick="LOG.clearDay()">
-        <div class="card-t"><svg class="ico"><use href="#ico-trash"/></svg>clear day</div>
-      </div>
+    </div>
+    <!-- the two utilities, quiet, under the doors -->
+    <div class="lg-utils">
+      <button type="button" onclick="Shell.settings('log')"><svg class="ico" aria-hidden="true"><use href="#ico-sliders"/></svg>data</button>
+      <button type="button" onclick="LOG.clearDay()"><svg class="ico" aria-hidden="true"><use href="#ico-trash"/></svg>clear day</button>
     </div>
   </div>
 
@@ -1229,15 +1235,15 @@
      qurOS 2.x in quros/, opened in a frame on the same site with ?embed=root:
      its own records (IndexedDB qurOS, qos_* keys), recorder and screens, untouched.
      ROOT's band names it; its tabs are a strip at the frame's top; js/quros.js drives the frame. -->
-<section class="view ns-quros" id="view-quros" aria-label="qurOS">
+<section class="view ns-quros" id="view-quros" aria-label="brain">
   <div id="s-home" class="scr on">
     <div class="h-top">
-      <div class="h-label">capture · for the qurOS chat</div>
+      <div class="h-label">capture · for your memory</div>
       <div class="h-logo-row">
-        <div class="h-logo">qurOS<em>.</em></div>
+        <div class="h-logo">brain<em>.</em></div>
       </div>
     </div>
-    <iframe class="qos-frame" id="qos-frame" title="qurOS"
+    <iframe class="qos-frame" id="qos-frame" title="brain"
             allow="microphone *; fullscreen *; screen-wake-lock *; clipboard-read *; clipboard-write *; web-share *"></iframe>
   </div>
 </section>
@@ -2259,11 +2265,11 @@
 
     <!-- qurOS (5.0): its settings are its own, inside the app, as they always were -->
     <div class="set-panel ns-quros-set" data-panel="quros">
-      <div class="sec"><span>qurOS</span></div>
-      <div class="set-note">qurOS keeps its own settings — the recorder, the prompts, the map, the export, the
+      <div class="sec"><span>brain</span></div>
+      <div class="set-note">brain keeps its own settings — the recorder, the prompts, the map, the export, the
         language — inside the app, where they have always been. Its records are its own too, on this same site:
-        nothing of qurOS's is in ROOT's backup or ROOT's sync, and nothing of ROOT's in qurOS's.</div>
-      <button class="btn" data-act="quros-settings">open qurOS's settings</button>
+        nothing of brain's is in ROOT's backup or ROOT's sync, and nothing of ROOT's in brain's.</div>
+      <button class="btn" data-act="quros-settings">open brain's settings</button>
     </div>
 
   </div><!-- /#s-cat -->
@@ -2333,8 +2339,8 @@
   <button class="tab-b" data-app="walk" role="tab" aria-selected="false" aria-label="WALK">
     <svg aria-hidden="true"><use href="#tab-walk"/></svg><span class="tb-l">walk</span>
   </button>
-  <button class="tab-b" data-app="quros" role="tab" aria-selected="false" aria-label="qurOS">
-    <svg aria-hidden="true"><use href="#tab-quros"/></svg><span class="tb-l">qurOS</span>
+  <button class="tab-b" data-app="quros" role="tab" aria-selected="false" aria-label="brain">
+    <svg aria-hidden="true"><use href="#tab-quros"/></svg><span class="tb-l">brain</span>
   </button>
   <button class="tab-b" data-app="settings" role="tab" aria-selected="false" aria-label="Settings">
     <svg aria-hidden="true"><use href="#tab-set"/></svg><span class="tb-l">set</span>

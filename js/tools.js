@@ -741,7 +741,7 @@ const layout = () => (window.Prefs && Prefs.get('toolsLayout')) || 'ring';
 
    `--tl-breath` is separate from `--tl-frac` because the breathing disc swells
    and settles on its own curve — see the note in tools.css. */
-function readoutHTML(frac, cls, big, sub, pips, breath) {
+function readoutHTML(frac, cls, big, sub, pips, breath, arcs) {
   const f = Math.max(0, Math.min(1, frac));
   const lay = layout();
   const vars = `--tl-frac:${f.toFixed(4)}` + (breath == null ? '' : `;--tl-breath:${breath.toFixed(3)}`);
@@ -749,6 +749,31 @@ function readoutHTML(frac, cls, big, sub, pips, breath) {
       <div class="tl-big" id="tl-big">${esc(big)}</div>
       <div class="tl-sub" id="tl-sub">${esc(sub)}</div>
     </div>`;
+
+  /* ROOT 5's breathing round (5.1.1, r261027-vr0w — the mockup's tools screen): a ring of arcs, one a round, over a pink
+     half-disc. A round done is lit in its colour, the one running fills as it goes (the same fraction as ever, on a path
+     one unit long, so paint() moves it), the rest wait dim; the disc swells with the breath. The ring layout only. */
+  if (lay === 'ring' && arcs) {
+    const n = Math.max(1, arcs.total), step = 360 / n, gap = n > 1 ? 24 : 0, r = 80;
+    const pt = a => { const t = a * Math.PI / 180; return `${(90 + r * Math.sin(t)).toFixed(2)} ${(90 - r * Math.cos(t)).toFixed(2)}`; };
+    const arc = i => {
+      const a0 = i * step + gap / 2, a1 = Math.min(a0 + step - gap, a0 + 359.9);
+      return `M${pt(a0)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${pt(a1)}`;
+    };
+    let paths = '';
+    for (let i = 0; i < n; i++) {
+      const c = WHF_ARC[i % WHF_ARC.length], st = i < arcs.done ? 'done' : i === arcs.cur ? 'cur' : 'wait';
+      paths += `<path class="wa ${st}" d="${arc(i)}" style="--wa:${c}"/>`;
+      if (st === 'cur') paths += `<path class="tp wa-go" d="${arc(i)}" style="--wa:${c}" pathLength="1" data-len="1"
+        stroke-dasharray="1 1" stroke-dashoffset="${(1 - (arcs.frac != null ? arcs.frac : f)).toFixed(3)}"/>`;
+    }
+    return `<div class="tl-ring tl-whf ${cls}" style="${vars}">
+      <svg viewBox="0 0 180 180" aria-hidden="true">
+        <path class="wh-disc" d="M32 128a58 58 0 0 1 116 0z"/>${paths}
+      </svg>
+      ${inner}
+    </div>`;
+  }
 
   if (lay === 'ring') {
     const off = CIRC * (1 - f);
@@ -787,6 +812,10 @@ function readoutHTML(frac, cls, big, sub, pips, breath) {
 }
 /* Kept under its old name so the call sites read the same as they did. */
 const ringHTML = readoutHTML;
+/* the rounds' colours, in turn: ROOT 5's chalk, violet, green, sun and pink (literal, like LOG's chart series) */
+const WHF_ARC = ['#e9e4f2', '#a78bfa', '#3ddc84', '#ffc94d', '#ff5fa2'];
+// how far the round running has got: its breaths, then all of it through the hold
+const whfRoundFrac = () => DB.whf.phase === 'breathe' ? Math.max(0, Math.min(1, 1 - whfLeft() / whfTotalBreath())) : 1;
 
 /* Rounds as dots rather than "round 2 of 4". A count you read is a count you
    have to do; a row of dots is one you see. */
@@ -882,11 +911,13 @@ function whfHTML() {
 
   if (!whfOn()) {
     return ringHTML(0, 'whf ready', String(whfRounds()), 'rounds ready',
-                    pipsHTML(0, whfRounds(), 'whf')) + `
+                    pipsHTML(0, whfRounds(), 'whf'), null, { total: whfRounds(), done: 0, cur: -1 }) + `
       <div class="tl-main">
         ${bigBtn('whf-start', 'start the session', PLAY, 'go')}
       </div>
       <div class="tl-tally">${esc(WHF.breaths)} breaths · ${esc(whfPace())}s each · ${esc(whfRecov())}s recovery</div>
+      <div class="tl-tiles">${[[whfRounds(), '', 'rounds'], [WHF.breaths, '', 'breaths'], [whfPace(), 's', 'a breath'], [whfRecov(), 's', 'recovery']]
+        .map(([v, u, l]) => `<button class="tl-tile" data-act="dials" aria-label="${esc(l)} ${esc(v)}${esc(u)} — adjust"><b>${esc(v)}<small>${esc(u)}</small></b><span>${esc(l)}</span></button>`).join('')}</div>
       ${dials}
       ${whfHistoryHTML()}`;
   }
@@ -900,7 +931,7 @@ function whfHTML() {
     const per = whfPace() * 1000;
     const inBreath = (whfTotalBreath() - whfLeft()) % per < per / 2;
     return ringHTML(frac, 'whf breathe live', String(n), inBreath ? 'breathe in' : 'let go',
-                    pipsHTML(w.round - 1, whfRounds(), 'whf'), frac) + `
+                    pipsHTML(w.round - 1, whfRounds(), 'whf'), frac, { total: whfRounds(), done: w.round - 1, cur: w.round - 1, frac: whfRoundFrac() }) + `
       <div class="tl-main">
         <button class="tl-big-btn wide" data-act="whf-hold" aria-label="go to the hold">
           <span>hold now</span>
@@ -913,7 +944,7 @@ function whfHTML() {
   if (ph === 'hold') {
     const best = w.holds.length ? Math.max(...w.holds) : 0;
     return ringHTML(1, 'whf hold live', holdText(whfHeld()), 'hold',
-                    pipsHTML(w.round - 1, whfRounds(), 'whf')) + `
+                    pipsHTML(w.round - 1, whfRounds(), 'whf'), null, { total: whfRounds(), done: w.round - 1, cur: w.round - 1, frac: 1 }) + `
       <div class="tl-main">
         <button class="tl-big-btn wide go" data-act="whf-breathe" aria-label="end the hold and breathe in">
           <span>breathe in</span>
@@ -927,7 +958,7 @@ function whfHTML() {
   const left = whfLeft(), tot = whfRecov() * 1000;
   const last = w.holds[w.holds.length - 1] || 0;
   return ringHTML(left / tot, 'whf recover live', clock(left), 'hold it in',
-                  pipsHTML(w.round, whfRounds(), 'whf')) + `
+                  pipsHTML(w.round, whfRounds(), 'whf'), null, { total: whfRounds(), done: w.round, cur: -1 }) + `
     <div class="tl-main">
       <button class="tl-big-btn wide" data-act="whf-next" aria-label="skip to the next round">
         <span>${w.round >= whfRounds() ? 'finish' : 'next round'}</span>
@@ -1558,7 +1589,8 @@ function paint() {
   const f = Math.max(0, Math.min(1, frac));
   if (big) big.textContent = text;
   if (word && sub && sub.textContent !== word) sub.textContent = word;
-  if (ring) ring.setAttribute('stroke-dashoffset', (CIRC * (1 - f)).toFixed(1));
+  if (ring && ring.dataset.len) ring.setAttribute('stroke-dashoffset', (1 - whfRoundFrac()).toFixed(3));
+  else if (ring) ring.setAttribute('stroke-dashoffset', (CIRC * (1 - f)).toFixed(1));
   /* Every layout reads the fraction off its own box, so this one write drives
      the bar's fill, the stack's blocks and the underline as well as the ring. */
   const box = view && view.querySelector('.tl-ring,.tl-bar,.tl-stack,.tl-plain');

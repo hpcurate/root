@@ -227,6 +227,15 @@ check('morning card is done without a wake time when that field is off', $('.ns-
 check('4.21: … and says it is written, while the evening says nothing yet',
   $('.ns-log #card-m .card-w')?.textContent === 'written' && $('.ns-log #card-e .card-w')?.textContent === '',
   $('.ns-log #card-m .card-w')?.textContent + ' / ' + $('.ns-log #card-e .card-w')?.textContent);
+// 5.1.1 (r261027-vr0w): the mockup's order — the halves first, saying what they hold or ask — and four door tiles
+check('5.1.1: LOG\'s halves come before the month, the written one says what it holds, the open one what it asks; four doors with a shape',
+  !!($('.ns-log .lg-halves').compareDocumentPosition($('.ns-log #log-cal')) & 4) &&
+  $('.ns-log #card-m-s').textContent === 'sleep 8h' && $('.ns-log #card-e-s').textContent === 'energy · mood · stress' &&
+  d.querySelectorAll('.ns-log .lg-doors .lg-door .lg-sh').length === 4 && !!$('.ns-log .lg-utils'),
+  $('.ns-log #card-m-s').textContent + ' / ' + $('.ns-log #card-e-s').textContent);
+check('5.1.1: DAY\'s rows are cards of their own, drawn on ::before so the hours keep; PLAN\'s projects and sections are chips',
+  fs.readFileSync(path.join(ROOT, 'css/cal.css'), 'utf8').includes(".ns-cal .cal-ev::before{content:'';position:absolute;z-index:-1;inset:3px 0;") &&
+  fs.readFileSync(path.join(ROOT, 'css/plan.css'), 'utf8').includes('.ns-plan .proj-jumps{display:contents}'));
 w.Config.reset('log.fields');
 
 // 8. LOG km target + week start
@@ -5589,8 +5598,11 @@ check('… the dock holds five at most, in the order given',
   check('… the frame loads the first time the tab is shown, not at ROOT\'s start, embedded and clear of the dock',
     !before && /^quros\/index\.html\?embed=root&pad=\d+$/.test(frame0.getAttribute('src') || ''),
     before + ' → ' + frame0.getAttribute('src'));
-  check('… its band naming it as written — qurOS, its capitals kept under ROOT\'s lowercase titles',
-    d0.querySelector('#view-quros .h-logo')?.textContent === 'qurOS.' &&
+  // 5.1.1 (r261027-xfg3): "qurOS should just be called brain inside root" — the id stays quros
+  check('… its band naming it brain, and the dock and the frame too',
+    d0.querySelector('#view-quros .h-logo')?.textContent === 'brain.' &&
+    d0.querySelector('.tab-b[data-app="quros"] .tb-l')?.textContent === 'brain' &&
+    d0.querySelector('#qos-frame')?.title === 'brain' &&
     themesCss5.includes('[data-theme="root"] .ns-quros  > .h-top .h-logo{text-transform:none}'));
   const wOld = await bootWith({ dock: ['do', 'log', 'cal', 'tools'] });
   const wMine = await bootWith({ dock: ['do', 'plan', 'log', 'tools'] });
@@ -5618,6 +5630,19 @@ check('… the dock holds five at most, in the order given',
   check('… a stored DAY tab lands on dump instead, and its records are qurOS\'s own names',
     qW.Q.app.tab() === 'dump' && /const NAME = 'qurOS', VERSION = 1, LS = 'qos_data_v1';/.test(fs.readFileSync(path.join(ROOT, 'quros/js/db.js'), 'utf8')),
     qW.Q.app.tab());
+  // 5.1.1 (r261027-vr0w, r261027-xfg3): brain's dump page is the mockup's, a boxed map's bold notes aren't things to talk
+  // through (as BRAIN reads it), and a wide frame takes the width
+  qW.Q.m.loadMapText('# m\n## How to use this map\n- **Order:** tier 1 first\n## Tier 1 — Now\n- [x] **Right now** — this chapter\n' +
+    '- [ ] **The arc** — the chapters\n## Tier 2 — People\n- [ ] **Floor** — the whole of it\n');
+  qW.Q.app.show('dump');
+  const qd = s => qW.document.querySelector('#v-dump ' + s);
+  check('5.1.1: brain\'s dump page — a hero to talk or write, the next thing on the map by its name, the coverage a column a section; wide, the width',
+    !!qd('.dhero .dh-talk') && !!qd('.dhero .dh-write') && qd('.dnext .dn-t')?.textContent === 'The arc' &&
+    qW.document.querySelectorAll('#v-dump .dcov .dc-c').length === 2 && qW.Q.m.sections().map(s => s.title).join() === 'Now,People' &&
+    qW.Q.m.topicLabel(qW.Q.m.topicFor(qW.Q.m.sections()[0], qW.Q.m.sections()[0].items[1])) === 'Now › The arc' &&
+    fs.readFileSync(path.join(ROOT, 'quros/css/app.css'), 'utf8').includes('@media (min-width: 600px) {\n  html.embed #app { max-width: 1240px; border: 0; }') &&
+    fs.readFileSync(path.join(ROOT, 'css/quros.css'), 'utf8').includes('.ns-quros{--readable:1240px}'),
+    (qd('.dnext .dn-t') || {}).textContent + ' / ' + qW.Q.m.sections().map(s => s.title).join());
 }
 
 /* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked
@@ -6182,9 +6207,11 @@ w.Config.reset('tools.pomodoro');
    a timer that cut it off at a guess would be measuring the guess. */
 w.Config.set('tools.wimhof', { rounds:2, breaths:5, pace:1, recovery:5, chime:false, label:'wim hof' });
 click([...d.querySelectorAll('.ns-tools .tl-tab')].find(b => b.dataset.t === 'whf'));
-check('the breathing round opens ready, with a dot per round',
+// 5.1.1: the ring is ROOT 5's — an arc a round, over the pink half-disc — and the dials are four tiles that open them
+check('the breathing round opens ready, with an arc per round, none lit, and its dials as tiles',
   tlStore43().whf.phase === 'idle' &&
-  d.querySelectorAll('.ns-tools .tl-pips i').length === 2 &&
+  d.querySelectorAll('.ns-tools .tl-whf .wa').length === 2 && !d.querySelector('.ns-tools .tl-whf .wa.done') &&
+  !!d.querySelector('.ns-tools .tl-whf .wh-disc') && d.querySelectorAll('.ns-tools .tl-tile[data-act="dials"]').length === 4 &&
   !!$('.ns-tools [data-act="whf-start"]'),
   tlStore43().whf.phase);
 

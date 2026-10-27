@@ -23,7 +23,7 @@ const CATS = {
 };
 const SEG_NAMES = { look:'look', layout:'layout', behave:'behaviour', data:'data', sync:'sync',
                     do:'do', log:'log', plan:'plan', store:'store', tend:'tend', track:'track', learn:'learn', cal:'day',
-                    create:'create', tools:'tools', walk:'walk', quros:'qurOS' };
+                    create:'create', tools:'tools', walk:'walk', quros:'brain' };
 const catOf = name => Object.keys(CATS).find(c => CATS[c].panels.includes(name)) || null;
 let currentPanel = 'look';
 let currentCat = null;          // null = the home menu
@@ -34,7 +34,7 @@ const lastPanel = {};           // per category: the pill you were on
    storage key, the namespace, Prefs.APPS, the settings panel — and DAY is only
    what it is called. Renaming the id would churn all four for a word. */
 const APP_NAMES = { do:'DO', log:'LOG', plan:'PLAN', store:'STORE', tend:'TEND', track:'TRACK', learn:'LEARN', cal:'DAY',
-                    create:'CREATE', tools:'TOOLS', walk:'WALK', quros:'qurOS' };
+                    create:'CREATE', tools:'TOOLS', walk:'WALK', quros:'BRAIN' };
 const APP_HINTS = { do:'routines + packing', log:'daily log', plan:'todoist queue', store:'groceries',
                     tend:'plant care', track:'CAP curriculum', learn:'anki decks', cal:'the planned day',
                     create:'songs and mixes', tools:'pomodoro + timers', walk:'a loop for the dog',
@@ -55,7 +55,7 @@ const GROUPS = [
   { name:'CREATE',color:'#e6c34a', match:k => k.startsWith('create_') },
   { name:'TOOLS', color:'#5cdb7d', match:k => k.startsWith('tools_') },
   { name:'WALK',  color:'#8fd16a', match:k => k.startsWith('walk_') },
-  { name:'qurOS', color:'#b49cff', match:k => k.startsWith('qos_') },
+  { name:'brain', color:'#b49cff', match:k => k.startsWith('qos_') },
   { name:'ROOT',  color:'#e06f9a', match:k => k.startsWith('root_') },
 ];
 
