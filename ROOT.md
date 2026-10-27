@@ -2013,6 +2013,27 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.21 — 2026-10-27 — ROOT 5, phase 4: LOG and DAY
+
+**LOG**
+- The month is **dots**: a written day a dot in LOG's colour, half a dot for one half, a ring for none. The date stays in
+  the dot; the selected day is ringed and today has a point under it. These are rules at the end of `log.css`, after the
+  first ones.
+- The fortnight is **grouped bars**, one slot a day with the series side by side. A day with no reading has no bar, which
+  is the gap the line drew. The day labels sit under their slots, and the line/dot rules are gone.
+- Morning and evening are taller cards that say **"written"** once written (`.card-w`). The half LOG's "!" is about
+  (`alertShown()`, today only) floods in LOG's colour, says **"due"** and carries the "!".
+- Nothing LOG stores, exports or writes to the vault changed.
+
+**DAY**
+- The row the clock is in is the day's **sun card**. The now line is the text colour, so it reads across that card.
+- A block's slot reads **"block 2"** (4.17.1's numbers); its label, b2, is kept.
+- Rows are rounder and names bigger. The export and `mode: schedule` are untouched.
+
+Harness: the six chart checks move from lines and round dots to bars (series side by side, gaps still gaps, labels at the
+slots' middles). +4 checks: "written", "due" on the alert's half, the current row, the block label. Seen at 390px.
+Log: `updates/26-10-27_update_v4.21.0.md`.
+
 ### 4.20 — 2026-10-27 — ROOT 5, phase 3: DO's tiles, hero and pie
 
 DO's home is the redesign's.

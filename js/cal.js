@@ -662,6 +662,13 @@ function dayHTML() {
         under settings → apps → cal.</div></div>`;
   }
   const nowY = nowOffset(evs, per);
+  /* The row the clock is in (ROOT 5, 4.21): the current item is drawn as the
+     day's sun card. Today only, and never a row that runs past midnight. */
+  const hm = s => { const [h, m] = String(s || '').split(':').map(Number); return h * 60 + (m || 0); };
+  const nowAt = (() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); })();
+  const isCur = e => sel === Shell.today() && !e.over && e.kind !== 'idle' && hm(e.from) <= nowAt && nowAt < hm(e.to);
+  // a block is "block 2" (4.17.1's numbers), its label b2 kept for Todoist
+  const slotOf = s => (/^b\d+$/.test(s || '') ? 'block ' + s.slice(1) : s);
   /* Colour on the rows themselves rather than only on the 3px rail. Two dials,
      because the two kinds of row answer different questions: a block is work
      you chose and put in a slot, a template row is the shape the day has
@@ -679,8 +686,8 @@ function dayHTML() {
     const color = e.kind === 'task' ? (e.color || '#6b6b6b')
                 : e.kind === 'fixed' ? fixedColor(e.cal) : null;
     const meta = e.kind === 'task'
-      ? [e.slot, e.projectLabel || e.project, names ? e.cal : null].filter(Boolean).join(' · ')
-      : e.kind === 'idle' ? `${e.slot} · ${IDLE_LABEL}`
+      ? [slotOf(e.slot), e.projectLabel || e.project, names ? e.cal : null].filter(Boolean).join(' · ')
+      : e.kind === 'idle' ? `${slotOf(e.slot)} · ${IDLE_LABEL}`
       : (names && e.cal) ? e.cal : '';
     /* A row you can tick is a button; a row you cannot is not one, rather than
        a button that refuses — the two must not feel the same under a finger. */
@@ -729,7 +736,7 @@ function dayHTML() {
     /* The minute this row was ticked, if it was — written into the row rather
        than floated over it. See stampsFor(). */
     const at = byRow.get(i);
-    return `<${tag} class="cal-ev ${e.kind}${e.done ? ' done' : ''}"${style}${
+    return `<${tag} class="cal-ev ${e.kind}${e.done ? ' done' : ''}${isCur(e) ? ' cur' : ''}"${style}${
       tickable(e) ? ` data-act="tick" data-i="${i}" aria-pressed="${!!e.done}"` : ''}>
       <span class="ev-at">${esc(e.from)}<b>${esc(e.to)}${e.over ? ' +1' : ''}</b></span>
       <span class="ev-box">

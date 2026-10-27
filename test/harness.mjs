@@ -222,6 +222,9 @@ w.Config.reset('log.streakRequires');
 w.Config.set('log.fields', Object.assign(w.Config.get('log.fields'), { wakeTime: false }));
 w.LOG.go('morning'); $('.ns-log #m-sl').value = '8'; w.LOG.saveMorning();
 check('morning card is done without a wake time when that field is off', $('.ns-log #card-m').classList.contains('done'));
+check('4.21: … and says it is written, while the evening says nothing yet',
+  $('.ns-log #card-m .card-w')?.textContent === 'written' && $('.ns-log #card-e .card-w')?.textContent === '',
+  $('.ns-log #card-m .card-w')?.textContent + ' / ' + $('.ns-log #card-e .card-w')?.textContent);
 w.Config.reset('log.fields');
 
 // 8. LOG km target + week start
@@ -2049,6 +2052,11 @@ w.LOG.testAlert('evening');
 check('the settings preview really changes the tab, and says which rule it is showing',
   logIcon() === '#tab-alert' && /preview/.test($('.ns-log #al-status').textContent),
   $('.ns-log #al-status').textContent);
+// 4.21: the half the "!" is about is the card that wears it, and only that one
+check('4.21: the half the "!" is about is the one that says it is due',
+  $('.ns-log #card-e').classList.contains('due') && !$('.ns-log #card-m').classList.contains('due') &&
+  /\.ns-log \.card\.due \.card-w:empty::before\{content:'due'\}/.test(fs.readFileSync(path.join(ROOT, 'css/log.css'), 'utf8')),
+  $('.ns-log #card-e').className);
 w.LOG.testAlert('plan');
 check('… and previewing the plan rule moves the "!" to PLAN',
   planIcon() === '#tab-alert' && logIcon() === '#tab-log',
@@ -2794,10 +2802,12 @@ check('tapping a day selects it, the way the two arrows in the band do',
   $('.ns-log .lc-c.sel')?.getAttribute('aria-label') === offset(-1),
   $('.ns-log #home-date').textContent);
 w.LOG.resetDate();
+// 4.21: the fortnight is grouped bars — a day with no reading has no bar, which is its gap
 check('the fortnight draws its series, and nothing straight through a gap',
-  !!$('.ns-log .lc-spark') && d.querySelectorAll('.ns-log .lc-l').length === 3 &&
-  ![...d.querySelectorAll('.ns-log .lc-l')].some(p => /NaN|undefined/.test(p.getAttribute('d'))),
-  d.querySelectorAll('.ns-log .lc-l').length + ' lines');
+  !!$('.ns-log .lc-spark') && d.querySelectorAll('.ns-log .lc-s').length === 3 &&
+  d.querySelectorAll('.ns-log .lc-b').length > 0 &&
+  ![...d.querySelectorAll('.ns-log .lc-b')].some(r => /NaN|undefined/.test(r.getAttribute('y') + r.getAttribute('height'))),
+  d.querySelectorAll('.ns-log .lc-s').length + ' series');
 check('the home is a column that does not scroll, above a phone-sized screen',
   /@media \(min-height:560px\)\{[\s\S]*?\.ns-log #s-home\.on\{[^}]*overflow:hidden/.test(logCss2) &&
   /\.ns-log #s-home \.lc\{flex:1 1 auto/.test(logCss2));
@@ -2859,6 +2869,16 @@ check('today carries a line at the hour the clock has reached',
 check('… placed from the same durations the rows are drawn from, not measured off the DOM',
   /\.ns-cal \.cal-now\{[^}]*top:var\(--now-y/.test(calCss3) &&
   /\.ns-cal \.cal-now\{[^}]*pointer-events:none/.test(calCss3));
+/* 4.21: the row the clock is in is the day's sun card — the one row, and not an
+   idle slot (nowRow is 2 only when the clock is in the last hour, the idle one) */
+{
+  const cur = [...d.querySelectorAll('.ns-cal .cal-ev')].map((r, i) => r.classList.contains('cur') ? i : -1).filter(i => i >= 0);
+  check('4.21: the row the clock is in is drawn as the current one, and only that row',
+    nowRow === 2 ? cur.length === 0 : cur.length === 1 && cur[0] === nowRow, cur.join(',') + ' / row ' + nowRow);
+  check('… and a block says "block" and its number, its label kept as it is',
+    /block 1a|b1a/.test($('.ns-cal .cal-ev.task .ev-meta')?.textContent || ''),
+    $('.ns-cal .cal-ev.task .ev-meta')?.textContent);
+}
 w.CAL.pick(calDay);
 check('… and a day that is not today has no line on it — it is about now, not about the plan',
   !nowEl(), w.CAL.selected());
@@ -3295,20 +3315,18 @@ check('… and the day numbers are bold enough to read at that size',
   /\.ns-log \.lc-c\{[^}]*font:700 9\.5px\/1 var\(--mono\)/.test(logCss2));
 w.Shell.go('log'); w.LOG.go('home'); w.LOG.resetDate();
 check('the fortnight draws three series now, stress beside energy and mood',
-  d.querySelectorAll('.ns-log .lc-l').length === 3 &&
-  ['nrg','mood','stress'].every(c => !!$('.ns-log .lc-s.' + c + ' .lc-l')),
-  d.querySelectorAll('.ns-log .lc-l').length + ' lines');
-const dotsOf = c => d.querySelectorAll('.ns-log .lc-s.' + c + ' .lc-d').length;
-check('… with a dot on every day that has a value, and none on the days that do not',
-  dotsOf('nrg') >= 2 && dotsOf('mood') >= 2 && dotsOf('stress') >= 2 &&
-  dotsOf('nrg') + dotsOf('mood') + dotsOf('stress') === d.querySelectorAll('.ns-log .lc-dh').length &&
-  d.querySelectorAll('.ns-log .lc-d').length < 14 * 3,   // not one per day: the gaps are real
-  [dotsOf('nrg'), dotsOf('mood'), dotsOf('stress')].join('/') + ' dots, ' +
-  d.querySelectorAll('.ns-log .lc-dh').length + ' halos');
-check('… drawn as round caps, so the stretched viewBox cannot flatten them into ellipses',
-  [...d.querySelectorAll('.ns-log .lc-d')].every(p => /l\.01 0$/.test(p.getAttribute('d'))) &&
-  /\.lc-d,\.ns-log \.lc-dh\{[^}]*stroke-linecap:round/.test(logCss2) &&
-  /\.lc-d,\.ns-log \.lc-dh\{[^}]*vector-effect:non-scaling-stroke/.test(logCss2));
+  d.querySelectorAll('.ns-log .lc-s').length === 3 &&
+  ['nrg','mood','stress'].every(c => !!$('.ns-log .lc-s.' + c + ' .lc-b')),
+  d.querySelectorAll('.ns-log .lc-s').length + ' series');
+const barsOf = c => d.querySelectorAll('.ns-log .lc-s.' + c + ' .lc-b').length;
+check('… with a bar on every day that has a value, and none on the days that do not',
+  barsOf('nrg') >= 2 && barsOf('mood') >= 2 && barsOf('stress') >= 2 &&
+  d.querySelectorAll('.ns-log .lc-b').length < 14 * 3,   // not one per day: the gaps are real
+  [barsOf('nrg'), barsOf('mood'), barsOf('stress')].join('/') + ' bars');
+check('… side by side in each day\'s slot, a series never drawn over another',
+  (() => { const xs = ['nrg','mood','stress'].map(c => $('.ns-log .lc-s.' + c + ' .lc-b')?.getAttribute('x'));
+           return xs.every(Boolean) && new Set(xs).size === 3; })() &&
+  !$('.ns-log .lc-spark circle'));
 /* 4.1 moved the hues out of the stylesheet: log.js writes each series' colour
    onto its own <g> as --s-c and the sheet has one rule per shape, so a seventh
    chart costs no CSS. They are still literal hex, which is the point — three
@@ -3316,8 +3334,8 @@ check('… drawn as round caps, so the stretched viewBox cannot flatten them int
 check('… each series in its own fixed hue, which an accent-relative palette could not promise',
   ['nrg','mood','stress'].every(c =>
     /^#[0-9a-f]{6}$/i.test($('.ns-log .lc-s.' + c).style.getPropertyValue('--s-c').trim())) &&
-  /\.ns-log \.lc-l\{stroke:var\(--s-c/.test(logCss2) &&
-  !/\.ns-log \.lc-l\.nrg\{/.test(logCss2),
+  /\.ns-log \.lc-b\{fill:var\(--s-c/.test(logCss2) &&
+  !/\.ns-log \.lc-b\.nrg\{/.test(logCss2),
   $('.ns-log .lc-s.nrg')?.style.getPropertyValue('--s-c'));
 check('… and the graph is taller than the 30px it was',
   /\.ns-log \.lc-spark\{[^}]*height:58px/.test(logCss2));
@@ -3401,21 +3419,21 @@ check('… and only then does it carry axes',
   d.querySelectorAll('.ns-log .lc-yax span').length + '/' +
   d.querySelectorAll('.ns-log .lc-xax span').length + '/' +
   d.querySelectorAll('.ns-log .lc-g').length);
-/* The y labels run 5 at the top to 1 at the bottom; the x labels start at the
-   plot's own PAD inset and end at 100 − PAD, which is where the first and last
-   points are. Both read off the same x()/y() the chart draws with. */
+/* The y labels run 5 at the top to 1 at the bottom; the x labels sit at the
+   middle of each day's slot (since 4.21's bars): the first half a slot in from
+   the PAD inset, 4 + 92/28, the last half a slot short of 100 − PAD. */
 const yTops = [...d.querySelectorAll('.ns-log .lc-yax span')].map(s => parseFloat(s.style.top));
 const xLefts = [...d.querySelectorAll('.ns-log .lc-xax span')].map(s => parseFloat(s.style.left));
 check('… the axes placed at the same fractions the plot uses, so they line up by construction',
   yTops.join(',') === '0,25,50,75,100' &&
-  xLefts[0] === 4 && xLefts[13] === 96 &&
+  xLefts[0] === 7.29 && xLefts[13] === 92.71 &&
   xLefts.every((v, i) => i === 0 || v > xLefts[i - 1]),
   yTops.join(',') + ' | ' + xLefts[0] + '…' + xLefts[13]);
 check('… and they are HTML, not <text> in a viewBox that is stretched',
   !/<text/.test($('.ns-log .lc-spark').innerHTML) &&
   $('.ns-log .lc-yax').tagName === 'DIV');
 check('… the three series still drawn, and the chart saying how to get back',
-  d.querySelectorAll('.ns-log .lc-l').length === 3 &&
+  d.querySelectorAll('.ns-log .lc-s').length === 3 &&
   $('.ns-log .lc-shut').textContent === 'close', $('.ns-log .lc-shut')?.textContent);
 click($('.ns-log [data-trend]'));
 check('tapping it again gives the month back',

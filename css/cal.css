@@ -422,3 +422,17 @@ body:has(#nav.chrome-off) .cal-steps,
   color:var(--tx-2);font:400 10px/1 var(--mono);letter-spacing:.6px;padding:calc(10px * var(--dens));cursor:pointer;text-transform:none}
 .ns-cal .mk-add:active{color:var(--tx)}
 .ns-cal .mk-note{margin-bottom:0}
+
+/* ROOT 5 (4.21) — the row the clock is in is the day's sun card, in DAY's own
+   colour with its ink; the now line is the text colour, so it still reads where
+   it crosses that card; rows a little rounder and their names a little bigger */
+.ns-cal .cal-ev.cur{background:var(--y);color:var(--on-y);border-top-color:transparent;
+  border-radius:calc(var(--r-base) * 1.1);position:relative;z-index:1}
+.ns-cal .cal-ev.cur + .cal-ev{border-top-color:transparent}
+.ns-cal .cal-ev.cur .ev-name,.ns-cal .cal-ev.cur .ev-at,.ns-cal .cal-ev.cur .ev-at b,
+.ns-cal .cal-ev.cur .ev-meta,.ns-cal .cal-ev.cur .ev-meta em{color:var(--on-y)}
+.ns-cal .cal-ev.cur .ev-box{border-left-color:var(--on-y)}
+.ns-cal .cal-ev.cur .ev-check{border-color:var(--on-y)}
+.ns-cal .ev-name{font-size:13.5px}
+.ns-cal .cal-now{border-top-color:var(--tx)}
+.ns-cal .cal-now span{background:var(--tx);color:var(--bg)}

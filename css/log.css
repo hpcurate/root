@@ -155,15 +155,7 @@
   font:400 7.5px/1 var(--mono);color:var(--bd-2);letter-spacing:.02em}
 .ns-log .lc-g{stroke:var(--bd);stroke-width:1;vector-effect:non-scaling-stroke;fill:none;opacity:.5}
 .ns-log .lc-trend.big .lc-key{margin-left:var(--lc-yax)}
-.ns-log .lc-l{fill:none;stroke-width:1.4;vector-effect:non-scaling-stroke;
-  stroke-linecap:round;stroke-linejoin:round;opacity:.85}
-/* a dot is a zero-length path with a round cap — a circle whose size is the
-   stroke width in screen pixels, so the stretched viewBox cannot flatten it */
-.ns-log .lc-d,.ns-log .lc-dh{fill:none;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.ns-log .lc-dh{stroke:var(--s1);stroke-width:6.5}
-.ns-log .lc-d{stroke-width:4.5}
-.ns-log .lc-l{stroke:var(--s-c,var(--y))}
-.ns-log .lc-d{stroke:var(--s-c,var(--y))}
+/* the fortnight is bars since 4.21: .lc-b, at the end of this sheet */
 /* "close" in the corner of the opened chart. The plot is the button that shuts
    it, and this is the word that says so — it only exists while it is open. */
 .ns-log .lc-shut{position:absolute;top:0;right:0;font:400 8px/1 var(--mono);letter-spacing:.1em;
@@ -455,3 +447,45 @@
 
 /* Icons ── */
 .ns-log .ico{width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:7px;margin-top:-2px;flex-shrink:0}
+
+/* ROOT 5 (4.21) — the month as dots, the fortnight as bars, the halves as cards
+   These come after the month's and the cards' first rules on purpose and take
+   over their look: a written day is a dot in LOG's colour (half a dot for one
+   half, a ring for none), the date still in it; the selected day is ringed and
+   today carries a point under its date. */
+.ns-log .lc-c{position:relative;isolation:isolate;background:none;border-color:transparent}
+.ns-log .lc-c::before{content:'';position:absolute;z-index:-1;left:50%;top:50%;
+  width:min(28px, 94%);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+  box-shadow:inset 0 0 0 1.5px var(--bd-2);transition:background .2s ease}
+.ns-log .lc-c.pad::before{content:none}
+.ns-log .lc-c.f1{background:none;border-color:transparent;color:var(--tx)}
+.ns-log .lc-c.f1::before{background:linear-gradient(90deg, var(--y) 50%, transparent 50%);box-shadow:inset 0 0 0 1.5px var(--y)}
+.ns-log .lc-c.f2{background:none;border-color:transparent;color:var(--on-y)}
+.ns-log .lc-c.f2::before{background:var(--y);box-shadow:none}
+.ns-log .lc-c.future{opacity:1;color:transparent}
+.ns-log .lc-c.future::before{width:4px;background:var(--bd-2);box-shadow:none}
+.ns-log .lc-c.today{border-color:transparent}
+.ns-log .lc-c.today::after{content:'';position:absolute;left:50%;bottom:0;width:4px;height:4px;
+  margin-left:-2px;border-radius:50%;background:var(--tx)}
+.ns-log .lc-c.sel{background:none;border-color:transparent;color:inherit}
+.ns-log .lc-c.sel.f0,.ns-log .lc-c.sel.f1{color:var(--tx)}
+.ns-log .lc-c.sel.f2{color:var(--on-y)}
+.ns-log .lc-c.sel::before{outline:2px solid var(--tx);outline-offset:2px}
+.ns-log .lc-c:active{background:none}
+.ns-log .lc-c.count.has{color:var(--tx)}
+/* the fortnight's bars take their series' colour, like its key */
+.ns-log .lc-b{fill:var(--s-c, var(--y))}
+/* morning and evening: taller, saying "written" once written; the half the "!"
+   is about floods in LOG's colour and says it is due */
+.ns-log #card-m,.ns-log #card-e{min-height:calc(116px * var(--dens));display:flex;flex-direction:column;
+  border-radius:calc(var(--r-base) * 1.3);overflow:hidden}
+.ns-log #card-m .card-s,.ns-log #card-e .card-s{margin-top:auto}
+.ns-log .card-w{font:800 20px/1 var(--head);letter-spacing:-.02em;margin:8px 0 6px;min-height:20px}
+.ns-log .card-w:empty{min-height:0;margin:0}
+.ns-log #card-m.done::after,.ns-log #card-e.done::after{content:none}
+.ns-log .card.due{background:var(--y);border-color:transparent;color:var(--on-y)}
+.ns-log .card.due .card-s{color:var(--on-y);opacity:.8}
+.ns-log .card.due .card-w:empty{min-height:20px;margin:8px 0 6px}
+.ns-log .card.due .card-w:empty::before{content:'due'}
+.ns-log .card.due::before{content:'!';position:absolute;right:12px;top:-4px;
+  font:800 72px/1 var(--head);color:var(--on-y)}

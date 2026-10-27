@@ -352,6 +352,13 @@ function refreshHome() {
   $id('btn-today').classList.toggle('hidden', TODAY === REAL_TODAY);
   $id('card-m').classList.toggle('done', morningLogged(data));
   $id('card-e').classList.toggle('done', eveningLogged(data));
+  // ROOT 5 (4.21): each half says where it stands, in a line of its own
+  [['m', morningLogged(data)], ['e', eveningLogged(data)]].forEach(([h, done]) => {
+    const card = $id('card-' + h);
+    let w = card.querySelector('.card-w');
+    if (!w) { w = document.createElement('div'); w.className = 'card-w'; card.insertBefore(w, card.querySelector('.card-s')); }
+    w.textContent = done ? 'written' : '';
+  });
   const ec = data.entries.length;
   $id('en-ct').textContent = ec ? `${ec} entr${ec===1?'y':'ies'}` : 'no entries yet';
   const s = calcStreak();
@@ -598,40 +605,16 @@ function trendHTML() {
   if (trendIx >= live.length) trendIx = 0;
   const t = live[trendIx];
   const N = N_TREND;
-  /* The axis up the box, one step per day across it. The line is joined only
-     where consecutive days both have a value; a gap in the data is drawn as a
-     gap, never as a line straight through it.
+  /* The axis up the box, one slot per day across it. The box is stretched
+     (`preserveAspectRatio="none"`) so a fortnight always fills the width,
+     whatever the phone — bars stretch with it, which is why the chart is bars
+     and not dots (a circle in it would be an ellipse).
 
-     The box is stretched (`preserveAspectRatio="none"`) so a fortnight always
-     fills the width, whatever the phone — which means a `<circle>` in it would
-     be drawn as an ellipse, wider than it is tall. So a dot is a **zero-length
-     path with a round cap** and `vector-effect:non-scaling-stroke`: the cap is
-     a circle whose diameter is the stroke width in *screen* pixels, so it is
-     immune to the viewBox's scaling in both axes. Each is drawn twice, a
-     surface-coloured halo under the colour, so four series crossing on the
-     same day still read as four dots.
-
-     PAD insets the plot from both ends. Half of the first and last dot used to
-     hang over the edge, and — more to the point — the big chart's axis labels
-     are placed at the same fractions, so they need somewhere to sit. */
+     PAD insets the plot from both ends; the big chart's axis labels are placed
+     at the same fractions, so they need somewhere to sit. */
   const W = 100, H = 40, PAD = 4;
   const span = (t.max - t.min) || 1;
-  const x = i => PAD + (i / (N - 1)) * (W - PAD * 2);
   const y = v => H - (Math.max(t.min, Math.min(t.max, v)) - t.min) / span * H;
-  const path = vals => {
-    let d = '', pen = false;
-    vals.forEach((v, i) => {
-      if (v == null) { pen = false; return; }
-      d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
-      pen = true;
-    });
-    return d.trim();
-  };
-  const dots = vals => vals.map((v, i) => {
-    if (v == null) return '';
-    const d = `M${x(i).toFixed(1)} ${y(v).toFixed(1)}l.01 0`;
-    return `<path class="lc-dh" d="${d}"/><path class="lc-d" d="${d}"/>`;
-  }).join('');
   const stat = sd => {
     const f = sd.vals.filter(v => v != null);
     if (!f.length) return '—';
@@ -641,8 +624,21 @@ function trendHTML() {
   /* The series' own key rides on the group as a class. It styles nothing —
      the colour is the inline `--s-c` — but it is what lets a check, or a
      person reading the DOM, say *which* line is which. */
+  /* ROOT 5 (4.21): a fortnight is grouped bars — one slot a day, the series side
+     by side in it. A bar has no circle to be squashed by the stretched box, and
+     a day with no reading simply has no bar, which is the gap the line drew. */
+  const slot = (W - PAD * 2) / N, live2 = t.series.filter(sd => sd.any);
+  const bw = slot * .78 / Math.max(1, live2.length);
+  const bars = sd => {
+    const j = live2.indexOf(sd);
+    return sd.vals.map((v, i) => {
+      if (v == null) return '';
+      const top = y(v), x0 = PAD + i * slot + slot * .11 + j * bw;
+      return `<rect class="lc-b" x="${x0.toFixed(2)}" y="${top.toFixed(2)}" width="${(bw * .86).toFixed(2)}" height="${Math.max(.6, H - top).toFixed(2)}"/>`;
+    }).join('');
+  };
   const line = sd => sd.any
-    ? `<g class="lc-s ${esc(sd.k)}" style="--s-c:${esc(sd.color)}"><path class="lc-l" d="${path(sd.vals)}"/>${dots(sd.vals)}</g>` : '';
+    ? `<g class="lc-s ${esc(sd.k)}" style="--s-c:${esc(sd.color)}">${bars(sd)}</g>` : '';
 
   /* Opened up
      The axes only appear here, because they only fit here. Both are HTML
@@ -661,7 +657,7 @@ function trendHTML() {
   // x% of it is under the point at x% of the chart
   const xLabels = trendBig ? Array.from({ length: N }, (_, i) => {
     const iso = dateOffset(REAL_TODAY, -(N - 1 - i));
-    return `<span style="left:${x(i).toFixed(2)}%">${+iso.slice(8)}</span>`;
+    return `<span style="left:${(PAD + (i + .5) * slot).toFixed(2)}%">${+iso.slice(8)}</span>`;
   }).join('') : '';
   const grid = trendBig ? ticks.map(k =>
     `<path class="lc-g" d="M${PAD} ${y(k.v).toFixed(1)}H${W - PAD}"/>`).join('') : '';
@@ -812,6 +808,12 @@ function refreshAlert() {
     Shell.alert('log',  !!logWhy,  logWhy  ? ALERT_SAYS[logWhy]  : '');
     Shell.alert('plan', !!planWhy, planWhy ? ALERT_SAYS[planWhy] : '');
   }
+  /* the half the "!" is about is the card that wears it (4.21) — today's only,
+     since the rule is about today and not about a day stepped back to */
+  [['m', 'morning'], ['e', 'evening']].forEach(([h, rule]) => {
+    const card = $id('card-' + h);
+    if (card) card.classList.toggle('due', TODAY === REAL_TODAY && all.includes(rule));
+  });
   renderAlertSettings();
   return alertReason();
 }
