@@ -381,3 +381,48 @@ input[type=range].sl::-moz-range-thumb{
    dimmed rather than disabled, because picking a kit before turning sound on
    is a reasonable order to do it in. */
 .opt-set.is-off > .lbl,.opt-set.is-off .chips{opacity:.55}
+
+/* ROOT 5 (4.22) — settings in levels
+   Home: the four areas as colour cards, two by two, in the five shape colours
+   with the ground's black as ink. An area: a page of rows. A panel: a trail
+   back along the way you came. An app's content: rows, each opening one list
+   on its own while the rest of the panel steps aside. */
+.ns-set .set-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ns-set .set-cat-b[data-c]{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;
+  min-height:calc(112px * var(--dens));border:none;border-radius:calc(var(--r-base) * 1.4);color:#0b0a0f;box-shadow:none;
+  transition:scale var(--dur-3) var(--ease-out)}
+.ns-set .set-cat-b[data-c]:active{scale:.95}
+.ns-set .set-cat-b[data-c="violet"]{background:#A78BFA}
+.ns-set .set-cat-b[data-c="pink"]  {background:#ff5fa2}
+.ns-set .set-cat-b[data-c="green"] {background:#3ddc84}
+.ns-set .set-cat-b[data-c="sun"]   {background:#ffc94d}
+.ns-set .set-cat-b[data-c]::before{content:'';position:absolute;right:-18px;top:-18px;width:70px;height:70px;
+  border-radius:50%;background:rgba(11,10,15,.13)}
+.ns-set .set-cat-b[data-c] .set-cat-n{position:relative;max-width:100%;font:800 16px/1 var(--head);letter-spacing:-.02em;text-transform:none}
+.ns-set .set-cat-b[data-c] small{position:relative;margin-top:auto;padding-top:14px;color:#0b0a0f;opacity:.75;font-weight:700}
+.ns-set .set-cat-b[data-c] i{display:none}
+.set-trail{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;padding:2px 18px 10px;
+  font:400 10.5px/1.2 var(--mono);color:var(--mu)}
+.set-trail:empty{display:none}
+.set-trail button{background:none;border:none;color:var(--tx-2);font:inherit;padding:4px 4px;cursor:pointer;border-radius:var(--r1)}
+.set-trail button:active{background:var(--press)}
+.set-trail b{color:var(--tx);font-weight:700;padding:4px 4px}
+.set-trail i{font-style:normal;color:var(--bd-2)}
+.ns-set .set-area{display:flex;flex-direction:column;gap:6px;padding:0 18px calc(var(--scr-pad-b) + 10px)}
+.ns-set .set-row-b{display:flex;align-items:center;gap:14px;width:100%;min-height:58px;text-align:left;cursor:pointer;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:10px 16px;color:var(--tx);
+  transition:scale var(--dur-3) var(--ease-out)}
+.ns-set .set-row-b:active{scale:.97}
+.ns-set .set-row-b svg{width:20px;height:20px;flex:0 0 auto;color:var(--tx-2)}
+.ns-set .set-row-b span{flex:1;min-width:0;font:700 13px/1.2 var(--head)}
+.ns-set .set-row-b small{display:block;font:400 9.5px/1.4 var(--mono);color:var(--mu);margin-top:3px}
+.ns-set .set-row-b i{font-style:normal;color:var(--mu)}
+.ns-set .ed-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.ns-set .ed-row{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:52px;cursor:pointer;
+  background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r2);padding:0 16px;color:var(--tx);
+  font:700 12.5px/1 var(--head);text-align:left}
+.ns-set .ed-row i{font-style:normal;color:var(--mu)}
+.ns-set .ed-sec{display:none}
+.ns-set .ed-sec.on{display:block}
+.ns-set .set-panel.focusing > :not(.set-content){display:none}
+.ns-set .set-panel.focusing .set-content > :not(.ed-sec){display:none}

@@ -899,8 +899,41 @@ check('data is a single panel: no pill bar', $('.ns-set #set-cat-title').textCon
 w.SET.panel('look');
 check('look sits under appearance', $('.ns-set #set-cat-title').textContent === 'appearance' &&
   [...d.querySelectorAll('.ns-set #set-seg .seg-b')].map(b => b.dataset.seg).join(',') === 'look,layout,behave');
-click($('.ns-set .hd-back'));
+/* 4.22, settings in levels: back goes up one level at a time — a panel to its
+   area, an area to the home menu */
+click($('.ns-set #s-cat .hd-back'));
+check('4.22: back from a panel goes up to its area, a page of rows',
+  $('.ns-set #s-area').classList.contains('on') && $('.ns-set #set-area-title').textContent === 'appearance' &&
+  [...d.querySelectorAll('.ns-set #set-area .set-row-b')].map(b => b.dataset.seg).join(',') === 'look,layout,behave');
+click($('.ns-set #s-area .hd-back'));
 check('back returns to the home menu', $('.ns-set #s-home').classList.contains('on') && !$('.ns-set #s-cat').classList.contains('on'));
+click($('.ns-set .set-cat-b[data-cat="apps"]'));
+const trailOf = id => [...d.querySelectorAll('.ns-set #' + id + ' button, .ns-set #' + id + ' b')].map(x => x.textContent).join('/');
+check('… the apps are an area of eleven rows, the trail saying where you are',
+  $('.ns-set #s-area').classList.contains('on') && d.querySelectorAll('.ns-set #set-area .set-row-b').length === 11 &&
+  trailOf('set-area-trail') === 'settings/apps', trailOf('set-area-trail'));
+click($('.ns-set #set-area .set-row-b[data-seg="do"]'));
+check('… an app opens on its settings, its content folded into rows',
+  $('.ns-set .set-panel.on')?.dataset.panel === 'do' &&
+  trailOf('set-trail') === 'settings/apps/do' &&
+  d.querySelectorAll('.ns-set [data-content-for="do"] .ed-row').length >= 2 &&
+  !$('.ns-set [data-content-for="do"] .ed-sec.on'), trailOf('set-trail'));
+click($('.ns-set [data-content-for="do"] .ed-row[data-focus="do.routines"]'));
+check('… a row opens that one list alone, the rest of the panel stepping aside',
+  $('.ns-set .set-panel[data-panel="do"]').classList.contains('focusing') &&
+  [...d.querySelectorAll('.ns-set [data-content-for="do"] .ed-sec.on')].map(s => s.dataset.sec).join() === 'do.routines' &&
+  trailOf('set-trail') === 'settings/apps/do/daily routines', trailOf('set-trail'));
+w.SET.up();
+check('… and back folds it again, then climbs to the area and home',
+  !$('.ns-set .set-panel[data-panel="do"]').classList.contains('focusing') && $('.ns-set #s-cat').classList.contains('on') &&
+  (w.SET.up(), $('.ns-set #s-area').classList.contains('on')) && (w.SET.up(), $('.ns-set #s-home').classList.contains('on')));
+w.SET.focus('do.routines');
+check('… while a link or a search can open a list straight away',
+  $('.ns-set .set-panel.on')?.dataset.panel === 'do' && !!$('.ns-set [data-sec="do.routines"].on'));
+w.SET.home();
+check('… and the home is the four areas as colour cards, then a quick group',
+  [...d.querySelectorAll('.ns-set .set-cat-b[data-c]')].length === 4 &&
+  !!$('.ns-set #set-home [data-pref="motion"]') && !!$('.ns-set #set-home [data-pref="texture"]'));
 
 // 23. 2.9 — the left arrow as back, tap-the-tab-for-home, the settings icon, → tomorrow ─
 const prev = $('#nav-prev');

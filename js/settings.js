@@ -1749,17 +1749,40 @@ function editorHTML(path) {
 /* Each app's content editors sit at the end of that app's own panel, in its
    [data-content-for] box — there is no separate content panel any more. With
    no argument every box is refilled (after an add, a delete or a reset). */
+/* ROOT 5 (4.22): the content is a level of its own. The app's panel lists its
+   content as rows; a row opens that one list alone (level 3), with the trail
+   saying where you are and back taking you up to the panel. The editors are in
+   the page either way, folded — so a check, a search or a link can still reach
+   one — and only one is ever unfolded. */
+let focusPath = null;
 function renderContent(app) {
   $all('[data-content-for]').forEach(box => {
     const a = box.dataset.contentFor;
     if (app && a !== app) return;
     const paths = EDITOR_ORDER.filter(p => p.split('.')[0] === a);
+    const f = paths.includes(focusPath) ? focusPath : null;
+    const pane = box.closest('.set-panel');
+    if (pane) pane.classList.toggle('focusing', !!f);
     box.innerHTML = !paths.length ? '' : `
-      <div class="sec"><span>Content</span></div>
-      <div class="set-note">What ${esc(APP_NAMES[a] || a)} used to have baked into its
+      <div class="sec ed-intro"><span>Content</span></div>
+      <div class="set-note ed-intro">What ${esc(APP_NAMES[a] || a)} used to have baked into its
         code. Edits save as you type and take effect at once. Each section can be
-        put back to what ROOT ships with on its own.</div>` + paths.map(editorHTML).join('');
+        put back to what ROOT ships with on its own.</div>
+      <div class="ed-rows">${paths.map(p => `<button class="ed-row" data-focus="${p}">
+        <span>${esc(EDITORS[p].title)}</span><i aria-hidden="true">›</i></button>`).join('')}</div>` +
+      paths.map(p => `<section class="ed-sec${p === f ? ' on' : ''}" data-sec="${p}">${editorHTML(p)}</section>`).join('');
   });
+}
+/* Open one content list on its own: its app's panel, then the list. */
+function focus(path) {
+  if (!EDITORS[path]) return;
+  const app = path.split('.')[0];
+  if (currentPanel !== app || $id('s-cat')?.classList.contains('on') !== true) panel(app);
+  focusPath = path;
+  renderContent(app);
+  renderTrail();
+  const v = document.querySelector('#view-settings .view-body');
+  if (v) v.scrollTop = 0;
 }
 
 /* Paths a group's "reset to default" has to clear — a collection and the index
@@ -2335,10 +2358,14 @@ function showScreen(id) {
   Shell.showChrome();
 }
 
-/* Home: the apps out of the bar, then the three categories ── */
+/* Home (level 0): search, the four areas as colour cards, then a few quick
+   switches. The apps out of the bar are listed only off the dock — on the dock
+   the R holds every app. ── */
+const CAT_COLOR = { apps:'violet', appearance:'pink', sync:'green', data:'sun' };
 function renderHome() {
   const box = $id('set-home'); if (!box) return;
-  const off = window.Shell && Shell.hidden ? Shell.hidden() : [];
+  const docked = Prefs.get('navStyle') === 'dock';
+  const off = !docked && window.Shell && Shell.hidden ? Shell.hidden() : [];
   box.innerHTML = `
     <button class="set-search" data-act="search">
       <svg aria-hidden="true"><use href="#ico-search"/></svg>
@@ -2354,22 +2381,63 @@ function renderHome() {
       </button>`).join('')}</div>` : '') + `
     <div class="sec"><span>Settings</span></div>
     <div class="set-cats">${Object.keys(CATS).map(c => `
-      <button class="set-cat-b" data-cat="${c}">
+      <button class="set-cat-b" data-cat="${c}" data-c="${CAT_COLOR[c] || 'violet'}">
         <span class="set-cat-n">${esc(CATS[c].title)}</span>
         <small>${esc(CATS[c].hint)}</small><i>→</i>
-      </button>`).join('')}</div>`;
+      </button>`).join('')}</div>
+    <div class="sec"><span>Quick</span></div>
+    ${chips('motion', [{ v:'full', l:'full' }, { v:'reduced', l:'reduced' }, { v:'none', l:'none' }], 'Animation')}
+    ${chips('texture', [{ v:'auto', l:'theme' }, { v:'grain', l:'grain' }, { v:'none', l:'none' }], 'Texture')}
+    ${toggle('tips', 'Explain the controls', 'the grey line under a switch, and the paragraph over a section')}`;
 }
 function home() {
   currentCat = null;
+  focusPath = null;
   showScreen('home');
   renderHome();
   try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings'); } catch {}
 }
 
-/* A category: its pill bar, then one of its panels ── */
+/* An area (level 1, 4.22): a category with more than one panel is a page of
+   rows, one per panel — the eleven apps were a pill bar running off the phone.
+   A category of one panel goes straight to it. ── */
 function cat(name) {
   const c = CATS[name]; if (!c) return;
-  panel(c.panels.includes(lastPanel[name]) ? lastPanel[name] : c.panels[0]);
+  if (c.panels.length < 2) { panel(c.panels[0]); return; }
+  currentCat = name;
+  focusPath = null;
+  const t = $id('set-area-title'); if (t) t.textContent = c.title;
+  const box = $id('set-area');
+  if (box) box.innerHTML = c.panels.map(p => `
+    <button class="set-row-b" data-seg="${p}">
+      ${name === 'apps' ? `<svg aria-hidden="true"><use href="#tab-${p}"/></svg>` : ''}
+      <span>${esc(SEG_NAMES[p] || p)}<small>${esc(name === 'apps' ? (APP_HINTS[p] || '') : (PANEL_HINTS[p] || ''))}</small></span>
+      <i aria-hidden="true">›</i>
+    </button>`).join('');
+  showScreen('area');
+  renderTrail();
+  try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings'); } catch {}
+}
+const PANEL_HINTS = { look:'theme, accent, type', layout:'the bar, the dock, shape and spacing', behave:'opening, sounds, safety, formats' };
+
+/* The trail: where you are, each step a way back to it ── */
+function renderTrail() {
+  const steps = [['settings', 'data-act="set-home"']];
+  const c = CATS[currentCat];
+  const onArea = $id('s-area')?.classList.contains('on');
+  if (c && c.panels.length > 1) steps.push([c.title, `data-cat="${currentCat}"`]);
+  if (!onArea && currentCat) steps.push([SEG_NAMES[currentPanel] || currentPanel, `data-seg="${currentPanel}"`]);
+  if (!onArea && focusPath && EDITORS[focusPath]) steps.push([EDITORS[focusPath].title.toLowerCase(), '']);
+  const html = steps.map(([label, attr], i) => (i ? '<i aria-hidden="true">›</i>' : '') +
+    (i === steps.length - 1 ? `<b>${esc(label)}</b>` : `<button ${attr}>${esc(label)}</button>`)).join('');
+  ['set-trail', 'set-area-trail'].forEach(id => { const el = $id(id); if (el) el.innerHTML = html; });
+}
+/* Back, one level at a time: a content list → its panel → its area → home */
+function up() {
+  if (focusPath && $id('s-cat')?.classList.contains('on')) { focusPath = null; renderContent(currentPanel); renderTrail(); return; }
+  const c = CATS[currentCat];
+  if ($id('s-cat')?.classList.contains('on') && c && c.panels.length > 1) { cat(currentCat); return; }
+  home();
 }
 function renderSeg() {
   const seg = $id('set-seg'); if (!seg) return;
@@ -2383,6 +2451,7 @@ function renderSeg() {
 }
 function panel(name) {
   if (!PANELS.includes(name)) return;
+  if (name !== currentPanel) focusPath = null;
   currentPanel = name;
   currentCat = catOf(name);
   lastPanel[currentCat] = name;
@@ -2394,6 +2463,7 @@ function panel(name) {
   try { if (location.hash.startsWith('#settings')) history.replaceState(null, '', '#settings/' + name); } catch {}
   RENDERERS[name] && RENDERERS[name]();
   syncStatic(document.querySelector('.set-panel[data-panel="' + name + '"]'), name);
+  renderTrail();
 }
 
 /* Static controls bound to a pref
@@ -2581,7 +2651,7 @@ view.addEventListener('change', e => {
 });
 
 view.addEventListener('click', e => {
-  const t = e.target.closest('[data-pref],[data-toggle],[data-toggle-cfg],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-key-cap],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg]');
+  const t = e.target.closest('[data-pref],[data-toggle],[data-toggle-cfg],[data-theme-pick],[data-add],[data-del],[data-ed],[data-snd-kit],[data-snd-map],[data-key-cap],[data-cfg-reset],[data-cfg-toggle],[data-preset-shape],[data-preset-border],[data-pref-null],[data-app-toggle],[data-app-move],[data-act],[data-open],[data-cat],[data-seg],[data-focus]');
   if (!t) return;
 
   /* A switch inside a content editor. Editors commit on `change`, which a
@@ -2601,6 +2671,8 @@ view.addEventListener('click', e => {
   if (t.dataset.open) { Prefs.tap(); Shell.open(t.dataset.open); return; }
   if (t.dataset.cat)  { Prefs.tap(); cat(t.dataset.cat); return; }
   if (t.dataset.seg)  { panel(t.dataset.seg); return; }
+  if (t.dataset.focus) { Prefs.tap(); focus(t.dataset.focus); return; }
+  if (t.dataset.act === 'set-home') { Prefs.tap(); home(); return; }
 
   // the app list: switch an app's tab on or off, or move it — without the
   // page jumping back to the top (the shell keeps the slide's scroll too)
@@ -2809,7 +2881,7 @@ Shell.register('settings', { onShow: render, home });   // the settings tab tapp
 const linked = Shell.hashTarget();
 if (linked.name === 'settings' && PANELS.includes(linked.sub)) panel(linked.sub); else home();
 
-return { panel, home, cat, render, saveToken, testToken, renderStorage, renderData,
+return { panel, home, cat, up, focus, render, saveToken, testToken, renderStorage, renderData,
          exportAll, pickImport, importAll, exportLook, importLook,
          syncReadFile, syncReadAll, renderSync, syncNow,
          searchIndex, dropIndex, PANELS, SEG_NAMES, APP_NAMES,

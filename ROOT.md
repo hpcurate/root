@@ -2013,6 +2013,28 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.22 — 2026-10-27 — ROOT 5, phase 5: settings in levels
+
+Settings goes level by level, with a trail of where you are:
+- **Home (0):** search, the four areas as colour cards (apps violet, appearance pink, sync green, data sun), then a quick
+  group (animation, texture, the explanations). On the dock it no longer lists the apps out of the bar; the R holds
+  every app. Off the dock it does, as before.
+- **An area (1)** with more than one panel is a page of rows (`#s-area`): the eleven apps with their icons and hints, or
+  look / layout / behaviour. Sync and data, one panel each, go straight to it.
+- **A panel (2)** keeps its markup, ids and pill bar of siblings, under a trail (settings › apps › do). Back (`SET.up()`)
+  climbs one level at a time.
+- **Its content (3):** an app's content is a list of rows, one per editor. A row opens that one list alone and the rest of
+  the panel steps aside (`SET.focus(path)`, `.ed-sec`). The editors stay in the page, folded, so a search hit or a link
+  can open one straight away, and search's content hits now do.
+- Every panel id and `#settings/<panel>` link lands where it did. The four category buttons and `SET.panel / cat / home`
+  keep their meaning, with `cat` now meaning the area page.
+
+One item on a page of its own (level 4) is not built: a list's items are still its cards.
+
+Harness: the back check climbs a level at a time now. +7 checks: the area pages, the trail, the folded content, opening
+one list, back folding it, `SET.focus`, the home's cards and quick group. Seen at 390px.
+Log: `updates/26-10-27_update_v4.22.0.md`.
+
 ### 4.21 — 2026-10-27 — ROOT 5, phase 4: LOG and DAY
 
 **LOG**

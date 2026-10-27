@@ -77,8 +77,9 @@ function contentHits(q) {
     try { rows = src.rows(Config.get(src.path)) || []; } catch { rows = []; }
     rows.forEach(r => {
       if (!r.name || !fold(r.name).includes(q)) return;
+      // to the list it lives in, on its own (4.22), where that list has an editor
       out.push({ kind:'content', title: r.name, sub: `${APP_NAMES[src.app]} · ${r.sub}`,
-                 go: () => Shell.settings(src.app) });
+                 go: () => { Shell.settings(src.app); if (window.SET && SET.focus) SET.focus(src.path); } });
     });
   });
   return out;
