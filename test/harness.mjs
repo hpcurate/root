@@ -5531,6 +5531,41 @@ w9.Prefs.set('dock', ['do', 'plan', 'log', 'cal', 'store', 'tend', 'walk']);
 check('… the dock holds five at most, in the order given',
   w9.Prefs.get('dock').join() === 'do,plan,log,cal,store', w9.Prefs.get('dock').join());
 
+/* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked
+   or not, and what a passed day left open carried or dropped, once */
+{
+  const g9 = s => d9.querySelector('.ns-plan #plan-goals ' + s);
+  const g9all = s => [...d9.querySelectorAll('.ns-plan #plan-goals ' + s)];
+  const yday = (() => { const x = new w9.Date(); x.setDate(x.getDate() - 1); return w9.Shell.today(x); })();
+  w9.localStorage.setItem('plan_goals_v1', JSON.stringify({ day: { [yday]: [{ t: 'call the bank', done: false }, { t: 'old one', done: false }, { t: 'done one', done: true }] }, week: {} }));
+  w9.Shell.go('plan');
+  const add = (kind, t) => { const el = g9(`[data-gl-add="${kind}"]`); if (!el) return false;
+    el.value = t; el.dispatchEvent(new w9.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; };
+  add('day', 'mix the track'); add('week', 'finish the set');
+  check('4.23: PLAN has today\'s goals and the week\'s, each added from its own field',
+    g9all('.gl-row[data-kind="day"] .gl-t span').map(s => s.textContent).join() === 'mix the track' &&
+    g9all('.gl-row[data-kind="week"] .gl-t span').map(s => s.textContent).join() === 'finish the set',
+    JSON.stringify(w9.PLAN.goalsLoad()));
+  check('… what yesterday left open is offered, the ticked one not',
+    g9all('.gl-row[data-kind="day"] .gl-left b').map(b => b.textContent).join() === 'call the bank,old one',
+    g9all('.gl-left b').map(b => b.textContent).join());
+  g9('.gl-row[data-kind="day"] .gl-left [data-gl="carry"]').click();
+  g9('.gl-row[data-kind="day"] .gl-left [data-gl="drop"]').click();
+  check('… carried into today, or dropped, and then not offered again',
+    g9all('.gl-row[data-kind="day"] .gl-t span').map(s => s.textContent).join() === 'mix the track,call the bank' &&
+    !g9('.gl-row[data-kind="day"] .gl-left'),
+    g9all('.gl-row[data-kind="day"] .gl-t span').map(s => s.textContent).join());
+  add('day', 'third'); const fourth = add('day', 'fourth');
+  check('… three is the most: the field goes once there are three',
+    g9all('.gl-row[data-kind="day"] .gl').length === 3 && fourth === false,
+    g9all('.gl-row[data-kind="day"] .gl').length + ' goals');
+  g9('.gl-row[data-kind="day"] [data-gl="tick"]').click();
+  check('… a goal is ticked or not, and nothing is counted or kept as a streak',
+    !!g9('.gl-row[data-kind="day"] .gl.done') && !/streak|score/i.test(d9.querySelector('.ns-plan #plan-goals').textContent) &&
+    w9.SYNC && w9.SYNC.groupOf('plan_goals_v1') === 'apps',
+    w9.SYNC ? w9.SYNC.groupOf('plan_goals_v1') : 'no SYNC');
+}
+
 
 /* 4.2
    Six requests: three shapes in CREATE, a tick that reaches Todoist, labels in

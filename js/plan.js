@@ -51,9 +51,95 @@ function go(id) {
 }
 
 // Home
+/* Goals (ROOT 5, 4.23 — his answer: "a goals section in PLAN")
+   Today's three and the week's three, on qurOS's rules: a hard cap of three
+   each, a goal ticked or not and nothing counted — no streak, no score — and
+   what a passed day or week left open offered once, to carry into the new one
+   or drop. Stored here only, as `plan_goals_v1` { day: { iso: [...] },
+   week: { monday's iso: [...] } }, a goal { t, done, gone }; nothing goes to
+   Todoist. */
+const GOALS_KEY = 'plan_goals_v1', GOALS_MAX = 3;
+function goalsLoad() {
+  try {
+    const g = JSON.parse(localStorage.getItem(GOALS_KEY) || 'null');
+    if (g && typeof g === 'object') return { day: g.day || {}, week: g.week || {} };
+  } catch {}
+  return { day: {}, week: {} };
+}
+function goalsSave(g) { localStorage.setItem(GOALS_KEY, JSON.stringify(g)); }
+function mondayOf(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  return Shell.today(d);
+}
+const goalNow = () => ({ day: Shell.today(), week: mondayOf(Shell.today()) });
+// the latest earlier day (or week) that still holds a goal nobody has ticked, carried or dropped
+function goalsLeftFrom(g, kind, cur) {
+  const k = Object.keys(g[kind]).filter(x => x < cur).sort().pop();
+  return k && (g[kind][k] || []).some(x => !x.done && !x.gone) ? k : null;
+}
+function renderGoals() {
+  const box = $id('plan-goals'); if (!box) return;
+  const g = goalsLoad(), now = goalNow();
+  box.innerHTML = [['day', 'today'], ['week', 'this week']].map(([kind, label]) => {
+    const list = g[kind][now[kind]] || [];
+    const prev = goalsLeftFrom(g, kind, now[kind]);
+    const left = prev ? (g[kind][prev] || []).map((x, i) => [x, i]).filter(([x]) => !x.done && !x.gone) : [];
+    return `<div class="gl-row" data-kind="${kind}">
+      <div class="row-lbl"><span>${label} <em>${list.length} / ${GOALS_MAX}</em></span></div>
+      <div class="gl-list">${list.map((x, i) => `
+        <div class="gl${x.done ? ' done' : ''}">
+          <button class="gl-t" data-gl="tick" data-kind="${kind}" data-i="${i}" aria-pressed="${!!x.done}"><i></i><span>${esc(x.t)}</span></button>
+          <button class="gl-x" data-gl="del" data-kind="${kind}" data-i="${i}" aria-label="remove ${esc(x.t)}">✕</button>
+        </div>`).join('')}
+        ${list.length < GOALS_MAX ? `<input class="gl-in" data-gl-add="${kind}" maxlength="80" autocomplete="off"
+          placeholder="${kind === 'day' ? 'one of today’s three' : 'one of the week’s three'}">` : ''}
+      </div>
+      ${left.map(([x, i]) => `<div class="gl-left">
+        <span>left from ${kind === 'day' ? 'the day before' : 'last week'}: <b>${esc(x.t)}</b></span>
+        <button data-gl="carry" data-kind="${kind}" data-from="${prev}" data-i="${i}"${list.length >= GOALS_MAX ? ' disabled' : ''}>carry</button>
+        <button data-gl="drop" data-kind="${kind}" data-from="${prev}" data-i="${i}">drop</button>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+function goalAct(btn) {
+  const g = goalsLoad(), now = goalNow(), kind = btn.dataset.kind, i = +btn.dataset.i;
+  const list = g[kind][now[kind]] = g[kind][now[kind]] || [];
+  const act = btn.dataset.gl;
+  if (act === 'tick' && list[i]) list[i].done = !list[i].done;
+  if (act === 'del') list.splice(i, 1);
+  if (act === 'carry' || act === 'drop') {
+    const from = (g[kind][btn.dataset.from] || [])[i];
+    if (!from) return;
+    if (act === 'carry') { if (list.length >= GOALS_MAX) return; list.push({ t: from.t, done: false }); }
+    from.gone = true;
+  }
+  goalsSave(g); Prefs.tap(); renderGoals();
+}
+function goalAdd(input) {
+  const t = input.value.trim(); if (!t) return;
+  const g = goalsLoad(), kind = input.dataset.glAdd, key = goalNow()[kind];
+  const list = g[kind][key] = g[kind][key] || [];
+  if (list.length >= GOALS_MAX) { Shell.toast('three is the most — tick or remove one first'); return; }
+  list.push({ t, done: false });
+  goalsSave(g); Prefs.tap(); renderGoals();
+  const next = $id('plan-goals')?.querySelector(`[data-gl-add="${kind}"]`);
+  if (next) next.focus();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.ns-plan #plan-goals [data-gl]');
+  if (b && !b.disabled) goalAct(b);
+});
+document.addEventListener('keydown', e => {
+  const el = e.target;
+  if (el && el.matches && el.matches('.ns-plan #plan-goals .gl-in') && e.key === 'Enter') { e.preventDefault(); goalAdd(el); }
+});
+
 function renderHome() {
   // one date format for the whole app, set under Settings → behaviour
   $id('home-date').textContent = Prefs.formatDate(Shell.today()).toUpperCase();
+  renderGoals();
   renderProjects();
   renderQueue();
   renderSent();
@@ -1798,7 +1884,9 @@ Shell.register('plan', {
   onShow: () => {
     if (window.Todoist) Todoist.labels().then(renderProjects);
     if (window.LOG && LOG.dismissAlert) LOG.dismissAlert('plan');
+    renderGoals();                 // a new day, or a new week, since PLAN was last up
   },
+  onDayChange: () => renderGoals(),
 });
 
 return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput, syncSend,
@@ -1810,5 +1898,6 @@ return { go, renderSettings, openProj, closeProj, closeForm, pickSub, nameInput,
          // 4.17 (r261027-6iom): the schedule — DAY edits it, PLAN gives it its content and writes it to Todoist
          scheduleContent, blocksFor, calOfLabel, scheduleDescription, exportSchedule, toSchedule,
          clearQueue, removeFromQueue, optPick, prioPick, setSub, addSubtask,
-         deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday };
+         deleteSubtask, addToQueue, connectTodoist, saveMappings, plannedToday,
+         renderGoals, goalsLoad };
 })();

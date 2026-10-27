@@ -2013,6 +2013,26 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.23 — 2026-10-27 — ROOT 5, phase 6 (first part): PLAN's goals
+
+His answer 5: the goals live in PLAN. Above the projects sit **today's three** and **the week's three** (the week
+starts Monday), on qurOS's rules:
+- a hard cap of three each (the field goes once there are three);
+- a goal ticked or not, and nothing counted: no streak, no score;
+- what a passed day or week left open offered once under its row, to **carry** into the new one (while there is room) or
+  **drop**.
+
+Each goal is added from its own field (Enter) and removed with ✕. They redraw whenever PLAN is shown and when the day
+turns. The store is a new key, `plan_goals_v1` (`{ day: { iso: [...] }, week: { monday: [...] } }`, a goal `{ t, done,
+gone }`), local and carried by sync's apps group like any new key. Nothing goes to Todoist.
+
+The rest of phase 6 is not in this version: each other app's own screens drawn the new way (STORE's counter as a sun
+card, TEND's plants, CREATE's counters and its band tally, TOOLS' breathing ring, WALK's map card). Those apps already
+wear phases 1–2: the preset, their colour, the band, the dock.
+
+Harness: +5 checks (the two fields, yesterday's open goals offered, carried and dropped, the cap, a tick with nothing
+counted, sync's group). Seen at 390px. Log: `updates/26-10-27_update_v4.23.0.md`.
+
 ### 4.22 — 2026-10-27 — ROOT 5, phase 5: settings in levels
 
 Settings goes level by level, with a trail of where you are:
