@@ -425,7 +425,7 @@ function renderQueue() {
     /* The day only earns a pill when it is not today — every task used to be
        due today and most still will be, so saying so on every row is noise. */
     const day = t.date && t.date !== Shell.today() ? dateWord(t.date) : null;
-    const pills = [t.subType, day, t.block ? `@${t.block}` : null, t.time ? `@${t.time}` : null,
+    const pills = [t.subType, day, t.block ? (blockNo(t.block) ? `block ${blockNo(t.block)}` : `@${t.block}`) : null, t.time ? `@${t.time}` : null,
       ['','urgent','mandatory','optional'][t.priority] || null].filter(Boolean);
     const stLine = t.subtasks?.length ? `<div class="q-pill">${t.subtasks.length} subtask${t.subtasks.length!==1?'s':''}</div>` : '';
     return `<div class="q-item" style="--q-color:${color}">
@@ -560,7 +560,8 @@ function openForm(typeKey, display, section, i) {
     // since gone past — see the date stepper below
     const day = lastDate && dayGap(Shell.today(), lastDate) > 0 ? lastDate : Shell.today();
     formState = { typeKey, subType: display, section, name: '', block: null, time: null, date: day,
-                  priority: Config.get('plan.defaultPriority'), subtasks: [], hasSub: false };
+                  priority: Config.get('plan.defaultPriority'), subtasks: [], hasSub: false, blockAuto: true };
+    if (formField('block')) formState.block = nextBlock(day);
     expOpen = false;                           // the grid holds one panel at a time
     openKey = typeKey;
     openSub = idx >= 0 ? idx : 0;
@@ -669,15 +670,46 @@ function stepDate(n) {
   if (dayGap(Shell.today(), next) < 0) return;   // nothing is planned into the past
   Prefs.tap();
   formState.date = next;
-  paintDate();
+  paintDate(); reBlock();
 }
 
 function resetDate() {
   if (formDate() === Shell.today()) return;
   Prefs.tap();
   formState.date = Shell.today();
-  paintDate();
+  paintDate(); reBlock();
 }
+
+/* Blocks are numbered (4.17.1, Hugo's r261027-6iom back from his try: "plan did not change, every block should just
+   automatically be set to 1,2,3,etc. in order. and you can change it if you want"). A task for a day takes the next number
+   that day has — after the ones queued and the ones sent for it — so the day's tasks are its blocks 1, 2, 3…, in the order
+   they were planned, and DAY's schedule lays them out in that order. A chip says the number; tapping another one changes it,
+   tapping the picked one clears it. The Todoist label stays `b<number>` (`b1`… — DO's block tiles and their colours). */
+const blockNo = label => { const m = /(\d+)\s*$/.exec(String(label || '')); return m ? +m[1] : 0; };
+function blockLabel(n) {
+  const own = (Config.get('plan.blocks') || []).find(b => blockNo(b) === n);
+  return own ? String(own).trim().replace(/^@/, '') : 'b' + n;
+}
+// the numbers a day's tasks already hold (queued or sent), and the next one
+function nextBlock(day) {
+  const used = queue.concat(sentLog).filter(t => t.date === day && t.block).map(t => blockNo(t.block));
+  return blockLabel(used.length ? Math.max(...used) + 1 : 1);
+}
+// the chips: the configured blocks, and at least as many as a day can hold, by number
+function blockChoices() {
+  const nums = new Set((Config.get('plan.blocks') || []).map(blockNo).filter(n => n > 0));
+  const most = Math.max(6, +Config.get('log.maxBlocks') || 6);
+  for (let n = 1; n <= most; n++) nums.add(n);
+  if (formState.block) nums.add(blockNo(formState.block));
+  return [...nums].sort((a, b) => a - b).map(n => ({ n, label: blockLabel(n) }));
+}
+// the date moved: a number nobody chose follows it
+function reBlock() {
+  if (!formState.blockAuto || !formField('block')) return;
+  formState.block = nextBlock(formDate());
+  renderFormChips(); resetOpts('opts-block', formState.block);
+}
+function formField(k) { return !!(Config.get('plan.formFields') || {})[k]; }
 
 /* Every row is optional (plan.formFields), so nothing here may assume its
    element is on the page. */
@@ -686,7 +718,7 @@ function resetOpts(id, activeVal) {
   if (!row) return;
   row.querySelectorAll('.opt-b').forEach(b=>{
     const isNone = b.classList.contains('none-opt');
-    b.classList.toggle('on', isNone ? activeVal===null : b.textContent===activeVal);
+    b.classList.toggle('on', isNone ? activeVal===null : (b.dataset.v != null ? b.dataset.v : b.textContent)===activeVal);
   });
   if (activeVal === null) { const noneBtn = row.querySelector('.none-opt'); if (noneBtn) noneBtn.classList.add('on'); }
 }
@@ -704,10 +736,11 @@ function renderFormChips() {
   /* A block chip wears its Todoist label's colour, like DO's block tiles.
      There is no "none" chip on this row: no block is the starting state, and
      tapping the picked one again clears it (see optPick). */
+  // 4.17.1: numbered, 1 to 6 at least (blockChoices); each still wears its label's colour
   const ob = $id('opts-block');
-  if (ob) ob.innerHTML = blocks.map(b => {
-    const c = labelHue(b);
-    return `<button class="opt-b${c ? ' lbl' : ''}"${c ? ` style="--c:${esc(c)}"` : ''} onclick="PLAN.optPick(this,'block','${attr(b)}')">${esc(b)}</button>`;
+  if (ob) ob.innerHTML = (blocks ? blockChoices() : []).map(({ n, label }) => {
+    const c = labelHue(label);
+    return `<button class="opt-b blk${c ? ' lbl' : ''}"${c ? ` style="--c:${esc(c)}"` : ''} data-v="${attr(label)}" title="block ${n} · @${esc(label)}" onclick="PLAN.optPick(this,'block','${attr(label)}')">${n}</button>`;
   }).join('');
 
   const ot = $id('opts-time');
@@ -739,6 +772,7 @@ function optPick(btn, field, val) {
   if (!off) btn.classList.add('on');
   else { const noneBtn = row.querySelector('.none-opt'); if (noneBtn) noneBtn.classList.add('on'); }
   formState[field] = off ? null : val;
+  if (field === 'block') formState.blockAuto = false;   // his own pick: it stays, whatever day it moves to
 }
 
 function prioPick(btn, val) {
@@ -980,7 +1014,7 @@ function renderSent() {
   syncExport();
   list.innerHTML = sentLog.map((t, i) => {
     const on = sentSel.has(histKey(t));
-    const pills = [t.project, t.block ? `@${t.block}` : null, Prefs.formatDate(t.date, 'short')].filter(Boolean);
+    const pills = [t.project, t.block ? (blockNo(t.block) ? `block ${blockNo(t.block)}` : `@${t.block}`) : null, Prefs.formatDate(t.date, 'short')].filter(Boolean);
     return `<button class="q-item sent-item${on ? ' on' : ''}" style="--q-color:${resolveColor(t.typeKey)}"
               aria-pressed="${on}" onclick="PLAN.toggleSent(${i})">
       <span class="q-dot"></span>
@@ -1559,7 +1593,9 @@ function calOfLabel(tag) {
 /* The day's blocks: what PLAN sent with a block label, due that day, in the order it was queued. `picks` (rows picked on the
    sent list) take their place when there are any — whatever their label. */
 function blocksFor(iso, picks) {
-  const src = picks && picks.length ? picks : sentLog.filter(t => t.block && t.date === iso).slice().reverse();
+  // 4.17.1: by their number (block 1 first), the order they were queued for the same one; none after
+  const src = (picks && picks.length ? picks : sentLog.filter(t => t.block && t.date === iso).slice().reverse())
+    .slice().sort((a, b) => (blockNo(a.block) || 1e6) - (blockNo(b.block) || 1e6));
   return src.map(t => {
     const tt = typeOf(t.typeKey);
     return { name:String(t.name || ''), cal: calNameFor(t) || calOfLabel(t.project) || null,

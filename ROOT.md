@@ -1620,6 +1620,7 @@ and its blocks (`scheduleContent`, `blocksFor` — CAL still reads no `plan.` co
 `mode: schedule`); **the day is written here only once the task has landed**, like every export. What was on, apart from
 the blocks, is remembered (`cal_sched_v1`); a day's own items ride in its record (`sched`), so opening it again brings them
 back. The slot panel and *+ do* stay for the days that have slots, until the new one has been used; then they go.
+4.17.1: PLAN numbers a day's blocks itself (the next one the day has, changeable), and the schedule takes them by number.
 
 ### Two doors in, and only two
 
@@ -2001,6 +2002,18 @@ history — the same reasoning as `Shell.undo`.
 ---
 
 ## Changelog
+
+### 4.17.1 — 2026-10-27 — PLAN numbers a day's blocks itself: 1, 2, 3…
+
+Back from his try of 4.17 (`r261027-6iom`, "still broken: plan did not change, every block should just automatically be set
+to 1,2,3,etc. in order. and you can change it if you want"). PLAN's Block row was b1 · b2 · b3, picked by hand for every
+task. Now a task takes **the day's next block by itself** — after the ones queued and sent for that day — so a day's tasks
+are its blocks 1, 2, 3… in the order they were planned; the chips say **1 2 3 4 5 6** (at least `log.maxBlocks`); another
+chip changes it, the picked one tapped again clears it; one changed by hand stays when the date moves, an automatic one follows
+the date. The queue and the sent list say "block 2". DAY's schedule takes a day's blocks **by number** (`blocksFor`). The
+Todoist label is still `b<number>` (`plan.blocks` now b1…b6), so DO's block tiles, their colours and "→ tomorrow" know blocks
+4–6 too (DO counts b1…b6 whatever `plan.blocks` lists). Harness: the numbering, a number changed by hand, another day, the
+schedule's order; the checks that picked "b1" by its text pick it by its value. Log: `updates/26-10-27_update_v4.17.1.md`.
 
 ### 4.17 — 2026-10-27 — a schedule is items with a start and a duration; LOG's files for the vault
 

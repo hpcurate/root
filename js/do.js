@@ -1185,7 +1185,12 @@ function ttStatus(msg) {
    the day; unticking reopens it and takes it back. Same cache-per-day rule as
    the today list: a closed task stays, filled, until midnight. */
 const TD_COLORS = Todoist.COLORS;   // the shared name → hex table (shell.js)
-const blockLabels = () => (Config.get('plan.blocks') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
+// 4.17.1: PLAN numbers a day's blocks itself (b1, b2… as many as the day has): those count even when plan.blocks lists fewer
+const blockLabels = () => {
+  const own = (Config.get('plan.blocks') || []).map(s => String(s).trim().replace(/^@/, '')).filter(Boolean);
+  for (let n = 1, most = Math.max(6, +Config.get('log.maxBlocks') || 6); n <= most; n++) if (!own.some(l => tdName(l) === 'b' + n)) own.push('b' + n);
+  return own;
+};
 function tdBlocks() {
   const today = tdLocalDate();
   if (!td.blocks || td.blocks.date !== today) td.blocks = { date:today, tasks:[], fetched:0 };

@@ -187,7 +187,9 @@ const DEFAULTS = {
       ]},
     ],
     /* The chips on the task form. Values are what gets appended to the task. */
-    blocks: ['b1','b2','b3'],
+    /* 4.17.1: a day's blocks are numbered by PLAN (1, 2, 3… in the order planned); these are their labels, and the
+       form shows at least six (log.maxBlocks) whatever this lists */
+    blocks: ['b1','b2','b3','b4','b5','b6'],
     times: [
       { label:'2m',  value:'2min'   }, { label:'5m',  value:'5min'  },
       { label:'15m', value:'15min'  }, { label:'30m', value:'30min' },

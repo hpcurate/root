@@ -972,7 +972,8 @@ check('a block task is back as a tile with a "→ tomorrow" action on the head',
   /→ tomorrow/.test($('.ns-do #td-blocks .tt-head').textContent) && !$('.ns-do .bk-move'));
 w.DO.toggleBlockMove();
 const slots = [...d.querySelectorAll('.ns-do .bk-move-b')];
-check("the slot row appears: b1 b2 b3 in the labels' Todoist colours, disabled until a tile is picked", slots.map(b => b.textContent).join(',') === 'b1,b2,b3' &&
+// (4.17.1, r261027-6iom: PLAN numbers a day's blocks itself — b1…b6 are all blocks)
+check("the slot row appears: b1 to b6 in the labels' Todoist colours, disabled until a tile is picked", slots.map(b => b.textContent).join(',') === 'b1,b2,b3,b4,b5,b6' &&
   slots[0].style.getPropertyValue('--bk-c') === '#af38eb' && slots[1].style.getPropertyValue('--bk-c') === '#158fad' && slots.every(b => b.disabled),
   slots.map(b => b.textContent + ' ' + b.getAttribute('style') + (b.disabled ? ' off' : ' on')).join(' | '));
 w.DO.selectBlock('k9');
@@ -1094,9 +1095,14 @@ check('… and the title tile grows again above it', $('.ns-plan .proj-tile.open
 check('the form is no longer a screen of its own', !$('.ns-plan #s-form'));
 check('the time row is off by default, block and priority on',
   !$('.ns-plan #opts-time') && !!$('.ns-plan #opts-block') && !!$('.ns-plan #opts-prio') && !!$('.ns-plan #tg-sub'));
-const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === 'b1');
+const b1chip = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.dataset.v === 'b1');
 check("the form's block chips wear their label's Todoist colour",
   !!b1chip && b1chip.classList.contains('lbl') && b1chip.style.getPropertyValue('--c') === '#af38eb', b1chip && b1chip.outerHTML);
+/* 4.17.1 (r261027-6iom, back from his try: "plan did not change, every block should just automatically be set to 1,2,3,etc. in
+   order. and you can change it if you want") */
+check('… numbered: 1 to 6, the day\'s next one picked by itself',
+  [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].map(b => b.textContent).join(',') === '1,2,3,4,5,6' && d.querySelectorAll('.ns-plan #opts-block .opt-b.on').length === 1,
+  [...d.querySelectorAll('.ns-plan #opts-block .opt-b')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')).join(','));
 w.Config.set('plan.formFields', Object.assign(w.Config.get('plan.formFields'), { time: true, subtasks: false }));
 check('the form rows follow the setting', !!$('.ns-plan #opts-time') && !$('.ns-plan #tg-sub') && !$('.ns-plan #sub-text'));
 w.Config.reset('plan.formFields');
@@ -1140,6 +1146,44 @@ check('picking a block selects it', !!$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.optPick($('.ns-plan #opts-block .opt-b.on'), 'block', 'b1');
 check('… and tapping it again clears the row, since there is no none chip', !$('.ns-plan #opts-block .opt-b.on'));
 w.PLAN.closeForm(); w.PLAN.clearQueue(); settle();
+
+/* 4.17.1 (r261027-6iom, back from his try: "plan did not change, every block should just automatically be set to 1,2,3,etc. in
+   order. and you can change it if you want"): a day's tasks take its blocks 1, 2, 3 by themselves; one changed by hand keeps
+   its number, the next one follows the highest; another day starts at 1; the schedule lays them out by number */
+{
+  const sentKeep = w.localStorage.getItem('plan_sent_v1');
+  const onChip = () => ($('.ns-plan #opts-block .opt-b.on') || {}).textContent || '';
+  let first = true;
+  const plan = (name, change) => {
+    w.PLAN.pickSub('curate', 0);
+    if (first) { first = false; w.PLAN.stepDate(20); settle(); }   // a day nothing is planned for (the next forms open on it)
+    const auto = onChip();
+    $('.ns-plan #task-name').value = name; $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+    if (change) w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === String(change)), 'block', 'b' + change);
+    w.PLAN.addToQueue(); settle();
+    return auto;
+  };
+  const autos = [plan('one'), plan('two'), plan('three')];
+  const q = () => JSON.parse(w.localStorage.getItem('plan_queue') || '[]');
+  check('blocks numbered by themselves: 1, 2, 3 in the order planned', autos.join(',') === '1,2,3' && q().map(t => t.block).join(',') === 'b1,b2,b3',
+    autos.join(',') + ' / ' + q().map(t => t.block).join(','));
+  const four = plan('five, set by hand', 5), next = plan('after it');
+  check('… changed by hand it keeps its number; the next one follows the highest', four === '4' && q().slice(-2).map(t => t.block).join(',') === 'b5,b6' && next === '6',
+    four + ' ' + next + ' / ' + q().map(t => t.block).join(','));
+  w.PLAN.pickSub('curate', 0); w.PLAN.stepDate(1); settle();
+  check('… another day starts at 1 (the number follows the date until one is picked)', onChip() === '1', onChip());
+  w.PLAN.closeForm(); settle();
+  check('… and the queue says "block 2", not a label', /block 2/.test($('.ns-plan #queue-list')?.textContent || d.querySelector('.ns-plan')?.textContent || ''));
+  const day = q()[0].date;
+  const order = w.PLAN.blocksFor(day, [{ name: 'third', block: 'b3', date: day }, { name: 'first', block: 'b1', date: day }, { name: 'second', block: 'b2', date: day }]).map(b => b.name);
+  check('the schedule takes them by number: block 1 first', order.join(',') === 'first,second,third', order.join(','));
+  // the next form opens on the last task's day: one for today puts that back for the checks that follow
+  w.PLAN.pickSub('curate', 0); w.PLAN.resetDate(); settle();
+  $('.ns-plan #task-name').value = 'today again'; $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
+  w.PLAN.addToQueue(); settle();
+  w.PLAN.clearQueue(); settle();
+  if (sentKeep === null) w.localStorage.removeItem('plan_sent_v1'); else w.localStorage.setItem('plan_sent_v1', sentKeep);
+}
 
 /* PLAN's transition, driven by a scripted layout ──
    jsdom has neither layout nor Web Animations, so flip() is otherwise a
@@ -1245,7 +1289,10 @@ const queueOne = (proj, section, name, block) => {
   w.PLAN.pickSub(proj, section);
   $('.ns-plan #task-name').value = name;
   $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
-  if (block) w.PLAN.optPick([...d.querySelectorAll('.ns-plan #opts-block .opt-b')].find(b => b.textContent === block), 'block', block);
+  // (4.17.1: a block is picked by itself — this one is set as asked, or none)
+  const chips = [...d.querySelectorAll('.ns-plan #opts-block .opt-b')], want = block && chips.find(b => b.dataset.v === block), on = chips.find(b => b.classList.contains('on'));
+  if (want && want !== on) w.PLAN.optPick(want, 'block', block);
+  else if (!block && on) w.PLAN.optPick(on, 'block', on.dataset.v);
   w.PLAN.addToQueue(); settle();
 };
 queueOne('curate', 0, 'mix the track', 'b1');       // curate > mixing
@@ -1265,7 +1312,7 @@ check('everything sent lands in the sent list, newest first, every row a button'
   rows.every(r => r.tagName === 'BUTTON' && r.getAttribute('aria-pressed') === 'false'),
   rows.map(r => r.querySelector('.q-item-name').textContent).join(' | '));
 check('… each row naming its project, its block and the day',
-  /curate/.test(rows[4].textContent) && /@b2/.test(rows[4].textContent) && /@b1/.test(rows[6].textContent));
+  /curate/.test(rows[4].textContent) && /block 2/.test(rows[4].textContent) && /block 1/.test(rows[6].textContent));   // (4.17.1: by number)
 check('the title row counts them and offers to clear',
   $('.ns-plan #sent-count').textContent === '7 tasks' && !$('.ns-plan #sent-clear').classList.contains('hidden'));
 
@@ -1952,7 +1999,7 @@ w.Shell.go('plan');
 w.PLAN.openProj('home'); w.PLAN.pickSub('home', 0);
 $('.ns-plan #task-name').value = 'clear the desk';
 $('.ns-plan #task-name').dispatchEvent(new w.Event('input', { bubbles: true }));
-w.PLAN.optPick($('.ns-plan #opts-block .opt-b'), 'block', 'b1');
+// (4.17.1: the day's next block is picked by itself — and follows the date to tomorrow)
 w.PLAN.stepDate(1);
 w.PLAN.addToQueue(); settle();
 check('planning one block for tomorrow answers it: PLAN\'s icon goes back',
