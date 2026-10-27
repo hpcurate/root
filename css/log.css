@@ -489,3 +489,13 @@
 .ns-log .card.due .card-w:empty::before{content:'due'}
 .ns-log .card.due::before{content:'!';position:absolute;right:12px;top:-4px;
   font:800 72px/1 var(--head);color:var(--on-y)}
+/* 4.23.1, "a little more vertical space between the rows": the rows sit further
+   apart, and a dot is sized from its row's height as well as its width, so
+   there is always air above and below it; the two halves' cards give back some
+   of the height 4.21 took from the month */
+.ns-log .lc-grid{row-gap:calc(6px * var(--dens))}
+.ns-log .lc-c::before{width:auto;height:min(26px, calc(100% - 4px));max-width:94%}
+/* no streak to show: its line folds away rather than holding 44px over the month */
+.ns-log .h-streak:empty{min-height:0;padding-bottom:calc(6px * var(--dens))}
+.ns-log .lc-c.future::before{width:4px;height:4px}
+.ns-log #card-m,.ns-log #card-e{min-height:calc(92px * var(--dens))}

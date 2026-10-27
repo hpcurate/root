@@ -2013,6 +2013,13 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.23.1 — 2026-10-27 — LOG's month: more room between its rows
+
+His "just need a little more vertical space between the rows for the calendar in log". The month takes what the home column
+leaves, and 4.21's taller cards took some of it. The rows are now 6px apart (was 3), a dot is sized from its row's height too
+so there is air above and below it, an empty streak line folds away instead of holding 44px, and the halves' cards are 92px.
+CSS only. Log: `updates/26-10-27_update_v4.23.1.md`.
+
 ### 4.23 — 2026-10-27 — ROOT 5, phase 6 (first part): PLAN's goals
 
 His answer 5: the goals live in PLAN. Above the projects sit **today's three** and **the week's three** (the week
