@@ -1983,6 +1983,14 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 4.16.3 — 2026-10-27 — LOG's day hands out the weight, not the wake-up time
+
+Found building TRAIN (Hugo's new app, request `r261027-6pwf`: "syncs with root log"), which reads the weight through
+ROOT desktop. `LOG.dayData(iso).weight` read the morning's `wt` — the wake-up time, "07:30", so a 7 — instead of `wkg`,
+the form's weight in kg (what LOG's own form, history and export use). Nothing drew `dayData().weight` yet (DATA's body
+family reads sleep, energy, mood, stress and walking), so nothing on screen was wrong; now it is the weight. Checked:
+`update.mjs check` full, 1312 passed (1 new: a 07:30 wake-up and 70.4 kg give 70.4).
+
 ### 4.16.2 — 2026-10-27 — the number beside the wordmark is never cut
 
 Asked for (prompter request `r261025-gq0l`, from Todoist `6hVxwPF8W4rvg3xp`, kept

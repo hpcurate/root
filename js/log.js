@@ -2488,7 +2488,9 @@ function dayData(iso) {
   return {
     date: iso,
     written: (filled(m) ? 1 : 0) + (filled(e) ? 1 : 0),
-    weight: num(m.wt), sleep: num(m.sl), walked: num(m.km) ?? num(e.kme),
+    /* the weight is the morning's `wkg` (the form's "weight", in kg); `wt` is the wake-up time, "07:30", which read
+       as a number was 7 (4.16.3) */
+    weight: num(m.wkg), sleep: num(m.sl), walked: num(m.km) ?? num(e.kme),
     /* Morning and evening ask the same three, so both are kept: the day's
        shape is the pair, and averaging them here would throw that away. */
     energyAm: num(m.nrg), moodAm: num(m.mood),

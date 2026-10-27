@@ -6958,6 +6958,16 @@ check('no errors through CREATE 4.12', errors.length === 0, errors.slice(0, 3).j
     JSON.stringify([dd.energyAm, dd.energyPm, dd.moodAm, dd.moodPm]));
   check('… and the day is findable without walking storage from outside',
     w.LOG.loggedDays().includes(iso4121));
+  /* 4.16.3: the weight is the form's "weight" (`m.wkg`); `m.wt` is the wake-up time, which read as a number made a
+     07:30 wake-up a 7 kg weight (TRAIN reads the weight through ROOT desktop) */
+  {
+    const k = 'log_' + iso4121, keep = w.localStorage.getItem(k), r = JSON.parse(keep);
+    r.m.wt = '07:30'; r.m.wkg = '70.4';
+    w.localStorage.setItem(k, JSON.stringify(r));
+    check('the day\'s weight is the weight, not the wake-up time',
+      w.LOG.dayData(iso4121).weight === 70.4, JSON.stringify(w.LOG.dayData(iso4121).weight));
+    w.localStorage.setItem(k, keep);
+  }
   check('TEND and STORE hand out their day too',
     typeof w.TEND.careOn === 'function' && typeof w.STORE.tripsOn === 'function' &&
     typeof w.TEND.careOn(iso4121) === 'number' &&
