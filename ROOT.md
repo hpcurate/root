@@ -2020,6 +2020,26 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.2.0 — 2026-10-28 — brain's map is BRAIN's: the new questions, and his map from the PC
+
+His prompter request r261027-f9vm (BRAIN 0.2.0 alongside: the life database), two of its "done when": "brain desktop and the
+brain module in root have the new map as default" and "sync via todoist between brain desktop and the brain module (root)".
+- **The starter map** (`quros/js/model.js` `STARTER`) is BRAIN 0.2.0's questions — 14 areas, 73 sections, the same keys BRAIN
+  gives them — made by its `core/life.js` (`Life.mapMd` with `{ generic: true }`) and pasted in. **No one's name** in it (the
+  old one had his partner's): ROOT is public. His own map, with the people, places and things of his life, reaches the phone
+  only through Todoist.
+- **The map from the PC** (`quros/js/brain.js` `pullMap`): BRAIN takes the phone's marks from "brain · map", then writes its
+  own map into the same task with `brain: {"kind":"map","from":"pc","at":…,"parts":n}` (the rest of a long one in "brain: map
+  n" comments). On each flush with nothing of the phone's waiting (two minutes between looks), a newer one from the PC is
+  joined and loaded **as the PC's** (`Q.m.loadMapText(text, { from: 'pc', at })`): its marks are the answer for its items,
+  other states kept, and it is never sent back (no `mapChanged`). A part still missing waits for the next look; a change made
+  here meanwhile goes first. The phone's own map now says `"from":"phone"` and when.
+- The map page says "from BRAIN on the PC, <when>"; settings' BRAIN line says when the map came.
+
+Harness: 1425 passed, 0 failed (6 new: the starter, a quiet load, the map from the PC in parts and in order, not twice, a part
+missing, a change here first). ROOT's `parseMap` on his real map (by a script, nothing kept): BRAIN's 235 keys and 213 marks
+exactly. Not seen: his phone with his BRAIN. **Not pushed**: it sits on 5.1.3 (also uncommitted, waiting for his "push").
+
 ### 5.1.3 — 2026-10-28 — brain's lock opens with a hold
 
 His words: "change the slide to unlock in brain (root) to a hold to unlock, currently the dock area hides the slide to unlock".

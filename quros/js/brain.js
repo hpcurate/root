@@ -9,12 +9,17 @@
    ROOT's own Todoist token (root_todoist_v1, the same site). A dump goes once it has been quiet three minutes (a dump carried
    on with "add more" goes whole); it waits in a queue on this phone while offline or without a token, and goes when it can
    (every minute while qurOS is open, and when it comes back to the front). One sent is never sent again; nothing is ever
-   deleted here. The section is made the first time, if it isn't there. */
+   deleted here. The section is made the first time, if it isn't there.
+
+   5.2.0 (r261027-f9vm "sync via todoist between brain desktop and the brain module (root)"): the map both ways. BRAIN 0.2.0
+   takes this phone's marks from the task, then writes its own map there — the life database read against its questions —
+   with "from":"pc" (the rest of a long one in "brain: map n" comments). Newer than the one here, and nothing of this phone's
+   waiting to go, it becomes the map here, its marks with it, quietly (it isn't sent back). */
 (() => {
 'use strict';
 const Q = window.Q;
 const BASE = 'https://api.todoist.com/api/v1';
-const QUIET = 3 * 60e3, LIMIT = 15000;
+const QUIET = 3 * 60e3, LIMIT = 15000, LOOK = 2 * 60e3;
 const K = { q: 'brainQ', sent: 'brainSent', ids: 'brainIds', map: 'brainMap', last: 'brainLast' };
 const kv = (k, d) => Q.db.kv(k, d), setKv = (k, v) => Q.db.setKv(k, v);
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -82,6 +87,7 @@ async function flush() {
     setKv(K.q, keep);
     setKv(K.sent, sent.slice(-3000));
     if (kv(K.map, {}).dirty) await sendMap(w);
+    else if (await pullMap(w).catch(() => false) && Q.app && !(Q.rec && Q.rec.isOpen())) Q.app.refresh();
   } finally { busy = false; }
   return status();
 }
@@ -92,7 +98,7 @@ async function sendMap(w) {
   if (!md) { setKv(K.map, { ...kv(K.map, {}), dirty: false }); return; }
   try {
     w = w || await where();
-    const m = kv(K.map, {}), description = `${md}\n\n---\nbrain: {"kind":"map"}`;
+    const m = kv(K.map, {}), description = `${md}\n\n---\nbrain: ${JSON.stringify({ kind: 'map', from: 'phone', at: Date.now() })}`;
     let id = m.task;
     if (id) { try { await td('/tasks/' + id, { method: 'POST', body: JSON.stringify({ description }) }); } catch { id = null; } }
     if (!id) {
@@ -100,12 +106,36 @@ async function sendMap(w) {
       if (open) { id = open.id; await td('/tasks/' + id, { method: 'POST', body: JSON.stringify({ description }) }); }
       else id = (await td('/tasks', { method: 'POST', body: JSON.stringify({ content: 'brain · map', description, project_id: w.project, section_id: w.section }) })).id;
     }
-    setKv(K.map, { task: id, dirty: false, at: Date.now() });
+    setKv(K.map, { ...kv(K.map, {}), task: id, dirty: false, at: Date.now() });
   } catch {}
+}
+// BRAIN's map, when the task has a newer one than this phone took (two minutes between looks; "brain: map n" all there first)
+const META = /\n*---\nbrain: (\{.*\})\s*$/;
+async function pullMap(w) {
+  const m = kv(K.map, {});
+  if (m.dirty || Date.now() - (m.looked || 0) < LOOK) return false;
+  setKv(K.map, { ...m, looked: Date.now() });
+  w = w || await where();
+  let t = null;
+  if (m.task) { try { t = await td('/tasks/' + m.task); } catch { t = null; } }
+  if (!t || t.checked || t.completed_at) t = list(await td('/tasks?limit=200&section_id=' + w.section)).find(x => x.content === 'brain · map') || null;
+  if (!t) return false;
+  const desc = String(t.description || ''), mm = META.exec(desc);
+  let meta = null; try { meta = mm && JSON.parse(mm[1]); } catch { meta = null; }
+  if (!meta || meta.kind !== 'map' || meta.from !== 'pc' || !meta.at || meta.at === m.pulled) return false;
+  let text = desc.slice(0, mm.index);
+  if (meta.parts > 1) {
+    const cs = list(await td('/comments?task_id=' + t.id)).map(c => /^brain: map (\d+)\n([\s\S]*)$/.exec(c.content || '')).filter(Boolean).sort((a, b) => a[1] - b[1]);
+    if (cs.length < meta.parts - 1) return false;                           // still being written: the next look
+    text = [text.trim(), ...cs.map(c => c[2].trim())].join('\n');
+  }
+  if (kv(K.map, {}).dirty || !Q.m.loadMapText(text, { from: 'pc', at: meta.at })) return false;   // changed here meanwhile: ours goes first
+  setKv(K.map, { ...kv(K.map, {}), task: t.id, pulled: meta.at, dirty: false });
+  return true;
 }
 function status() {
   const q = kv(K.q, []), last = kv(K.last, null);
-  return { on: on(), token: !!token(), waiting: q.length, last, said: last && last.said || '' };
+  return { on: on(), token: !!token(), waiting: q.length, last, said: last && last.said || '', pulled: kv(K.map, {}).pulled || 0 };
 }
 
 if (on()) {
@@ -114,5 +144,5 @@ if (on()) {
   window.addEventListener('online', () => flush());
   setTimeout(flush, 4000);
 }
-Q.brain = { queue, flush, mapChanged, status, taskOf, where };
+Q.brain = { queue, flush, mapChanged, status, taskOf, where, pullMap };
 })();

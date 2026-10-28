@@ -5713,6 +5713,22 @@ w9.Prefs.set('dock', ['do', 'log', 'cal', 'quros']);
   check('… and inside ROOT the recorder\'s foot sits above the dock\'s strip',
     recCss.includes('html.embed .rec-ctl, html.embed .rec-unlock { padding-bottom: calc(var(--sab) + var(--bar-h)); }') &&
     qW.document.documentElement.style.getPropertyValue('--bar-h') === '88px');
+  // 5.2.0 (r261027-f9vm "brain desktop and the brain module in root have the new map as default"): the starter is BRAIN 0.2.0's
+  // questions with no one's name in it; BRAIN's own map, from Todoist, loads quietly with its marks
+  const qStarter = qW.Q.m.parseMap(qW.Q.m.STARTER);
+  check('5.2.0: the starter map is BRAIN 0.2.0\'s questions — 73 sections in 14 areas, nothing marked, no one\'s name (ROOT is public)',
+    !!qStarter && qStarter.map.title === 'Life map' && qStarter.map.sections.length === 73 && qStarter.map.sections[0].title === 'Me › Identity' &&
+    new Set(qStarter.map.sections.map(s => s.title.split(' › ')[0])).size === 14 && !Object.keys(qStarter.seed).length && !qW.Q.m.STARTER.includes('Floor'),
+    qStarter && qStarter.map.sections.length + ' / ' + qStarter.map.sections[0].title);
+  const kHours = qW.Q.m.itemKey('Body › Sleep', '**Hours** — how long'), kNaps = qW.Q.m.itemKey('Body › Sleep', '**Naps**');
+  qW.Q.db.setKv('mapState', { [kNaps]: 'partial', 'elsewhere/kept': 'done' });
+  qW.Q.db.setKv('brainMap', { dirty: false });
+  const qPc = qW.Q.m.loadMapText('# Life map\n## Body › Sleep — Tier 1\n- [x] **Hours** — how long\n- [ ] **Naps**\n', { from: 'pc', at: 123 });
+  const qSt = qW.Q.m.states();
+  check('… BRAIN\'s map loads quietly: its marks are the answer for its items (BRAIN took this phone\'s first), the rest kept, nothing to send back',
+    !!qPc && qW.Q.m.map().from === 'pc' && qW.Q.m.map().at === 123 && qSt[kHours] === 'done' && !qSt[kNaps] && qSt['elsewhere/kept'] === 'done' &&
+    qW.Q.db.kv('brainMap', {}).dirty === false,
+    JSON.stringify(qSt) + ' / ' + JSON.stringify(qW.Q.db.kv('brainMap', {})));
 }
 
 /* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked
@@ -8368,6 +8384,7 @@ check('no errors through the schedule', errors.length === 0, errors.slice(0, 3).
     if (u.pathname.endsWith('/tasks')) return json(200, { results: tasks.filter(t => t.section_id === u.searchParams.get('section_id')), next_cursor: null });
     const up = /\/tasks\/(t\d+)$/.exec(u.pathname);
     if (up) { const t = tasks.find(x => x.id === up[1]); if (!t) return json(404, {}); Object.assign(t, body); return json(200, t); }
+    if (u.pathname.endsWith('/comments') && !o.method) return json(200, { results: ((tasks.find(t => t.id === u.searchParams.get('task_id')) || {}).comments || []).map((c, i) => ({ id: 'c' + i, content: c })), next_cursor: null });
     if (u.pathname.endsWith('/comments')) { tasks.find(t => t.id === body.task_id).comments.push(body.content); return json(200, {}); }
     return json(404, {});
   };
@@ -8396,9 +8413,31 @@ check('no errors through the schedule', errors.length === 0, errors.slice(0, 3).
   check('… a dump already sent, queued again (edited later), isn\'t sent twice', tasks.length === 2);
   B.mapChanged(); await B.flush();
   const mt = tasks.find(t => t.content === 'brain · map');
-  check('BRAIN (5.1): the map goes as one task "brain · map" — qurOS\'s markdown and brain: {"kind":"map"}', !!mt && mt.description === '# map\n## Body — Tier 1\n- [x] Sleep\n- Food\n\n---\nbrain: {"kind":"map"}', mt && mt.description);
+  check('BRAIN (5.1): the map goes as one task "brain · map" — qurOS\'s markdown and brain: {"kind":"map",…} (5.2.0: "from":"phone" and when)',
+    !!mt && /^# map\n## Body — Tier 1\n- \[x\] Sleep\n- Food\n\n---\nbrain: \{"kind":"map","from":"phone","at":\d+\}$/.test(mt.description), mt && mt.description);
   bw.Q.m.mapToMd = () => '# map\n## Body\n- [x] Sleep\n- [x] Food'; B.mapChanged(); await B.flush();
   check('… changed: the same task is updated, not a second one', tasks.filter(t => t.content === 'brain · map').length === 1 && /- \[x\] Food/.test(mt.description));
+  // 5.2.0 (r261027-f9vm "sync via todoist between brain desktop and the brain module (root)"): BRAIN writes its map into the
+  // same task, "from":"pc", the rest in "brain: map n" comments — newer than this phone's, it becomes the map here
+  let pulled = null;
+  bw.Q.m.loadMapText = (text, o) => { pulled = { text, o }; return { map: {}, replaced: true }; };
+  const pcAt = Date.now() - 1000, mapPosts = () => calls.filter(c => c === 'POST /api/v1/tasks/' + mt.id).length, postsBefore = mapPosts();
+  mt.description = '# Life map\n\n## Body › Sleep — Tier 1\n- [x] **Hours** — how long\n\n---\nbrain: ' + JSON.stringify({ kind: 'map', from: 'pc', at: pcAt, parts: 3 });
+  mt.comments = ['brain: map 3\n## Work › Jobs — Tier 3\n- [ ] **Hours worked**', 'brain: map 2\n## People › Friends — Tier 2\n- [~] **Alex** — friend'];
+  KV.set('brainMap', { ...KV.get('brainMap'), looked: 0 });
+  await B.flush();
+  check('5.2.0: BRAIN\'s map, newer, becomes the map here — its parts in order, loaded as the PC\'s, nothing sent back',
+    !!pulled && pulled.text === '# Life map\n\n## Body › Sleep — Tier 1\n- [x] **Hours** — how long\n## People › Friends — Tier 2\n- [~] **Alex** — friend\n## Work › Jobs — Tier 3\n- [ ] **Hours worked**' &&
+    pulled.o.from === 'pc' && pulled.o.at === pcAt && KV.get('brainMap').pulled === pcAt && KV.get('brainMap').dirty === false && mapPosts() === postsBefore,
+    JSON.stringify(pulled) + ' / ' + JSON.stringify(KV.get('brainMap')));
+  pulled = null; KV.set('brainMap', { ...KV.get('brainMap'), looked: 0 }); await B.flush();
+  check('… the same one again: not loaded twice; and a look waits two minutes', !pulled && B.status().pulled === pcAt);
+  mt.description = mt.description.replace(/"at":\d+/, '"at":' + (pcAt + 5000)).replace('"parts":3', '"parts":4');
+  KV.set('brainMap', { ...KV.get('brainMap'), looked: 0 }); await B.flush();
+  check('… a part still missing (BRAIN writing it): it waits for the next look', !pulled && KV.get('brainMap').pulled === pcAt);
+  B.mapChanged(); KV.set('brainMap', { ...KV.get('brainMap'), looked: 0 }); await B.flush();
+  check('… a change made here meanwhile goes first (BRAIN takes its marks, then writes back): sent, not overwritten',
+    !pulled && /"from":"phone"/.test(mt.description) && KV.get('brainMap').dirty === false, mt.description.slice(-80));
   // outside ROOT (qurOS's own app): nothing is queued
   const ow = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' }).window;
   const OKV = new Map();

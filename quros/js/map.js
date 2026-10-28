@@ -27,7 +27,7 @@ function render() {
       <button class="icon-btn" type="button" data-a="menu" aria-label="map options">${icon('dots')}</button>
     </div>
     <h1 class="wm">Map<em>.</em></h1>
-    <p class="top-sub">${m ? esc(m.title) : 'what brain knows about you, and what is still to talk through.'}</p>
+    <p class="top-sub">${m ? esc(m.title) + (m.from === 'pc' ? ' · from BRAIN on the PC, ' + esc(new Date(m.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '') : 'what brain knows about you, and what is still to talk through.'}</p>
   </header>
 
   ${m ? `

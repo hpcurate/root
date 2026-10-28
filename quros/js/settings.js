@@ -64,7 +64,8 @@ function brainLine() {
   const s = Q.brain.status();
   if (!s.token) return 'each dump goes to BRAIN on the PC through Todoist (04 | core › brain | dumps) — it needs the Todoist key in ROOT → settings';
   const last = s.last && s.last.at ? `the last one went ${Q.u.hm(s.last.at)}` : 'none sent yet';
-  return `each dump goes to BRAIN on the PC, in Todoist's 04 | core › brain | dumps · ${s.waiting ? s.waiting + ' waiting · ' : ''}${last}${s.said ? ' · ' + esc(s.said) : ''}`;
+  const map = s.pulled ? ` · the map is BRAIN's, from ${new Date(s.pulled).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : '';
+  return `each dump goes to BRAIN on the PC, in Todoist's 04 | core › brain | dumps · ${s.waiting ? s.waiting + ' waiting · ' : ''}${last}${map}${s.said ? ' · ' + esc(s.said) : ''}`;
 }
 function body() {
   const s = S();

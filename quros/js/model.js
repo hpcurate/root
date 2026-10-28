@@ -118,10 +118,19 @@ function setItemState(k, s) {
   db().setKv('mapState', st);
   if (Q.brain) Q.brain.mapChanged();
 }
-function loadMapText(text) {
+function loadMapText(text, o = {}) {
   const r = parseMap(text);
   if (!r) return null;
   const old = map();
+  /* 5.2.0: BRAIN's map (js/brain.js pulls it from Todoist): its marks are the answer — BRAIN took this phone's before it wrote
+     them — and it is not sent back (no mapChanged) */
+  if (o.from === 'pc') {
+    db().setKv('map', Object.assign({}, r.map, { from: 'pc', at: o.at || Date.now() }));
+    const st = Object.assign({}, states());
+    r.map.sections.forEach(s => s.items.forEach(x => { if (r.seed[x.key]) st[x.key] = r.seed[x.key]; else delete st[x.key]; }));
+    db().setKv('mapState', st);
+    return { map: r.map, replaced: !!old };
+  }
   setMap(r.map);
   /* the app's answer is newer than the file's: [x] only fills an item with no state yet */
   const st = Object.assign({}, states());
@@ -170,29 +179,313 @@ function rekey(oldKey, newKey) {
     if (e.topic && e.topic.item === oldKey) { e.topic = Object.assign({}, e.topic, { item: newKey }); db().put('entries', e); }
   });
 }
-const STARTER = `# Life dump map
-## Now — Tier 1
-- How my days actually go at the moment
-- What is weighing on me this month
-- What I want the next three months to look like
-## Body — Tier 1
-- Sleep
-- Food and cooking
-- Movement and the gym
-## Work and study — Tier 2
-- The CAP: where I am, what is hard
-- Money
-## People — Tier 2
-- Floor
-- Family
-- Friends
-## Music — Tier 2
-- What I am making
-- What gets in the way
-## Story — Tier 3
-- Childhood
-- Turning points
-- What I believe`;
+/* 5.2.0 (r261027-f9vm "brain desktop and the brain module in root have the new map as default"): BRAIN 0.2.0's questions
+   (its core/life.js, Life.mapMd with { generic: true }) — 14 areas, 73 sections, no name of anyone: ROOT is public. His own map,
+   with the people, places and things of his life in it, comes from BRAIN through Todoist (js/brain.js, pullMap). */
+const STARTER = `# Life map
+
+## Me › Identity — Tier 1
+- **Who you are in one breath** — how you'd describe yourself to a stranger, and honestly
+- **Your names** — given names, nicknames, DJ names, handles
+- **Birth** — date, place, what you were told about it
+- **Languages** — which, how well, where you use them
+- **Where you're from** — the countries and cities that made you
+
+## Me › Personality — Tier 1
+- **Your known patterns** — freezing, withdrawing, all-or-nothing, what triggers them, what breaks them
+- **Strengths** — what you're genuinely good at
+- **Weak spots** — what keeps tripping you up
+- **How you make decisions** — gut vs. analysis, where you get stuck
+
+## Me › Values and beliefs — Tier 1
+- **What matters** — the few things you'd never trade
+- **Mottos** — the lines you live by
+- **Politics and beliefs** — only if you want them on file
+- **What you're proud of** — and what you regret
+
+## Me › What works on you — Tier 1
+- **What works on you** — when you've been at your best, what was different
+- **How you want me to talk to you** — when to push, when to back off, what makes you shut down
+- **Comfort** — what helps on a bad day
+
+## Me › Goals — Tier 1
+- **Right now** — what this chapter is, what's good, what's bad, what you want out of
+- **The next 12 months** — what has to happen, what you want to happen
+- **The 5–10 year picture** — where you'd live, what you'd do, with whom
+- **What a good life looks like** — concretely, a normal Tuesday in it
+- **What scares you** — outcomes you're trying to avoid
+
+## Me › Mood and inner world — Tier 1
+- **Mood** — how the last months have felt, whether it's new or a pattern
+- **Nostalgia** — the times you miss
+- **Social energy** — when you want people, when you need solitude
+
+## People › Partner — Tier 1
+- **The relationship as a whole** — history, what works, what doesn't
+- **How you met** — when, where, through whom
+- **Living together** — space, chores, money, schedules
+- **What you need to decide** — and by when
+
+## People › Family — Tier 1
+- **Mum** — the relationship, what she knows, what you'd want it to be
+- **Dad** — same
+- **Brothers** — one at a time, who's closest
+- **Extended family** — uncles, cousins, grandparents
+- **Family patterns** — roles, old fights, what's unsaid
+
+## People › Friends — Tier 1
+- **Close friends** — the inner circle
+- **Friends from before** — the wider group, who you miss, who you've drifted from
+- **Friends you've lost** — and why
+
+## People › Partner's circle — Tier 1
+- **Your partner's people** — who's yours vs. theirs
+- **Their family** — the ones you see
+
+## People › Music people — Tier 1
+- **DJs, producers, promoters, crews** — who you know
+- **Online contacts** — the ones who answer
+
+## People › School people — Tier 1
+- **School friends** — every school, university
+- **Teachers or classmates who still matter**
+
+## People › Work people — Tier 1
+- **Colleagues and bosses** — past and present
+
+## People › Practical people — Tier 1
+- **Therapists, psychiatrists, doctors**
+- **School contacts, coaches**
+- **Landlord, agency, admin contacts**
+
+## People › Neighbours and local — Tier 1
+- **Local people** — anyone where you live, even loose ties
+- **Neighbours** — the good ones, the difficult ones
+
+## People › Past people — Tier 1
+- **Exes, lost friends, anyone who still takes up space in your head**
+
+## People › Key dates — Tier 1
+- **Birthdays and anniversaries for everyone above**
+
+## Pets › Pets — Tier 1
+- **Your animal** — age, routine, health, needs, who looks after them when you can't
+- **Training** — what they know, what you're teaching
+- **Vet and food** — who, what, how much
+
+## Home and daily life › Homes — Tier 1
+- **The apartment** — layout, what's where, what's broken, what bugs you
+- **Every place you've lived** — and what each was like
+- **The move** — the plan, criteria (garden, space, price), timeline, blockers
+
+## Home and daily life › Neighbourhood — Tier 1
+- **Shops, gym, walks, transport**
+- **Feeling safe** — day and night
+
+## Home and daily life › A real day — Tier 1
+- **A real day** — walk through yesterday honestly, hour by hour
+- **A good day** — the last one you remember and why it worked
+- **A bad day** — what it looks like and what tips you into it
+
+## Home and daily life › Routines — Tier 1
+- **Routines** — which ones stick, which ones you've abandoned
+- **Chores** — what gets done, what doesn't
+- **Mornings and evenings** — the anchors
+
+## Home and daily life › Screens — Tier 1
+- **Phone, YouTube, games, scrolling** — how much and when
+- **What you've blocked** — and whether it worked
+
+## Body and mind › Health overview — Tier 1
+- **Health overview** — conditions, diagnoses, anything ongoing
+- **Doctors** — who, for what, when last
+- **Checks to do** — what's overdue
+
+## Body and mind › Mental health — Tier 1
+- **ADHD** — the diagnosis, how it shows up for you specifically
+- **Anxiety and depression** — what it's like, what helps
+- **Therapy** — who, how often, what you work on
+
+## Body and mind › Medication — Tier 1
+- **What you take** — name, dose, when
+- **What it does for you** — and the side effects
+- **Getting it** — prescriptions, pharmacy, reimbursements
+
+## Body and mind › Sleep — Tier 1
+- **Sleep** — when you actually sleep and wake, what wrecks it
+- **What helps** — mask, earplugs, rules
+
+## Body and mind › Food — Tier 1
+- **Food** — what you eat on a normal day, cooking skill, likes, dislikes, intolerances
+- **What you'd want to change**
+
+## Body and mind › Fitness — Tier 1
+- **Fitness** — gym routine, what you train, goals, injuries
+- **Walking and breathing** — the km walked, breathing practice
+
+## Body and mind › Body and weight — Tier 1
+- **Weight** — where it is, where you want it
+- **Look and style** — hair, piercings, clothes
+
+## Body and mind › Substances — Tier 1
+- **Weed** — how much, when, why, what you want, what's happened when you stopped before
+- **Other substances** — alcohol, caffeine, nicotine, anything else
+- **Your rules** — what you allow yourself, and when
+
+## History › The arc — Tier 2
+- **The arc** — the main chapters of your life so far, one sentence each
+- **Turning points** — the 5–10 moments that changed your direction
+
+## History › Childhood — Tier 2
+- **Childhood by city** — every city: years, school, what each gave you
+- **Your family then** — what home was like
+
+## History › Places lived — Tier 2
+- **Every city and country** — when, why, what you kept
+
+## History › Year by year — Tier 2
+- **Each year in a few lines** — what happened, how it felt
+
+## Education › Schools — Tier 2
+- **Every school** — what it was like, what it left
+- **High school** — where, with whom, what that period was
+- **University** — every one, what you studied, why each ended
+
+## Education › CAP Électricien — Tier 2
+- **Why this path** — why electrician, what you want it to lead to
+- **The program** — school, platform, structure, exam format, the deadline
+- **Progress** — what's done, what you remember, where you stalled and why
+- **The school contact** — who calls, how often, what they expect
+- **Practical side** — internship / alternance, tools, workspace
+
+## Education › Skills and learning — Tier 2
+- **Skills** — what you're genuinely good at, including the unofficial stuff
+- **Learning** — how you learn best, courses you've done
+
+## Work and income › Jobs — Tier 2
+- **Work history** — every job and gig, what you liked, why it ended
+
+## Work and income › Job search — Tier 2
+- **The alternance** — where you've applied, what's next
+- **What work you'd take** — and what you won't
+
+## Work and income › Ideas and side projects — Tier 2
+- **Ideas** — channels, businesses, things you've wanted to start
+
+## Money › Monthly picture — Tier 2
+- **Monthly picture** — income in, fixed costs out (rent, subscriptions, phone, insurance), what's left
+- **Who pays what** — between you, your partner, your parents
+
+## Money › Savings and debts — Tier 2
+- **Savings and debts** — roughly where you stand, what you owe and to whom
+
+## Money › Money habits — Tier 2
+- **Money habits** — where it leaks, what stresses you
+- **Money goals** — the move, gear, trips, a buffer
+
+## Admin › Paperwork map — Tier 2
+- **CAF, CPAM, CFE, mutuelle, taxes, France Travail, bank** — what you have, what's pending
+- **Where documents live** — physical and digital
+
+## Admin › Driving licence — Tier 2
+- **Licence follow-up** — the prefecture requirements and dates
+
+## Admin › Ongoing disputes — Tier 2
+- **Ongoing disputes** — the agency, anything else open
+
+## Admin › Recurring deadlines — Tier 2
+- **Renewals, declarations, bills** — what comes back every year
+
+## Music › The story — Tier 2
+- **The story** — how you got into the music, key moments, why the project
+- **Names** — every artist name you've used, and what each one was
+
+## Music › The project — Tier 2
+- **What the project is** — the identity, the sound, the vibe, what you want people to feel
+- **Visual identity** — artwork, colours, fonts
+
+## Music › Taste — Tier 2
+- **Taste map** — subgenres you love and hate, top artists, labels, the tracks that define you
+- **References** — the artists you learn from: what exactly you want to take from each
+
+## Music › Mixing — Tier 2
+- **DJ skills** — what you're solid on, what's weak, how you prep a mix
+- **Blocks** — how you record and sort them
+- **Promo mixes** — every one, where it lives
+
+## Music › Production — Tier 2
+- **Production skills** — DAW, what you can do now, the gap to where you want to be
+- **Courses** — what you've followed
+- **Your sounds** — patches, sketches, templates
+
+## Music › Gear and library — Tier 2
+- **Gear** — controllers, decks, headphones, monitors, interface, plugins, sample packs
+- **Library** — Rekordbox setup, where files live, how you tag, where you buy
+
+## Music › Works — Tier 2
+- **Unfinished work** — every mix, track, idea in progress and where it's stuck
+
+## Music › Events and raves — Tier 2
+- **Festivals and raves** — favourites, ones you want to hit, budget for them
+- **Scene** — the cities around you: events, crews, promoters
+
+## Music › Gigs and competitions — Tier 2
+- **Gigs** — every one, how it went
+- **Competitions** — entries, results, upcoming ones
+
+## Music › Online presence — Tier 2
+- **Online presence** — SoundCloud, Instagram, Mixcloud, Twitch, and the content plan
+
+## Music › Music goals — Tier 2
+- **Goals** — 6 months, 2 years, dream outcome; hobby vs. career, honestly
+
+## Systems and tech › Your apps — Tier 2
+- **The apps you built** — what each does, what you use daily
+- **Where this memory fits** — what you want it to replace, connect to, or stay out of
+
+## Systems and tech › Tools — Tier 2
+- **Todoist** — projects, labels, how you capture tasks
+- **Obsidian** — vault structure, what you log, morning and evening flow
+- **Google Calendar** — calendars and colour logic
+- **Other apps** — habits, money, notes, music, AI
+
+## Systems and tech › Devices — Tier 2
+- **Devices** — phone, computers, specs, builds, peripherals, what needs fixing
+
+## Systems and tech › Accounts and storage — Tier 2
+- **Which email for what, cloud drives, backups, GitHub**
+
+## Systems and tech › What's failed before — Tier 2
+- **Systems you built and dropped, and the reason each one broke**
+
+## Systems and tech › Look and feel — Tier 2
+- **Fonts, themes, how you want screens to look**
+
+## Taste › Food — Tier 3
+- **Favourite dishes, restaurants, cuisines, what you cook well**
+
+## Taste › Films, series, books — Tier 3
+- **Films, series, YouTube channels, books, podcasts**
+
+## Taste › Games — Tier 3
+- **Games** — what you play, with whom, what hooks you
+
+## Taste › Style — Tier 3
+- **Style** — clothes, brands, sizes, perfume
+
+## Taste › Places and travel — Tier 3
+- **Favourite cities, trips taken, travel wishlist**
+
+## Possessions › Big items — Tier 3
+- **Furniture, car, bike, anything you'd move or sell**
+
+## Possessions › Tools and kit — Tier 3
+- **Electrical and DIY tools** — what you own, what the CAP needs you to buy
+- **Kitchen** — equipment that limits or enables cooking
+- **Clothing and sports kit** — what you have, what's worn out
+
+## Possessions › Wishlist — Tier 3
+- **What you want to buy, rough price, priority**`;
 
 /* ── topics ── */
 function findItem(key) {

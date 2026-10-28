@@ -122,7 +122,7 @@ Same origin as root on GitHub Pages, so everything is prefixed or its own:
 | sessionStorage | `qos_tab` | last tab, this session only |
 | Cache Storage | `qurOS-<VERSION>` | the offline shell |
 
-`kv` keys: `map`, `mapState` (`itemKey → 'partial'|'done'`), `week:YYYY-Www`
+`kv` keys: `map` (ROOT 5.2.0: `from: 'pc'` and `at` when it is BRAIN's), `mapState` (`itemKey → 'partial'|'done'`), `week:YYYY-Www`
 (weekly goals), `sends` (last 30, with the body when < 400 kB), `lastBackup`.
 Each kv record carries `t` so a merge restore keeps the newer one.
 
@@ -212,3 +212,9 @@ plus settings; an export cannot be restored.
   `rec.js`): it fills left to right, a vibration when the hold starts and the usual one on unlocking; let go or slide
   off and it empties. Embedded, the recorder's foot (its four buttons and the hold) is lifted by `--bar-h`, clear of
   ROOT's dock. Settings' "lock when talking starts" says hold. ROOT's harness: two new checks.
+- **ROOT 5.2.0 (2026-10-28) — the map is BRAIN's** (r261027-f9vm: "brain desktop and the brain module in root have the new
+  map as default" · "sync via todoist between brain desktop and the brain module (root)"). `STARTER` is BRAIN 0.2.0's questions
+  (14 areas, 73 sections, no names). `js/brain.js` `pullMap`: "brain · map" written by BRAIN (`"from":"pc"`, its parts in
+  "brain: map n" comments), newer than the one here and nothing of the phone's waiting, is loaded with
+  `Q.m.loadMapText(text, { from: 'pc', at })` — its marks the answer, never sent back. `brainMap` keeps `pulled` and `looked`;
+  the phone's map says `"from":"phone"`. The map page and settings say when it came.
