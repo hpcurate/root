@@ -5694,6 +5694,25 @@ w9.Prefs.set('dock', ['do', 'log', 'cal', 'quros']);
     fs.readFileSync(path.join(ROOT, 'quros/css/app.css'), 'utf8').includes('@media (min-width: 600px) {\n  html.embed #app { max-width: 1240px; border: 0; }') &&
     fs.readFileSync(path.join(ROOT, 'css/quros.css'), 'utf8').includes('.ns-quros{--readable:1240px}'),
     (qd('.dnext .dn-t') || {}).textContent + ' / ' + qW.Q.m.sections().map(s => s.title).join());
+  // 5.1.3 (Hugo: "change the slide to unlock in brain (root) to a hold to unlock, currently the dock area hides the slide to unlock")
+  const qR = qW.Q.rec, qWait = ms => new Promise(r => setTimeout(r, ms));
+  qR.write({}); qR._R.voice = true; qR.lock();   // jsdom has no speech: listening is assumed, as lock needs it
+  const qHold = qW.document.querySelector('#rec .rec-hold');
+  const qPress = t => qHold.dispatchEvent(new (qW.PointerEvent || qW.MouseEvent)(t, { bubbles: true, cancelable: true }));
+  const lockedAtStart = qR.isLocked();
+  qPress('pointerdown'); await qWait(400); qPress('pointerup'); await qWait(1300);
+  const shortPress = qR.isLocked();
+  qPress('pointerdown'); await qWait(1650);
+  const longPress = qR.isLocked();
+  qR._R.voice = false; qR.discard();
+  const recCss = fs.readFileSync(path.join(ROOT, 'quros/css/app.css'), 'utf8');
+  check('5.1.3: brain\'s lock opens with a hold, not a slide — a short press stays locked, a held one unlocks',
+    lockedAtStart && shortPress && !longPress && !qW.document.querySelector('#rec [role="slider"], #rec .rec-track') &&
+    /hold to unlock/.test(qHold.textContent),
+    `locked ${lockedAtStart} → short press ${shortPress} → held ${longPress}`);
+  check('… and inside ROOT the recorder\'s foot sits above the dock\'s strip',
+    recCss.includes('html.embed .rec-ctl, html.embed .rec-unlock { padding-bottom: calc(var(--sab) + var(--bar-h)); }') &&
+    qW.document.documentElement.style.getPropertyValue('--bar-h') === '88px');
 }
 
 /* 4.23, PLAN's goals: today's three and the week's three — a hard cap, ticked

@@ -90,9 +90,11 @@ recorder does, and an unlocked one with unsaved words asks first.
   written on every phrase and every 5 s. On start, an unsaved draft is offered
   back; opening a new recording *rescues* (saves) any orphan draft first.
 - **The lock.** Capture-phase listeners on `#rec` swallow touch, pointer,
-  click, context-menu and wheel events unless they target the knob; keys are
+  click, context-menu and wheel events unless they target the hold button; keys are
   swallowed on `document`. Toasts get `pointer-events:none` while locked
-  (`html.rec-locked`). The knob unlocks at ≥ 88 % of the track. Dim after
+  (`html.rec-locked`). Holding the button for `HOLD` (1.5 s) unlocks; lifting
+  the finger or sliding it off the button first lets go (ROOT 5.1.3 — a slide
+  until then). Inside ROOT the recorder's foot is lifted by `--bar-h`. Dim after
   `dimAfter` s; drift every 30 s; re-lock after `relockAfter` s idle while
   listening (not while a sheet is on top). A blocked mic unlocks and vibrates.
 - **The microphone** (2.0.1, settings → microphone: `mic`, `micName`): the Web Speech
@@ -205,3 +207,8 @@ plus settings; an export cannot be restored.
   frame from 600px wide drops the 560px column. The map: an item `**Name** — note` shows its name (`Q.m.itemName`, keys
   unchanged), and in a map that ticks its items a bold bullet with no box is a note, not a thing to talk through (as BRAIN
   0.1.1 reads it).
+- **ROOT 5.1.3 (2026-10-28) — hold to unlock** (Hugo: "change the slide to unlock in brain (root) to a hold to unlock,
+  currently the dock area hides the slide to unlock"). The locked recorder's slider is a button held for 1.5 s (`HOLD`,
+  `rec.js`): it fills left to right, a vibration when the hold starts and the usual one on unlocking; let go or slide
+  off and it empties. Embedded, the recorder's foot (its four buttons and the hold) is lifted by `--bar-h`, clear of
+  ROOT's dock. Settings' "lock when talking starts" says hold. ROOT's harness: two new checks.

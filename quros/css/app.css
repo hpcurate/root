@@ -540,11 +540,13 @@ html.rec-locked #toast { pointer-events: none !important; }
 .rec-ctl button.go { background: var(--y); border-color: var(--y); color: var(--on-y); }
 #rec[data-lock="1"] .rec-ctl { display: none; }
 
-.rec-slide { display: none; padding: 12px 22px calc(var(--sab) + 24px); max-width: 560px; width: 100%; margin: 0 auto; transition: opacity 1.2s; }
-#rec[data-lock="1"] .rec-slide { display: block; }
-.rec-track {
-  position: relative; height: 66px; border-radius: 33px; border: 1px solid var(--bd2); overflow: hidden;
-  background: linear-gradient(90deg, var(--yd) calc(var(--p, 0) * 100% + 33px), transparent 0);
+.rec-unlock { display: none; padding: 12px 22px calc(var(--sab) + 24px); max-width: 560px; width: 100%; margin: 0 auto; transition: opacity 1.2s; }
+#rec[data-lock="1"] .rec-unlock { display: block; }
+/* held, it fills left to right (--p, rec.js) and unlocks when full */
+.rec-hold {
+  position: relative; display: block; width: 100%; height: 66px; padding: 0; border-radius: 33px; border: 1px solid var(--bd2); overflow: hidden;
+  background: linear-gradient(90deg, var(--yd) calc(var(--p, 0) * (100% - 33px) + 33px), transparent 0);
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
 .rec-hint {
   position: absolute; inset: 0; display: grid; place-items: center; padding-left: 50px; font: 600 11px/1 var(--mono);
@@ -557,12 +559,12 @@ html.rec-locked #toast { pointer-events: none !important; }
 @keyframes nudge { 25% { transform: translateX(6px); } 60% { transform: translateX(-3px); } }
 .rec-knob {
   position: absolute; left: 4px; top: 4px; width: 56px; height: 56px; border-radius: 50%; background: var(--y); color: var(--on-y);
-  display: grid; place-items: center; cursor: grab; transition: transform .3s var(--pop); z-index: 1;
+  display: grid; place-items: center; transition: transform .3s var(--pop); z-index: 1;
 }
-.rec-knob.drag { transition: none; cursor: grabbing; }
+.rec-hold.on .rec-knob { transform: scale(.88); }
 .rec-knob .ic { width: 22px; height: 22px; }
 #rec.dim .rec-shift { opacity: .16; }
-#rec.dim .rec-slide { opacity: .1; }
+#rec.dim .rec-unlock { opacity: .1; }
 #rec.dim .rec-orb { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -663,6 +665,8 @@ html.embed #bar button:active { transform: scale(.9); }
 html.embed #bar button.on { background: var(--tx); border-color: var(--tx); color: var(--bg); font-weight: 700; }
 html.embed #bar button .badge { position: static; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; font: 800 10px/20px var(--mono);
   background: var(--y); color: var(--on-y); }
+/* ROOT 5.1.3: the recorder's foot (its buttons, the hold to unlock) sits above the dock's strip, not in it */
+html.embed .rec-ctl, html.embed .rec-unlock { padding-bottom: calc(var(--sab) + var(--bar-h)); }
 
 /* a wide frame (ROOT desktop): the page takes the width — no narrow column with rules either side */
 @media (min-width: 600px) {

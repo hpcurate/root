@@ -73,7 +73,7 @@ function body() {
   ${row('speech language', 'what the phone listens for', `<select class="field" data-s="lang">${LANGS.concat(s.langs.filter(l => !LANGS.some(x => x[0] === l)).map(l => [l, l])).map(([v, l]) => `<option value="${v}" ${s.lang === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
   ${row('quick switch', 'the EN/FR button while recording — codes, comma-separated', `<input class="field" type="text" data-s="langs" value="${esc(s.langs.join(', '))}">`)}
   ${row('microphone', "the phone's own, or a headset — Bluetooth earbuds are listed while they're connected; tap find mics", `<span class="mic-pick"><select class="field" data-s="mic">${micOptions(s)}</select><button class="btn sm quiet" type="button" data-x="mics">find mics</button></span>`)}
-  ${row('lock when talking starts', 'the screen locks as soon as a voice dump starts; slide to unlock', toggle('lockOnStart', s.lockOnStart))}
+  ${row('lock when talking starts', 'the screen locks as soon as a voice dump starts; hold to unlock', toggle('lockOnStart', s.lockOnStart))}
   ${row('lock again after', 'seconds unlocked without a touch while still listening; 0 = never', num('relockAfter', s.relockAfter, 0, 600))}
   ${row('dim after', 'seconds locked without a touch before the screen dims to near-black; 0 = never', num('dimAfter', s.dimAfter, 0, 600))}
   ${row('words on the lock screen', 'off keeps what you say off the screen', toggle('liveText', s.liveText))}

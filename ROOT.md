@@ -2020,6 +2020,19 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.1.3 — 2026-10-28 — brain's lock opens with a hold
+
+His words: "change the slide to unlock in brain (root) to a hold to unlock, currently the dock area hides the slide to unlock".
+- **Hold to unlock** (`quros/js/rec.js`): the locked recorder's slider is a button held for 1.5 s (`HOLD`). It fills as it
+  is held; lifting or sliding off empties it. Nothing else unlocks it, as before (keys, the back gesture, other touches).
+- **Clear of the dock:** inside ROOT the recorder's foot — the four buttons and the hold — is lifted by `--bar-h` (the
+  dock's height plus 30, `js/quros.js`), so it ends above the dock's strip instead of in it (`quros/css/app.css`).
+- QUROS.md §4 and its changelog; settings' "lock when talking starts" says hold.
+
+Harness: 1419 passed. Two new checks (a short press stays locked, a held one unlocks; the foot's lift). Seen in headless
+Chrome at 412×915 inside ROOT: the button ends at 827px, the dock starts at 835; held, it fills and unlocks. Not seen: his
+phone.
+
 ### 5.1.2 — 2026-10-28 — PLAN's blocks plain and no priority; today and a longer dock on the desktop
 
 Two of his requests: r261027-az7o ("visual bug (block select) remove priority option remove the colours for b1 b2 b3") and

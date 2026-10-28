@@ -1,8 +1,8 @@
 /* qurOS — the recorder.
    One full-screen overlay for every capture: talk (speech-to-text) or write
    (the keyboard, including its own mic). While it is open the screen is kept
-   on. A voice dump can be LOCKED: every touch is swallowed except a slide
-   along the bottom track, the back gesture is refused, and after a while the
+   on. A voice dump can be LOCKED: every touch is swallowed except a hold on
+   the button at the foot, the back gesture is refused, and after a while the
    screen dims to near-black (and drifts a few pixels, against burn-in) — so
    the phone can ride in a hand or a pocket on a walk while it listens.
 
@@ -60,10 +60,10 @@ function build() {
     <button type="button" data-r="lock">${icon('lock')}<span>lock</span></button>
     <button type="button" data-r="done" class="go">${icon('check')}<span>done</span></button>
   </div>
-  <div class="rec-slide">
-    <div class="rec-track"><span class="rec-hint">slide to unlock</span>
-      <span class="rec-knob" role="slider" aria-label="slide to unlock" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">${icon('lock')}</span>
-    </div>
+  <div class="rec-unlock">
+    <button type="button" class="rec-hold" aria-label="hold to unlock">
+      <span class="rec-knob">${icon('lock')}</span><span class="rec-hint">hold to unlock</span>
+    </button>
   </div>`;
   q = {
     shift: el.querySelector('.rec-shift'), wake: el.querySelector('.rec-wake'), st: el.querySelector('.rec-st i'),
@@ -71,8 +71,8 @@ function build() {
     orb: el.querySelector('.rec-orb'), ring: el.querySelector('.rec-ring'), time: el.querySelector('.rec-time'),
     words: el.querySelector('.rec-words'), msg: el.querySelector('.rec-msg'), live: el.querySelector('.rec-live'),
     fin: el.querySelector('.rec-final'), int: el.querySelector('.rec-interim'), ta: el.querySelector('.rec-text'),
-    ctl: el.querySelector('.rec-ctl'), mic: el.querySelector('[data-r="mic"]'), track: el.querySelector('.rec-track'),
-    knob: el.querySelector('.rec-knob'), hint: el.querySelector('.rec-hint'),
+    ctl: el.querySelector('.rec-ctl'), mic: el.querySelector('[data-r="mic"]'), hold: el.querySelector('.rec-hold'),
+    hint: el.querySelector('.rec-hint'),
   };
   q.ctl.addEventListener('click', e => {
     const b = e.target.closest('[data-r]');
@@ -93,14 +93,16 @@ function build() {
   wireLock();
 }
 
-/* ── lock: swallow everything but the slider ── */
+/* ── lock: swallow everything but the hold button ──
+   ROOT 5.1.3: held for HOLD ms, not slid — a slide along the foot met ROOT's dock and the phone's own swipe there */
+const HOLD = 1500;
 function wireLock() {
   const block = e => {
     if (!R.open) return;
     poke();
     if (!R.locked) return;
     if (e.type === 'contextmenu') { e.preventDefault(); return; }
-    if (q.knob.contains(e.target)) return;
+    if (q.hold.contains(e.target)) return;
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     if (e.type === 'pointerdown' || e.type === 'touchstart') nudgeHint();
@@ -108,41 +110,43 @@ function wireLock() {
   ['touchstart', 'touchmove', 'touchend', 'pointerdown', 'pointerup', 'click', 'dblclick', 'contextmenu', 'wheel']
     .forEach(t => el.addEventListener(t, block, { capture: true, passive: false }));
   /* a key on a desktop keyboard is a deliberate act, but not a gesture for the
-     lock — only the slider unlocks */
+     lock — only the hold unlocks */
   document.addEventListener('keydown', e => { if (R.open && R.locked) { e.preventDefault(); e.stopPropagation(); poke(); } }, true);
 
-  let drag = null;
-  const max = () => Math.max(1, q.track.clientWidth - q.knob.offsetWidth - 8);
-  const setX = x => {
-    q.knob.style.transform = `translateX(${x}px)`;
-    const p = clamp(x / max(), 0, 1);
-    q.track.style.setProperty('--p', p.toFixed(3));
-    q.knob.setAttribute('aria-valuenow', Math.round(p * 100));
+  let hold = null;
+  const setP = p => q.hold.style.setProperty('--p', p.toFixed(3));
+  const stop = () => {
+    if (!hold) return;
+    cancelAnimationFrame(hold.raf);
+    clearTimeout(R.timers.hold);
+    hold = null;
+    q.hold.classList.remove('on');
+    setP(0);
   };
-  q.knob.addEventListener('pointerdown', e => {
-    if (!R.locked) return;
+  q.hold.addEventListener('pointerdown', e => {
+    if (!R.locked || hold) return;
     e.preventDefault();
-    drag = { x0: e.clientX, id: e.pointerId, x: 0 };
-    try { q.knob.setPointerCapture(e.pointerId); } catch {}
-    q.knob.classList.add('drag');
+    const t0 = performance.now();
+    hold = { id: e.pointerId };
+    const fill = () => {
+      if (!hold) return;
+      if (!R.locked) { stop(); return; }
+      setP(clamp((performance.now() - t0) / HOLD, 0, 1));
+      hold.raf = requestAnimationFrame(fill);
+    };
+    hold.raf = requestAnimationFrame(fill);
+    R.timers.hold = setTimeout(() => { stop(); unlock(); }, HOLD);
+    q.hold.classList.add('on');
+    vibrate(10);
     undim();
   });
-  q.knob.addEventListener('pointermove', e => {
-    if (!drag || e.pointerId !== drag.id) return;
-    drag.x = clamp(e.clientX - drag.x0, 0, max());
-    setX(drag.x);
+  /* the finger stays on the button: sliding off it lets go, as lifting does */
+  q.hold.addEventListener('pointermove', e => {
+    if (!hold || e.pointerId !== hold.id) return;
+    const r = q.hold.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) stop();
   });
-  const end = e => {
-    if (!drag || (e && e.pointerId !== drag.id)) return;
-    const ok = drag.x >= max() * 0.88;
-    drag = null;
-    q.knob.classList.remove('drag');
-    if (ok) unlock();
-    setX(0);
-  };
-  q.knob.addEventListener('pointerup', end);
-  q.knob.addEventListener('pointercancel', end);
-  R.slide = { setX, max };
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => q.hold.addEventListener(t, e => { if (hold && e.pointerId === hold.id) stop(); }));
 }
 function nudgeHint() {
   q.hint.classList.remove('nudge');
