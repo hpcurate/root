@@ -2038,7 +2038,7 @@ brain module in root have the new map as default" and "sync via todoist between 
 
 Harness: 1425 passed, 0 failed (6 new: the starter, a quiet load, the map from the PC in parts and in order, not twice, a part
 missing, a change here first). ROOT's `parseMap` on his real map (by a script, nothing kept): BRAIN's 235 keys and 213 marks
-exactly. Not seen: his phone with his BRAIN. **Not pushed**: it sits on 5.1.3 (also uncommitted, waiting for his "push").
+exactly. Not seen: his phone with his BRAIN. Pushed on his "push", after 5.1.3.
 
 ### 5.1.3 — 2026-10-28 — brain's lock opens with a hold
 
