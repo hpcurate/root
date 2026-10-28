@@ -457,7 +457,12 @@
 .ns-plan .proj-jump .proj-dot{width:8px;height:8px}
 .ns-plan .proj-sec{flex:0 0 auto;min-height:36px;padding:0 13px;border-radius:999px;align-items:center;gap:8px;
   font:600 11.5px/1 var(--mono);letter-spacing:.02em}
-.ns-plan .proj-sec .ps-rail{flex:0 0 8px;height:8px;border-radius:50%}
+.ns-plan .proj-sec .ps-rail{flex:0 0 8px;width:8px;height:8px;border-radius:50%}
+/* 5.2.1 (r261028-3l1p "need to fix how the categories don't expand to show all their text"): a chip is as wide as what it
+   holds — its dot counted by its width, which a flex-basis alone isn't, so its name had 8px less than it needed and lost its
+   end ("mix…", "product…", "soci…"). Only a name longer than the row itself is cut now. */
+.ns-plan .proj-sec{max-width:100%}
+.ns-plan .proj-sec .ps-name{flex:0 1 auto}
 .ns-plan .proj-sec i{display:none}
 .ns-plan .proj-form{flex:0 0 100%;min-height:0;background:var(--s1);border:var(--bw) solid var(--bd);border-radius:22px;padding:14px}
 .ns-plan .pf-head{border-bottom:none;margin-bottom:8px;padding-bottom:0}

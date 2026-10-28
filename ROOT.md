@@ -2020,6 +2020,19 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.2.1 — 2026-10-28 — PLAN's section chips show their whole name
+
+His prompter request r261028-3l1p, "need to fix how the categories don't expand to show all their text" (his screenshots: curate
+open, its sections as "mix…", "product…", "soci…").
+- **The cause** (`css/plan.css`, 5.1.1's chips): a section chip's dot had only `flex:0 0 8px`. A chip as wide as what it holds
+  counts its children by their width, and the dot's was 0, so the name got 8px less than it needed and lost its end — measured in
+  Electron: "mixing" 35 of 43px, "production" 63 of 71, "socials" 42 of 50.
+- **The fix:** the dot has its own `width:8px`, the name `flex:0 1 auto`, the chip `max-width:100%` — each name whole now, and
+  only one longer than the row itself is cut. The project chips and the "other projects" chips had their dots' widths already.
+
+Harness: 1426 passed, 0 failed (1 new, read off the sheet: jsdom has no layout). Seen in Electron (ROOT's own index.html, PLAN,
+curate open): each section's name as wide as its text. Not seen: ROOT desktop on his screen.
+
 ### 5.2.0 — 2026-10-28 — brain's map is BRAIN's: the new questions, and his map from the PC
 
 His prompter request r261027-f9vm (BRAIN 0.2.0 alongside: the life database), two of its "done when": "brain desktop and the

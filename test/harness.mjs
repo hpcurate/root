@@ -1112,6 +1112,16 @@ check('the rows are the project\'s sections, in its colour',
 check('the colour is a rail down the row, not a wash over it — three rows stopped reading as three slabs',
   /\.ns-plan \.ps-rail\{flex:0 0 3px/.test(planCss) &&
   /\.ns-plan \.proj-sec\{[^}]*background:var\(--s1\)/.test(planCss));
+/* 5.2.1 (r261028-3l1p "need to fix how the categories don't expand to show all their text"): the chips' dot had only a
+   flex-basis, which a chip's own width doesn't count — "mixing" got 8px less than it needed and showed as "mix…" (measured in
+   Electron: 35 of 43px). The dot's own width is what makes the chip as wide as its name. */
+{
+  const chipDot = [...planCss.matchAll(/\.ns-plan \.proj-sec \.ps-rail\{([^}]*)\}/g)].pop();
+  const chipName = [...planCss.matchAll(/\.ns-plan \.proj-sec \.ps-name\{([^}]*)\}/g)].pop();
+  check('a section chip counts its dot by its width, so its name is never cut short of the chip',
+    !!chipDot && /(^|;)width:8px/.test(chipDot[1]) && /flex:0 0 8px/.test(chipDot[1]) && !!chipName && /flex:0 1 auto/.test(chipName[1]),
+    chipDot ? chipDot[1] : 'no chip dot rule');
+}
 /* 3.1.0 — every box on this screen clips its own text so a long name cannot
    push its row wider than the grid. Against `line-height:1` that clip lands on
    the baseline and cuts the tail off a g, p, y or q: the row fitted, the word
