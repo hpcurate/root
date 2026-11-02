@@ -752,6 +752,9 @@ window.Shell = (function () {
   }
 
   function register(name, api) { apps[name] = api || {}; }
+  /* The address the page was opened on, as it was (5.3.0). The boot's go() replaces it with the tab's own (#walk), and the
+     apps load after the shell, so a link meant for one (CORE's morning ping: #walk/go?kind=far&min=60) is read from this. */
+  let landedHash = '';
 
   /* A count on an app's tab button — DO uses it for what is still open today.
      Zero removes it. The span is created on first use so the markup does not
@@ -1731,6 +1734,7 @@ window.Shell = (function () {
 
   // Boot: hash wins, then the start-tab preference, then the last tab
   (function boot() {
+    landedHash = location.hash;   // before go() writes over it: an app's own link (#walk/go?…) is read from here
     rebuild();
     let start = TABS[0], late = null;     // late: a last app that is in the R now, opened once the dock is up
     const fromHash = hashTarget().name;
@@ -1954,7 +1958,7 @@ window.Shell = (function () {
 
   return { cursor, toast, undo, hideUndo, go, open, hidden, settings, register, badge, alert, showChrome, TABS, APPS, dayNum, rollNum,
            today, checkDay, confirm: confirmAction, prompt: promptAction, ask,
-           hashTarget, searchApps, railUp,
+           hashTarget, searchApps, railUp, landed: () => landedHash,
            numpad: { open: padOpen, close: padClose, key: padKey, kindOf: padKindOf,
                      isOpen: padIsOpen, target: () => padTarget } };
 })();

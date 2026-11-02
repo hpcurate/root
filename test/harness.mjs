@@ -8064,6 +8064,62 @@ check('no errors through 4.14.1', errors.length === 0, errors.slice(0, 3).join('
   check('… and the exact line leaves as a GPX track',
     /<gpx version="1\.1"/.test(gx) && (gx.match(/<trkpt /g) || []).length === st.route.coords.length && /kamo · /.test(gx));
 
+  /* 5.3.0 (r261102-8v6a): more kinds than the loop, and a link that asks for one */
+  const reach = r => G.reachOf(r.coords) / r.dist;
+  const loopReach = reach(st.route);
+  const keptNow = LSw.getItem('walk_v1'), older = JSON.parse(keptNow);
+  delete older.kind; delete older.route.kind;
+  LSw.setItem('walk_v1', JSON.stringify(older)); w.WALK.reload();
+  const oldSt = w.WALK.state();
+  LSw.setItem('walk_v1', keptNow); w.WALK.reload();
+  check('a walk_v1 from before 5.3.0 (no kind) reads as a loop, and a loop is still what WALK starts on',
+    oldSt.kind === 'loop' && oldSt.route.kind === 'loop' && st.kind === 'loop' && st.route.kind === 'loop' &&
+    /^a loop for kamo$/.test($('#wk-label').textContent) &&
+    $('.ns-walk [data-act="kind"].on')?.dataset.v === 'loop' && w.WALK.kinds.join() === 'loop,far,back,one',
+    st.kind + ' · ' + $('#wk-label').textContent);
+  click($('.ns-walk [data-act="kind"][data-v="far"]'));
+  calls.length = 0;
+  await w.WALK.generate();
+  const far = w.WALK.state().route;
+  check('a far loop goes out by one way and back by another, and gets farther from home than a loop of its length',
+    far.kind === 'far' && calls.every(u => (u.match(/;/g) || []).length === 4) &&
+    Math.abs(far.dist - 2000) <= 2000 * 0.07 && reach(far) > 0.42 && loopReach < 0.4 &&
+    /^a far loop for kamo$/.test($('#wk-label').textContent) && /another far loop/.test($('.ns-walk .wk-go').textContent),
+    far.dist + ' m, out ' + reach(far).toFixed(2) + ' vs ' + loopReach.toFixed(2));
+  click($('.ns-walk [data-act="kind"][data-v="back"]'));
+  calls.length = 0;
+  await w.WALK.generate();
+  const bk = w.WALK.state().route, bkHref = w.WALK.mapsURL();
+  check('out and back asks the router one way only, and walks that line home again: half its length away',
+    bk.kind === 'back' && calls.length >= 1 && calls.every(u => (u.match(/;/g) || []).length === 1) &&
+    JSON.stringify(bk.coords[0]) === JSON.stringify(bk.coords[bk.coords.length - 1]) &&
+    Math.abs(bk.dist - 2000) <= 2000 * 0.07 && Math.abs(reach(bk) - 0.5) < 0.02 &&
+    !/%7C/.test(bkHref) && /origin=([\d.,]+)&destination=\1&/.test(bkHref),
+    bk.dist + ' m, out ' + reach(bk).toFixed(2) + ' · ' + bkHref.slice(60, 140));
+  click($('.ns-walk [data-act="kind"][data-v="one"]'));
+  await w.WALK.generate();
+  const one = w.WALK.state().route, oneHref = w.WALK.mapsURL();
+  check('one way ends somewhere else, the whole of its length away, and the directions end there too',
+    one.kind === 'one' && Math.abs(one.dist - 2000) <= 2000 * 0.07 && reach(one) > 0.95 &&
+    !/origin=([\d.,]+)&destination=\1&/.test(oneHref) && /find a walk|another walk/.test($('.ns-walk .wk-go').textContent),
+    one.dist + ' m, out ' + reach(one).toFixed(2));
+  check('… and the numbers under the map say how far out it gets',
+    d.querySelectorAll('.ns-walk .wk-stat').length === 3 &&
+    d.querySelectorAll('.ns-walk .wk-stat b')[2].textContent === (G.reachOf(one.coords) / 1000).toFixed(2),
+    $('.ns-walk .wk-route').textContent.replace(/\s+/g, ' ').trim().slice(0, 80));
+
+  check('the shell keeps the address the page was opened on, for an app\'s own link', typeof w.Shell.landed() === 'string');
+  w.location.hash = '#walk/go?kind=far&min=60';
+  for (let i = 0; i < 20 && (w.WALK.state().route.kind !== 'far' || $('.ns-walk .wk-go').disabled); i++) await tick(20);
+  const ln = w.WALK.state();
+  check('a link (#walk/go?kind=far&min=60, CORE\'s morning ping) sets the dials and finds that walk, then the address is plain #walk',
+    ln.kind === 'far' && ln.mode === 'min' && ln.min === 60 && ln.route.kind === 'far' && ln.route.target === 4000 &&
+    w.location.hash === '#walk' && $('.tab-b.on')?.dataset.app === 'walk',
+    JSON.stringify({ k: ln.kind, m: ln.mode, n: ln.min, r: ln.route.kind, t: ln.route.target, h: w.location.hash }));
+  check('… a link that is not one asks nothing', w.WALK.link('#walk') === false && w.WALK.link('#walk/elsewhere') === false);
+  click($('.ns-walk [data-act="kind"][data-v="loop"]'));
+  click($('.ns-walk [data-act="mode"][data-v="km"]'));
+
   const routeWas = JSON.stringify(w.WALK.state().route);
   fetchScript = async () => { throw new Error('offline'); };
   await w.WALK.generate();

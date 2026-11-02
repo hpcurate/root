@@ -84,6 +84,9 @@
   font:700 10px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);
   transition:background var(--dur-2),color var(--dur-2)}
 .ns-walk .wk-seg button.on{background:var(--y);color:var(--on-y)}
+/* 5.3.0: the four kinds two by two — in one row "out & back" is cut on a phone; two a row, each is as wide as time / distance */
+.ns-walk .wk-kinds{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr))}
+.ns-walk .wk-kinds button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .ns-walk .wk-len{display:flex;align-items:center;gap:calc(12px * var(--dens));margin-top:calc(16px * var(--dens))}
 .ns-walk .wk-len-v{flex:1 1 auto;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:8px}

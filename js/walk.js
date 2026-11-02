@@ -17,7 +17,13 @@
    first time there is a route or a pin to draw — the way LEARN loads its three
    libraries only when a deck comes in — and if it cannot load, the loop is
    still drawn, as its shape. walk_v1 holds the dials, home, the pin and the
-   last loop; Config holds the pace, the quick lengths and the dog's name. */
+   last loop; Config holds the pace, the quick lengths and the dog's name.
+
+   5.3.0 (Hugo's r261102-8v6a: "add more ways to generate a walk (right now
+   it's just a loop, sometimes i want to go far but it doesn't have to be a
+   mega loop"): four kinds — the loop, a far loop (long and thin: out by one
+   way, back by another), out and back, and one way — and a link that asks
+   for one (#walk/go?kind=far&min=60, CORE's morning ping). */
 window.WALK = (function () {
 'use strict';
 
@@ -55,6 +61,23 @@ const PERIM  = SIDES * 2 * Math.sin(Math.PI / SIDES);
 const DETOUR = 1.3;
 const TOL    = 0.07;
 
+/* The kinds. `k` is the straight drawing's length in r, the size the router's
+   points are placed by, so the first r for a length is length / (k × DETOUR).
+   For the same length a loop gets about a third of it away from the start, a
+   far loop nearly half (a diamond three times as long as it is wide), out and
+   back half — the farthest a walk that comes home can go — and one way all of
+   it, ending somewhere else. */
+const WIDE  = 1 / 3;   // a far loop's half-width, in its half-length
+const KINDS = {
+  loop: { label: 'loop',       say: 'a loop',       noun: 'loop',     hint: 'round, and home again',       k: PERIM },
+  far:  { label: 'far loop',   say: 'a far loop',   noun: 'far loop', hint: 'out one way, back another',   k: 4 * Math.hypot(1, WIDE) },
+  back: { label: 'out & back', say: 'out and back', noun: 'walk',     hint: 'out, then the same way home', k: 2 },
+  one:  { label: 'one way',    say: 'one way',      noun: 'walk',     hint: 'ends somewhere else',         k: 1 },
+};
+const KIND_IDS = Object.keys(KINDS);
+const kindOf = k => (KINDS[k] ? k : 'loop');
+const noun = k => KINDS[kindOf(k)].noun;
+
 const ICONS = {
   minus: 'M5 12h14',
   plus:  'M12 5v14M5 12h14',
@@ -67,7 +90,7 @@ const ico = k => `<svg class="wk-ico" viewBox="0 0 24 24" fill="none" stroke="cu
 
 /* Store */
 function blank() {
-  return { v: 1, mode: 'min', km: 3, min: 45, from: 'here', home: null, pin: null, route: null };
+  return { v: 1, kind: 'loop', mode: 'min', km: 3, min: 45, from: 'here', home: null, pin: null, route: null };
 }
 let DB = blank();
 
@@ -81,6 +104,7 @@ function load() {
   try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { s = null; }
   DB = Object.assign(blank(), s && typeof s === 'object' ? s : {});
   if (!['km', 'min'].includes(DB.mode)) DB.mode = 'min';
+  DB.kind = kindOf(DB.kind);
   if (!['here', 'home', 'pin'].includes(DB.from)) DB.from = 'here';
   DB.km  = snap(DB.km, LIMITS.km, 3);
   DB.min = snap(DB.min, LIMITS.min, 45);
@@ -88,6 +112,7 @@ function load() {
   if (!isPt(DB.pin))  DB.pin  = null;
   const r = DB.route;
   if (!r || !Array.isArray(r.coords) || r.coords.length < 2 || !r.coords.every(isPt)) DB.route = null;
+  else r.kind = kindOf(r.kind);   // a loop from before 5.3.0 has no kind: it was a loop
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(DB)); }
@@ -244,11 +269,25 @@ function pointAt(cs, d) {
 /* The router */
 function fail(msg, fatal) { const e = new Error(msg); e.fatal = !!fatal; return e; }
 
-async function through(start, bearing, dir, r) {
+/* The points a kind asks the router through, for a bearing, a way round
+   (dir) and a size r in metres. A loop: three points on a circle through the
+   start. A far loop: a diamond along the bearing, its far corner 2r away. Out
+   and back, one way: a single point r away, asked one way only. */
+function shape(kind, start, bearing, dir, r) {
+  if (kind === 'far') {
+    const off = deg(Math.atan(WIDE)), side = r * Math.hypot(1, WIDE);
+    return [start, dest(start, bearing - dir * off, side), dest(start, bearing, 2 * r),
+            dest(start, bearing + dir * off, side), start];
+  }
+  if (kind === 'back' || kind === 'one') return [start, dest(start, bearing, r)];
   const c = dest(start, bearing, r), back = (bearing + 180) % 360;
   const via = [];
   for (let i = 1; i <= VIA; i++) via.push(dest(c, back + dir * i * 360 / SIDES, r));
-  const url = ROUTER + [start, ...via, start].map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join(';') +
+  return [start, ...via, start];
+}
+
+async function through(kind, start, bearing, dir, r) {
+  const url = ROUTER + shape(kind, start, bearing, dir, r).map(p => p[1].toFixed(6) + ',' + p[0].toFixed(6)).join(';') +
               '?overview=full&geometries=geojson&continue_straight=true';
   const ctl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctl && setTimeout(() => ctl.abort(), 15000);
@@ -264,7 +303,11 @@ async function through(start, bearing, dir, r) {
   try { j = await res.json(); } catch { throw fail('the route finder answered nonsense', true); }
   const g = j && j.code === 'Ok' && j.routes && j.routes[0] && j.routes[0].geometry;
   if (!g || !Array.isArray(g.coordinates)) throw fail('no path from here that way');
-  const coords = unspurNear(unspur(g.coordinates.filter(c2 => Array.isArray(c2) && c2.length >= 2).map(([lo, la]) => [la, lo])));
+  let coords = unspurNear(unspur(g.coordinates.filter(c2 => Array.isArray(c2) && c2.length >= 2).map(([lo, la]) => [la, lo])));
+  /* out and back is the way there, walked twice: the way home is that line
+     turned round, joined after the spurs are cut (cut from the whole of it,
+     the whole of it would go) */
+  if (kind === 'back') coords = coords.concat(coords.slice(0, -1).reverse());
   return { coords, dist: pathLen(coords) };
 }
 
@@ -273,14 +316,14 @@ async function through(start, bearing, dir, r) {
    that leads nowhere — the sea, a motorway, a fenced estate — just moves on.
    The best of everything asked is kept, so a sparse village still gets the
    nearest loop there is rather than nothing. */
-async function findLoop(start, target, bearing, dir) {
+async function findWalk(kind, start, target, bearing, dir) {
   let best = null, lastErr = null;
   for (let turn = 0; turn < 2; turn++) {
     const b = (bearing + turn * 120) % 360;
-    let r = target / (PERIM * DETOUR);
+    let r = target / (KINDS[kind].k * DETOUR);
     for (let i = 0; i < 3; i++) {
       let got;
-      try { got = await through(start, b, dir, r); }
+      try { got = await through(kind, start, b, dir, r); }
       catch (e) { if (e.fatal) throw e; lastErr = e; break; }
       const err = Math.abs(got.dist / target - 1);
       if (got.coords.length > 2 && (!best || err < best.err)) best = Object.assign(got, { err });
@@ -288,7 +331,7 @@ async function findLoop(start, target, bearing, dir) {
       r *= Math.min(2, Math.max(0.5, target / Math.max(got.dist, 1)));
     }
   }
-  if (!best) throw lastErr || fail('no loop from here');
+  if (!best) throw lastErr || fail(`no ${noun(kind)} from here`);
   return best;
 }
 
@@ -321,15 +364,16 @@ async function generate() {
   if (busy) return;
   busy = true; render();
   try {
+    const kind   = DB.kind;
     const start  = await startPoint();
     const target = targetM();
-    const got = await findLoop(start, target, Math.random() * 360, Math.random() < 0.5 ? 1 : -1);
-    DB.route = { at: Date.now(), from: DB.from, start, target, dist: Math.round(got.dist),
+    const got = await findWalk(kind, start, target, Math.random() * 360, Math.random() < 0.5 ? 1 : -1);
+    DB.route = { at: Date.now(), kind, from: DB.from, start, target, dist: Math.round(got.dist),
                  coords: simplify(got.coords, 3).map(pt) };
     save();
-    if (got.err > 0.15) toast(`closest loop from here is ${kmTxt(got.dist)} km`);
+    if (got.err > 0.15) toast(`closest ${noun(kind)} from here is ${kmTxt(got.dist)} km`);
   } catch (e) {
-    toast(e && e.message ? e.message : 'no loop this time');
+    toast(e && e.message ? e.message : `no ${noun(DB.kind)} this time`);
   } finally {
     busy = false;
     render(); renderSettings(); drawMap();
@@ -364,13 +408,17 @@ function setPin(p) {
    that is what a phone browser honours; the app takes more, but a link that
    works in one and not the other is a link that breaks on the day it matters.
    The GPX is the exact line, for anything that follows a track. */
+/* Out and back goes through its far end only (a quarter and three quarters
+   are the same street twice); one way ends where it ends. */
 function mapsURL(r) {
-  const cs = r.coords, L = pathLen(cs);
+  const cs = r.coords, L = pathLen(cs), kind = kindOf(r.kind);
   const ll = p => p[0].toFixed(5) + ',' + p[1].toFixed(5);
   return 'https://www.google.com/maps/dir/?api=1&travelmode=walking' +
-         '&origin=' + ll(cs[0]) + '&destination=' + ll(cs[0]) +
-         '&waypoints=' + [0.25, 0.5, 0.75].map(f => ll(pointAt(cs, L * f))).join('%7C');
+         '&origin=' + ll(cs[0]) + '&destination=' + ll(kind === 'one' ? cs[cs.length - 1] : cs[0]) +
+         '&waypoints=' + (kind === 'back' ? [0.5] : [0.25, 0.5, 0.75]).map(f => ll(pointAt(cs, L * f))).join('%7C');
 }
+/* how far from the start it gets, as the crow flies: the point of a far one */
+const reachOf = cs => cs.reduce((m, p) => Math.max(m, hav(cs[0], p)), 0);
 function gpxText(r) {
   const x = s => String(s).replace(/[<>&"']/g, c => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&apos;' }[c]));
   const name = `${CFG.dog} · ${kmTxt(r.dist)} km`;
@@ -481,7 +529,7 @@ function shapeSVG() {
 /* Drawing the screen */
 function paintBand() {
   const lab = $id('wk-label');
-  if (lab) lab.textContent = `a loop for ${CFG.dog}`;
+  if (lab) lab.textContent = `${KINDS[DB.kind].say} for ${CFG.dog}`;
 }
 
 function routeHTML() {
@@ -492,9 +540,9 @@ function routeHTML() {
       <div class="wk-stats">
         <div class="wk-stat"><b>${kmTxt(r.dist)}</b><em>km</em></div>
         <div class="wk-stat"><b>${minsOf(r.dist)}</b><em>min</em></div>
-        <div class="wk-stat"><b>${esc(r.from)}</b><em>start</em></div>
+        <div class="wk-stat" title="the farthest it gets from the start, as the crow flies"><b>${kmTxt(reachOf(r.coords))}</b><em>km out</em></div>
       </div>
-      <button class="wk-again" data-act="go" aria-label="another loop"${busy ? ' disabled' : ''}>${ico('again')}</button>
+      <button class="wk-again" data-act="go" aria-label="another ${noun(DB.kind)}"${busy ? ' disabled' : ''}>${ico('again')}</button>
     </div>
     <div class="wk-acts">
       <a class="wk-act" href="${esc(mapsURL(r))}" target="_blank" rel="noopener">${ico('out')}open in maps</a>
@@ -515,6 +563,11 @@ function formHTML() {
       : `<span>starts wherever the phone says you are</span>` +
         (DB.home ? '' : `<button class="wk-link" data-act="home-save">save as home</button>`);
   return `
+    <div class="wk-sec"><span>what kind</span><em>${esc(KINDS[DB.kind].hint)}</em></div>
+    <div class="wk-seg wk-kinds" role="tablist">
+      ${KIND_IDS.map(k =>
+        `<button class="${DB.kind === k ? 'on' : ''}" data-act="kind" data-v="${k}" role="tab" aria-selected="${DB.kind === k}">${esc(KINDS[k].label)}</button>`).join('')}
+    </div>
     <div class="wk-sec"><span>how long</span><em>${esc(equiv)}</em></div>
     <div class="wk-seg" role="tablist">
       <button class="${mode === 'min' ? 'on' : ''}" data-act="mode" data-v="min" role="tab" aria-selected="${mode === 'min'}">time</button>
@@ -539,7 +592,7 @@ function formHTML() {
         `<button class="${DB.from === f ? 'on' : ''}" data-act="from" data-v="${f}" role="tab" aria-selected="${DB.from === f}">${f}</button>`).join('')}
     </div>
     <div class="wk-note">${fromNote}</div>
-    <button class="wk-go" data-act="go"${busy ? ' disabled' : ''}>${busy ? 'finding a loop…' : DB.route ? 'another loop' : 'find a loop'}</button>`;
+    <button class="wk-go" data-act="go"${busy ? ' disabled' : ''}>${busy ? `finding a ${noun(DB.kind)}…` : DB.route ? `another ${noun(DB.kind)}` : `find a ${noun(DB.kind)}`}</button>`;
 }
 
 function render() {
@@ -562,7 +615,7 @@ function renderSettings() {
   if (st) {
     const r = DB.route;
     st.className = 'settings-status ' + (r ? 'ok' : 'idle');
-    st.textContent = r ? `last loop ${kmTxt(r.dist)} km from ${r.from} · ${new Date(r.at).toLocaleDateString()}`
+    st.textContent = r ? `last ${noun(r.kind)} ${kmTxt(r.dist)} km from ${r.from} · ${new Date(r.at).toLocaleDateString()}`
                        : 'no loop yet';
   }
   fill('wk-set-dog',  Config.get('walk.dog') || '');
@@ -592,6 +645,7 @@ document.addEventListener('click', ev => {
   if (!act || t.disabled) return;
 
   if (act === 'go')    { generate(); return; }
+  if (act === 'kind')  { DB.kind = kindOf(t.dataset.v); save(); render(); return; }
   if (act === 'mode')  { DB.mode = t.dataset.v === 'km' ? 'km' : 'min'; save(); render(); return; }
   if (act === 'len')   {
     const lim = LIMITS[DB.mode];
@@ -623,14 +677,39 @@ Shell.register('walk', {
   onShow: () => { render(); drawMap(); },
 });
 
-render();
+/* A link that asks for a walk (5.3.0, for CORE's morning ping): #walk/go,
+   with any of kind=loop|far|back|one, min=… or km=… (the length, and which
+   way it is asked), from=here|home. What it says goes on the dials, kept as a
+   tap would keep it, and a walk is found from there as the button finds one.
+   The address goes back to #walk first, so a reload never asks again. */
+function linkAsk(hash) {
+  const m = /^#walk\/go(?:\?(.*))?$/.exec(String(hash || ''));
+  if (!m) return false;
+  const q = new URLSearchParams(m[1] || '');
+  if (KINDS[q.get('kind')]) DB.kind = q.get('kind');
+  if (q.has('km'))       { DB.mode = 'km';  DB.km  = snap(q.get('km'),  LIMITS.km,  DB.km); }
+  else if (q.has('min')) { DB.mode = 'min'; DB.min = snap(q.get('min'), LIMITS.min, DB.min); }
+  const from = q.get('from');
+  if (from === 'here' || (from === 'home' && DB.home)) DB.from = from;
+  save();
+  try { if (location.hash.startsWith('#walk/')) history.replaceState(null, '', '#walk'); } catch {}
+  render();
+  generate();
+  return true;
+}
+/* already open: the shell's own listener runs first and moves to WALK
+   without touching the address, so the link is still there to read */
+window.addEventListener('hashchange', () => linkAsk(location.hash));
 
-return { render, renderSettings, resetAll, generate,
+render();
+linkAsk(Shell.landed ? Shell.landed() : location.hash);
+
+return { render, renderSettings, resetAll, generate, link: linkAsk, kinds: KIND_IDS,
          /* re-read what is stored — only the harness has a reason to ask */
          reload: () => { load(); readConfig(); render(); renderSettings(); },
          state: () => JSON.parse(JSON.stringify(DB)),
          target: targetM,
          gpx: () => DB.route ? gpxText(DB.route) : '',
          mapsURL: () => DB.route ? mapsURL(DB.route) : '',
-         geo: { dest, hav, pathLen, unspur, unspurNear, simplify, pointAt } };
+         geo: { dest, hav, pathLen, unspur, unspurNear, simplify, pointAt, shape, reachOf } };
 })();
