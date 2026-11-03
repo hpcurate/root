@@ -595,6 +595,17 @@
         <div class="cur-g" id="cur-g"></div>
         <button class="cur-reset" onclick="LOG.resetCur()">reset curate</button>
       </div>
+      <!-- 5.4.0 (r261103-fz9m): the pets — playtime and notes, one card each (LOG.renderForms) -->
+      <div class="f" data-field="pets"><label class="lbl">The pets</label>
+        <div class="pet-g" id="pet-g"></div>
+      </div>
+      <!-- 5.4.0 (r261103-q3i0): a few questions and the day's gratitude, so a day with no entry still has its words — each optional -->
+      <div class="f" data-field="questions"><label class="lbl">A few questions <span class="lbl-hint">(any, or none)</span></label>
+        <div class="q-g" id="q-g"></div>
+      </div>
+      <div class="f" data-field="gratitude"><label class="lbl">Grateful for</label>
+        <div class="grat-g" id="grat-g"></div>
+      </div>
       <button class="btn" onclick="LOG.saveEvening()">Save evening</button>
     </div>
   </div>

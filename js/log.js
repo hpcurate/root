@@ -102,11 +102,28 @@ function fresh() {
          blocksPlan:[],
          /* what was finished on DO's media tab: { name, kind, sub } — a title,
             its label (movie / show / podcast / music) and the second label if any */
-         media:[] }),
+         media:[],
+         /* 5.4.0: the pets (by Config's fixed keys: { dog: { play, notes } }), the evening's questions (by their keys) and the
+            things to be grateful for — each optional, an empty one never exported */
+         pets:{}, q:{}, grat:[] }),
     entries: []
   };
 }
 const mediaOf = (e = {}) => Array.isArray(e.media) ? e.media : [];
+/* 5.4.0 (Hugo's r261103-fz9m "kitten/dog log in evening log (playtime + other notes) also on mobile"; r261103-q3i0 "there should be
+   the option to answer basic questions, maybe gratitude too?"): read through the shipped record, as the meds are, so a key added
+   later shows and an override from before has its answer */
+const petsCfg = () => Object.assign({}, Config.defaults('log.pets'), Config.get('log.pets') || {});
+const qCfg = () => Object.assign({}, Config.defaults('log.questions'), Config.get('log.questions') || {});
+const gratN = () => Math.max(0, Math.min(5, parseInt(Config.get('log.gratitude'), 10) || 0));
+function petsOf(e = {}) {
+  const p = e.pets && typeof e.pets === 'object' ? e.pets : {}, out = {};
+  for (const k of Object.keys(petsCfg())) { const x = p[k] || {}; out[k] = { play: x.play === '' || x.play == null ? '' : String(x.play), notes: String(x.notes || '') }; }
+  return out;
+}
+const qOf = (e = {}) => (e.q && typeof e.q === 'object' ? e.q : {});
+const gratOf = (e = {}) => (Array.isArray(e.grat) ? e.grat.map(s => String(s || '')) : []);
+const PLAY = [10, 20, 30, 45, 60];
 
 /* Readers that understand both the old and new shapes, so days logged before
    this change still render, export and report correctly.
@@ -1227,6 +1244,22 @@ function renderForms() {
        <span class="cnt-l">${esc(cfg.curate[k].label)}</span>
      </button>`).join('');
 
+  // 5.4.0: the pets — each one's playtime (a tap on a length, again clears it; or typed) and its notes
+  const petG = $id('pet-g'), pets = petsCfg();
+  if (petG) petG.innerHTML = Object.keys(pets).map(k => `
+    <div class="pet-c" data-pet="${attrEsc(k)}">
+      <div class="pet-h"><b>${esc(pets[k])}</b><span class="pet-m"><input type="number" inputmode="numeric" min="0" max="600" id="pet-${esc(k)}-play" placeholder="0" oninput="LOG.markDirty();LOG.syncPets()"><span>min played</span></span></div>
+      <div class="pet-q">${PLAY.map(n => `<button class="pet-b" data-min="${n}" onclick="LOG.petPlay('${attr(k)}',${n})">${n < 60 ? n : '1h'}</button>`).join('')}</div>
+      <input type="text" id="pet-${esc(k)}-notes" autocomplete="off" placeholder="notes: ate well, the vet, a new trick…" oninput="LOG.markDirty()">
+    </div>`).join('');
+  // 5.4.0: the evening's questions and the things to be grateful for — any left empty is fine
+  const qG = $id('q-g'), qs = qCfg();
+  if (qG) qG.innerHTML = Object.keys(qs).map(k => `
+    <div class="q-f"><label class="lbl">${esc(qs[k])}</label><textarea rows="1" id="q-${esc(k)}" oninput="LOG.markDirty();LOG.growQ(this)"></textarea></div>`).join('');
+  const gG = $id('grat-g');
+  if (gG) gG.innerHTML = Array.from({ length: gratN() }, (_, i) =>
+    `<input type="text" id="grat-${i}" autocomplete="off" placeholder="${['someone', 'something', 'a moment', 'a thing you did', 'anything'][i] || 'anything'}" oninput="LOG.markDirty()">`).join('');
+
   // scale endpoints
   $all('.sc-ends[data-scale]').forEach(row => {
     const s = cfg.scales[row.dataset.scale];
@@ -1309,13 +1342,43 @@ function popE() {
   scSet('sc-nrg-e', e.nrg); scSet('sc-mood-e', e.mood); scSet('sc-stress', e.stress);
   syncMedsUI(); syncMealsUI(); syncCafUI(); syncCurUI(); renderPlanned(); syncBlocks();
   resetBlockFold();
+  // 5.4.0: the pets, the questions, the gratitude — as saved
+  const P = petsOf(e);
+  for (const k of Object.keys(P)) { const a = $id(`pet-${k}-play`), b = $id(`pet-${k}-notes`); if (a) a.value = P[k].play; if (b) b.value = P[k].notes; }
+  syncPets();
+  const Q = qOf(e);
+  for (const k of Object.keys(qCfg())) { const t = $id('q-' + k); if (t) { t.value = Q[k] || ''; growQ(t); } }
+  const G = gratOf(e);
+  for (let i = 0; i < gratN(); i++) { const t = $id('grat-' + i); if (t) t.value = G[i] || ''; }
 }
+// a playtime tapped: that length (the same again: none)
+function petPlay(k, n) {
+  const a = $id(`pet-${k}-play`); if (!a) return;
+  a.value = String(a.value) === String(n) ? '' : String(n);
+  dirty = true; syncPets();
+}
+function syncPets() {
+  $all('.pet-c').forEach(c => { const v = ($id(`pet-${c.dataset.pet}-play`) || {}).value; c.querySelectorAll('.pet-b').forEach(b => b.classList.toggle('on', String(b.dataset.min) === String(v))); });
+}
+function growQ(t) { t.style.height = 'auto'; t.style.height = Math.min(220, t.scrollHeight + 2) + 'px'; }
 
 function saveEvening() {
   data.e.kme    = num($id('e-kme').value);
   data.e.nrg    = scGet('sc-nrg-e');
   data.e.mood   = scGet('sc-mood-e');
   data.e.stress = scGet('sc-stress');
+  // 5.4.0: the pets (a playtime is whole minutes), the questions, the gratitude
+  const pets = {};
+  for (const k of Object.keys(petsCfg())) {
+    const a = $id(`pet-${k}-play`), b = $id(`pet-${k}-notes`), n = a && a.value !== '' ? Math.max(0, Math.min(600, Math.round(Number(a.value) || 0))) : '';
+    const notes = b ? b.value.replace(/\s+/g, ' ').trim().slice(0, 300) : '';
+    if (n !== '' || notes) pets[k] = { play: n === '' ? '' : String(n), notes };
+  }
+  data.e.pets = pets;
+  const q = {};
+  for (const k of Object.keys(qCfg())) { const t = $id('q-' + k), v = t ? t.value.trim().slice(0, 2000) : ''; if (v) q[k] = v; }
+  data.e.q = q;
+  data.e.grat = Array.from({ length: gratN() }, (_, i) => (($id('grat-' + i) || {}).value || '').replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean);
   data.e.saved  = Date.now();
   save(); toast('Evening saved'); go('home');
 }
@@ -1383,6 +1446,15 @@ function buildNote() {
 | create_works    | ${cr.works.map(x => `${x.name} (${x.area} · ${x.stage})`).join('; ') || '-'} |
 | create_did      | ${cr.what.join('; ') || '-'} |` : '';
   const mediaRows = mediaNoteRows(mediaOf(e));
+  /* 5.4.0: his answers under the journal's entries, the pets after curate — only on a day there is one, so older notes are
+     untouched; the pets' rows by their fixed keys (pet_dog_play, pet_dog_notes), the questions as he was asked them */
+  const Q = qOf(e), qs = qCfg(), qAns = Object.keys(qs).filter(k => String(Q[k] || '').trim());
+  const cell = s => String(s).replace(/\|/g, '/').replace(/\s*\n+\s*/g, ' · ');
+  const qRows = qAns.length ? `\n\n#### questions\n\n| question | answer |\n| --- | --- |\n${qAns.map(k => `| ${cell(qs[k])} | ${cell(Q[k])} |`).join('\n')}` : '';
+  const grat = gratOf(e).filter(s => s.trim());
+  const gratRows = grat.length ? `\n\n#### gratitude\n\n${grat.map(s => '- ' + s).join('\n')}` : '';
+  const P = petsOf(e), petKeys = Object.keys(P).filter(k => P[k].play !== '' || P[k].notes);
+  const petRows = petKeys.length ? `\n\n#### pets\n\n| data          | ans |\n| ------------- | --: |\n${petKeys.map(k => `| ${('pet_' + k + '_play').padEnd(13)} | ${P[k].play} |\n| ${('pet_' + k + '_notes').padEnd(13)} | ${cell(P[k].notes || '-')} |`).join('\n')}` : '';
   return (
 `*:LiCalendar: ${TODAY}*
 ## planning
@@ -1403,7 +1475,7 @@ ${woRows}
 
 #### entries
 
-${ents}
+${ents}${qRows}${gratRows}
 
 ## data
 #### morning data
@@ -1440,7 +1512,7 @@ ${Object.keys(meds).map(k => `| ${('meds_' + k).padEnd(13)} | ${meds[k]?'yes':'n
 | curate_mix    | ${cur.mix} |
 | curate_prod   | ${cur.prod} |
 | curate_cont   | ${cur.cont} |
-| curate_total  | ${cur.mix + cur.prod + cur.cont} |${createRows}${studyRows}${mediaRows}`);
+| curate_total  | ${cur.mix + cur.prod + cur.cont} |${petRows}${createRows}${studyRows}${mediaRows}`);
 }
 
 /* Media in the note
@@ -1995,6 +2067,22 @@ function routineTotals(days) {
   const r = window.DO && DO.statsRange ? DO.statsRange(days) : null;
   return (r && r.days) ? r : null;
 }
+/* 5.4.0: the reports' rows for the pets (each one's playtime, the days noted) and his answers (the days he answered the evening's
+   questions, the things he was grateful for) — only once there is any, so a report from before reads as it did */
+function petsRows(dd) {
+  const names = petsCfg(), rows = [];
+  for (const k of Object.keys(names)) {
+    const ps = dd.map(d => petsOf(d.e)[k]), days = ps.filter(p => p.play !== '' || p.notes).length;
+    if (!days) continue;
+    const min = ps.reduce((a, p) => a + (parseInt(p.play, 10) || 0), 0);
+    rows.push(`\n| ${names[k]} | ${min} min played · ${days} day${days === 1 ? '' : 's'} noted |`);
+  }
+  return rows.join('');
+}
+function answerRow(dd) {
+  const q = dd.filter(d => Object.values(qOf(d.e)).some(v => String(v || '').trim())).length, g = dd.reduce((a, d) => a + gratOf(d.e).filter(Boolean).length, 0);
+  return q || g ? `\n| your answers | ${q} day${q === 1 ? '' : 's'} answered · ${g} thing${g === 1 ? '' : 's'} you were grateful for |` : '';
+}
 const routineRow = r => r ? `| routines | ${r.pct}% ticked · ${r.days} day${r.days === 1 ? '' : 's'} |`
                           : '| routines | — |';
 
@@ -2122,7 +2210,7 @@ ${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / 7 |`).join('\n')}
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
 | at the desk | ${create ? hoursCell(create.hours) + ' · ' + create.sessions + ' sessions' : '—'} |
-${routineRow(routines)}
+${routineRow(routines)}${petsRows(dd)}${answerRow(dd)}
 
 ## workouts
 
@@ -2151,7 +2239,13 @@ ${create ? createSection(create) + '\n\n' : ''}${mediaSection(media)}
 
 ## journal entries
 
-${entryLines}`);
+${entryLines}${gratWeek(days, dd)}`);
+}
+/* 5.4.0: the week's gratitude, under its entries — only when he wrote some */
+function gratWeek(days, dd) {
+  const L = [];
+  dd.forEach((d, i) => gratOf(d.e).filter(Boolean).forEach(g => L.push(`- ${g} · ${fmtDateShort(days[i])}`)));
+  return L.length ? `\n\n## gratitude\n\n${L.join('\n')}` : '';
 }
 
 function buildMonthlyReport(days, getDay) {
@@ -2236,7 +2330,7 @@ ${Object.keys(medLbl).map(k=>`| ${medLbl[k]} | ${medDays[k]} / ${loggedDays} |`)
 | study | ${study.topics} topics · ${study.cards} cards |
 | media | ${media.count} finished |
 | at the desk | ${create ? hoursCell(create.hours) + ' · ' + create.sessions + ' sessions' : '—'} |
-${routineRow(routines)}
+${routineRow(routines)}${petsRows(dd)}${answerRow(dd)}
 
 ## workouts
 
@@ -2541,6 +2635,15 @@ function weekReportFor(iso) {
   const mon = weekMonday(iso), days = Array.from({ length: 7 }, (_, i) => dateOffset(mon, i));
   return { week: mon, name: `review_weekly_${iso.slice(2, 4)}.${String(isoWeekNum(iso)).padStart(2, '0')}.md`, md: buildWeeklyReport(days, getDay) };
 }
+/* 5.4.0 (Hugo's r261103-ptto "add a monthly log to obsidian (just like the weekly log …)"): a day's month, as the weekly — the
+   report the history's month share writes (entries/monthly review_monthly_YY.MM.md); CORE's monthly run adds its recap and
+   guidance at its end once the month is over */
+function monthReportFor(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return null;
+  const getDay = d => { try { return JSON.parse(localStorage.getItem('log_' + d)) || {}; } catch { return {}; } };
+  const [y, m] = iso.split('-'), n = new Date(+y, +m, 0).getDate(), days = Array.from({ length: n }, (_, i) => `${y}-${m}-${String(i + 1).padStart(2, '0')}`);
+  return { month: `${y}-${m}`, name: `review_monthly_${y.slice(2)}.${m}.md`, md: buildMonthlyReport(days, getDay) };
+}
 
 return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, renderMonth,
          toggleTrend, cycleTrend, sc, setColdShower, setWo,
@@ -2550,5 +2653,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          clearDay, renderDataScreen, exportAllData, pickImport, importAllData,
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
          setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
-         alertShown, dismissAlert, wakeArrows, dayData, loggedDays, noteFor, weekReportFor };
+         alertShown, dismissAlert, wakeArrows, dayData, loggedDays, noteFor, weekReportFor, monthReportFor,
+         petPlay, syncPets, growQ };   // 5.4.0
 })();

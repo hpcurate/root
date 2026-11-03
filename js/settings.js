@@ -911,7 +911,7 @@ const EDITORS = {
   'log.labels': {
     title: 'Names and counts',
     paths: ['log.meds','log.medsOn','log.mealCount','log.mealLabel','log.caffeine','log.curate','log.scales','log.workouts',
-            'log.kmTarget','log.streakRequires'],
+            'log.kmTarget','log.streakRequires','log.pets','log.questions','log.gratitude'],
     note: 'What the forms call things, plus the walking target and the streak rule. The underlying field names in the exported .md never change, so your Obsidian notes stay parseable.',
     render() {
       // read through the shipped record: an override written before a slot
@@ -966,6 +966,15 @@ const EDITORS = {
           <input type="text" data-cfg="log.workouts" data-list="1" value="${esc(Config.get('log.workouts').join(', '))}">
         </div>
 
+        <label class="lbl">The pets <em>their names; the .md keeps pet_dog_… and pet_cat_… whatever they are called</em></label>
+        ${(() => { const p = Object.assign({}, Config.defaults('log.pets'), Config.get('log.pets') || {}); return `<div class="ed-grid">${Object.keys(p).map(k => `
+          <div><label class="lbl">${esc(k)}</label><input type="text" data-cfg="log.pets" data-sub="${esc(k)}" value="${esc(p[k])}"></div>`).join('')}</div>`; })()}
+
+        <label class="lbl">The evening's questions <em>each optional; the .md writes them as you word them</em></label>
+        ${(() => { const q = Object.assign({}, Config.defaults('log.questions'), Config.get('log.questions') || {}); return Object.keys(q).map(k => `<div class="f"><input type="text" data-cfg="log.questions" data-sub="${esc(k)}" value="${esc(q[k])}" aria-label="question ${esc(k)}"></div>`).join(''); })()}
+        <div class="ed-pair"><div><label class="lbl">things to be grateful for</label>
+          <input type="number" min="0" max="5" data-cfg="log.gratitude" value="${esc(Config.get('log.gratitude'))}"></div><div></div></div>
+
         <label class="lbl">Walking and streak</label>
         <div class="ed-pair">
           <div><label class="lbl">km target per day</label>
@@ -991,6 +1000,7 @@ const EDITORS = {
         coldShower:'cold shower', weight:'weight', kmMorning:'km (am)', workout:'workout',
         kmEvening:'km (pm)', energyE:'energy (pm)', moodE:'mood (pm)', stress:'stress',
         meds:'meds', meals:'meals', caffeine:'caffeine', blocks:'blocks', curate:'curate output',
+        pets:'the pets', questions:'the questions', gratitude:'gratitude',   // 5.4.0
       };
       return `<div class="ed-grid">${Object.keys(NAMES).map(k => `
         <div class="ed-toggle"><span>${esc(NAMES[k])}</span>

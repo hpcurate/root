@@ -622,6 +622,37 @@ check('the output screen tags the study day', /2 topics/.test($('.ns-log #out-ta
 w.TRACK.toggle('t02'); w.TRACK.toggle('t01'); w.localStorage.removeItem('learn_daily_v1');
 check('a day with no study has no study section', !/#### study/.test(w.LOG.buildNote()));
 
+// 5.4.0 (r261103-fz9m, r261103-q3i0): the evening's pets, questions and gratitude — saved, in the note, in the reports
+check('a day with none of them has no pets, questions or gratitude in its note', !/#### (pets|questions|gratitude)/.test(w.LOG.buildNote()));
+w.LOG.go('evening');
+check('the evening form asks about the pets by their names, the questions and the gratitude',
+  [...d.querySelectorAll('.ns-log #pet-g .pet-h b')].map(b => b.textContent).join(',') === 'kamo,kitten' &&
+  d.querySelectorAll('.ns-log #q-g textarea').length === 4 && d.querySelectorAll('.ns-log #grat-g input').length === 3);
+click([...d.querySelectorAll('.ns-log [data-pet="cat"] .pet-b')].find(b => b.dataset.min === '20'));
+check('a playtime tap lights its length', $('.ns-log [data-pet="cat"] .pet-b[data-min="20"]').classList.contains('on') && $('.ns-log #pet-cat-play').value === '20');
+$('.ns-log #pet-cat-notes').value = 'chased the laser | ate well';
+$('.ns-log #pet-dog-play').value = '45';
+$('.ns-log #q-good').value = 'the walk by the canal';
+$('.ns-log #grat-0').value = 'floor'; $('.ns-log #grat-2').value = 'the sun';
+w.LOG.saveEvening();
+const pRec = JSON.parse(w.localStorage.getItem('log_' + today)).e;
+check('the evening keeps them', pRec.pets.cat.play === '20' && pRec.pets.cat.notes === 'chased the laser | ate well' && pRec.pets.dog.play === '45' && pRec.pets.dog.notes === '' &&
+  pRec.q.good === 'the walk by the canal' && !('did' in pRec.q) && pRec.grat.join(',') === 'floor,the sun', JSON.stringify({ p: pRec.pets, q: pRec.q, g: pRec.grat }));
+const pNote = w.LOG.buildNote();
+check('the note: the answers under the entries, the gratitude, the pets by their keys after curate',
+  /#### entries[\s\S]*#### questions\n\n\| question \| answer \|\n\| --- \| --- \|\n\| what went well\? \| the walk by the canal \|/.test(pNote) &&
+  /#### gratitude\n\n- floor\n- the sun/.test(pNote) && /curate_total[\s\S]*#### pets[\s\S]*\| pet_dog_play\s+\| 45 \|[\s\S]*\| pet_cat_play\s+\| 20 \|\n\| pet_cat_notes\s+\| chased the laser \/ ate well \|/.test(pNote),
+  (pNote.match(/#### questions[\s\S]*?## data/) || ['no questions'])[0].slice(0, 200) + ' … ' + (pNote.match(/#### pets[\s\S]*/) || ['no pets'])[0].slice(0, 200));
+const pWeek = w.LOG.weekReportFor(today).md;
+check('the weekly report: each pet\'s playtime, the days answered, the gratitude', /\| kamo \| 45 min played · 1 day noted \|/.test(pWeek) && /\| kitten \| 20 min played · 1 day noted \|/.test(pWeek) &&
+  /\| your answers \| 1 day answered · 2 things you were grateful for \|/.test(pWeek) && /## gratitude\n\n- floor · /.test(pWeek), (pWeek.match(/## habits[\s\S]{0,900}/) || [''])[0]);
+const pMonth = w.LOG.monthReportFor(today);
+check('the month\'s report has a name like the weekly and the pets too (CORE writes it to entries/monthly)',
+  pMonth.name === `review_monthly_${today.slice(2, 4)}.${today.slice(5, 7)}.md` && /^\*monthly review — /.test(pMonth.md) && /\| kitten \| 20 min played/.test(pMonth.md), pMonth.name);
+w.LOG.go('evening'); $('.ns-log #pet-cat-play').value = ''; $('.ns-log #pet-cat-notes').value = ''; $('.ns-log #pet-dog-play').value = ''; $('.ns-log #q-good').value = ''; d.querySelectorAll('.ns-log #grat-g input').forEach(i => { i.value = ''; });   // they come back packed: floor, the sun
+w.LOG.saveEvening();
+check('emptied again, the note has none of them', !/#### (pets|questions|gratitude)/.test(w.LOG.buildNote()));
+
 // 20. 2.4 — TEND ↔ Todoist, the DO badge, study in the reports
 const ttOpen = new Map(); let ttNext = 1;
 fetchScript = async (url, opts) => {

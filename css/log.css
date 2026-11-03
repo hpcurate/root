@@ -545,3 +545,19 @@
   .ns-log #s-home .lg-halves,.ns-log #s-home .lg-doors,.ns-log #s-home .lg-utils{flex:0 0 auto}
 }
 .ns-log .lg-half.done{border-color:var(--bd)}
+/* 5.4.0 (r261103-fz9m): the pets — a card each, its playtime (a tap on a length, or typed) and its notes */
+.ns-log .pet-g{display:grid;gap:calc(8px * var(--dens))}
+.ns-log .pet-c{background:var(--s1);border:var(--bw) solid var(--bd);border-radius:var(--r1);padding:calc(10px * var(--dens));display:grid;gap:calc(8px * var(--dens))}
+.ns-log .pet-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ns-log .pet-h b{font:700 12px/1 var(--head);letter-spacing:.12em;text-transform:var(--caps);color:var(--tx)}
+.ns-log .pet-m{display:flex;align-items:center;gap:6px;font:400 9px/1 var(--mono);color:var(--tx-2);letter-spacing:.06em}
+.ns-log .pet-m input[type=number]{width:64px;text-align:center;padding:calc(6px * var(--dens))}
+.ns-log .pet-q{display:grid;grid-template-columns:repeat(5,1fr);gap:calc(5px * var(--dens))}
+.ns-log .pet-b{background:var(--s2,var(--s1));border:var(--bw) solid var(--bd);border-radius:var(--r1);color:var(--mu);font:400 11px/1 var(--mono);padding:calc(9px * var(--dens)) 0;cursor:pointer}
+.ns-log .pet-b.on{border-color:var(--y);color:var(--y)}
+/* 5.4.0 (r261103-q3i0): a few questions, each a line that grows; the gratitude, a line each */
+.ns-log .q-g{display:grid;gap:calc(8px * var(--dens))}
+.ns-log .q-f .lbl{margin-bottom:4px;text-transform:none;letter-spacing:.02em}
+.ns-log .q-f textarea{min-height:42px;line-height:1.5}
+.ns-log .grat-g{display:grid;gap:calc(6px * var(--dens))}
+.ns-log .q-f .lbl{font-size:11px;color:var(--tx-2)}

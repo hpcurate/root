@@ -2020,6 +2020,33 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.4.0 — 2026-11-03 — LOG's evening: the pets, a few questions, gratitude; the month's report for the vault
+
+His prompter requests (filed as CORE's: LOG's evening is ROOT's, on the phone and in CORE's ROOT window alike): r261103-fz9m
+"kitten/dog log in evening log (playtime + other notes) also on mobile", r261103-q3i0 "log should be expanded, entries are not
+reliable sometimes i don't do some and so there is absolutely no text for that day. there should be the option to answer basic
+questions, maybe gratitude too?", and for r261103-ptto ("add a monthly log to obsidian (just like the weekly log …") the month's
+report as a file, like the week's.
+- **The pets** (`log.pets`, fixed keys `dog` / `cat`, free names: kamo, kitten — settings → LOG → names): a card each at the
+  evening's end, its playtime (10 · 20 · 30 · 45 · 1h, a tap again clears it, or typed) and its notes. The record keeps
+  `e.pets = { dog: { play, notes } }` (an empty one isn't kept); the note writes `#### pets` after curate, `pet_dog_play` /
+  `pet_dog_notes` rows, only on a day there is one.
+- **A few questions and gratitude** (`log.questions`: what did you do today? what went well? what was hard? tomorrow's one
+  thing? — each his to reword; `log.gratitude`: 3 lines): each optional. `e.q` by key, `e.grat` the lines (packed); the note writes
+  them under the journal's entries (`#### questions`, a question | answer table as he was asked; `#### gratitude`, a line each),
+  only when answered — older notes are untouched. Three new `log.fields` switches: pets, questions, gratitude.
+- **The reports**: the week's and the month's habits get each pet's playtime ("kamo | 45 min played · 1 day noted") and "your
+  answers" (days answered, things he was grateful for); the week's ends with its gratitude.
+- **`LOG.monthReportFor(iso)`**: a day's month as the weekly's `weekReportFor` — `review_monthly_YY.MM.md`, the history's month
+  share. CORE 0.43.0's ROOT window writes it into `entries/monthly` with the weeks (never over one written in), and CORE's
+  monthly run adds its recap and guidance at its end once the month is over.
+
+Pre-edit backup: `../_backups/root-backup-2026-11-03T16-43-56-074Z/` (1,885 files, verified). Harness: 1441 passed, 1 failed —
+LOG's "a day that has both halves written drawn fuller than one that has neither", the same as 5.3.0's, on the untouched tree
+too. 9 new checks: a day with none has none in its note; the form asks by the pets' names; a playtime tap; the record; the note's
+three parts; the weekly's rows and gratitude; the month report's name; emptied again, none. Seen in Electron at 390×844 (local
+files): the two pet cards, the questions, the gratitude lines.
+
 ### 5.3.0 — 2026-11-02 — WALK: a far loop, out and back, one way, and a link that asks for one
 
 His prompter request r261102-8v6a (filed as CORE's), "notification on phone every morning with a generated walk in root mobile

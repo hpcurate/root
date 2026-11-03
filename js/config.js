@@ -125,6 +125,15 @@ const DEFAULTS = {
       stress: { low: 'calm',    high: 'overwhelmed' },
     },
     workouts: ['push','pull','legs','rest'],
+    /* 5.4.0 (Hugo's r261103-fz9m "kitten/dog log in evening log (playtime + other notes) also on mobile"): fixed keys, free
+       names — the .md writes pet_<key>_play (minutes) and pet_<key>_notes, so a name is yours to change, a key never moves. */
+    pets: { dog: 'kamo', cat: 'kitten' },
+    /* 5.4.0 (Hugo's r261103-q3i0 "log should be expanded, entries are not reliable sometimes i don't do some and so there is
+       absolutely no text for that day. there should be the option to answer basic questions, maybe gratitude too?"): the
+       evening's questions, each optional — fixed keys, free words (the .md writes the question as it is asked) — and how
+       many things to be grateful for. */
+    questions: { did: 'what did you do today?', good: 'what went well?', hard: 'what was hard?', next: 'tomorrow’s one thing?' },
+    gratitude: 3,
     /* Daily walking target, km — the line on the weekly chart under History. */
     kmTarget: 6,
     /* Turn a field off and it vanishes from the form and from the day's UI.
@@ -134,6 +143,7 @@ const DEFAULTS = {
       coldShower: true, weight: true, kmMorning: true, workout: true,
       kmEvening: true, energyE: true, moodE: true, stress: true,
       meds: true, meals: true, caffeine: true, blocks: true, curate: true,
+      pets: true, questions: true, gratitude: true,   // 5.4.0
     },
     /* What a day needs before it counts towards the streak on the home screen. */
     streakRequires: 'both',   // 'both' | 'morning' | 'evening'
