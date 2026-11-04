@@ -3752,23 +3752,23 @@ check('a full card carries its name, its ratio, its shape and what is next',
     $('.ns-do #home-grid .rt-hero-n span')?.textContent === '/ ' + all &&
     d.querySelectorAll('.ns-do #home-grid .rt-segs i').length === keys.length,
     $('.ns-do #home-grid .rt-hero')?.textContent.replace(/\s+/g, ' ').trim());
-  const fix = cards().find(c => c.querySelector('.card-t').textContent === w.Config.get('do.routines').fix?.label);
+  const fix = cards().find(c => c.querySelector('.card-t').textContent === w.Config.get('do.routines').morning?.label);
   check('… each tile in its routine\'s shape and colour, filled to its ticks',
-    !!fix && fix.dataset.c === 'violet' && !!fix.querySelector('.rt-disc') &&
+    !!fix && fix.dataset.c === 'sun' && !!fix.querySelector('.rt-disc') &&
     /--p:\s*0(\.\d+)?\b/.test(fix.getAttribute('style') || ''), fix?.outerHTML.slice(0, 160));
   const was = JSON.parse(JSON.stringify(w.Config.get('do.routines')));
-  w.Config.set('do.routines', Object.assign({}, was, { fix: Object.assign({}, was.fix, { shape: 'bars', color: 'pink' }) }));
+  w.Config.set('do.routines', Object.assign({}, was, { morning: Object.assign({}, was.morning, { shape: 'bars', color: 'pink' }) }));
   w.DO.go('home');
-  const fix2 = cards().find(c => c.querySelector('.card-t').textContent === was.fix.label);
+  const fix2 = cards().find(c => c.querySelector('.card-t').textContent === was.morning.label);
   check('… and a shape and colour set in Config are the ones drawn',
     !!fix2 && fix2.dataset.c === 'pink' && fix2.querySelectorAll('.rt-bars i').length === 3, fix2?.outerHTML.slice(0, 160));
   w.SET.panel('do');
-  const sel = $('.ns-set .ed-card[data-key="fix"] [data-field="shape"]');
+  const sel = $('.ns-set .ed-card[data-key="morning"] [data-field="shape"]');
   check('… which the routine editor shows, and a change there is saved to the routine',
     !!sel && sel.value === 'bars' && (sel.value = 'dome', sel.dispatchEvent(new w.Event('change', { bubbles: true })),
-      w.Config.get('do.routines').fix.shape === 'dome') &&
-    w.Config.get('do.routines').fix.items.length === was.fix.items.length,
-    JSON.stringify(w.Config.get('do.routines').fix));
+      w.Config.get('do.routines').morning.shape === 'dome') &&
+    w.Config.get('do.routines').morning.items.length === was.morning.items.length,
+    JSON.stringify(w.Config.get('do.routines').morning));
   w.Config.set('do.routines', was);
   w.Shell.go('do'); w.DO.go('home');
 }
@@ -7747,19 +7747,18 @@ check('no errors through 4.13.1', errors.length === 0, errors.slice(0, 3).join('
 /* 4.14 — the written brief: six routines, entries on the calendar, sessions
    that survive a sync, no overlaps left to answer, and correlations. */
 {
-  /* DO — the six daily routines, and the history that must outlive them. */
+  /* DO — the daily routines (4.14's six, two since 5.5: r261104-pyh8), and the
+     history that must outlive them. */
   const rts414 = w.Config.get('do.routines');
   const daily414 = (w.Config.get('do.tabs').find(t => t.id === 'daily') || {}).routines || [];
-  check('the daily tab carries the six routines the brief names',
-    daily414.join(',') === 'fix,fit,log,eat,reset,plan', daily414.join(','));
-  check('each one is there with the items it was given',
-    rts414.fix.items.length === 6 && rts414.fit.items.includes('kamo walk m') &&
-    rts414.log.items.join(',') === 'log morning,log evening,log meds' &&
-    rts414.eat.items.length === 5 && rts414.reset.items.includes('vacuum') &&
-    rts414.plan.items.includes('gym prep'),
+  check('5.5: the daily tab carries the two routines he named, morning and evening',
+    daily414.join(',') === 'morning,evening', daily414.join(','));
+  check('5.5: each one is there with the items he gave it, in his order',
+    rts414.morning.items.join(',') === 'walk,hygiene,eat,log' &&
+    rts414.evening.items.join(',') === 'walk,log,plan,hygiene',
     JSON.stringify(Object.keys(rts414)));
-  check('the label is the word, because the Todoist task is matched on it',
-    ['fix','fit','log','eat','reset','plan'].every(k => rts414[k].label === k));
+  check('5.5: the label is the Todoist task\'s name, because the task is matched on it',
+    rts414.morning.label === 'morning routine' && rts414.evening.label === 'evening routine');
 
   /* The tally is keyed by whatever routine wrote it, and summed by whatever
      keys the row has — so a day recorded under the old six still reads. */
@@ -7784,14 +7783,33 @@ check('no errors through 4.13.1', errors.length === 0, errors.slice(0, 3).join('
                   cooldown:{label:'e',items:['x']}, cleanup:{label:'f',items:['x']} };
     w.Config.set('do.routines', OLD);
     w.Config.load();
-    check('an override that is still the old six is dropped, so the new six show',
-      Object.keys(w.Config.get('do.routines')).join(',').includes('fix'),
+    check('an override that is still the old six is dropped, so the new routines show',
+      Object.keys(w.Config.get('do.routines')).join(',').includes('morning'),
       Object.keys(w.Config.get('do.routines')).join(','));
 
     w.Config.set('do.routines', Object.assign({ mine:{ label:'mine', items:['x'] } }, OLD));
     w.Config.load();
     check('… while an override carrying a routine of your own is left alone',
       !!w.Config.get('do.routines').mine);
+    w.Config.reset('do.routines'); w.Config.reset('do.tabs');
+  }
+
+  /* 5.5: an override of 4.14's six (every editor save writes one) becomes the
+     two, keeping what else it holds; a tabs override keeps its own tabs. */
+  {
+    const SIX = Object.fromEntries(['fix','fit','log','eat','reset','plan'].map(k => [k, { label:k, items:['x'] }]));
+    w.Config.set('do.routines', Object.assign({}, SIX, { deepclean:{ label:'Deep Clean', items:['mine'] } }));
+    w.Config.set('do.tabs', [{ id:'daily', label:'daily', routines:['fix','fit','log','eat','reset','plan'] },
+                             { id:'media', label:'media', routines:[] }, { id:'mine', label:'mine', routines:['deepclean'] }]);
+    w.Config.load();
+    const r55 = w.Config.get('do.routines'), t55 = w.Config.get('do.tabs');
+    check('5.5: an override of the six becomes morning and evening, Deep Clean as edited kept',
+      Object.keys(r55).sort().join(',') === 'deepclean,evening,morning' &&
+      r55.morning.items.join(',') === 'walk,hygiene,eat,log' && r55.deepclean.items.join(',') === 'mine',
+      JSON.stringify(r55).slice(0, 200));
+    check('5.5: … and the daily tab of a tabs override is the two, its own tabs kept',
+      t55.find(t => t.id === 'daily').routines.join(',') === 'morning,evening' && !!t55.find(t => t.id === 'mine'),
+      JSON.stringify(t55));
     w.Config.reset('do.routines'); w.Config.reset('do.tabs');
   }
 

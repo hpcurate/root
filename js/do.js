@@ -50,7 +50,8 @@ readConfig();
    an override written before 4.20 still draws the redesign. */
 const SHAPES = ['disc', 'quarter', 'dome', 'square', 'bars'];
 const COLORS = ['violet', 'green', 'pink', 'sun', 'chalk'];
-const LOOK_BY_KEY = { fix:['disc','violet'], fit:['quarter','green'], log:['dome','pink'], eat:['disc','sun'],
+const LOOK_BY_KEY = { morning:['disc','sun'], evening:['dome','violet'],
+                      fix:['disc','violet'], fit:['quarter','green'], log:['dome','pink'], eat:['disc','sun'],
                       reset:['square','chalk'], plan:['bars','violet'], deepclean:['square','green'] };
 function lookOf(key) {
   const r = ROUTINES[key] || {}, i = Math.max(0, Object.keys(ROUTINES).indexOf(key));

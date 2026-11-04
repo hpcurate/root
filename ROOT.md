@@ -2020,6 +2020,24 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.5.0 — 2026-11-04 — DO's day is two routines: morning and evening
+
+His prompter request r261104-pyh8 (filed as CORE's: the routines are DO's, which CORE's routines box shows): "change routines.
+there should just be 2 routines (you can rename them and delete the extra in todoist): morning routine , evening routine. morning
+routine has walk, hygiene, eat, log. and evening routine has walk, log, plan, hygiene".
+- **The daily tab's two** (`do.routines`): `morning` — "morning routine": walk, hygiene, eat, log (a sun disc) — and `evening` —
+  "evening routine": walk, log, plan, hygiene (a violet dome), his words and his order. The labels are the Todoist tasks' names, so
+  the routine sync closes them; PLAN's schedule already calls its two halves the same. 4.14's six (`fix` `fit` `log` `eat` `reset`
+  `plan`) are gone from the defaults; Deep Clean stays on the other tab (it isn't a daily one, and has no Todoist task).
+- **`Config.migrate()`** rewrites an override still holding the six (every routine-editor save writes one) **in place**: the six
+  go, the two come, anything else in it stays (Deep Clean as edited, a routine of his own); a tabs override's daily tab becomes the
+  two, its other tabs kept. History is untouched: `do-stats-v1` keeps the six's days under their keys.
+- **Todoist** (04 | life › daily routine): `fix` renamed "morning routine", `plan` "evening routine" (both every day, their
+  recurrence kept), the other four deleted — by Claude at his word, not by the app.
+
+Pre-edit backup: `../_backups/root-backup-2026-11-04T19-58-55-611Z/` (1,904 files, verified). Harness: 1444 passed, 0 failed;
+4.14's checks of the six now check the two, +2 for the migration (an override of the six; a tabs override).
+
 ### 5.4.0 — 2026-11-03 — LOG's evening: the pets, a few questions, gratitude; the month's report for the vault
 
 His prompter requests (filed as CORE's: LOG's evening is ROOT's, on the phone and in CORE's ROOT window alike): r261103-fz9m

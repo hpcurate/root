@@ -16,22 +16,19 @@ const DEFAULTS = {
        the item text, so the editor treats them as plain characters — paste any
        symbol you like. */
     routines: {
-      /* Six, by what a block of the day is *for* rather than by where it falls
-         in it. The labels are the words the matching Todoist tasks carry: DO's
-         routine sync matches on the key or the label (`tdRoutineBySlug`), so
-         renaming one here is renaming the task it closes. */
-      fix:   { label: 'fix',   items: ['shower','face morning','teeth morning','tongue morning','teeth evening','face evening'], shape:'disc',    color:'violet' },
-      fit:   { label: 'fit',   items: ['exercise','kamo walk m','kamo walk e'], shape:'quarter', color:'green' },
-      log:   { label: 'log',   items: ['log morning','log evening','log meds'], shape:'dome',    color:'pink' },
-      eat:   { label: 'eat',   items: ['shake','breakfast','meal 1','meal 2','meal 3'], shape:'disc',    color:'sun' },
-      reset: { label: 'reset', items: ['dishes','plants','tidy','vacuum','trash'], shape:'square',  color:'chalk' },
-      plan:  { label: 'plan',  items: ['plan blocks','schedule','clothes','coffee','shake','gym prep','kamo walk prep'], shape:'bars',    color:'violet' },
+      /* Two since 5.5 (r261104-pyh8: "there should just be 2 routines … morning
+         routine, evening routine"), the halves PLAN's schedule already has. The
+         labels are the words the matching Todoist tasks carry: DO's routine
+         sync matches on the key or the label (`tdRoutineBySlug`), so renaming
+         one here is renaming the task it closes. */
+      morning: { label: 'morning routine', items: ['walk','hygiene','eat','log'], shape:'disc', color:'sun' },
+      evening: { label: 'evening routine', items: ['walk','log','plan','hygiene'], shape:'dome', color:'violet' },
       deepclean: { label: 'Deep Clean', items: ['≋ dusting','⟳ vacuum','▧ mop','▭ surfaces','≈ bathroom sink','○ toilet','✕ trash'], shape:'square', color:'green' },
     },
     /* Which routines sit under which home tab, and what the tabs are called.
        Add a tab here and the home screen grows one. */
     tabs: [
-      { id: 'daily', label: 'daily', routines: ['fix','fit','log','eat','reset','plan'] },
+      { id: 'daily', label: 'daily', routines: ['morning','evening'] },
       /* `media` is a fixed id: DO draws the Todoist media grid on it rather
          than routine cards, and puts it back at this spot if an older override
          of the list is missing it. */
@@ -711,6 +708,11 @@ function load() {
    off. Ticks and history are not touched either way: `do-stats-v1` rows are
    summed by whatever keys they were stored with. */
 const OLD_DAILY_4_13 = ['routinep1','routinep2','routinep3','routinep4','cooldown','cleanup'];
+/* 5.5 replaced 4.14's six with two. Their keys go, and anything else the
+   override holds (Deep Clean as you edited it, a routine of your own) stays:
+   so the routines and tabs overrides are rewritten in place, not dropped. */
+const OLD_DAILY_4_14 = ['fix','fit','log','eat','reset','plan'];
+const NEW_DAILY_5_5 = ['morning','evening'];
 const sameSet = (a, b) => Array.isArray(a) && a.length === b.length &&
                           b.every(k => a.includes(k));
 
@@ -724,9 +726,17 @@ function migrate() {
     delete doTree.routines;
     touched = true;
   }
+  if (doTree.routines && typeof doTree.routines === 'object' &&
+      sameSet(Object.keys(doTree.routines).filter(k => k !== 'deepclean'), OLD_DAILY_4_14)) {
+    const rest = Object.fromEntries(Object.entries(doTree.routines).filter(([k]) => !OLD_DAILY_4_14.includes(k)));
+    const fresh = Object.fromEntries(NEW_DAILY_5_5.map(k => [k, clone(DEFAULTS.do.routines[k])]));
+    doTree.routines = Object.assign(fresh, rest);
+    touched = true;
+  }
   if (Array.isArray(doTree.tabs)) {
     const daily = doTree.tabs.find(t => t && t.id === 'daily');
     if (daily && sameSet(daily.routines, OLD_DAILY_4_13)) { delete doTree.tabs; touched = true; }
+    else if (daily && sameSet(daily.routines, OLD_DAILY_4_14)) { daily.routines = NEW_DAILY_5_5.slice(); touched = true; }
   }
   if (touched) {
     if (!Object.keys(doTree).length) delete overrides.do;
