@@ -2575,6 +2575,26 @@ Shell.register('log', { onDayChange: iso => { rollDay(iso); refreshAlert(); },
                         onMinute: refreshAlert, home: goBack });
 refreshAlert();
 
+/* 5.6.0 — a link straight to a half of today (Hugo, 2026-11-13, of the phone's widgets: "it needs to be able to open my log in
+   root (dynamically morning or evening)"): #log/morning, #log/evening, and #log/now, which picks by the hour — from 15:00 the
+   evening; before, the morning, or LOG's home when the morning is written already (nothing left to open before the evening).
+   Always today's (a day picked in the band is left for it). Never over a form with unsaved words: that one stays. The shell has
+   moved to LOG by the name before the slash; as WALK's link (5.3.0), this only reads what comes after. */
+function linkHalf(now = new Date()) {
+  return now.getHours() >= 15 ? 'evening' : morningLogged(data) ? 'home' : 'morning';
+}
+function linkAsk(hash) {
+  const m = /^#log\/(now|morning|evening)$/.exec(String(hash || ''));
+  if (!m) return false;
+  try { if (location.hash.startsWith('#log/')) history.replaceState(null, '', '#log'); } catch {}
+  if (dirty) return false;
+  if (TODAY !== REAL_TODAY) resetDate();
+  go(m[1] === 'now' ? linkHalf() : m[1]);
+  return true;
+}
+window.addEventListener('hashchange', () => linkAsk(location.hash));
+linkAsk(Shell.landed ? Shell.landed() : location.hash);
+
 /* What one day holds, for anything outside LOG that wants to read it back.
    Read-only and derived: the record itself is the contract (§6) and is not
    handed out, so a caller cannot write through this and nothing here has to be
@@ -2654,5 +2674,6 @@ return { go, goBack, markDirty, shiftDate, resetDate, pickDate, monthShift, rend
          openDeleteModal, closeModal, confirmDeleteAll, renderPlanned, setBlock, buildNote,
          setMedia, blocksBefore, toggleAlerts, saveAlerts, testAlert, refreshAlert, alertReason,
          alertShown, dismissAlert, wakeArrows, dayData, loggedDays, noteFor, weekReportFor, monthReportFor,
-         petPlay, syncPets, growQ };   // 5.4.0
+         petPlay, syncPets, growQ,   // 5.4.0
+         linkAsk, linkHalf };        // 5.6.0
 })();

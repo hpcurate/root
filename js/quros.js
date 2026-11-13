@@ -65,5 +65,26 @@ Shell.register('quros', {
   home: () => show('dump'),
 });
 
-return { show, load, inner, openSettings };
+/* 5.6.0 — a link straight to a dump (Hugo, 2026-11-13, of the phone's widgets: "or it needs to launch a brain dump recording"):
+   #quros/talk opens the brain tab with its recorder up, ready — qurOS's own home-screen shortcut (./?go=talk → Q.rec.ready), one
+   tap from talking (a page may not start the microphone by itself). #quros/write: the same, to type. The frame is loaded
+   first if it isn't, and asked again until qurOS has booted. Never over a recorder that is open. */
+function linkAsk(hash) {
+  const m = /^#quros\/(talk|write)$/.exec(String(hash || ''));
+  if (!m) return false;
+  try { if (location.hash.startsWith('#quros/')) history.replaceState(null, '', '#quros'); } catch {}
+  load();
+  let tries = 0;
+  const ask = () => {
+    const Q = inner();
+    if (Q && Q.rec) { if (!Q.rec.isOpen()) { if (m[1] === 'write') Q.rec.write({}); else Q.rec.ready({}); } return; }
+    if (++tries < 60) setTimeout(ask, 150);
+  };
+  ask();
+  return true;
+}
+window.addEventListener('hashchange', () => linkAsk(location.hash));
+linkAsk(Shell.landed ? Shell.landed() : location.hash);
+
+return { show, load, inner, openSettings, linkAsk };
 })();

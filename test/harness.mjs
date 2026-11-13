@@ -8166,6 +8166,32 @@ check('no errors through 4.14.1', errors.length === 0, errors.slice(0, 3).join('
     w.location.hash === '#walk' && $('.tab-b.on')?.dataset.app === 'walk',
     JSON.stringify({ k: ln.kind, m: ln.mode, n: ln.min, r: ln.route.kind, t: ln.route.target, h: w.location.hash }));
   check('… a link that is not one asks nothing', w.WALK.link('#walk') === false && w.WALK.link('#walk/elsewhere') === false);
+
+  // 5.6.0 — links straight to a half of LOG and to a brain dump (the phone's widgets)
+  w.location.hash = '#log/evening'; await tick(40);
+  check('5.6.0: #log/evening opens LOG on today\'s evening form, then the address is plain #log',
+    d.getElementById('view-log').classList.contains('cur') && d.getElementById('s-evening').classList.contains('on') && w.location.hash === '#log',
+    w.location.hash + ' / ' + [...d.querySelectorAll('.ns-log .scr.on')].map(s => s.id).join());
+  w.LOG.go('home');
+  w.location.hash = '#log/morning'; await tick(40);
+  check('… #log/morning the morning form', d.getElementById('s-morning').classList.contains('on') && w.location.hash === '#log');
+  w.LOG.go('home');
+  const half9 = w.LOG.linkHalf(new Date(2026, 10, 13, 9, 0));
+  check('… #log/now picks by the hour: the evening from 15:00; before, the morning — LOG\'s home once the morning is written',
+    w.LOG.linkHalf(new Date(2026, 10, 13, 15, 0)) === 'evening' && w.LOG.linkHalf(new Date(2026, 10, 13, 23, 30)) === 'evening' && ['morning', 'home'].includes(half9) &&
+    w.LOG.linkHalf(new Date(2026, 10, 13, 14, 59)) === half9, half9);
+  w.location.hash = '#log/now'; await tick(40);
+  const nowHalf = w.LOG.linkHalf();
+  check('… and opens that one', d.getElementById('s-' + nowHalf).classList.contains('on') && w.location.hash === '#log', nowHalf);
+  w.LOG.go('morning'); w.LOG.markDirty();
+  check('… never over a form with unsaved words: it stays', w.LOG.linkAsk('#log/evening') === false && d.getElementById('s-morning').classList.contains('on'));
+  w.LOG.go('home');
+  check('… a link that is not one asks nothing', w.LOG.linkAsk('#log') === false && w.LOG.linkAsk('#log/elsewhere') === false && w.LOG.linkAsk('#walk/go') === false);
+  w.location.hash = '#quros/talk'; await tick(40);
+  check('5.6.0: #quros/talk goes to the brain tab for a dump (its recorder is asked once qurOS has booted), then the address is plain #quros',
+    d.getElementById('view-quros').classList.contains('cur') && w.location.hash === '#quros' && w.QUROS.linkAsk('#quros') === false && w.QUROS.linkAsk('#quros/elsewhere') === false,
+    w.location.hash);
+  w.location.hash = '#walk'; await tick(40);
   click($('.ns-walk [data-act="kind"][data-v="loop"]'));
   click($('.ns-walk [data-act="mode"][data-v="km"]'));
 

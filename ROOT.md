@@ -2020,6 +2020,26 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.6.0 — 2026-11-13 — links straight to a half of LOG, and to a brain dump
+
+His try of the phone's widgets (r261113-64q8, CORE 0.64.0: "can we make it so that clicking on them does something (the ios
+widgets)"): "needs more than just tasks. it needs to be able to open my log in root (dynamically morning or evening), or it needs
+to launch a brain dump recording". Two links, read the way WALK's is (5.3.0: the shell goes to the app by the name before the
+slash, the app reads the rest from `Shell.landed()` and `hashchange`, then the address is the plain tab's):
+- **`#log/now`** opens today's LOG on the half for the hour: from 15:00 the evening form; before, the morning form — or LOG's
+  home once the morning is written (`LOG.linkHalf`). **`#log/morning`** and **`#log/evening`** name one. Always today (a day
+  picked in the band is put back). Never over a form with unsaved words: that one stays (`LOG.linkAsk`).
+- **`#quros/talk`** opens the brain tab with qurOS's recorder up and ready, as qurOS's own home-screen shortcut does
+  (`./?go=talk` → `Q.rec.ready`): one tap from talking — a page may not start the microphone by itself. **`#quros/write`** the
+  same, to type. The frame is loaded first when it isn't, and asked until qurOS has booted; never over a recorder that is open
+  (`QUROS.linkAsk`).
+- Nothing stored, no key, no record touched: the links only open what a tap would.
+- **On an iPhone a link opens in Safari**, never in ROOT put on the home screen (iOS gives a home-screen web app no address to be
+  opened by), and the two keep separate storage: LOG and the dumps are the ones of whichever he opens. Not something ROOT can change.
+
+Pre-edit backup: `../_backups/root-backup-2026-11-13T00-44-12-738Z/` (1,919 files, verified). Harness: 1451 passed, 0 failed (+7:
+each link, the hour's pick, the unsaved form kept, a link that is not one).
+
 ### 5.5.0 — 2026-11-04 — DO's day is two routines: morning and evening
 
 His prompter request r261104-pyh8 (filed as CORE's: the routines are DO's, which CORE's routines box shows): "change routines.
