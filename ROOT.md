@@ -2020,6 +2020,22 @@ history — the same reasoning as `Shell.undo`.
 
 ## Changelog
 
+### 5.7.0 — 2026-11-13 — GO: ROOT goes where it was asked, when it comes to the front
+
+His try of 5.6.0's links from the phone's widgets (CORE 0.67.1, which opens the home-screen ROOT through his Shortcut "ROOT"):
+"yeah they don't open in the right tab". A Shortcut can't tell a web app where to go, and a link only ever opens Safari's ROOT.
+- **`js/go.js`** (new, loaded after the app modules): when ROOT comes to the front, and at its start, it reads one small Todoist
+  task, **"CORE · go"**, in its own sync section (`04 | core › claude/codex`). Its description is `{"go":"log","at":<ms>}`,
+  written by CORE's laptop when a widget is tapped. Fresh (two minutes) and not done already, ROOT goes there through 5.6.0's
+  links: `log` → `#log/now`, `morning`, `evening`, `dump` → `#quros/talk`, `write` → `#quros/write`.
+- **One read of Todoist each time ROOT comes to the front** (the task by its id; found in the section the first time), none
+  without a key, none twice within 4 s. `root_go_v1` keeps the task's id and the last ask done. The task is never written from
+  here; SYNC never reads it (its tasks are "ROOT · …").
+- **Why Todoist:** it is the one server both sides already reach (SYNC's own argument). ROOT is served over https and can't ask
+  the laptop's plain-http page.
+
+Pre-edit backup: `../_backups/root-backup-2026-11-13T01-11-16-810Z/` (1,935 files, verified). Harness: 1458 passed, 0 failed (+7).
+
 ### 5.6.0 — 2026-11-13 — links straight to a half of LOG, and to a brain dump
 
 His try of the phone's widgets (r261113-64q8, CORE 0.64.0: "can we make it so that clicking on them does something (the ios

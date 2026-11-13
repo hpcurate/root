@@ -8191,6 +8191,46 @@ check('no errors through 4.14.1', errors.length === 0, errors.slice(0, 3).join('
   check('5.6.0: #quros/talk goes to the brain tab for a dump (its recorder is asked once qurOS has booted), then the address is plain #quros',
     d.getElementById('view-quros').classList.contains('cur') && w.location.hash === '#quros' && w.QUROS.linkAsk('#quros') === false && w.QUROS.linkAsk('#quros/elsewhere') === false,
     w.location.hash);
+  // 5.7.0 — GO: what was asked from outside (CORE's widgets, through a task in Todoist), read when ROOT comes to the front
+  {
+    const G5 = w.GO, T0 = { call: w.Todoist.call, getAll: w.Todoist.getAll, resolve: w.Todoist.resolve }, tok0 = w.Creds.token;
+    const asked = [];
+    let task = { id: 'go1', content: 'CORE · go', description: JSON.stringify({ go: 'evening', at: Date.now() }) };
+    w.Creds.token = () => 'tok';
+    w.Todoist.call = async p => { asked.push(p); if (p === '/tasks/go1' && task) return task; throw new Error('Todoist error 404'); };
+    w.Todoist.resolve = async (p, s) => { asked.push('resolve ' + p + ' › ' + s); return { projectId: 'p1', sectionId: 's1' }; };
+    w.Todoist.getAll = async (p, q) => { asked.push(p + ' ' + JSON.stringify(q)); return task ? [{ id: 'x', content: 'ROOT · state' }, task] : []; };
+    try { w.localStorage.removeItem('root_go_v1'); } catch {}
+    check('5.7.0: an ask\'s words — {"go":"log","at":…} and nothing else; fresh for two minutes, never one done already',
+      JSON.stringify(G5.parse('{"go":"log","at":5}')) === '{"go":"log","at":5}' && G5.parse('{"go":"elsewhere","at":5}') === null && G5.parse('{"go":"log"}') === null && G5.parse('not json') === null && G5.parse('') === null &&
+      G5.parse('{"go":"__proto__","at":5}') === null &&
+      G5.due({ go: 'log', at: 1000 }, 0, 1000 + 119e3) === true && G5.due({ go: 'log', at: 1000 }, 0, 1000 + 121e3) === false && G5.due({ go: 'log', at: 1000 }, 1000, 2000) === false && G5.due(null, 0, 1) === false);
+    w.LOG.go('home'); w.location.hash = '#walk'; await tick(40);
+    let went = await G5.look(Date.now() + 10000);
+    await tick(40);
+    check('5.7.0: come to the front with a fresh ask (the task "CORE · go" in ROOT\'s sync section): ROOT goes there — LOG\'s evening form — and remembers the task',
+      went === 'evening' && d.getElementById('view-log').classList.contains('cur') && d.getElementById('s-evening').classList.contains('on') &&
+      JSON.parse(w.localStorage.getItem('root_go_v1')).taskId === 'go1' && asked[0] === 'resolve 04 | core › claude/codex' && asked[1] === '/tasks {"section_id":"s1"}',
+      went + ' / ' + asked.join(' | '));
+    w.LOG.go('home'); w.location.hash = '#walk'; await tick(40);
+    const n1 = asked.length;
+    went = await G5.look(Date.now() + 20000); await tick(40);
+    check('… the same ask is never done twice, and the next look is one read (the task by its id)',
+      went === null && !d.getElementById('view-log').classList.contains('cur') && asked.length === n1 + 1 && asked[n1] === '/tasks/go1', asked.slice(n1).join(' | '));
+    task = { ...task, description: JSON.stringify({ go: 'dump', at: Date.now() + 5 }) };
+    went = await G5.look(Date.now() + 30000); await tick(40);
+    check('… a new ask, "dump": the brain tab (its recorder asked, as #quros/talk)', went === 'dump' && d.getElementById('view-quros').classList.contains('cur') && w.location.hash === '#quros', went + ' ' + w.location.hash);
+    task = { ...task, description: JSON.stringify({ go: 'log', at: Date.now() - 10 * 60e3 }) };
+    w.location.hash = '#walk'; await tick(40);
+    went = await G5.look(Date.now() + 40000); await tick(40);
+    check('… an ask from ten minutes ago was for another moment: left', went === null && d.getElementById('view-walk').classList.contains('cur'));
+    w.Creds.token = () => '';
+    const n2 = asked.length;
+    check('… no Todoist key: Todoist is never asked', (await G5.look(Date.now() + 50000)) === null && asked.length === n2);
+    w.Creds.token = () => 'tok'; task = null;
+    check('… no such task (CORE never wrote one): nothing, and nothing breaks', (await G5.look(Date.now() + 60000)) === null);
+    Object.assign(w.Todoist, T0); w.Creds.token = tok0;
+  }
   w.location.hash = '#walk'; await tick(40);
   click($('.ns-walk [data-act="kind"][data-v="loop"]'));
   click($('.ns-walk [data-act="mode"][data-v="km"]'));
